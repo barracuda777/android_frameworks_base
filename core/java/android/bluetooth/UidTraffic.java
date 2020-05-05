@@ -20,7 +20,6 @@ import android.os.Parcelable;
 
 /**
  * Record of data traffic (in bytes) by an application identified by its UID.
- *
  * @hide
  */
 public class UidTraffic implements Cloneable, Parcelable {
@@ -91,11 +90,14 @@ public class UidTraffic implements Cloneable, Parcelable {
 
     @Override
     public String toString() {
-        return "UidTraffic{mAppUid=" + mAppUid + ", mRxBytes=" + mRxBytes + ", mTxBytes="
-                + mTxBytes + '}';
+        return "UidTraffic{" +
+                "mAppUid=" + mAppUid +
+                ", mRxBytes=" + mRxBytes +
+                ", mTxBytes=" + mTxBytes +
+                '}';
     }
 
-    public static final @android.annotation.NonNull Creator<UidTraffic> CREATOR = new Creator<UidTraffic>() {
+    public static final Creator<UidTraffic> CREATOR = new Creator<UidTraffic>() {
         @Override
         public UidTraffic createFromParcel(Parcel source) {
             return new UidTraffic(source);

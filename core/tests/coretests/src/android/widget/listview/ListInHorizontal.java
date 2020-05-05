@@ -18,7 +18,10 @@ package android.widget.listview;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.os.Handler;
 import android.widget.ArrayAdapter;
+import android.widget.GridView;
+import android.widget.TextView;
 import android.widget.ListView;
 
 import com.android.frameworks.coretests.R;
@@ -40,7 +43,7 @@ public class ListInHorizontal extends Activity {
             values[i] = ((Integer) i).toString();
         }
 
-        mListView = findViewById(R.id.list);
+        mListView = (ListView) findViewById(R.id.list);
         mListView.setAdapter(new ArrayAdapter<String>(this,
                 android.R.layout.simple_list_item_1, values));
 

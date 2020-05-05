@@ -16,7 +16,7 @@
 
 #define LOG_TAG "Fingerprint-JNI"
 
-#include <nativehelper/JNIHelp.h>
+#include "JNIHelp.h"
 #include <inttypes.h>
 
 #include <android_runtime/AndroidRuntime.h>

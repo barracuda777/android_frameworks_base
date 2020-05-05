@@ -17,7 +17,6 @@
 package com.android.server;
 
 import android.os.Handler;
-import android.os.Process;
 import android.os.Trace;
 
 /**
@@ -31,16 +30,14 @@ public final class DisplayThread extends ServiceThread {
     private static Handler sHandler;
 
     private DisplayThread() {
-        // DisplayThread runs important stuff, but these are not as important as things running in
-        // AnimationThread. Thus, set the priority to one lower.
-        super("android.display", Process.THREAD_PRIORITY_DISPLAY + 1, false /*allowIo*/);
+        super("android.display", android.os.Process.THREAD_PRIORITY_DISPLAY, false /*allowIo*/);
     }
 
     private static void ensureThreadLocked() {
         if (sInstance == null) {
             sInstance = new DisplayThread();
             sInstance.start();
-            sInstance.getLooper().setTraceTag(Trace.TRACE_TAG_SYSTEM_SERVER);
+            sInstance.getLooper().setTraceTag(Trace.TRACE_TAG_ACTIVITY_MANAGER);
             sHandler = new Handler(sInstance.getLooper());
         }
     }

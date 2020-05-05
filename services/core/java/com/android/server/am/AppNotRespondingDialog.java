@@ -16,12 +16,12 @@
 
 package com.android.server.am;
 
-import android.content.pm.ApplicationInfo;
 import com.android.internal.logging.MetricsLogger;
-import com.android.internal.logging.nano.MetricsProto;
+import com.android.internal.logging.MetricsProto;
 
 import android.content.ActivityNotFoundException;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.os.Bundle;
@@ -34,6 +34,8 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+
+import static com.android.server.am.ActivityManagerService.IS_USER_BUILD;
 
 final class AppNotRespondingDialog extends BaseErrorDialog implements View.OnClickListener {
     private static final String TAG = "AppNotRespondingDialog";
@@ -49,35 +51,36 @@ final class AppNotRespondingDialog extends BaseErrorDialog implements View.OnCli
     private final ActivityManagerService mService;
     private final ProcessRecord mProc;
 
-    public AppNotRespondingDialog(ActivityManagerService service, Context context, Data data) {
+    public AppNotRespondingDialog(ActivityManagerService service, Context context,
+            ProcessRecord app, ActivityRecord activity, boolean aboveSystem) {
         super(context);
 
         mService = service;
-        mProc = data.proc;
+        mProc = app;
         Resources res = context.getResources();
 
         setCancelable(false);
 
         int resid;
-        CharSequence name1 = data.aInfo != null
-                ? data.aInfo.loadLabel(context.getPackageManager())
+        CharSequence name1 = activity != null
+                ? activity.info.loadLabel(context.getPackageManager())
                 : null;
         CharSequence name2 = null;
-        if ((mProc.pkgList.size() == 1) &&
-                (name2=context.getPackageManager().getApplicationLabel(mProc.info)) != null) {
+        if ((app.pkgList.size() == 1) &&
+                (name2=context.getPackageManager().getApplicationLabel(app.info)) != null) {
             if (name1 != null) {
                 resid = com.android.internal.R.string.anr_activity_application;
             } else {
                 name1 = name2;
-                name2 = mProc.processName;
+                name2 = app.processName;
                 resid = com.android.internal.R.string.anr_application_process;
             }
         } else {
             if (name1 != null) {
-                name2 = mProc.processName;
+                name2 = app.processName;
                 resid = com.android.internal.R.string.anr_activity_process;
             } else {
-                name1 = mProc.processName;
+                name1 = app.processName;
                 resid = com.android.internal.R.string.anr_process;
             }
         }
@@ -88,11 +91,11 @@ final class AppNotRespondingDialog extends BaseErrorDialog implements View.OnCli
                 ? res.getString(resid, bidi.unicodeWrap(name1.toString()), bidi.unicodeWrap(name2.toString()))
                 : res.getString(resid, bidi.unicodeWrap(name1.toString())));
 
-        if (data.aboveSystem) {
+        if (aboveSystem) {
             getWindow().setType(WindowManager.LayoutParams.TYPE_SYSTEM_ERROR);
         }
         WindowManager.LayoutParams attrs = getWindow().getAttributes();
-        attrs.setTitle("Application Not Responding: " + mProc.info.processName);
+        attrs.setTitle("Application Not Responding: " + app.info.processName);
         attrs.privateFlags = WindowManager.LayoutParams.PRIVATE_FLAG_SYSTEM_ERROR |
                 WindowManager.LayoutParams.PRIVATE_FLAG_SHOW_FOR_ALL_USERS;
         getWindow().setAttributes(attrs);
@@ -101,18 +104,18 @@ final class AppNotRespondingDialog extends BaseErrorDialog implements View.OnCli
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        final FrameLayout frame = findViewById(android.R.id.custom);
+        final FrameLayout frame = (FrameLayout) findViewById(android.R.id.custom);
         final Context context = getContext();
         LayoutInflater.from(context).inflate(
                 com.android.internal.R.layout.app_anr_dialog, frame, true);
 
-        final TextView report = findViewById(com.android.internal.R.id.aerr_report);
+        final TextView report = (TextView) findViewById(com.android.internal.R.id.aerr_report);
         report.setOnClickListener(this);
         final boolean hasReceiver = mProc.errorReportReceiver != null;
         report.setVisibility(hasReceiver ? View.VISIBLE : View.GONE);
-        final TextView close = findViewById(com.android.internal.R.id.aerr_close);
+        final TextView close = (TextView) findViewById(com.android.internal.R.id.aerr_close);
         close.setOnClickListener(this);
-        final TextView wait = findViewById(com.android.internal.R.id.aerr_wait);
+        final TextView wait = (TextView) findViewById(com.android.internal.R.id.aerr_wait);
         wait.setOnClickListener(this);
 
         findViewById(com.android.internal.R.id.customPanel).setVisibility(View.VISIBLE);
@@ -158,7 +161,7 @@ final class AppNotRespondingDialog extends BaseErrorDialog implements View.OnCli
                                     System.currentTimeMillis(), null);
                         }
 
-                        app.setNotResponding(false);
+                        app.notResponding = false;
                         app.notRespondingReport = null;
                         if (app.anrDialog == AppNotRespondingDialog.this) {
                             app.anrDialog = null;
@@ -179,16 +182,4 @@ final class AppNotRespondingDialog extends BaseErrorDialog implements View.OnCli
             dismiss();
         }
     };
-
-    static class Data {
-        final ProcessRecord proc;
-        final ApplicationInfo aInfo;
-        final boolean aboveSystem;
-
-        Data(ProcessRecord proc, ApplicationInfo aInfo, boolean aboveSystem) {
-            this.proc = proc;
-            this.aInfo = aInfo;
-            this.aboveSystem = aboveSystem;
-        }
-    }
 }

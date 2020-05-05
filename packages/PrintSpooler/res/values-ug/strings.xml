@@ -20,11 +20,13 @@
     <string name="label_copies">نۇسخا</string>
     <string name="label_color">رەڭ</string>
     <string name="label_orientation">يۆنىلىش</string>
+    <string name="pages_range_example">مەسىلەن: 1–5,8,11–13</string>
     <string name="print_preview">بېسىشنى ئالدىن كۆزەت</string>
     <string name="install_for_print_preview">ئالدىن كۆزىتىش ئۈچۈن PDF كۆرگۈچ ئورنىتىدۇ</string>
     <string name="printing_app_crashed">باسىدىغان ئەپ يىمىرىلدى</string>
     <string name="generating_print_job">بېسىش ۋەزىپىسى قۇرۇۋاتىدۇ</string>
     <string name="save_as_pdf">PDF سۈپىتىدە ساقلا</string>
+    <string name="all_printers">بارلىق پرىنتېرلار…</string>
     <string name="print_dialog">بېسىش سۆزلەشكۈ</string>
     <string name="print_button">باس</string>
     <string name="search">ئىزدە</string>

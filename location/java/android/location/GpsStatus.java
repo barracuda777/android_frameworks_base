@@ -16,8 +16,6 @@
 
 package android.location;
 
-import android.annotation.UnsupportedAppUsage;
-import android.os.Build;
 import android.util.SparseArray;
 
 import java.util.Iterator;
@@ -208,7 +206,6 @@ public final class GpsStatus {
                 status.mAzimuths);
     }
 
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     void setTimeToFirstFix(int ttff) {
         mTimeToFirstFix = ttff;
     }

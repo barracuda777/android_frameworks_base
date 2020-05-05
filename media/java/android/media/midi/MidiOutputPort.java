@@ -28,7 +28,6 @@ import dalvik.system.CloseGuard;
 import libcore.io.IoUtils;
 
 import java.io.Closeable;
-import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.IOException;
 
@@ -59,8 +58,6 @@ public final class MidiOutputPort extends MidiSender implements Closeable {
                     // read next event
                     int count = mInputStream.read(buffer);
                     if (count < 0) {
-                        // This is the exit condition as read() returning <0 indicates
-                        // that the pipe has been closed.
                         break;
                         // FIXME - inform receivers here?
                     }
@@ -83,15 +80,10 @@ public final class MidiOutputPort extends MidiSender implements Closeable {
                             Log.e(TAG, "Unknown packet type " + packetType);
                             break;
                     }
-                } // while (true)
+                }
             } catch (IOException e) {
                 // FIXME report I/O failure?
-                // TODO: The comment above about the exit condition is not currently working
-                // as intended. The read from the closed pipe is throwing an error rather than
-                // returning <0, so this becomes (probably) not an error, but the exit case.
-                // This warrants further investigation;
-                // Silence the (probably) spurious error message.
-                // Log.e(TAG, "read failed", e);
+                Log.e(TAG, "read failed");
             } finally {
                 IoUtils.closeQuietly(mInputStream);
             }
@@ -99,17 +91,17 @@ public final class MidiOutputPort extends MidiSender implements Closeable {
     };
 
     /* package */ MidiOutputPort(IMidiDeviceServer server, IBinder token,
-            FileDescriptor fd, int portNumber) {
+            ParcelFileDescriptor pfd, int portNumber) {
         mDeviceServer = server;
         mToken = token;
         mPortNumber = portNumber;
-        mInputStream = new ParcelFileDescriptor.AutoCloseInputStream(new ParcelFileDescriptor(fd));
+        mInputStream = new ParcelFileDescriptor.AutoCloseInputStream(pfd);
         mThread.start();
         mGuard.open("close");
     }
 
-    /* package */ MidiOutputPort(FileDescriptor fd, int portNumber) {
-        this(null, null, fd, portNumber);
+    /* package */ MidiOutputPort(ParcelFileDescriptor pfd, int portNumber) {
+        this(null, null, pfd, portNumber);
     }
 
     /**
@@ -152,10 +144,7 @@ public final class MidiOutputPort extends MidiSender implements Closeable {
     @Override
     protected void finalize() throws Throwable {
         try {
-            if (mGuard != null) {
-                mGuard.warnIfOpen();
-            }
-
+            mGuard.warnIfOpen();
             // not safe to make binder calls from finalize()
             mDeviceServer = null;
             close();

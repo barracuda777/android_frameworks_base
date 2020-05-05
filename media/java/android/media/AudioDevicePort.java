@@ -16,7 +16,6 @@
 
 package android.media;
 
-import android.annotation.UnsupportedAppUsage;
 import android.media.AudioSystem;
 
 /**
@@ -37,7 +36,6 @@ public class AudioDevicePort extends AudioPort {
     private final int mType;
     private final String mAddress;
 
-    @UnsupportedAppUsage
     AudioDevicePort(AudioHandle handle, String deviceName,
             int[] samplingRates, int[] channelMasks, int[] channelIndexMasks,
             int[] formats, AudioGain[] gains, int type, String address) {
@@ -52,7 +50,6 @@ public class AudioDevicePort extends AudioPort {
     /**
      * Get the device type (e.g AudioManager.DEVICE_OUT_SPEAKER)
      */
-    @UnsupportedAppUsage
     public int type() {
         return mType;
     }

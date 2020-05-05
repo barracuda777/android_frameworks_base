@@ -32,8 +32,6 @@ import com.android.systemui.Interpolators;
 
 public class SettingsButton extends AlphaOptimizedImageButton {
 
-    private static final boolean TUNER_ENABLE_AVAILABLE = false;
-
     private static final long LONG_PRESS_LENGTH = 1000;
     private static final long ACCEL_LENGTH = 750;
     private static final long FULL_SPEED_LENGTH = 375;
@@ -60,15 +58,8 @@ public class SettingsButton extends AlphaOptimizedImageButton {
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         switch (event.getActionMasked()) {
-            case MotionEvent.ACTION_DOWN:
-                if (TUNER_ENABLE_AVAILABLE) postDelayed(mLongPressCallback, LONG_PRESS_LENGTH);
-                break;
             case MotionEvent.ACTION_UP:
-                if (mUpToSpeed) {
-                    startExitAnimation();
-                } else {
-                    cancelLongClick();
-                }
+                cancelLongClick();
                 break;
             case MotionEvent.ACTION_CANCEL:
                 cancelLongClick();

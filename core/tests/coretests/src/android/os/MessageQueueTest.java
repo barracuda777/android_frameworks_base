@@ -16,9 +16,11 @@
 
 package android.os;
 
-import androidx.test.filters.MediumTest;
-import androidx.test.filters.Suppress;
-
+import android.os.Handler;
+import android.os.Message;
+import android.os.SystemClock;
+import android.test.suitebuilder.annotation.MediumTest;
+import android.test.suitebuilder.annotation.Suppress;
 import junit.framework.TestCase;
 
 @Suppress  // Failing.

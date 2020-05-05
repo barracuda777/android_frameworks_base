@@ -19,9 +19,8 @@
 #include <stdio.h>
 
 #include "jni.h"
-#include <nativehelper/JNIHelp.h>
+#include "JNIHelp.h"
 #include "android_os_Parcel.h"
-#include "android/graphics/GraphicBuffer.h"
 #include "android/graphics/GraphicsJNI.h"
 
 #include "core_jni_helpers.h"
@@ -32,7 +31,6 @@
 #include <binder/Parcel.h>
 
 #include <gui/Surface.h>
-#include <gui/view/Surface.h>
 #include <gui/SurfaceControl.h>
 #include <gui/GLConsumer.h>
 
@@ -47,7 +45,7 @@
 #include <utils/misc.h>
 #include <utils/Log.h>
 
-#include <nativehelper/ScopedUtfChars.h>
+#include <ScopedUtfChars.h>
 
 #include <AnimationContext.h>
 #include <FrameInfo.h>
@@ -75,24 +73,6 @@ static struct {
     jfieldID bottom;
 } gRectClassInfo;
 
-class JNamedColorSpace {
-public:
-    // ColorSpace.Named.SRGB.ordinal() = 0;
-    static constexpr jint SRGB = 0;
-
-    // ColorSpace.Named.DISPLAY_P3.ordinal() = 7;
-    static constexpr jint DISPLAY_P3 = 7;
-};
-
-constexpr ui::Dataspace fromNamedColorSpaceValueToDataspace(const jint colorSpace) {
-    switch (colorSpace) {
-        case JNamedColorSpace::DISPLAY_P3:
-            return ui::Dataspace::DISPLAY_P3;
-        default:
-            return ui::Dataspace::V0_SRGB;
-    }
-}
-
 // ----------------------------------------------------------------------------
 
 // this is just a pointer we use to pass to inc/decStrong
@@ -119,7 +99,17 @@ sp<Surface> android_view_Surface_getSurface(JNIEnv* env, jobject surfaceObj) {
     return sur;
 }
 
-jobject android_view_Surface_createFromSurface(JNIEnv* env, const sp<Surface>& surface) {
+jobject android_view_Surface_createFromIGraphicBufferProducer(JNIEnv* env,
+        const sp<IGraphicBufferProducer>& bufferProducer) {
+    if (bufferProducer == NULL) {
+        return NULL;
+    }
+
+    sp<Surface> surface(new Surface(bufferProducer, true));
+    if (surface == NULL) {
+        return NULL;
+    }
+
     jobject surfaceObj = env->NewObject(gSurfaceClassInfo.clazz,
             gSurfaceClassInfo.ctor, (jlong)surface.get());
     if (surfaceObj == NULL) {
@@ -134,28 +124,106 @@ jobject android_view_Surface_createFromSurface(JNIEnv* env, const sp<Surface>& s
     return surfaceObj;
 }
 
-jobject android_view_Surface_createFromIGraphicBufferProducer(JNIEnv* env,
-        const sp<IGraphicBufferProducer>& bufferProducer) {
-    if (bufferProducer == NULL) {
-        return NULL;
-    }
-
-    sp<Surface> surface(new Surface(bufferProducer, true));
-    return android_view_Surface_createFromSurface(env, surface);
-}
-
 int android_view_Surface_mapPublicFormatToHalFormat(PublicFormat f) {
-    return mapPublicFormatToHalFormat(f);
+
+    switch(f) {
+        case PublicFormat::JPEG:
+        case PublicFormat::DEPTH_POINT_CLOUD:
+            return HAL_PIXEL_FORMAT_BLOB;
+        case PublicFormat::DEPTH16:
+            return HAL_PIXEL_FORMAT_Y16;
+        case PublicFormat::RAW_SENSOR:
+            return HAL_PIXEL_FORMAT_RAW16;
+        default:
+            // Most formats map 1:1
+            return static_cast<int>(f);
+    }
 }
 
 android_dataspace android_view_Surface_mapPublicFormatToHalDataspace(
         PublicFormat f) {
-    return mapPublicFormatToHalDataspace(f);
+    switch(f) {
+        case PublicFormat::JPEG:
+            return HAL_DATASPACE_V0_JFIF;
+        case PublicFormat::DEPTH_POINT_CLOUD:
+        case PublicFormat::DEPTH16:
+            return HAL_DATASPACE_DEPTH;
+        case PublicFormat::RAW_SENSOR:
+        case PublicFormat::RAW_PRIVATE:
+        case PublicFormat::RAW10:
+        case PublicFormat::RAW12:
+            return HAL_DATASPACE_ARBITRARY;
+        case PublicFormat::YUV_420_888:
+        case PublicFormat::NV21:
+        case PublicFormat::YV12:
+            return HAL_DATASPACE_V0_JFIF;
+        default:
+            // Most formats map to UNKNOWN
+            return HAL_DATASPACE_UNKNOWN;
+    }
 }
 
 PublicFormat android_view_Surface_mapHalFormatDataspaceToPublicFormat(
         int format, android_dataspace dataSpace) {
-    return mapHalFormatDataspaceToPublicFormat(format, dataSpace);
+    switch(format) {
+        case HAL_PIXEL_FORMAT_RGBA_8888:
+        case HAL_PIXEL_FORMAT_RGBX_8888:
+        case HAL_PIXEL_FORMAT_RGB_888:
+        case HAL_PIXEL_FORMAT_RGB_565:
+        case HAL_PIXEL_FORMAT_Y8:
+        case HAL_PIXEL_FORMAT_RAW10:
+        case HAL_PIXEL_FORMAT_RAW12:
+        case HAL_PIXEL_FORMAT_YCbCr_420_888:
+        case HAL_PIXEL_FORMAT_YV12:
+            // Enums overlap in both name and value
+            return static_cast<PublicFormat>(format);
+        case HAL_PIXEL_FORMAT_RAW16:
+            // Name differs, though value is the same
+            return PublicFormat::RAW_SENSOR;
+        case HAL_PIXEL_FORMAT_RAW_OPAQUE:
+            // Name differs, though value is the same
+            return PublicFormat::RAW_PRIVATE;
+        case HAL_PIXEL_FORMAT_YCbCr_422_SP:
+            // Name differs, though the value is the same
+            return PublicFormat::NV16;
+        case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+            // Name differs, though the value is the same
+            return PublicFormat::NV21;
+        case HAL_PIXEL_FORMAT_YCbCr_422_I:
+            // Name differs, though the value is the same
+            return PublicFormat::YUY2;
+        case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
+            // Name differs, though the value is the same
+            return PublicFormat::PRIVATE;
+        case HAL_PIXEL_FORMAT_Y16:
+            // Dataspace-dependent
+            switch (dataSpace) {
+                case HAL_DATASPACE_DEPTH:
+                    return PublicFormat::DEPTH16;
+                default:
+                    // Assume non-depth Y16 is just Y16.
+                    return PublicFormat::Y16;
+            }
+            break;
+        case HAL_PIXEL_FORMAT_BLOB:
+            // Dataspace-dependent
+            switch (dataSpace) {
+                case HAL_DATASPACE_DEPTH:
+                    return PublicFormat::DEPTH_POINT_CLOUD;
+                case HAL_DATASPACE_V0_JFIF:
+                    return PublicFormat::JPEG;
+                default:
+                    // Assume otherwise-marked blobs are also JPEG
+                    return PublicFormat::JPEG;
+            }
+            break;
+        case HAL_PIXEL_FORMAT_BGRA_8888:
+            // Not defined in public API
+            return PublicFormat::UNKNOWN;
+
+        default:
+            return PublicFormat::UNKNOWN;
+    }
 }
 // ----------------------------------------------------------------------------
 
@@ -215,7 +283,6 @@ static inline SkColorType convertPixelFormat(PixelFormat format) {
     switch (format) {
     case PIXEL_FORMAT_RGBX_8888:    return kN32_SkColorType;
     case PIXEL_FORMAT_RGBA_8888:    return kN32_SkColorType;
-    case PIXEL_FORMAT_RGBA_FP16:    return kRGBA_F16_SkColorType;
     case PIXEL_FORMAT_RGB_565:      return kRGB_565_SkColorType;
     default:                        return kUnknown_SkColorType;
     }
@@ -228,10 +295,6 @@ static jlong nativeLockCanvas(JNIEnv* env, jclass clazz,
     if (!isSurfaceValid(surface)) {
         doThrowIAE(env);
         return 0;
-    }
-
-    if (convertPixelFormat(ANativeWindow_getFormat(surface.get())) == kUnknown_SkColorType) {
-        native_window_set_buffers_format(surface.get(), PIXEL_FORMAT_RGBA_8888);
     }
 
     Rect dirtyRect(Rect::EMPTY_RECT);
@@ -255,10 +318,11 @@ static jlong nativeLockCanvas(JNIEnv* env, jclass clazz,
         return 0;
     }
 
+
     SkImageInfo info = SkImageInfo::Make(outBuffer.width, outBuffer.height,
                                          convertPixelFormat(outBuffer.format),
-                                         outBuffer.format == PIXEL_FORMAT_RGBX_8888
-                                                 ? kOpaque_SkAlphaType : kPremul_SkAlphaType);
+                                         outBuffer.format == PIXEL_FORMAT_RGBX_8888 ?
+                                         kOpaque_SkAlphaType : kPremul_SkAlphaType);
 
     SkBitmap bitmap;
     ssize_t bpr = outBuffer.stride * bytesPerPixel(outBuffer.format);
@@ -275,7 +339,7 @@ static jlong nativeLockCanvas(JNIEnv* env, jclass clazz,
 
     if (dirtyRectPtr) {
         nativeCanvas->clipRect(dirtyRect.left, dirtyRect.top,
-                dirtyRect.right, dirtyRect.bottom, SkClipOp::kIntersect);
+                dirtyRect.right, dirtyRect.bottom);
     }
 
     if (dirtyRectObj) {
@@ -325,32 +389,17 @@ static void nativeAllocateBuffers(JNIEnv* /* env */ , jclass /* clazz */,
 
 static jlong nativeCreateFromSurfaceControl(JNIEnv* env, jclass clazz,
         jlong surfaceControlNativeObj) {
+    /*
+     * This is used by the WindowManagerService just after constructing
+     * a Surface and is necessary for returning the Surface reference to
+     * the caller. At this point, we should only have a SurfaceControl.
+     */
+
     sp<SurfaceControl> ctrl(reinterpret_cast<SurfaceControl *>(surfaceControlNativeObj));
-    sp<Surface> surface(ctrl->createSurface());
-    if (surface != NULL) {
-        surface->incStrong(&sRefBaseOwner);
-    }
-    return reinterpret_cast<jlong>(surface.get());
-}
-
-static jlong nativeGetFromSurfaceControl(JNIEnv* env, jclass clazz,
-        jlong nativeObject,
-        jlong surfaceControlNativeObj) {
-    Surface* self(reinterpret_cast<Surface *>(nativeObject));
-    sp<SurfaceControl> ctrl(reinterpret_cast<SurfaceControl *>(surfaceControlNativeObj));
-
-    // If the underlying IGBP's are the same, we don't need to do anything.
-    if (self != nullptr &&
-            IInterface::asBinder(self->getIGraphicBufferProducer()) ==
-            IInterface::asBinder(ctrl->getIGraphicBufferProducer())) {
-        return nativeObject;
-    }
-
     sp<Surface> surface(ctrl->getSurface());
     if (surface != NULL) {
         surface->incStrong(&sRefBaseOwner);
     }
-
     return reinterpret_cast<jlong>(surface.get());
 }
 
@@ -443,29 +492,6 @@ static jint nativeForceScopedDisconnect(JNIEnv *env, jclass clazz, jlong nativeO
     return surface->disconnect(-1, IGraphicBufferProducer::DisconnectMode::AllLocal);
 }
 
-static jint nativeAttachAndQueueBufferWithColorSpace(JNIEnv *env, jclass clazz, jlong nativeObject,
-        jobject graphicBuffer, jint colorSpaceId) {
-    Surface* surface = reinterpret_cast<Surface*>(nativeObject);
-    sp<GraphicBuffer> bp = graphicBufferForJavaObject(env, graphicBuffer);
-    int err = Surface::attachAndQueueBufferWithDataspace(surface, bp,
-            fromNamedColorSpaceValueToDataspace(colorSpaceId));
-    return err;
-}
-
-static jint nativeSetSharedBufferModeEnabled(JNIEnv* env, jclass clazz, jlong nativeObject,
-        jboolean enabled) {
-    Surface* surface = reinterpret_cast<Surface*>(nativeObject);
-    ANativeWindow* anw = static_cast<ANativeWindow*>(surface);
-    return anw->perform(surface, NATIVE_WINDOW_SET_SHARED_BUFFER_MODE, int(enabled));
-}
-
-static jint nativeSetAutoRefreshEnabled(JNIEnv* env, jclass clazz, jlong nativeObject,
-        jboolean enabled) {
-    Surface* surface = reinterpret_cast<Surface*>(nativeObject);
-    ANativeWindow* anw = static_cast<ANativeWindow*>(surface);
-    return anw->perform(surface, NATIVE_WINDOW_SET_AUTO_REFRESH, int(enabled));
-}
-
 namespace uirenderer {
 
 using namespace android::uirenderer::renderthread;
@@ -477,29 +503,25 @@ public:
     }
 };
 
-static jlong create(JNIEnv* env, jclass clazz, jlong rootNodePtr, jlong surfacePtr,
-        jboolean isWideColorGamut) {
+static jlong create(JNIEnv* env, jclass clazz, jlong rootNodePtr, jlong surfacePtr) {
     RenderNode* rootNode = reinterpret_cast<RenderNode*>(rootNodePtr);
     sp<Surface> surface(reinterpret_cast<Surface*>(surfacePtr));
     ContextFactory factory;
     RenderProxy* proxy = new RenderProxy(false, rootNode, &factory);
     proxy->loadSystemProperties();
-    if (isWideColorGamut) {
-        proxy->setWideGamut(true);
-    }
-    proxy->setSwapBehavior(SwapBehavior::kSwap_discardBuffer);
-    proxy->setSurface(surface, false);
+    proxy->setSwapBehavior(kSwap_discardBuffer);
+    proxy->initialize(surface);
     // Shadows can't be used via this interface, so just set the light source
-    // to all 0s.
-    proxy->setLightAlpha(0, 0);
-    proxy->setLightGeometry((Vector3){0, 0, 0}, 0);
+    // to all 0s. (and width & height are unused, TODO remove them)
+    proxy->setup(0, 0, 0, 0, 0);
+    proxy->setLightCenter((Vector3){0, 0, 0});
     return (jlong) proxy;
 }
 
 static void setSurface(JNIEnv* env, jclass clazz, jlong rendererPtr, jlong surfacePtr) {
     RenderProxy* proxy = reinterpret_cast<RenderProxy*>(rendererPtr);
     sp<Surface> surface(reinterpret_cast<Surface*>(surfacePtr));
-    proxy->setSurface(surface);
+    proxy->updateSurface(surface);
 }
 
 static void draw(JNIEnv* env, jclass clazz, jlong rendererPtr) {
@@ -508,7 +530,7 @@ static void draw(JNIEnv* env, jclass clazz, jlong rendererPtr) {
     UiFrameInfoBuilder(proxy->frameInfo())
             .setVsync(vsync, vsync)
             .addFlag(FrameInfoFlags::SurfaceCanvas);
-    proxy->syncAndDrawFrame();
+    proxy->syncAndDrawFrame(nullptr);
 }
 
 static void destroy(JNIEnv* env, jclass clazz, jlong rendererPtr) {
@@ -539,8 +561,6 @@ static const JNINativeMethod gSurfaceMethods[] = {
             (void*)nativeAllocateBuffers },
     {"nativeCreateFromSurfaceControl", "(J)J",
             (void*)nativeCreateFromSurfaceControl },
-    {"nativeGetFromSurfaceControl", "(JJ)J",
-            (void*)nativeGetFromSurfaceControl },
     {"nativeReadFromParcel", "(JLandroid/os/Parcel;)J",
             (void*)nativeReadFromParcel },
     {"nativeWriteToParcel", "(JLandroid/os/Parcel;)V",
@@ -550,13 +570,9 @@ static const JNINativeMethod gSurfaceMethods[] = {
     {"nativeGetNextFrameNumber", "(J)J", (void*)nativeGetNextFrameNumber },
     {"nativeSetScalingMode", "(JI)I", (void*)nativeSetScalingMode },
     {"nativeForceScopedDisconnect", "(J)I", (void*)nativeForceScopedDisconnect},
-    {"nativeAttachAndQueueBufferWithColorSpace", "(JLandroid/graphics/GraphicBuffer;I)I",
-            (void*)nativeAttachAndQueueBufferWithColorSpace},
-    {"nativeSetSharedBufferModeEnabled", "(JZ)I", (void*)nativeSetSharedBufferModeEnabled},
-    {"nativeSetAutoRefreshEnabled", "(JZ)I", (void*)nativeSetAutoRefreshEnabled},
 
     // HWUI context
-    {"nHwuiCreate", "(JJZ)J", (void*) hwui::create },
+    {"nHwuiCreate", "(JJ)J", (void*) hwui::create },
     {"nHwuiSetSurface", "(JJ)V", (void*) hwui::setSurface },
     {"nHwuiDraw", "(J)V", (void*) hwui::draw },
     {"nHwuiDestroy", "(J)V", (void*) hwui::destroy },

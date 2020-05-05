@@ -16,44 +16,38 @@
 
 #define LOG_TAG "BootAnimation"
 
-#include <stdint.h>
-#include <inttypes.h>
-
 #include <binder/IPCThreadState.h>
 #include <binder/ProcessState.h>
 #include <binder/IServiceManager.h>
 #include <cutils/properties.h>
 #include <sys/resource.h>
 #include <utils/Log.h>
-#include <utils/SystemClock.h>
+#include <utils/threads.h>
 
 #include "BootAnimation.h"
-#include "BootAnimationUtil.h"
-#include "audioplay.h"
 
 using namespace android;
+
+// ---------------------------------------------------------------------------
 
 int main()
 {
     setpriority(PRIO_PROCESS, 0, ANDROID_PRIORITY_DISPLAY);
 
-    bool noBootAnimation = bootAnimationDisabled();
+    char value[PROPERTY_VALUE_MAX];
+    property_get("debug.sf.nobootanimation", value, "0");
+    int noBootAnimation = atoi(value);
     ALOGI_IF(noBootAnimation,  "boot animation disabled");
     if (!noBootAnimation) {
 
         sp<ProcessState> proc(ProcessState::self());
         ProcessState::self()->startThreadPool();
 
-        // create the boot animation object (may take up to 200ms for 2MB zip)
-        sp<BootAnimation> boot = new BootAnimation(audioplay::createAnimationCallbacks());
-
-        waitForSurfaceFlinger();
-
-        boot->run("BootAnimation", PRIORITY_DISPLAY);
-
-        ALOGV("Boot animation set up. Joining pool.");
+        // create the boot animation object
+        sp<BootAnimation> boot = new BootAnimation();
 
         IPCThreadState::self()->joinThreadPool();
+
     }
     return 0;
 }

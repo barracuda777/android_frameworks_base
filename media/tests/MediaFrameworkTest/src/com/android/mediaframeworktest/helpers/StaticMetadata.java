@@ -1139,17 +1139,8 @@ public class StaticMetadata {
         }
         List<Integer> modeList = new ArrayList<Integer>();
         for (int mode : modes) {
-            // Skip vendor-added modes
-            if (mode <= CameraMetadata.CONTROL_AE_MODE_ON_AUTO_FLASH_REDEYE) {
-                modeList.add(mode);
-            }
+            modeList.add(mode);
         }
-        checkTrueForKey(modesKey, "value is empty", !modeList.isEmpty());
-        modes = new int[modeList.size()];
-        for (int i = 0; i < modeList.size(); i++) {
-            modes[i] = modeList.get(i);
-        }
-
         checkTrueForKey(modesKey, "value is empty", !modeList.isEmpty());
 
         // All camera device must support ON
@@ -1236,17 +1227,7 @@ public class StaticMetadata {
             return new int[0];
         }
 
-        List<Integer> modesList = new ArrayList<Integer>();
-        for (int afMode : afModes) {
-            // Skip vendor-added AF modes
-            if (afMode > CameraCharacteristics.CONTROL_AF_MODE_EDOF) continue;
-            modesList.add(afMode);
-        }
-        afModes = new int[modesList.size()];
-        for (int i = 0; i < modesList.size(); i++) {
-            afModes[i] = modesList.get(i);
-        }
-
+        List<Integer> modesList = Arrays.asList(CameraTestUtils.toObject(afModes));
         if (isHardwareLevelLimitedOrBetter()) {
             // Some LEGACY mode devices do not support AF OFF
             checkTrueForKey(key, " All camera devices must support OFF mode",
@@ -1434,16 +1415,6 @@ public class StaticMetadata {
                     maxDuration, minFps, maxFrameDuration), maxDuration <= maxFrameDuration);
         }
         return fpsRanges;
-    }
-
-    public static String getAeModeName(int aeMode) {
-        return (aeMode >= AE_MODE_NAMES.length) ? String.format("VENDOR_AE_MODE_%d", aeMode) :
-            AE_MODE_NAMES[aeMode];
-    }
-
-    public static String getAfModeName(int afMode) {
-        return (afMode >= AF_MODE_NAMES.length) ? String.format("VENDOR_AF_MODE_%d", afMode) :
-            AF_MODE_NAMES[afMode];
     }
 
     /**
@@ -1860,6 +1831,9 @@ public class StaticMetadata {
             return new ArrayList<Integer>();
         }
 
+        checkArrayValuesInRange(key, availableCaps,
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE,
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_CONSTRAINED_HIGH_SPEED_VIDEO);
         capList = Arrays.asList(CameraTestUtils.toObject(availableCaps));
         return capList;
     }

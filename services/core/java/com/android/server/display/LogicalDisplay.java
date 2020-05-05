@@ -17,18 +17,15 @@
 package com.android.server.display;
 
 import android.graphics.Rect;
-import android.hardware.display.DisplayManagerInternal;
 import android.view.Display;
 import android.view.DisplayInfo;
 import android.view.Surface;
-import android.view.SurfaceControl;
-
-import com.android.server.wm.utils.InsetUtils;
 
 import java.io.PrintWriter;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
+
+import libcore.util.Objects;
 
 /**
  * Describes how a logical display is configured.
@@ -65,18 +62,7 @@ final class LogicalDisplay {
 
     private final int mDisplayId;
     private final int mLayerStack;
-    /**
-     * Override information set by the window manager. Will be reported instead of {@link #mInfo}
-     * if not null.
-     * @see #setDisplayInfoOverrideFromWindowManagerLocked(DisplayInfo)
-     * @see #getDisplayInfoLocked()
-     */
-    private DisplayInfo mOverrideDisplayInfo;
-    /**
-     * Current display info. Initialized with {@link #mBaseDisplayInfo}. Set to {@code null} if
-     * needs to be updated.
-     * @see #getDisplayInfoLocked()
-     */
+    private DisplayInfo mOverrideDisplayInfo; // set by the window manager
     private DisplayInfo mInfo;
 
     // The display device that this logical display is based on and which
@@ -87,20 +73,12 @@ final class LogicalDisplay {
     // True if the logical display has unique content.
     private boolean mHasContent;
 
-    private int[] mAllowedDisplayModes = new int[0];
+    private int mRequestedModeId;
     private int mRequestedColorMode;
 
     // The display offsets to apply to the display projection.
     private int mDisplayOffsetX;
     private int mDisplayOffsetY;
-
-    /**
-     * {@code true} if display scaling is disabled, or {@code false} if the default scaling mode
-     * is used.
-     * @see #isDisplayScalingDisabled()
-     * @see #setDisplayScalingDisabledLocked(boolean)
-     */
-    private boolean mDisplayScalingDisabled;
 
     // Temporary rectangle used when needed.
     private final Rect mTempLayerStackRect = new Rect();
@@ -155,20 +133,12 @@ final class LogicalDisplay {
                 mInfo.overscanRight = mOverrideDisplayInfo.overscanRight;
                 mInfo.overscanBottom = mOverrideDisplayInfo.overscanBottom;
                 mInfo.rotation = mOverrideDisplayInfo.rotation;
-                mInfo.displayCutout = mOverrideDisplayInfo.displayCutout;
                 mInfo.logicalDensityDpi = mOverrideDisplayInfo.logicalDensityDpi;
                 mInfo.physicalXDpi = mOverrideDisplayInfo.physicalXDpi;
                 mInfo.physicalYDpi = mOverrideDisplayInfo.physicalYDpi;
             }
         }
         return mInfo;
-    }
-
-    /**
-     * @see DisplayManagerInternal#getNonOverrideDisplayInfo(int, DisplayInfo)
-     */
-    void getNonOverrideDisplayInfoLocked(DisplayInfo outInfo) {
-        outInfo.copyFrom(mBaseDisplayInfo);
     }
 
     /**
@@ -235,7 +205,7 @@ final class LogicalDisplay {
         // logical display that they are sharing.  (eg. Adjust size for pixel-perfect
         // mirroring over HDMI.)
         DisplayDeviceInfo deviceInfo = mPrimaryDisplayDevice.getDisplayDeviceInfoLocked();
-        if (!Objects.equals(mPrimaryDisplayDeviceInfo, deviceInfo)) {
+        if (!Objects.equal(mPrimaryDisplayDeviceInfo, deviceInfo)) {
             mBaseDisplayInfo.layerStack = mLayerStack;
             mBaseDisplayInfo.flags = 0;
             if ((deviceInfo.flags & DisplayDeviceInfo.FLAG_SUPPORTS_PROTECTED_BUFFERS) != 0) {
@@ -246,11 +216,6 @@ final class LogicalDisplay {
             }
             if ((deviceInfo.flags & DisplayDeviceInfo.FLAG_PRIVATE) != 0) {
                 mBaseDisplayInfo.flags |= Display.FLAG_PRIVATE;
-                // For private displays by default content is destroyed on removal.
-                mBaseDisplayInfo.removeMode = Display.REMOVE_MODE_DESTROY_CONTENT;
-            }
-            if ((deviceInfo.flags & DisplayDeviceInfo.FLAG_DESTROY_CONTENT_ON_REMOVAL) != 0) {
-                mBaseDisplayInfo.removeMode = Display.REMOVE_MODE_DESTROY_CONTENT;
             }
             if ((deviceInfo.flags & DisplayDeviceInfo.FLAG_PRESENTATION) != 0) {
                 mBaseDisplayInfo.flags |= Display.FLAG_PRESENTATION;
@@ -258,24 +223,14 @@ final class LogicalDisplay {
             if ((deviceInfo.flags & DisplayDeviceInfo.FLAG_ROUND) != 0) {
                 mBaseDisplayInfo.flags |= Display.FLAG_ROUND;
             }
-            if ((deviceInfo.flags & DisplayDeviceInfo.FLAG_CAN_SHOW_WITH_INSECURE_KEYGUARD) != 0) {
-                mBaseDisplayInfo.flags |= Display.FLAG_CAN_SHOW_WITH_INSECURE_KEYGUARD;
-            }
-            if ((deviceInfo.flags & DisplayDeviceInfo.FLAG_SHOULD_SHOW_SYSTEM_DECORATIONS) != 0) {
-                mBaseDisplayInfo.flags |= Display.FLAG_SHOULD_SHOW_SYSTEM_DECORATIONS;
-            }
-            Rect maskingInsets = getMaskingInsets(deviceInfo);
-            int maskedWidth = deviceInfo.width - maskingInsets.left - maskingInsets.right;
-            int maskedHeight = deviceInfo.height - maskingInsets.top - maskingInsets.bottom;
-
             mBaseDisplayInfo.type = deviceInfo.type;
             mBaseDisplayInfo.address = deviceInfo.address;
             mBaseDisplayInfo.name = deviceInfo.name;
             mBaseDisplayInfo.uniqueId = deviceInfo.uniqueId;
-            mBaseDisplayInfo.appWidth = maskedWidth;
-            mBaseDisplayInfo.appHeight = maskedHeight;
-            mBaseDisplayInfo.logicalWidth = maskedWidth;
-            mBaseDisplayInfo.logicalHeight = maskedHeight;
+            mBaseDisplayInfo.appWidth = deviceInfo.width;
+            mBaseDisplayInfo.appHeight = deviceInfo.height;
+            mBaseDisplayInfo.logicalWidth = deviceInfo.width;
+            mBaseDisplayInfo.logicalHeight = deviceInfo.height;
             mBaseDisplayInfo.rotation = Surface.ROTATION_0;
             mBaseDisplayInfo.modeId = deviceInfo.modeId;
             mBaseDisplayInfo.defaultModeId = deviceInfo.defaultModeId;
@@ -292,42 +247,15 @@ final class LogicalDisplay {
             mBaseDisplayInfo.appVsyncOffsetNanos = deviceInfo.appVsyncOffsetNanos;
             mBaseDisplayInfo.presentationDeadlineNanos = deviceInfo.presentationDeadlineNanos;
             mBaseDisplayInfo.state = deviceInfo.state;
-            mBaseDisplayInfo.smallestNominalAppWidth = maskedWidth;
-            mBaseDisplayInfo.smallestNominalAppHeight = maskedHeight;
-            mBaseDisplayInfo.largestNominalAppWidth = maskedWidth;
-            mBaseDisplayInfo.largestNominalAppHeight = maskedHeight;
+            mBaseDisplayInfo.smallestNominalAppWidth = deviceInfo.width;
+            mBaseDisplayInfo.smallestNominalAppHeight = deviceInfo.height;
+            mBaseDisplayInfo.largestNominalAppWidth = deviceInfo.width;
+            mBaseDisplayInfo.largestNominalAppHeight = deviceInfo.height;
             mBaseDisplayInfo.ownerUid = deviceInfo.ownerUid;
             mBaseDisplayInfo.ownerPackageName = deviceInfo.ownerPackageName;
-            boolean maskCutout =
-                    (deviceInfo.flags & DisplayDeviceInfo.FLAG_MASK_DISPLAY_CUTOUT) != 0;
-            mBaseDisplayInfo.displayCutout = maskCutout ? null : deviceInfo.displayCutout;
-            mBaseDisplayInfo.displayId = mDisplayId;
 
             mPrimaryDisplayDeviceInfo = deviceInfo;
             mInfo = null;
-        }
-    }
-
-    /**
-     * Return the insets currently applied to the display.
-     *
-     * Note that the base DisplayInfo already takes these insets into account, so if you want to
-     * find out the <b>true</b> size of the display, you need to add them back to the logical
-     * dimensions.
-     */
-    public Rect getInsets() {
-        return getMaskingInsets(mPrimaryDisplayDeviceInfo);
-    }
-
-    /**
-     * Returns insets in ROTATION_0 for areas that are masked.
-     */
-    private static Rect getMaskingInsets(DisplayDeviceInfo deviceInfo) {
-        boolean maskCutout = (deviceInfo.flags & DisplayDeviceInfo.FLAG_MASK_DISPLAY_CUTOUT) != 0;
-        if (maskCutout && deviceInfo.displayCutout != null) {
-            return deviceInfo.displayCutout.getSafeInsets();
-        } else {
-            return new Rect();
         }
     }
 
@@ -348,20 +276,17 @@ final class LogicalDisplay {
      * @param device The display device to modify.
      * @param isBlanked True if the device is being blanked.
      */
-    public void configureDisplayLocked(SurfaceControl.Transaction t,
-            DisplayDevice device,
+    public void configureDisplayInTransactionLocked(DisplayDevice device,
             boolean isBlanked) {
         // Set the layer stack.
-        device.setLayerStackLocked(t, isBlanked ? BLANK_LAYER_STACK : mLayerStack);
+        device.setLayerStackInTransactionLocked(isBlanked ? BLANK_LAYER_STACK : mLayerStack);
 
-        // Set the color mode and allowed display mode.
+        // Set the color mode and mode.
         if (device == mPrimaryDisplayDevice) {
-            device.setAllowedDisplayModesLocked(mAllowedDisplayModes);
-            device.setRequestedColorModeLocked(mRequestedColorMode);
+            device.requestDisplayModesInTransactionLocked(
+                    mRequestedColorMode, mRequestedModeId);
         } else {
-            // Reset to default for non primary displays
-            device.setAllowedDisplayModesLocked(new int[] {0});
-            device.setRequestedColorModeLocked(0);
+            device.requestDisplayModesInTransactionLocked(0, 0);  // Revert to default.
         }
 
         // Only grab the display info now as it may have been changed based on the requests above.
@@ -394,12 +319,6 @@ final class LogicalDisplay {
         int physWidth = rotated ? displayDeviceInfo.height : displayDeviceInfo.width;
         int physHeight = rotated ? displayDeviceInfo.width : displayDeviceInfo.height;
 
-        Rect maskingInsets = getMaskingInsets(displayDeviceInfo);
-        InsetUtils.rotateInsets(maskingInsets, orientation);
-        // Don't consider the masked area as available when calculating the scaling below.
-        physWidth -= maskingInsets.left + maskingInsets.right;
-        physHeight -= maskingInsets.top + maskingInsets.bottom;
-
         // Determine whether the width or height is more constrained to be scaled.
         //    physWidth / displayInfo.logicalWidth    => letter box
         // or physHeight / displayInfo.logicalHeight  => pillar box
@@ -408,7 +327,7 @@ final class LogicalDisplay {
         // multiplying the fractions by the product of their denominators before
         // comparing them.
         int displayRectWidth, displayRectHeight;
-        if ((displayInfo.flags & Display.FLAG_SCALING_DISABLED) != 0 || mDisplayScalingDisabled) {
+        if ((displayInfo.flags & Display.FLAG_SCALING_DISABLED) != 0) {
             displayRectWidth = displayInfo.logicalWidth;
             displayRectHeight = displayInfo.logicalHeight;
         } else if (physWidth * displayInfo.logicalHeight
@@ -426,19 +345,11 @@ final class LogicalDisplay {
         mTempDisplayRect.set(displayRectLeft, displayRectTop,
                 displayRectLeft + displayRectWidth, displayRectTop + displayRectHeight);
 
-        // Now add back the offset for the masked area.
-        mTempDisplayRect.offset(maskingInsets.left, maskingInsets.top);
-
-        if (orientation == Surface.ROTATION_0) {
-            mTempDisplayRect.offset(mDisplayOffsetX, mDisplayOffsetY);
-        } else if (orientation == Surface.ROTATION_90) {
-            mTempDisplayRect.offset(mDisplayOffsetY, -mDisplayOffsetX);
-        } else if (orientation == Surface.ROTATION_180) {
-            mTempDisplayRect.offset(-mDisplayOffsetX, -mDisplayOffsetY);
-        } else {  // Surface.ROTATION_270
-            mTempDisplayRect.offset(-mDisplayOffsetY, mDisplayOffsetX);
-        }
-        device.setProjectionLocked(t, orientation, mTempLayerStackRect, mTempDisplayRect);
+        mTempDisplayRect.left += mDisplayOffsetX;
+        mTempDisplayRect.right += mDisplayOffsetX;
+        mTempDisplayRect.top += mDisplayOffsetY;
+        mTempDisplayRect.bottom += mDisplayOffsetY;
+        device.setProjectionInTransactionLocked(orientation, mTempLayerStackRect, mTempDisplayRect);
     }
 
     /**
@@ -465,17 +376,17 @@ final class LogicalDisplay {
     }
 
     /**
-     * Sets the display modes the system is free to switch between.
+     * Requests the given mode.
      */
-    public void setAllowedDisplayModesLocked(int[] modes) {
-        mAllowedDisplayModes = modes;
+    public void setRequestedModeIdLocked(int modeId) {
+        mRequestedModeId = modeId;
     }
 
     /**
-     * Returns the display modes the system is free to switch between.
+     * Returns the pending requested mode.
      */
-    public int[] getAllowedDisplayModesLocked() {
-        return mAllowedDisplayModes;
+    public int getRequestedModeIdLocked() {
+        return mRequestedModeId;
     }
 
     /**
@@ -512,32 +423,13 @@ final class LogicalDisplay {
         mDisplayOffsetY = y;
     }
 
-    /**
-     * @return {@code true} if display scaling is disabled, or {@code false} if the default scaling
-     * mode is used.
-     */
-    public boolean isDisplayScalingDisabled() {
-        return mDisplayScalingDisabled;
-    }
-
-    /**
-     * Disables scaling for a display.
-     *
-     * @param disableScaling {@code true} to disable scaling,
-     * {@code false} to use the default scaling behavior of the logical display.
-     */
-    public void setDisplayScalingDisabledLocked(boolean disableScaling) {
-        mDisplayScalingDisabled = disableScaling;
-    }
-
     public void dumpLocked(PrintWriter pw) {
         pw.println("mDisplayId=" + mDisplayId);
         pw.println("mLayerStack=" + mLayerStack);
         pw.println("mHasContent=" + mHasContent);
-        pw.println("mAllowedDisplayModes=" + Arrays.toString(mAllowedDisplayModes));
+        pw.println("mRequestedMode=" + mRequestedModeId);
         pw.println("mRequestedColorMode=" + mRequestedColorMode);
         pw.println("mDisplayOffset=(" + mDisplayOffsetX + ", " + mDisplayOffsetY + ")");
-        pw.println("mDisplayScalingDisabled=" + mDisplayScalingDisabled);
         pw.println("mPrimaryDisplayDevice=" + (mPrimaryDisplayDevice != null ?
                 mPrimaryDisplayDevice.getNameLocked() : "null"));
         pw.println("mBaseDisplayInfo=" + mBaseDisplayInfo);

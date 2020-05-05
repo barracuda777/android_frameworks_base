@@ -16,13 +16,13 @@
 
 package android.widget.gridview.touch;
 
-import android.test.ActivityInstrumentationTestCase;
-import android.test.TouchUtils;
-import android.view.View;
-import android.widget.GridView;
 import android.widget.gridview.GridStackFromBottom;
+import android.test.TouchUtils;
+import android.test.suitebuilder.annotation.MediumTest;
 
-import androidx.test.filters.MediumTest;
+import android.test.ActivityInstrumentationTestCase;
+import android.widget.GridView;
+import android.view.View;
 
 public class GridTouchStackFromBottomTest extends ActivityInstrumentationTestCase<GridStackFromBottom> {
     private GridStackFromBottom mActivity;

@@ -18,17 +18,14 @@ package android.net;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.SystemApi;
-import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
-import android.os.Build;
-import android.os.Parcel;
+import android.net.ProxyInfo;
 import android.os.Parcelable;
+import android.os.Parcel;
 import android.text.TextUtils;
 
+import java.net.InetAddress;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
-import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -36,7 +33,6 @@ import java.util.Collections;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Objects;
-import java.util.StringJoiner;
 
 /**
  * Describes the properties of a network link.
@@ -52,60 +48,42 @@ import java.util.StringJoiner;
  */
 public final class LinkProperties implements Parcelable {
     // The interface described by the network link.
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     private String mIfaceName;
-    private final ArrayList<LinkAddress> mLinkAddresses = new ArrayList<>();
-    private final ArrayList<InetAddress> mDnses = new ArrayList<>();
-    // PCSCF addresses are addresses of SIP proxies that only exist for the IMS core service.
-    private final ArrayList<InetAddress> mPcscfs = new ArrayList<InetAddress>();
-    private final ArrayList<InetAddress> mValidatedPrivateDnses = new ArrayList<>();
-    private boolean mUsePrivateDns;
-    private String mPrivateDnsServerName;
+    private ArrayList<LinkAddress> mLinkAddresses = new ArrayList<LinkAddress>();
+    private ArrayList<InetAddress> mDnses = new ArrayList<InetAddress>();
     private String mDomains;
-    private ArrayList<RouteInfo> mRoutes = new ArrayList<>();
+    private ArrayList<RouteInfo> mRoutes = new ArrayList<RouteInfo>();
     private ProxyInfo mHttpProxy;
     private int mMtu;
     // in the format "rmem_min,rmem_def,rmem_max,wmem_min,wmem_def,wmem_max"
     private String mTcpBufferSizes;
-    private IpPrefix mNat64Prefix;
+    private int mTcpDelayedAckSegments = 1;
+    private int mTcpUserCfg = 0;
 
     private static final int MIN_MTU    = 68;
     private static final int MIN_MTU_V6 = 1280;
     private static final int MAX_MTU    = 10000;
 
-    private static final int INET6_ADDR_LENGTH = 16;
-
     // Stores the properties of links that are "stacked" above this link.
     // Indexed by interface name to allow modification and to prevent duplicates being added.
-    private Hashtable<String, LinkProperties> mStackedLinks = new Hashtable<>();
+    private Hashtable<String, LinkProperties> mStackedLinks =
+        new Hashtable<String, LinkProperties>();
 
     /**
      * @hide
      */
     public static class CompareResult<T> {
-        public final List<T> removed = new ArrayList<>();
-        public final List<T> added = new ArrayList<>();
-
-        public CompareResult() {}
-
-        public CompareResult(Collection<T> oldItems, Collection<T> newItems) {
-            if (oldItems != null) {
-                removed.addAll(oldItems);
-            }
-            if (newItems != null) {
-                for (T newItem : newItems) {
-                    if (!removed.remove(newItem)) {
-                        added.add(newItem);
-                    }
-                }
-            }
-        }
+        public List<T> removed = new ArrayList<T>();
+        public List<T> added = new ArrayList<T>();
 
         @Override
         public String toString() {
-            return "removed=[" + TextUtils.join(",", removed)
-                    + "] added=[" + TextUtils.join(",", added)
-                    + "]";
+            String retVal = "removed=[";
+            for (T addr : removed) retVal += addr.toString() + ",";
+            retVal += "] added=[";
+            for (T addr : added) retVal += addr.toString() + ",";
+            retVal += "]";
+            return retVal;
         }
     }
 
@@ -113,13 +91,9 @@ public final class LinkProperties implements Parcelable {
      * @hide
      */
     public enum ProvisioningChange {
-        @UnsupportedAppUsage
         STILL_NOT_PROVISIONED,
-        @UnsupportedAppUsage
         LOST_PROVISIONING,
-        @UnsupportedAppUsage
         GAINED_PROVISIONING,
-        @UnsupportedAppUsage
         STILL_PROVISIONED,
     }
 
@@ -128,11 +102,10 @@ public final class LinkProperties implements Parcelable {
      *
      * @hide
      */
-    @UnsupportedAppUsage
     public static ProvisioningChange compareProvisioning(
             LinkProperties before, LinkProperties after) {
         if (before.isProvisioned() && after.isProvisioned()) {
-            // On dual-stack networks, DHCPv4 renewals can occasionally fail.
+            // On dualstack networks, DHCPv4 renewals can occasionally fail.
             // When this happens, IPv6-reachable services continue to function
             // normally but IPv4-only services (naturally) fail.
             //
@@ -143,7 +116,7 @@ public final class LinkProperties implements Parcelable {
             //
             // For users, this is confusing and unexpected behaviour, and is
             // not necessarily easy to diagnose.  Therefore, we treat changing
-            // from a dual-stack network to an IPv6-only network equivalent to
+            // from a dualstack network to an IPv6-only network equivalent to
             // a total loss of provisioning.
             //
             // For one such example of this, see b/18867306.
@@ -151,9 +124,9 @@ public final class LinkProperties implements Parcelable {
             // Additionally, losing IPv6 provisioning can result in TCP
             // connections getting stuck until timeouts fire and other
             // baffling failures. Therefore, loss of either IPv4 or IPv6 on a
-            // previously dual-stack network is deemed a lost of provisioning.
-            if ((before.isIpv4Provisioned() && !after.isIpv4Provisioned())
-                    || (before.isIpv6Provisioned() && !after.isIpv6Provisioned())) {
+            // previously dualstack network is deemed a lost of provisioning.
+            if ((before.isIPv4Provisioned() && !after.isIPv4Provisioned()) ||
+                (before.isIPv6Provisioned() && !after.isIPv6Provisioned())) {
                 return ProvisioningChange.LOST_PROVISIONING;
             }
             return ProvisioningChange.STILL_PROVISIONED;
@@ -167,7 +140,7 @@ public final class LinkProperties implements Parcelable {
     }
 
     /**
-     * Constructs a new {@code LinkProperties} with default values.
+     * @hide
      */
     public LinkProperties() {
     }
@@ -175,26 +148,22 @@ public final class LinkProperties implements Parcelable {
     /**
      * @hide
      */
-    @SystemApi
-    @TestApi
-    public LinkProperties(@Nullable LinkProperties source) {
+    public LinkProperties(LinkProperties source) {
         if (source != null) {
-            mIfaceName = source.mIfaceName;
-            mLinkAddresses.addAll(source.mLinkAddresses);
-            mDnses.addAll(source.mDnses);
-            mValidatedPrivateDnses.addAll(source.mValidatedPrivateDnses);
-            mUsePrivateDns = source.mUsePrivateDns;
-            mPrivateDnsServerName = source.mPrivateDnsServerName;
-            mPcscfs.addAll(source.mPcscfs);
-            mDomains = source.mDomains;
-            mRoutes.addAll(source.mRoutes);
-            mHttpProxy = (source.mHttpProxy == null) ? null : new ProxyInfo(source.mHttpProxy);
+            mIfaceName = source.getInterfaceName();
+            for (LinkAddress l : source.getLinkAddresses()) mLinkAddresses.add(l);
+            for (InetAddress i : source.getDnsServers()) mDnses.add(i);
+            mDomains = source.getDomains();
+            for (RouteInfo r : source.getRoutes()) mRoutes.add(r);
+            mHttpProxy = (source.getHttpProxy() == null)  ?
+                    null : new ProxyInfo(source.getHttpProxy());
             for (LinkProperties l: source.mStackedLinks.values()) {
                 addStackedLink(l);
             }
-            setMtu(source.mMtu);
+            setMtu(source.getMtu());
             mTcpBufferSizes = source.mTcpBufferSizes;
-            mNat64Prefix = source.mNat64Prefix;
+            mTcpDelayedAckSegments = source.mTcpDelayedAckSegments;
+            mTcpUserCfg = source.mTcpUserCfg;
         }
     }
 
@@ -203,10 +172,11 @@ public final class LinkProperties implements Parcelable {
      * will have their interface changed to match this new value.
      *
      * @param iface The name of the network interface used for this link.
+     * @hide
      */
-    public void setInterfaceName(@Nullable String iface) {
+    public void setInterfaceName(String iface) {
         mIfaceName = iface;
-        ArrayList<RouteInfo> newRoutes = new ArrayList<>(mRoutes.size());
+        ArrayList<RouteInfo> newRoutes = new ArrayList<RouteInfo>(mRoutes.size());
         for (RouteInfo route : mRoutes) {
             newRoutes.add(routeWithInterface(route));
         }
@@ -225,10 +195,9 @@ public final class LinkProperties implements Parcelable {
     /**
      * @hide
      */
-    @UnsupportedAppUsage
-    public @NonNull List<String> getAllInterfaceNames() {
-        List<String> interfaceNames = new ArrayList<>(mStackedLinks.size() + 1);
-        if (mIfaceName != null) interfaceNames.add(mIfaceName);
+    public List<String> getAllInterfaceNames() {
+        List<String> interfaceNames = new ArrayList<String>(mStackedLinks.size() + 1);
+        if (mIfaceName != null) interfaceNames.add(new String(mIfaceName));
         for (LinkProperties stacked: mStackedLinks.values()) {
             interfaceNames.addAll(stacked.getAllInterfaceNames());
         }
@@ -242,12 +211,11 @@ public final class LinkProperties implements Parcelable {
      * prefix lengths for each address.  This is a simplified utility alternative to
      * {@link LinkProperties#getLinkAddresses}.
      *
-     * @return An unmodifiable {@link List} of {@link InetAddress} for this link.
+     * @return An umodifiable {@link List} of {@link InetAddress} for this link.
      * @hide
      */
-    @UnsupportedAppUsage
-    public @NonNull List<InetAddress> getAddresses() {
-        final List<InetAddress> addresses = new ArrayList<>();
+    public List<InetAddress> getAddresses() {
+        List<InetAddress> addresses = new ArrayList<InetAddress>();
         for (LinkAddress linkAddress : mLinkAddresses) {
             addresses.add(linkAddress.getAddress());
         }
@@ -258,9 +226,8 @@ public final class LinkProperties implements Parcelable {
      * Returns all the addresses on this link and all the links stacked above it.
      * @hide
      */
-    @UnsupportedAppUsage
-    public @NonNull List<InetAddress> getAllAddresses() {
-        List<InetAddress> addresses = new ArrayList<>();
+    public List<InetAddress> getAllAddresses() {
+        List<InetAddress> addresses = new ArrayList<InetAddress>();
         for (LinkAddress linkAddress : mLinkAddresses) {
             addresses.add(linkAddress.getAddress());
         }
@@ -286,9 +253,7 @@ public final class LinkProperties implements Parcelable {
      * @return true if {@code address} was added or updated, false otherwise.
      * @hide
      */
-    @SystemApi
-    @TestApi
-    public boolean addLinkAddress(@NonNull LinkAddress address) {
+    public boolean addLinkAddress(LinkAddress address) {
         if (address == null) {
             return false;
         }
@@ -315,9 +280,7 @@ public final class LinkProperties implements Parcelable {
      * @return true if the address was removed, false if it did not exist.
      * @hide
      */
-    @SystemApi
-    @TestApi
-    public boolean removeLinkAddress(@NonNull LinkAddress toRemove) {
+    public boolean removeLinkAddress(LinkAddress toRemove) {
         int i = findLinkAddressIndex(toRemove);
         if (i >= 0) {
             mLinkAddresses.remove(i);
@@ -332,7 +295,7 @@ public final class LinkProperties implements Parcelable {
      *
      * @return An unmodifiable {@link List} of {@link LinkAddress} for this link.
      */
-    public @NonNull List<LinkAddress> getLinkAddresses() {
+    public List<LinkAddress> getLinkAddresses() {
         return Collections.unmodifiableList(mLinkAddresses);
     }
 
@@ -340,9 +303,9 @@ public final class LinkProperties implements Parcelable {
      * Returns all the addresses on this link and all the links stacked above it.
      * @hide
      */
-    @UnsupportedAppUsage
     public List<LinkAddress> getAllLinkAddresses() {
-        List<LinkAddress> addresses = new ArrayList<>(mLinkAddresses);
+        List<LinkAddress> addresses = new ArrayList<LinkAddress>();
+        addresses.addAll(mLinkAddresses);
         for (LinkProperties stacked: mStackedLinks.values()) {
             addresses.addAll(stacked.getAllLinkAddresses());
         }
@@ -355,8 +318,9 @@ public final class LinkProperties implements Parcelable {
      *
      * @param addresses The {@link Collection} of {@link LinkAddress} to set in this
      *                  object.
+     * @hide
      */
-    public void setLinkAddresses(@NonNull Collection<LinkAddress> addresses) {
+    public void setLinkAddresses(Collection<LinkAddress> addresses) {
         mLinkAddresses.clear();
         for (LinkAddress address: addresses) {
             addLinkAddress(address);
@@ -370,9 +334,7 @@ public final class LinkProperties implements Parcelable {
      * @return true if the DNS server was added, false if it was already present.
      * @hide
      */
-    @TestApi
-    @SystemApi
-    public boolean addDnsServer(@NonNull InetAddress dnsServer) {
+    public boolean addDnsServer(InetAddress dnsServer) {
         if (dnsServer != null && !mDnses.contains(dnsServer)) {
             mDnses.add(dnsServer);
             return true;
@@ -387,19 +349,21 @@ public final class LinkProperties implements Parcelable {
      * @return true if the DNS server was removed, false if it did not exist.
      * @hide
      */
-    @TestApi
-    @SystemApi
-    public boolean removeDnsServer(@NonNull InetAddress dnsServer) {
-        return mDnses.remove(dnsServer);
+    public boolean removeDnsServer(InetAddress dnsServer) {
+        if (dnsServer != null) {
+            return mDnses.remove(dnsServer);
+        }
+        return false;
     }
 
     /**
      * Replaces the DNS servers in this {@code LinkProperties} with
      * the given {@link Collection} of {@link InetAddress} objects.
      *
-     * @param dnsServers The {@link Collection} of DNS servers to set in this object.
+     * @param addresses The {@link Collection} of DNS servers to set in this object.
+     * @hide
      */
-    public void setDnsServers(@NonNull Collection<InetAddress> dnsServers) {
+    public void setDnsServers(Collection<InetAddress> dnsServers) {
         mDnses.clear();
         for (InetAddress dnsServer: dnsServers) {
             addDnsServer(dnsServer);
@@ -409,183 +373,11 @@ public final class LinkProperties implements Parcelable {
     /**
      * Returns all the {@link InetAddress} for DNS servers on this link.
      *
-     * @return An unmodifiable {@link List} of {@link InetAddress} for DNS servers on
+     * @return An umodifiable {@link List} of {@link InetAddress} for DNS servers on
      *         this link.
      */
-    public @NonNull List<InetAddress> getDnsServers() {
+    public List<InetAddress> getDnsServers() {
         return Collections.unmodifiableList(mDnses);
-    }
-
-    /**
-     * Set whether private DNS is currently in use on this network.
-     *
-     * @param usePrivateDns The private DNS state.
-     * @hide
-     */
-    @TestApi
-    @SystemApi
-    public void setUsePrivateDns(boolean usePrivateDns) {
-        mUsePrivateDns = usePrivateDns;
-    }
-
-    /**
-     * Returns whether private DNS is currently in use on this network. When
-     * private DNS is in use, applications must not send unencrypted DNS
-     * queries as doing so could reveal private user information. Furthermore,
-     * if private DNS is in use and {@link #getPrivateDnsServerName} is not
-     * {@code null}, DNS queries must be sent to the specified DNS server.
-     *
-     * @return {@code true} if private DNS is in use, {@code false} otherwise.
-     */
-    public boolean isPrivateDnsActive() {
-        return mUsePrivateDns;
-    }
-
-    /**
-     * Set the name of the private DNS server to which private DNS queries
-     * should be sent when in strict mode. This value should be {@code null}
-     * when private DNS is off or in opportunistic mode.
-     *
-     * @param privateDnsServerName The private DNS server name.
-     * @hide
-     */
-    @TestApi
-    @SystemApi
-    public void setPrivateDnsServerName(@Nullable String privateDnsServerName) {
-        mPrivateDnsServerName = privateDnsServerName;
-    }
-
-    /**
-     * Returns the private DNS server name that is in use. If not {@code null},
-     * private DNS is in strict mode. In this mode, applications should ensure
-     * that all DNS queries are encrypted and sent to this hostname and that
-     * queries are only sent if the hostname's certificate is valid. If
-     * {@code null} and {@link #isPrivateDnsActive} is {@code true}, private
-     * DNS is in opportunistic mode, and applications should ensure that DNS
-     * queries are encrypted and sent to a DNS server returned by
-     * {@link #getDnsServers}. System DNS will handle each of these cases
-     * correctly, but applications implementing their own DNS lookups must make
-     * sure to follow these requirements.
-     *
-     * @return The private DNS server name.
-     */
-    public @Nullable String getPrivateDnsServerName() {
-        return mPrivateDnsServerName;
-    }
-
-    /**
-     * Adds the given {@link InetAddress} to the list of validated private DNS servers,
-     * if not present. This is distinct from the server name in that these are actually
-     * resolved addresses.
-     *
-     * @param dnsServer The {@link InetAddress} to add to the list of validated private DNS servers.
-     * @return true if the DNS server was added, false if it was already present.
-     * @hide
-     */
-    public boolean addValidatedPrivateDnsServer(@NonNull InetAddress dnsServer) {
-        if (dnsServer != null && !mValidatedPrivateDnses.contains(dnsServer)) {
-            mValidatedPrivateDnses.add(dnsServer);
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Removes the given {@link InetAddress} from the list of validated private DNS servers.
-     *
-     * @param dnsServer The {@link InetAddress} to remove from the list of validated private DNS
-     *        servers.
-     * @return true if the DNS server was removed, false if it did not exist.
-     * @hide
-     */
-    public boolean removeValidatedPrivateDnsServer(@NonNull InetAddress dnsServer) {
-        return mValidatedPrivateDnses.remove(dnsServer);
-    }
-
-    /**
-     * Replaces the validated private DNS servers in this {@code LinkProperties} with
-     * the given {@link Collection} of {@link InetAddress} objects.
-     *
-     * @param dnsServers The {@link Collection} of validated private DNS servers to set in this
-     *        object.
-     * @hide
-     */
-    @TestApi
-    @SystemApi
-    public void setValidatedPrivateDnsServers(@NonNull Collection<InetAddress> dnsServers) {
-        mValidatedPrivateDnses.clear();
-        for (InetAddress dnsServer: dnsServers) {
-            addValidatedPrivateDnsServer(dnsServer);
-        }
-    }
-
-    /**
-     * Returns all the {@link InetAddress} for validated private DNS servers on this link.
-     * These are resolved from the private DNS server name.
-     *
-     * @return An unmodifiable {@link List} of {@link InetAddress} for validated private
-     *         DNS servers on this link.
-     * @hide
-     */
-    @TestApi
-    @SystemApi
-    public @NonNull List<InetAddress> getValidatedPrivateDnsServers() {
-        return Collections.unmodifiableList(mValidatedPrivateDnses);
-    }
-
-    /**
-     * Adds the given {@link InetAddress} to the list of PCSCF servers, if not present.
-     *
-     * @param pcscfServer The {@link InetAddress} to add to the list of PCSCF servers.
-     * @return true if the PCSCF server was added, false otherwise.
-     * @hide
-     */
-    public boolean addPcscfServer(@NonNull InetAddress pcscfServer) {
-        if (pcscfServer != null && !mPcscfs.contains(pcscfServer)) {
-            mPcscfs.add(pcscfServer);
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Removes the given {@link InetAddress} from the list of PCSCF servers.
-     *
-     * @param pcscfServer The {@link InetAddress} to remove from the list of PCSCF servers.
-     * @return true if the PCSCF server was removed, false otherwise.
-     * @hide
-     */
-    public boolean removePcscfServer(@NonNull InetAddress pcscfServer) {
-        return mPcscfs.remove(pcscfServer);
-    }
-
-    /**
-     * Replaces the PCSCF servers in this {@code LinkProperties} with
-     * the given {@link Collection} of {@link InetAddress} objects.
-     *
-     * @param pcscfServers The {@link Collection} of PCSCF servers to set in this object.
-     * @hide
-     */
-    @SystemApi
-    @TestApi
-    public void setPcscfServers(@NonNull Collection<InetAddress> pcscfServers) {
-        mPcscfs.clear();
-        for (InetAddress pcscfServer: pcscfServers) {
-            addPcscfServer(pcscfServer);
-        }
-    }
-
-    /**
-     * Returns all the {@link InetAddress} for PCSCF servers on this link.
-     *
-     * @return An unmodifiable {@link List} of {@link InetAddress} for PCSCF servers on
-     *         this link.
-     * @hide
-     */
-    @SystemApi
-    @TestApi
-    public @NonNull List<InetAddress> getPcscfServers() {
-        return Collections.unmodifiableList(mPcscfs);
     }
 
     /**
@@ -593,18 +385,19 @@ public final class LinkProperties implements Parcelable {
      *
      * @param domains A {@link String} listing in priority order the comma separated
      *                domains to search when resolving host names on this link.
+     * @hide
      */
-    public void setDomains(@Nullable String domains) {
+    public void setDomains(String domains) {
         mDomains = domains;
     }
 
     /**
-     * Get the DNS domains search path set for this link. May be {@code null} if not set.
+     * Get the DNS domains search path set for this link.
      *
-     * @return A {@link String} containing the comma separated domains to search when resolving host
-     *         names on this link or {@code null}.
+     * @return A {@link String} containing the comma separated domains to search when resolving
+     *         host names on this link.
      */
-    public @Nullable String getDomains() {
+    public String getDomains() {
         return mDomains;
     }
 
@@ -614,6 +407,7 @@ public final class LinkProperties implements Parcelable {
      * 10000 will be ignored.
      *
      * @param mtu The MTU to use for this link.
+     * @hide
      */
     public void setMtu(int mtu) {
         mMtu = mtu;
@@ -624,6 +418,7 @@ public final class LinkProperties implements Parcelable {
      * this will return 0.
      *
      * @return The mtu value set for this link.
+     * @hide
      */
     public int getMtu() {
         return mMtu;
@@ -637,23 +432,58 @@ public final class LinkProperties implements Parcelable {
      *
      * @hide
      */
-    @TestApi
-    @SystemApi
-    public void setTcpBufferSizes(@Nullable String tcpBufferSizes) {
+    public void setTcpBufferSizes(String tcpBufferSizes) {
         mTcpBufferSizes = tcpBufferSizes;
     }
 
     /**
-     * Gets the tcp buffer sizes. May be {@code null} if not set.
+     * Gets the tcp buffer sizes.
      *
-     * @return the tcp buffer sizes to use when this link is the system default or {@code null}.
+     * @return the tcp buffer sizes to use when this link is the system default.
      *
      * @hide
      */
-    @TestApi
-    @SystemApi
-    public @Nullable String getTcpBufferSizes() {
+    public String getTcpBufferSizes() {
         return mTcpBufferSizes;
+    }
+
+    /**
+     * Number of full MSS to receive before Acking RFC2581
+     * @param segments The number of segments to receive
+     *
+     * @hide
+     */
+    public void setTcpDelayedAckSegments(int segments) {
+        mTcpDelayedAckSegments = segments;
+    }
+
+    /**
+     * Gets the number of segments before acking
+     *
+     * @hide
+     */
+    public int getTcpDelayedAckSegments() {
+        return mTcpDelayedAckSegments;
+    }
+
+    /**
+     * Sets the value for TCP usercfg
+     *
+     * @param value 0/1 currently to disable/enable
+     *
+     * @hide
+     */
+    public void setTcpUserCfg(int value) {
+        mTcpUserCfg = value;
+    }
+
+    /**
+     * Gets the value of TCP usercfg
+     *
+     * @hide
+     */
+    public int getTcpUserCfg() {
+        return mTcpUserCfg;
     }
 
     private RouteInfo routeWithInterface(RouteInfo route) {
@@ -672,18 +502,22 @@ public final class LinkProperties implements Parcelable {
      *
      * @param route A {@link RouteInfo} to add to this object.
      * @return {@code false} if the route was already present, {@code true} if it was added.
+     *
+     * @hide
      */
-    public boolean addRoute(@NonNull RouteInfo route) {
-        String routeIface = route.getInterface();
-        if (routeIface != null && !routeIface.equals(mIfaceName)) {
-            throw new IllegalArgumentException(
-                    "Route added with non-matching interface: " + routeIface
-                            + " vs. " + mIfaceName);
-        }
-        route = routeWithInterface(route);
-        if (!mRoutes.contains(route)) {
-            mRoutes.add(route);
-            return true;
+    public boolean addRoute(RouteInfo route) {
+        if (route != null) {
+            String routeIface = route.getInterface();
+            if (routeIface != null && !routeIface.equals(mIfaceName)) {
+                throw new IllegalArgumentException(
+                   "Route added with non-matching interface: " + routeIface +
+                   " vs. " + mIfaceName);
+            }
+            route = routeWithInterface(route);
+            if (!mRoutes.contains(route)) {
+                mRoutes.add(route);
+                return true;
+            }
         }
         return false;
     }
@@ -697,10 +531,10 @@ public final class LinkProperties implements Parcelable {
      *
      * @hide
      */
-    @TestApi
-    @SystemApi
-    public boolean removeRoute(@NonNull RouteInfo route) {
-        return Objects.equals(mIfaceName, route.getInterface()) && mRoutes.remove(route);
+    public boolean removeRoute(RouteInfo route) {
+        return route != null &&
+                Objects.equals(mIfaceName, route.getInterface()) &&
+                mRoutes.remove(route);
     }
 
     /**
@@ -708,28 +542,17 @@ public final class LinkProperties implements Parcelable {
      *
      * @return An unmodifiable {@link List} of {@link RouteInfo} for this link.
      */
-    public @NonNull List<RouteInfo> getRoutes() {
+    public List<RouteInfo> getRoutes() {
         return Collections.unmodifiableList(mRoutes);
-    }
-
-    /**
-     * Make sure this LinkProperties instance contains routes that cover the local subnet
-     * of its link addresses. Add any route that is missing.
-     * @hide
-     */
-    public void ensureDirectlyConnectedRoutes() {
-        for (LinkAddress addr : mLinkAddresses) {
-            addRoute(new RouteInfo(addr, null, mIfaceName));
-        }
     }
 
     /**
      * Returns all the routes on this link and all the links stacked above it.
      * @hide
      */
-    @UnsupportedAppUsage
-    public @NonNull List<RouteInfo> getAllRoutes() {
-        List<RouteInfo> routes = new ArrayList<>(mRoutes);
+    public List<RouteInfo> getAllRoutes() {
+        List<RouteInfo> routes = new ArrayList();
+        routes.addAll(mRoutes);
         for (LinkProperties stacked: mStackedLinks.values()) {
             routes.addAll(stacked.getAllRoutes());
         }
@@ -742,64 +565,34 @@ public final class LinkProperties implements Parcelable {
      * not enforce it and applications may ignore them.
      *
      * @param proxy A {@link ProxyInfo} defining the HTTP Proxy to use on this link.
+     * @hide
      */
-    public void setHttpProxy(@Nullable ProxyInfo proxy) {
+    public void setHttpProxy(ProxyInfo proxy) {
         mHttpProxy = proxy;
     }
 
     /**
      * Gets the recommended {@link ProxyInfo} (or {@code null}) set on this link.
      *
-     * @return The {@link ProxyInfo} set on this link or {@code null}.
+     * @return The {@link ProxyInfo} set on this link
      */
-    public @Nullable ProxyInfo getHttpProxy() {
+    public ProxyInfo getHttpProxy() {
         return mHttpProxy;
-    }
-
-    /**
-     * Returns the NAT64 prefix in use on this link, if any.
-     *
-     * @return the NAT64 prefix or {@code null}.
-     * @hide
-     */
-    @SystemApi
-    @TestApi
-    public @Nullable IpPrefix getNat64Prefix() {
-        return mNat64Prefix;
-    }
-
-    /**
-     * Sets the NAT64 prefix in use on this link.
-     *
-     * Currently, only 96-bit prefixes (i.e., where the 32-bit IPv4 address is at the end of the
-     * 128-bit IPv6 address) are supported or {@code null} for no prefix.
-     *
-     * @param prefix the NAT64 prefix.
-     * @hide
-     */
-    @SystemApi
-    @TestApi
-    public void setNat64Prefix(@Nullable IpPrefix prefix) {
-        if (prefix != null && prefix.getPrefixLength() != 96) {
-            throw new IllegalArgumentException("Only 96-bit prefixes are supported: " + prefix);
-        }
-        mNat64Prefix = prefix;  // IpPrefix objects are immutable.
     }
 
     /**
      * Adds a stacked link.
      *
-     * If there is already a stacked link with the same interface name as link,
+     * If there is already a stacked link with the same interfacename as link,
      * that link is replaced with link. Otherwise, link is added to the list
-     * of stacked links.
+     * of stacked links. If link is null, nothing changes.
      *
      * @param link The link to add.
      * @return true if the link was stacked, false otherwise.
      * @hide
      */
-    @UnsupportedAppUsage
-    public boolean addStackedLink(@NonNull LinkProperties link) {
-        if (link.getInterfaceName() != null) {
+    public boolean addStackedLink(LinkProperties link) {
+        if (link != null && link.getInterfaceName() != null) {
             mStackedLinks.put(link.getInterfaceName(), link);
             return true;
         }
@@ -816,21 +609,23 @@ public final class LinkProperties implements Parcelable {
      * @return true if the link was removed, false otherwise.
      * @hide
      */
-    public boolean removeStackedLink(@NonNull String iface) {
-        LinkProperties removed = mStackedLinks.remove(iface);
-        return removed != null;
+    public boolean removeStackedLink(String iface) {
+        if (iface != null) {
+            LinkProperties removed = mStackedLinks.remove(iface);
+            return removed != null;
+        }
+        return false;
     }
 
     /**
      * Returns all the links stacked on top of this link.
      * @hide
      */
-    @UnsupportedAppUsage
     public @NonNull List<LinkProperties> getStackedLinks() {
         if (mStackedLinks.isEmpty()) {
-            return Collections.emptyList();
+            return Collections.EMPTY_LIST;
         }
-        final List<LinkProperties> stacked = new ArrayList<>();
+        List<LinkProperties> stacked = new ArrayList<LinkProperties>();
         for (LinkProperties link : mStackedLinks.values()) {
             stacked.add(new LinkProperties(link));
         }
@@ -839,21 +634,20 @@ public final class LinkProperties implements Parcelable {
 
     /**
      * Clears this object to its initial state.
+     * @hide
      */
     public void clear() {
         mIfaceName = null;
         mLinkAddresses.clear();
         mDnses.clear();
-        mUsePrivateDns = false;
-        mPrivateDnsServerName = null;
-        mPcscfs.clear();
         mDomains = null;
         mRoutes.clear();
         mHttpProxy = null;
         mStackedLinks.clear();
         mMtu = 0;
         mTcpBufferSizes = null;
-        mNat64Prefix = null;
+        mTcpDelayedAckSegments = 1;
+        mTcpUserCfg = 0;
     }
 
     /**
@@ -865,87 +659,40 @@ public final class LinkProperties implements Parcelable {
 
     @Override
     public String toString() {
-        // Space as a separator, so no need for spaces at start/end of the individual fragments.
-        final StringJoiner resultJoiner = new StringJoiner(" ", "{", "}");
+        String ifaceName = (mIfaceName == null ? "" : "InterfaceName: " + mIfaceName + " ");
 
-        if (mIfaceName != null) {
-            resultJoiner.add("InterfaceName:");
-            resultJoiner.add(mIfaceName);
-        }
+        String linkAddresses = "LinkAddresses: [";
+        for (LinkAddress addr : mLinkAddresses) linkAddresses += addr.toString() + ",";
+        linkAddresses += "] ";
 
-        resultJoiner.add("LinkAddresses: [");
-        if (!mLinkAddresses.isEmpty()) {
-            resultJoiner.add(TextUtils.join(",", mLinkAddresses));
-        }
-        resultJoiner.add("]");
+        String dns = "DnsAddresses: [";
+        for (InetAddress addr : mDnses) dns += addr.getHostAddress() + ",";
+        dns += "] ";
 
-        resultJoiner.add("DnsAddresses: [");
-        if (!mDnses.isEmpty()) {
-            resultJoiner.add(TextUtils.join(",", mDnses));
-        }
-        resultJoiner.add("]");
+        String domainName = "Domains: " + mDomains;
 
-        if (mUsePrivateDns) {
-            resultJoiner.add("UsePrivateDns: true");
-        }
+        String mtu = " MTU: " + mMtu;
 
-        if (mPrivateDnsServerName != null) {
-            resultJoiner.add("PrivateDnsServerName:");
-            resultJoiner.add(mPrivateDnsServerName);
-        }
-
-        if (!mPcscfs.isEmpty()) {
-            resultJoiner.add("PcscfAddresses: [");
-            resultJoiner.add(TextUtils.join(",", mPcscfs));
-            resultJoiner.add("]");
-        }
-
-        if (!mValidatedPrivateDnses.isEmpty()) {
-            final StringJoiner validatedPrivateDnsesJoiner =
-                    new StringJoiner(",", "ValidatedPrivateDnsAddresses: [", "]");
-            for (final InetAddress addr : mValidatedPrivateDnses) {
-                validatedPrivateDnsesJoiner.add(addr.getHostAddress());
-            }
-            resultJoiner.add(validatedPrivateDnsesJoiner.toString());
-        }
-
-        resultJoiner.add("Domains:");
-        resultJoiner.add(mDomains);
-
-        resultJoiner.add("MTU:");
-        resultJoiner.add(Integer.toString(mMtu));
-
+        String tcpBuffSizes = "";
         if (mTcpBufferSizes != null) {
-            resultJoiner.add("TcpBufferSizes:");
-            resultJoiner.add(mTcpBufferSizes);
+            tcpBuffSizes = " TcpBufferSizes: " + mTcpBufferSizes;
         }
 
-        resultJoiner.add("Routes: [");
-        if (!mRoutes.isEmpty()) {
-            resultJoiner.add(TextUtils.join(",", mRoutes));
-        }
-        resultJoiner.add("]");
+        String routes = " Routes: [";
+        for (RouteInfo route : mRoutes) routes += route.toString() + ",";
+        routes += "] ";
+        String proxy = (mHttpProxy == null ? "" : " HttpProxy: " + mHttpProxy.toString() + " ");
 
-        if (mHttpProxy != null) {
-            resultJoiner.add("HttpProxy:");
-            resultJoiner.add(mHttpProxy.toString());
-        }
-
-        if (mNat64Prefix != null) {
-            resultJoiner.add("Nat64Prefix:");
-            resultJoiner.add(mNat64Prefix.toString());
-        }
-
-        final Collection<LinkProperties> stackedLinksValues = mStackedLinks.values();
-        if (!stackedLinksValues.isEmpty()) {
-            final StringJoiner stackedLinksJoiner = new StringJoiner(",", "Stacked: [", "]");
-            for (final LinkProperties lp : stackedLinksValues) {
-                stackedLinksJoiner.add("[ " + lp + " ]");
+        String stacked = "";
+        if (mStackedLinks.values().size() > 0) {
+            stacked += " Stacked: [";
+            for (LinkProperties link: mStackedLinks.values()) {
+                stacked += " [" + link.toString() + " ],";
             }
-            resultJoiner.add(stackedLinksJoiner.toString());
+            stacked += "] ";
         }
-
-        return resultJoiner.toString();
+        return "{" + ifaceName + linkAddresses + routes + dns + domainName + mtu
+            + tcpBuffSizes + proxy + stacked + "}";
     }
 
     /**
@@ -954,27 +701,13 @@ public final class LinkProperties implements Parcelable {
      * @return {@code true} if there is an IPv4 address, {@code false} otherwise.
      * @hide
      */
-    @TestApi
-    @SystemApi
-    public boolean hasIpv4Address() {
+    public boolean hasIPv4Address() {
         for (LinkAddress address : mLinkAddresses) {
-            if (address.getAddress() instanceof Inet4Address) {
-                return true;
-            }
+          if (address.getAddress() instanceof Inet4Address) {
+            return true;
+          }
         }
         return false;
-    }
-
-    /**
-     * For backward compatibility.
-     * This was annotated with @UnsupportedAppUsage in P, so we can't remove the method completely
-     * just yet.
-     * @return {@code true} if there is an IPv4 address, {@code false} otherwise.
-     * @hide
-     */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P)
-    public boolean hasIPv4Address() {
-        return hasIpv4Address();
     }
 
     /**
@@ -982,11 +715,11 @@ public final class LinkProperties implements Parcelable {
      *
      * @return {@code true} if there is an IPv4 address, {@code false} otherwise.
      */
-    private boolean hasIpv4AddressOnInterface(String iface) {
+    private boolean hasIPv4AddressOnInterface(String iface) {
         // mIfaceName can be null.
-        return (Objects.equals(iface, mIfaceName) && hasIpv4Address())
-                || (iface != null && mStackedLinks.containsKey(iface)
-                        && mStackedLinks.get(iface).hasIpv4Address());
+        return (Objects.equals(iface, mIfaceName) && hasIPv4Address()) ||
+                (iface != null && mStackedLinks.containsKey(iface) &&
+                        mStackedLinks.get(iface).hasIPv4Address());
     }
 
     /**
@@ -995,9 +728,7 @@ public final class LinkProperties implements Parcelable {
      * @return {@code true} if there is a global preferred IPv6 address, {@code false} otherwise.
      * @hide
      */
-    @TestApi
-    @SystemApi
-    public boolean hasGlobalIpv6Address() {
+    public boolean hasGlobalIPv6Address() {
         for (LinkAddress address : mLinkAddresses) {
           if (address.getAddress() instanceof Inet6Address && address.isGlobalPreferred()) {
             return true;
@@ -1007,43 +738,18 @@ public final class LinkProperties implements Parcelable {
     }
 
     /**
-     * For backward compatibility.
-     * This was annotated with @UnsupportedAppUsage in P, so we can't remove the method completely
-     * just yet.
-     * @return {@code true} if there is a global preferred IPv6 address, {@code false} otherwise.
-     * @hide
-     */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P)
-    public boolean hasGlobalIPv6Address() {
-        return hasGlobalIpv6Address();
-    }
-
-    /**
      * Returns true if this link has an IPv4 default route.
      *
      * @return {@code true} if there is an IPv4 default route, {@code false} otherwise.
      * @hide
      */
-    @UnsupportedAppUsage
-    public boolean hasIpv4DefaultRoute() {
+    public boolean hasIPv4DefaultRoute() {
         for (RouteInfo r : mRoutes) {
-            if (r.isIPv4Default()) {
-                return true;
-            }
+          if (r.isIPv4Default()) {
+            return true;
+          }
         }
         return false;
-    }
-
-    /**
-     * For backward compatibility.
-     * This was annotated with @UnsupportedAppUsage in P, so we can't remove the method completely
-     * just yet.
-     * @return {@code true} if there is an IPv4 default route, {@code false} otherwise.
-     * @hide
-     */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P)
-    public boolean hasIPv4DefaultRoute() {
-        return hasIpv4DefaultRoute();
     }
 
     /**
@@ -1052,27 +758,13 @@ public final class LinkProperties implements Parcelable {
      * @return {@code true} if there is an IPv6 default route, {@code false} otherwise.
      * @hide
      */
-    @TestApi
-    @SystemApi
-    public boolean hasIpv6DefaultRoute() {
+    public boolean hasIPv6DefaultRoute() {
         for (RouteInfo r : mRoutes) {
-            if (r.isIPv6Default()) {
-                return true;
-            }
+          if (r.isIPv6Default()) {
+            return true;
+          }
         }
         return false;
-    }
-
-    /**
-     * For backward compatibility.
-     * This was annotated with @UnsupportedAppUsage in P, so we can't remove the method completely
-     * just yet.
-     * @return {@code true} if there is an IPv6 default route, {@code false} otherwise.
-     * @hide
-     */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P)
-    public boolean hasIPv6DefaultRoute() {
-        return hasIpv6DefaultRoute();
     }
 
     /**
@@ -1081,64 +773,8 @@ public final class LinkProperties implements Parcelable {
      * @return {@code true} if there is an IPv4 DNS server, {@code false} otherwise.
      * @hide
      */
-    @UnsupportedAppUsage
-    public boolean hasIpv4DnsServer() {
-        for (InetAddress ia : mDnses) {
-            if (ia instanceof Inet4Address) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * For backward compatibility.
-     * This was annotated with @UnsupportedAppUsage in P, so we can't remove the method completely
-     * just yet.
-     * @return {@code true} if there is an IPv4 DNS server, {@code false} otherwise.
-     * @hide
-     */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P)
     public boolean hasIPv4DnsServer() {
-        return hasIpv4DnsServer();
-    }
-
-    /**
-     * Returns true if this link has an IPv6 DNS server.
-     *
-     * @return {@code true} if there is an IPv6 DNS server, {@code false} otherwise.
-     * @hide
-     */
-    @UnsupportedAppUsage
-    public boolean hasIpv6DnsServer() {
         for (InetAddress ia : mDnses) {
-            if (ia instanceof Inet6Address) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * For backward compatibility.
-     * This was annotated with @UnsupportedAppUsage in P, so we can't remove the method completely
-     * just yet.
-     * @return {@code true} if there is an IPv6 DNS server, {@code false} otherwise.
-     * @hide
-     */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P)
-    public boolean hasIPv6DnsServer() {
-        return hasIpv6DnsServer();
-    }
-
-    /**
-     * Returns true if this link has an IPv4 PCSCF server.
-     *
-     * @return {@code true} if there is an IPv4 PCSCF server, {@code false} otherwise.
-     * @hide
-     */
-    public boolean hasIpv4PcscfServer() {
-        for (InetAddress ia : mPcscfs) {
           if (ia instanceof Inet4Address) {
             return true;
           }
@@ -1147,13 +783,13 @@ public final class LinkProperties implements Parcelable {
     }
 
     /**
-     * Returns true if this link has an IPv6 PCSCF server.
+     * Returns true if this link has an IPv6 DNS server.
      *
-     * @return {@code true} if there is an IPv6 PCSCF server, {@code false} otherwise.
+     * @return {@code true} if there is an IPv6 DNS server, {@code false} otherwise.
      * @hide
      */
-    public boolean hasIpv6PcscfServer() {
-        for (InetAddress ia : mPcscfs) {
+    public boolean hasIPv6DnsServer() {
+        for (InetAddress ia : mDnses) {
           if (ia instanceof Inet6Address) {
             return true;
           }
@@ -1168,12 +804,10 @@ public final class LinkProperties implements Parcelable {
      * @return {@code true} if the link is provisioned, {@code false} otherwise.
      * @hide
      */
-    @TestApi
-    @SystemApi
-    public boolean isIpv4Provisioned() {
-        return (hasIpv4Address()
-                && hasIpv4DefaultRoute()
-                && hasIpv4DnsServer());
+    public boolean isIPv4Provisioned() {
+        return (hasIPv4Address() &&
+                hasIPv4DefaultRoute() &&
+                hasIPv4DnsServer());
     }
 
     /**
@@ -1183,26 +817,11 @@ public final class LinkProperties implements Parcelable {
      * @return {@code true} if the link is provisioned, {@code false} otherwise.
      * @hide
      */
-    @TestApi
-    @SystemApi
-    public boolean isIpv6Provisioned() {
-        return (hasGlobalIpv6Address()
-                && hasIpv6DefaultRoute()
-                && hasIpv6DnsServer());
-    }
-
-    /**
-     * For backward compatibility.
-     * This was annotated with @UnsupportedAppUsage in P, so we can't remove the method completely
-     * just yet.
-     * @return {@code true} if the link is provisioned, {@code false} otherwise.
-     * @hide
-     */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P)
     public boolean isIPv6Provisioned() {
-        return isIpv6Provisioned();
+        return (hasGlobalIPv6Address() &&
+                hasIPv6DefaultRoute() &&
+                hasIPv6DnsServer());
     }
-
 
     /**
      * Returns true if this link is provisioned for global connectivity,
@@ -1211,10 +830,8 @@ public final class LinkProperties implements Parcelable {
      * @return {@code true} if the link is provisioned, {@code false} otherwise.
      * @hide
      */
-    @TestApi
-    @SystemApi
     public boolean isProvisioned() {
-        return (isIpv4Provisioned() || isIpv6Provisioned());
+        return (isIPv4Provisioned() || isIPv6Provisioned());
     }
 
     /**
@@ -1224,9 +841,7 @@ public final class LinkProperties implements Parcelable {
      *         {@code false} otherwise.
      * @hide
      */
-    @TestApi
-    @SystemApi
-    public boolean isReachable(@NonNull InetAddress ip) {
+    public boolean isReachable(InetAddress ip) {
         final List<RouteInfo> allRoutes = getAllRoutes();
         // If we don't have a route to this IP address, it's not reachable.
         final RouteInfo bestRoute = RouteInfo.selectBestRoute(allRoutes, ip);
@@ -1238,7 +853,7 @@ public final class LinkProperties implements Parcelable {
 
         if (ip instanceof Inet4Address) {
             // For IPv4, it suffices for now to simply have any address.
-            return hasIpv4AddressOnInterface(bestRoute.getInterface());
+            return hasIPv4AddressOnInterface(bestRoute.getInterface());
         } else if (ip instanceof Inet6Address) {
             if (ip.isLinkLocalAddress()) {
                 // For now, just make sure link-local destinations have
@@ -1249,7 +864,7 @@ public final class LinkProperties implements Parcelable {
                 // For non-link-local destinations check that either the best route
                 // is directly connected or that some global preferred address exists.
                 // TODO: reconsider all cases (disconnected ULA networks, ...).
-                return (!bestRoute.hasGateway() || hasGlobalIpv6Address());
+                return (!bestRoute.hasGateway() || hasGlobalIPv6Address());
             }
         }
 
@@ -1263,8 +878,7 @@ public final class LinkProperties implements Parcelable {
      * @return {@code true} if both are identical, {@code false} otherwise.
      * @hide
      */
-    @UnsupportedAppUsage
-    public boolean isIdenticalInterfaceName(@NonNull LinkProperties target) {
+    public boolean isIdenticalInterfaceName(LinkProperties target) {
         return TextUtils.equals(getInterfaceName(), target.getInterfaceName());
     }
 
@@ -1275,8 +889,7 @@ public final class LinkProperties implements Parcelable {
      * @return {@code true} if both are identical, {@code false} otherwise.
      * @hide
      */
-    @UnsupportedAppUsage
-    public boolean isIdenticalAddresses(@NonNull LinkProperties target) {
+    public boolean isIdenticalAddresses(LinkProperties target) {
         Collection<InetAddress> targetAddresses = target.getAddresses();
         Collection<InetAddress> sourceAddresses = getAddresses();
         return (sourceAddresses.size() == targetAddresses.size()) ?
@@ -1290,58 +903,16 @@ public final class LinkProperties implements Parcelable {
      * @return {@code true} if both are identical, {@code false} otherwise.
      * @hide
      */
-    @UnsupportedAppUsage
-    public boolean isIdenticalDnses(@NonNull LinkProperties target) {
+    public boolean isIdenticalDnses(LinkProperties target) {
         Collection<InetAddress> targetDnses = target.getDnsServers();
         String targetDomains = target.getDomains();
         if (mDomains == null) {
             if (targetDomains != null) return false;
         } else {
-            if (!mDomains.equals(targetDomains)) return false;
+            if (mDomains.equals(targetDomains) == false) return false;
         }
         return (mDnses.size() == targetDnses.size()) ?
-                mDnses.containsAll(targetDnses) : false;
-    }
-
-    /**
-     * Compares this {@code LinkProperties} private DNS settings against the
-     * target.
-     *
-     * @param target LinkProperties to compare.
-     * @return {@code true} if both are identical, {@code false} otherwise.
-     * @hide
-     */
-    public boolean isIdenticalPrivateDns(@NonNull LinkProperties target) {
-        return (isPrivateDnsActive() == target.isPrivateDnsActive()
-                && TextUtils.equals(getPrivateDnsServerName(),
-                target.getPrivateDnsServerName()));
-    }
-
-    /**
-     * Compares this {@code LinkProperties} validated private DNS addresses against
-     * the target
-     *
-     * @param target LinkProperties to compare.
-     * @return {@code true} if both are identical, {@code false} otherwise.
-     * @hide
-     */
-    public boolean isIdenticalValidatedPrivateDnses(@NonNull LinkProperties target) {
-        Collection<InetAddress> targetDnses = target.getValidatedPrivateDnsServers();
-        return (mValidatedPrivateDnses.size() == targetDnses.size())
-                ? mValidatedPrivateDnses.containsAll(targetDnses) : false;
-    }
-
-    /**
-     * Compares this {@code LinkProperties} PCSCF addresses against the target
-     *
-     * @param target LinkProperties to compare.
-     * @return {@code true} if both are identical, {@code false} otherwise.
-     * @hide
-     */
-    public boolean isIdenticalPcscfs(@NonNull LinkProperties target) {
-        Collection<InetAddress> targetPcscfs = target.getPcscfServers();
-        return (mPcscfs.size() == targetPcscfs.size()) ?
-                    mPcscfs.containsAll(targetPcscfs) : false;
+                    mDnses.containsAll(targetDnses) : false;
     }
 
     /**
@@ -1351,11 +922,10 @@ public final class LinkProperties implements Parcelable {
      * @return {@code true} if both are identical, {@code false} otherwise.
      * @hide
      */
-    @UnsupportedAppUsage
-    public boolean isIdenticalRoutes(@NonNull LinkProperties target) {
+    public boolean isIdenticalRoutes(LinkProperties target) {
         Collection<RouteInfo> targetRoutes = target.getRoutes();
         return (mRoutes.size() == targetRoutes.size()) ?
-                mRoutes.containsAll(targetRoutes) : false;
+                    mRoutes.containsAll(targetRoutes) : false;
     }
 
     /**
@@ -1365,10 +935,9 @@ public final class LinkProperties implements Parcelable {
      * @return {@code true} if both are identical, {@code false} otherwise.
      * @hide
      */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
-    public boolean isIdenticalHttpProxy(@NonNull LinkProperties target) {
+    public boolean isIdenticalHttpProxy(LinkProperties target) {
         return getHttpProxy() == null ? target.getHttpProxy() == null :
-                getHttpProxy().equals(target.getHttpProxy());
+                    getHttpProxy().equals(target.getHttpProxy());
     }
 
     /**
@@ -1378,8 +947,7 @@ public final class LinkProperties implements Parcelable {
      * @return {@code true} if both are identical, {@code false} otherwise.
      * @hide
      */
-    @UnsupportedAppUsage
-    public boolean isIdenticalStackedLinks(@NonNull LinkProperties target) {
+    public boolean isIdenticalStackedLinks(LinkProperties target) {
         if (!mStackedLinks.keySet().equals(target.mStackedLinks.keySet())) {
             return false;
         }
@@ -1400,7 +968,7 @@ public final class LinkProperties implements Parcelable {
      * @return {@code true} if both are identical, {@code false} otherwise.
      * @hide
      */
-    public boolean isIdenticalMtu(@NonNull LinkProperties target) {
+    public boolean isIdenticalMtu(LinkProperties target) {
         return getMtu() == target.getMtu();
     }
 
@@ -1411,21 +979,11 @@ public final class LinkProperties implements Parcelable {
      * @return {@code true} if both are identical, {@code false} otherwise.
      * @hide
      */
-    public boolean isIdenticalTcpBufferSizes(@NonNull LinkProperties target) {
+    public boolean isIdenticalTcpBufferSizes(LinkProperties target) {
         return Objects.equals(mTcpBufferSizes, target.mTcpBufferSizes);
     }
 
-    /**
-     * Compares this {@code LinkProperties} NAT64 prefix against the target.
-     *
-     * @param target LinkProperties to compare.
-     * @return {@code true} if both are identical, {@code false} otherwise.
-     * @hide
-     */
-    public boolean isIdenticalNat64Prefix(@NonNull LinkProperties target) {
-        return Objects.equals(mNat64Prefix, target.mNat64Prefix);
-    }
-
+    @Override
     /**
      * Compares this {@code LinkProperties} instance against the target
      * LinkProperties in {@code obj}. Two LinkPropertieses are equal if
@@ -1440,30 +998,25 @@ public final class LinkProperties implements Parcelable {
      * @param obj the object to be tested for equality.
      * @return {@code true} if both objects are equal, {@code false} otherwise.
      */
-    @Override
     public boolean equals(Object obj) {
         if (this == obj) return true;
 
         if (!(obj instanceof LinkProperties)) return false;
 
         LinkProperties target = (LinkProperties) obj;
-        /*
+        /**
          * This method does not check that stacked interfaces are equal, because
          * stacked interfaces are not so much a property of the link as a
          * description of connections between links.
          */
-        return isIdenticalInterfaceName(target)
-                && isIdenticalAddresses(target)
-                && isIdenticalDnses(target)
-                && isIdenticalPrivateDns(target)
-                && isIdenticalValidatedPrivateDnses(target)
-                && isIdenticalPcscfs(target)
-                && isIdenticalRoutes(target)
-                && isIdenticalHttpProxy(target)
-                && isIdenticalStackedLinks(target)
-                && isIdenticalMtu(target)
-                && isIdenticalTcpBufferSizes(target)
-                && isIdenticalNat64Prefix(target);
+        return isIdenticalInterfaceName(target) &&
+                isIdenticalAddresses(target) &&
+                isIdenticalDnses(target) &&
+                isIdenticalRoutes(target) &&
+                isIdenticalHttpProxy(target) &&
+                isIdenticalStackedLinks(target) &&
+                isIdenticalMtu(target) &&
+                isIdenticalTcpBufferSizes(target);
     }
 
     /**
@@ -1474,7 +1027,7 @@ public final class LinkProperties implements Parcelable {
      * @return the differences between the addresses.
      * @hide
      */
-    public @NonNull CompareResult<LinkAddress> compareAddresses(@Nullable LinkProperties target) {
+    public CompareResult<LinkAddress> compareAddresses(LinkProperties target) {
         /*
          * Duplicate the LinkAddresses into removed, we will be removing
          * address which are common between mLinkAddresses and target
@@ -1482,8 +1035,17 @@ public final class LinkProperties implements Parcelable {
          * are in target but not in mLinkAddresses are placed in the
          * addedAddresses.
          */
-        return new CompareResult<>(mLinkAddresses,
-                target != null ? target.getLinkAddresses() : null);
+        CompareResult<LinkAddress> result = new CompareResult<LinkAddress>();
+        result.removed = new ArrayList<LinkAddress>(mLinkAddresses);
+        result.added.clear();
+        if (target != null) {
+            for (LinkAddress newAddress : target.getLinkAddresses()) {
+                if (! result.removed.remove(newAddress)) {
+                    result.added.add(newAddress);
+                }
+            }
+        }
+        return result;
     }
 
     /**
@@ -1494,7 +1056,7 @@ public final class LinkProperties implements Parcelable {
      * @return the differences between the DNS addresses.
      * @hide
      */
-    public @NonNull CompareResult<InetAddress> compareDnses(@Nullable LinkProperties target) {
+    public CompareResult<InetAddress> compareDnses(LinkProperties target) {
         /*
          * Duplicate the InetAddresses into removed, we will be removing
          * dns address which are common between mDnses and target
@@ -1502,21 +1064,18 @@ public final class LinkProperties implements Parcelable {
          * are in target but not in mDnses are placed in the
          * addedAddresses.
          */
-        return new CompareResult<>(mDnses, target != null ? target.getDnsServers() : null);
-    }
+        CompareResult<InetAddress> result = new CompareResult<InetAddress>();
 
-    /**
-     * Compares the validated private DNS addresses in this LinkProperties with another
-     * LinkProperties.
-     *
-     * @param target a LinkProperties with the new list of validated private dns addresses
-     * @return the differences between the DNS addresses.
-     * @hide
-     */
-    public @NonNull CompareResult<InetAddress> compareValidatedPrivateDnses(
-            @Nullable LinkProperties target) {
-        return new CompareResult<>(mValidatedPrivateDnses,
-                target != null ? target.getValidatedPrivateDnsServers() : null);
+        result.removed = new ArrayList<InetAddress>(mDnses);
+        result.added.clear();
+        if (target != null) {
+            for (InetAddress newAddress : target.getDnsServers()) {
+                if (! result.removed.remove(newAddress)) {
+                    result.added.add(newAddress);
+                }
+            }
+        }
+        return result;
     }
 
     /**
@@ -1527,14 +1086,25 @@ public final class LinkProperties implements Parcelable {
      * @return the differences between the routes.
      * @hide
      */
-    public @NonNull CompareResult<RouteInfo> compareAllRoutes(@Nullable LinkProperties target) {
+    public CompareResult<RouteInfo> compareAllRoutes(LinkProperties target) {
         /*
          * Duplicate the RouteInfos into removed, we will be removing
          * routes which are common between mRoutes and target
          * leaving the routes that are different. And route address which
          * are in target but not in mRoutes are placed in added.
          */
-        return new CompareResult<>(getAllRoutes(), target != null ? target.getAllRoutes() : null);
+        CompareResult<RouteInfo> result = new CompareResult<RouteInfo>();
+
+        result.removed = getAllRoutes();
+        result.added.clear();
+        if (target != null) {
+            for (RouteInfo r : target.getAllRoutes()) {
+                if (! result.removed.remove(r)) {
+                    result.added.add(r);
+                }
+            }
+        }
+        return result;
     }
 
     /**
@@ -1545,41 +1115,44 @@ public final class LinkProperties implements Parcelable {
      * @return the differences between the interface names.
      * @hide
      */
-    public @NonNull CompareResult<String> compareAllInterfaceNames(
-            @Nullable LinkProperties target) {
+    public CompareResult<String> compareAllInterfaceNames(LinkProperties target) {
         /*
          * Duplicate the interface names into removed, we will be removing
          * interface names which are common between this and target
          * leaving the interface names that are different. And interface names which
          * are in target but not in this are placed in added.
          */
-        return new CompareResult<>(getAllInterfaceNames(),
-                target != null ? target.getAllInterfaceNames() : null);
+        CompareResult<String> result = new CompareResult<String>();
+
+        result.removed = getAllInterfaceNames();
+        result.added.clear();
+        if (target != null) {
+            for (String r : target.getAllInterfaceNames()) {
+                if (! result.removed.remove(r)) {
+                    result.added.add(r);
+                }
+            }
+        }
+        return result;
     }
 
 
+    @Override
     /**
-     * Generate hashcode based on significant fields
-     *
+     * generate hashcode based on significant fields
      * Equal objects must produce the same hash code, while unequal objects
      * may have the same hash codes.
      */
-    @Override
     public int hashCode() {
         return ((null == mIfaceName) ? 0 : mIfaceName.hashCode()
                 + mLinkAddresses.size() * 31
                 + mDnses.size() * 37
-                + mValidatedPrivateDnses.size() * 61
                 + ((null == mDomains) ? 0 : mDomains.hashCode())
                 + mRoutes.size() * 41
                 + ((null == mHttpProxy) ? 0 : mHttpProxy.hashCode())
                 + mStackedLinks.hashCode() * 47)
                 + mMtu * 51
-                + ((null == mTcpBufferSizes) ? 0 : mTcpBufferSizes.hashCode())
-                + (mUsePrivateDns ? 57 : 0)
-                + mPcscfs.size() * 67
-                + ((null == mPrivateDnsServerName) ? 0 : mPrivateDnsServerName.hashCode())
-                + Objects.hash(mNat64Prefix);
+                + ((null == mTcpBufferSizes) ? 0 : mTcpBufferSizes.hashCode());
     }
 
     /**
@@ -1588,20 +1161,19 @@ public final class LinkProperties implements Parcelable {
     public void writeToParcel(Parcel dest, int flags) {
         dest.writeString(getInterfaceName());
         dest.writeInt(mLinkAddresses.size());
-        for (LinkAddress linkAddress : mLinkAddresses) {
+        for(LinkAddress linkAddress : mLinkAddresses) {
             dest.writeParcelable(linkAddress, flags);
         }
 
-        writeAddresses(dest, mDnses);
-        writeAddresses(dest, mValidatedPrivateDnses);
-        dest.writeBoolean(mUsePrivateDns);
-        dest.writeString(mPrivateDnsServerName);
-        writeAddresses(dest, mPcscfs);
+        dest.writeInt(mDnses.size());
+        for(InetAddress d : mDnses) {
+            dest.writeByteArray(d.getAddress());
+        }
         dest.writeString(mDomains);
         dest.writeInt(mMtu);
         dest.writeString(mTcpBufferSizes);
         dest.writeInt(mRoutes.size());
-        for (RouteInfo route : mRoutes) {
+        for(RouteInfo route : mRoutes) {
             dest.writeParcelable(route, flags);
         }
 
@@ -1611,45 +1183,14 @@ public final class LinkProperties implements Parcelable {
         } else {
             dest.writeByte((byte)0);
         }
-        dest.writeParcelable(mNat64Prefix, 0);
-
-        ArrayList<LinkProperties> stackedLinks = new ArrayList<>(mStackedLinks.values());
+        ArrayList<LinkProperties> stackedLinks = new ArrayList(mStackedLinks.values());
         dest.writeList(stackedLinks);
-    }
-
-    private static void writeAddresses(@NonNull Parcel dest, @NonNull List<InetAddress> list) {
-        dest.writeInt(list.size());
-        for (InetAddress d : list) {
-            writeAddress(dest, d);
-        }
-    }
-
-    private static void writeAddress(@NonNull Parcel dest, @NonNull InetAddress addr) {
-        dest.writeByteArray(addr.getAddress());
-        if (addr instanceof Inet6Address) {
-            final Inet6Address v6Addr = (Inet6Address) addr;
-            final boolean hasScopeId = v6Addr.getScopeId() != 0;
-            dest.writeBoolean(hasScopeId);
-            if (hasScopeId) dest.writeInt(v6Addr.getScopeId());
-        }
-    }
-
-    @NonNull
-    private static InetAddress readAddress(@NonNull Parcel p) throws UnknownHostException {
-        final byte[] addr = p.createByteArray();
-        if (addr.length == INET6_ADDR_LENGTH) {
-            final boolean hasScopeId = p.readBoolean();
-            final int scopeId = hasScopeId ? p.readInt() : 0;
-            return Inet6Address.getByAddress(null /* host */, addr, scopeId);
-        }
-
-        return InetAddress.getByAddress(addr);
     }
 
     /**
      * Implement the Parcelable interface.
      */
-    public static final @android.annotation.NonNull Creator<LinkProperties> CREATOR =
+    public static final Creator<LinkProperties> CREATOR =
         new Creator<LinkProperties>() {
             public LinkProperties createFromParcel(Parcel in) {
                 LinkProperties netProp = new LinkProperties();
@@ -1659,40 +1200,25 @@ public final class LinkProperties implements Parcelable {
                     netProp.setInterfaceName(iface);
                 }
                 int addressCount = in.readInt();
-                for (int i = 0; i < addressCount; i++) {
-                    netProp.addLinkAddress(in.readParcelable(null));
+                for (int i=0; i<addressCount; i++) {
+                    netProp.addLinkAddress((LinkAddress)in.readParcelable(null));
                 }
                 addressCount = in.readInt();
-                for (int i = 0; i < addressCount; i++) {
+                for (int i=0; i<addressCount; i++) {
                     try {
-                        netProp.addDnsServer(readAddress(in));
-                    } catch (UnknownHostException e) { }
-                }
-                addressCount = in.readInt();
-                for (int i = 0; i < addressCount; i++) {
-                    try {
-                        netProp.addValidatedPrivateDnsServer(readAddress(in));
-                    } catch (UnknownHostException e) { }
-                }
-                netProp.setUsePrivateDns(in.readBoolean());
-                netProp.setPrivateDnsServerName(in.readString());
-                addressCount = in.readInt();
-                for (int i = 0; i < addressCount; i++) {
-                    try {
-                        netProp.addPcscfServer(readAddress(in));
+                        netProp.addDnsServer(InetAddress.getByAddress(in.createByteArray()));
                     } catch (UnknownHostException e) { }
                 }
                 netProp.setDomains(in.readString());
                 netProp.setMtu(in.readInt());
                 netProp.setTcpBufferSizes(in.readString());
                 addressCount = in.readInt();
-                for (int i = 0; i < addressCount; i++) {
-                    netProp.addRoute(in.readParcelable(null));
+                for (int i=0; i<addressCount; i++) {
+                    netProp.addRoute((RouteInfo)in.readParcelable(null));
                 }
                 if (in.readByte() == 1) {
-                    netProp.setHttpProxy(in.readParcelable(null));
+                    netProp.setHttpProxy((ProxyInfo)in.readParcelable(null));
                 }
-                netProp.setNat64Prefix(in.readParcelable(null));
                 ArrayList<LinkProperties> stackedLinks = new ArrayList<LinkProperties>();
                 in.readList(stackedLinks, LinkProperties.class.getClassLoader());
                 for (LinkProperties stackedLink: stackedLinks) {
@@ -1706,15 +1232,16 @@ public final class LinkProperties implements Parcelable {
             }
         };
 
-    /**
-     * Check the valid MTU range based on IPv4 or IPv6.
-     * @hide
-     */
-    public static boolean isValidMtu(int mtu, boolean ipv6) {
-        if (ipv6) {
-            return mtu >= MIN_MTU_V6 && mtu <= MAX_MTU;
-        } else {
-            return mtu >= MIN_MTU && mtu <= MAX_MTU;
+        /**
+         * Check the valid MTU range based on IPv4 or IPv6.
+         * @hide
+         */
+        public static boolean isValidMtu(int mtu, boolean ipv6) {
+            if (ipv6) {
+                if ((mtu >= MIN_MTU_V6 && mtu <= MAX_MTU)) return true;
+            } else {
+                if ((mtu >= MIN_MTU && mtu <= MAX_MTU)) return true;
+            }
+            return false;
         }
-    }
 }

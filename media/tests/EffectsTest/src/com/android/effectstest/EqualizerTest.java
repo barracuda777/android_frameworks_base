@@ -72,7 +72,7 @@ public class EqualizerTest extends Activity implements OnCheckedChangeListener {
 
         setContentView(R.layout.equalizertest);
 
-        mSessionText = findViewById(R.id.sessionEdit);
+        mSessionText = (EditText) findViewById(R.id.sessionEdit);
         mSessionText.setOnKeyListener(mSessionKeyListener);
 
         mSessionText.setText(Integer.toString(sSession));

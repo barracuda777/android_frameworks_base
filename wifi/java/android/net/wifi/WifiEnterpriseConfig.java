@@ -16,19 +16,24 @@
 package android.net.wifi;
 
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.security.Credentials;
 import android.text.TextUtils;
 import android.util.Log;
 
+import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyFactory;
+import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
+import java.security.cert.CertificateEncodingException;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
-import java.util.Arrays;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -111,6 +116,7 @@ public class WifiEnterpriseConfig implements Parcelable {
     /** @hide */
     public static final String CA_CERT_ALIAS_DELIMITER = " ";
 
+
     // Fields to copy verbatim from wpa_supplicant.
     private static final String[] SUPPLICANT_CONFIG_KEYS = new String[] {
             IDENTITY_KEY,
@@ -127,20 +133,12 @@ public class WifiEnterpriseConfig implements Parcelable {
             CA_PATH_KEY
     };
 
-    /**
-     * Fields that have unquoted values in {@link #mFields}.
-     */
-    private static final List<String> UNQUOTED_KEYS = Arrays.asList(ENGINE_KEY, OPP_KEY_CACHING);
-
-    @UnsupportedAppUsage
     private HashMap<String, String> mFields = new HashMap<String, String>();
     private X509Certificate[] mCaCerts;
     private PrivateKey mClientPrivateKey;
-    private X509Certificate[] mClientCertificateChain;
+    private X509Certificate mClientCertificate;
     private int mEapMethod = Eap.NONE;
     private int mPhase2Method = Phase2.NONE;
-    private boolean mIsAppInstalledDeviceKeyAndCert = false;
-    private boolean mIsAppInstalledCaCert = false;
 
     private static final String TAG = "WifiEnterpriseConfig";
 
@@ -152,62 +150,13 @@ public class WifiEnterpriseConfig implements Parcelable {
 
     }
 
-    /**
-     * Copy over the contents of the source WifiEnterpriseConfig object over to this object.
-     *
-     * @param source Source WifiEnterpriseConfig object.
-     * @param ignoreMaskedPassword Set to true to ignore masked password field, false otherwise.
-     * @param mask if |ignoreMaskedPassword| is set, check if the incoming password field is set
-     *             to this value.
-     */
-    private void copyFrom(WifiEnterpriseConfig source, boolean ignoreMaskedPassword, String mask) {
+    /** Copy constructor */
+    public WifiEnterpriseConfig(WifiEnterpriseConfig source) {
         for (String key : source.mFields.keySet()) {
-            if (ignoreMaskedPassword && key.equals(PASSWORD_KEY)
-                    && TextUtils.equals(source.mFields.get(key), mask)) {
-                continue;
-            }
             mFields.put(key, source.mFields.get(key));
-        }
-        if (source.mCaCerts != null) {
-            mCaCerts = Arrays.copyOf(source.mCaCerts, source.mCaCerts.length);
-        } else {
-            mCaCerts = null;
-        }
-        mClientPrivateKey = source.mClientPrivateKey;
-        if (source.mClientCertificateChain != null) {
-            mClientCertificateChain = Arrays.copyOf(
-                    source.mClientCertificateChain,
-                    source.mClientCertificateChain.length);
-        } else {
-            mClientCertificateChain = null;
         }
         mEapMethod = source.mEapMethod;
         mPhase2Method = source.mPhase2Method;
-        mIsAppInstalledDeviceKeyAndCert = source.mIsAppInstalledDeviceKeyAndCert;
-        mIsAppInstalledCaCert = source.mIsAppInstalledCaCert;
-    }
-
-    /**
-     * Copy constructor.
-     * This copies over all the fields verbatim (does not ignore masked password fields).
-     *
-     * @param source Source WifiEnterpriseConfig object.
-     */
-    public WifiEnterpriseConfig(WifiEnterpriseConfig source) {
-        copyFrom(source, false, "");
-    }
-
-    /**
-     * Copy fields from the provided external WifiEnterpriseConfig.
-     * This is needed to handle the WifiEnterpriseConfig objects which were sent by apps with the
-     * password field masked.
-     *
-     * @param externalConfig External WifiEnterpriseConfig object.
-     * @param mask String mask to compare against.
-     * @hide
-     */
-    public void copyFromExternal(WifiEnterpriseConfig externalConfig, String mask) {
-        copyFrom(externalConfig, true, convertToQuotedString(mask));
     }
 
     @Override
@@ -225,16 +174,48 @@ public class WifiEnterpriseConfig implements Parcelable {
 
         dest.writeInt(mEapMethod);
         dest.writeInt(mPhase2Method);
-        ParcelUtil.writeCertificates(dest, mCaCerts);
-        ParcelUtil.writePrivateKey(dest, mClientPrivateKey);
-        ParcelUtil.writeCertificates(dest, mClientCertificateChain);
-        dest.writeBoolean(mIsAppInstalledDeviceKeyAndCert);
-        dest.writeBoolean(mIsAppInstalledCaCert);
+        writeCertificates(dest, mCaCerts);
+
+        if (mClientPrivateKey != null) {
+            String algorithm = mClientPrivateKey.getAlgorithm();
+            byte[] userKeyBytes = mClientPrivateKey.getEncoded();
+            dest.writeInt(userKeyBytes.length);
+            dest.writeByteArray(userKeyBytes);
+            dest.writeString(algorithm);
+        } else {
+            dest.writeInt(0);
+        }
+
+        writeCertificate(dest, mClientCertificate);
     }
 
-    public static final @android.annotation.NonNull Creator<WifiEnterpriseConfig> CREATOR =
+    private void writeCertificates(Parcel dest, X509Certificate[] cert) {
+        if (cert != null && cert.length != 0) {
+            dest.writeInt(cert.length);
+            for (int i = 0; i < cert.length; i++) {
+                writeCertificate(dest, cert[i]);
+            }
+        } else {
+            dest.writeInt(0);
+        }
+    }
+
+    private void writeCertificate(Parcel dest, X509Certificate cert) {
+        if (cert != null) {
+            try {
+                byte[] certBytes = cert.getEncoded();
+                dest.writeInt(certBytes.length);
+                dest.writeByteArray(certBytes);
+            } catch (CertificateEncodingException e) {
+                dest.writeInt(0);
+            }
+        } else {
+            dest.writeInt(0);
+        }
+    }
+
+    public static final Creator<WifiEnterpriseConfig> CREATOR =
             new Creator<WifiEnterpriseConfig>() {
-                @Override
                 public WifiEnterpriseConfig createFromParcel(Parcel in) {
                     WifiEnterpriseConfig enterpriseConfig = new WifiEnterpriseConfig();
                     int count = in.readInt();
@@ -246,15 +227,58 @@ public class WifiEnterpriseConfig implements Parcelable {
 
                     enterpriseConfig.mEapMethod = in.readInt();
                     enterpriseConfig.mPhase2Method = in.readInt();
-                    enterpriseConfig.mCaCerts = ParcelUtil.readCertificates(in);
-                    enterpriseConfig.mClientPrivateKey = ParcelUtil.readPrivateKey(in);
-                    enterpriseConfig.mClientCertificateChain = ParcelUtil.readCertificates(in);
-                    enterpriseConfig.mIsAppInstalledDeviceKeyAndCert = in.readBoolean();
-                    enterpriseConfig.mIsAppInstalledCaCert = in.readBoolean();
+                    enterpriseConfig.mCaCerts = readCertificates(in);
+
+                    PrivateKey userKey = null;
+                    int len = in.readInt();
+                    if (len > 0) {
+                        try {
+                            byte[] bytes = new byte[len];
+                            in.readByteArray(bytes);
+                            String algorithm = in.readString();
+                            KeyFactory keyFactory = KeyFactory.getInstance(algorithm);
+                            userKey = keyFactory.generatePrivate(new PKCS8EncodedKeySpec(bytes));
+                        } catch (NoSuchAlgorithmException e) {
+                            userKey = null;
+                        } catch (InvalidKeySpecException e) {
+                            userKey = null;
+                        }
+                    }
+
+                    enterpriseConfig.mClientPrivateKey = userKey;
+                    enterpriseConfig.mClientCertificate = readCertificate(in);
                     return enterpriseConfig;
                 }
 
-                @Override
+                private X509Certificate[] readCertificates(Parcel in) {
+                    X509Certificate[] certs = null;
+                    int len = in.readInt();
+                    if (len > 0) {
+                        certs = new X509Certificate[len];
+                        for (int i = 0; i < len; i++) {
+                            certs[i] = readCertificate(in);
+                        }
+                    }
+                    return certs;
+                }
+
+                private X509Certificate readCertificate(Parcel in) {
+                    X509Certificate cert = null;
+                    int len = in.readInt();
+                    if (len > 0) {
+                        try {
+                            byte[] bytes = new byte[len];
+                            in.readByteArray(bytes);
+                            CertificateFactory cFactory = CertificateFactory.getInstance("X.509");
+                            cert = (X509Certificate) cFactory
+                                    .generateCertificate(new ByteArrayInputStream(bytes));
+                        } catch (CertificateException e) {
+                            cert = null;
+                        }
+                    }
+                    return cert;
+                }
+
                 public WifiEnterpriseConfig[] newArray(int size) {
                     return new WifiEnterpriseConfig[size];
                 }
@@ -272,11 +296,11 @@ public class WifiEnterpriseConfig implements Parcelable {
         public static final int TTLS    = 2;
         /** EAP-Password */
         public static final int PWD     = 3;
-        /** EAP-Subscriber Identity Module [RFC-4186] */
+        /** EAP-Subscriber Identity Module */
         public static final int SIM     = 4;
-        /** EAP-Authentication and Key Agreement [RFC-4187] */
+        /** EAP-Authentication and Key Agreement */
         public static final int AKA     = 5;
-        /** EAP-Authentication and Key Agreement Prime [RFC-5448] */
+        /** EAP-Authentication and Key Agreement Prime */
         public static final int AKA_PRIME = 6;
         /** Hotspot 2.0 r2 OSEN */
         public static final int UNAUTH_TLS = 7;
@@ -299,17 +323,11 @@ public class WifiEnterpriseConfig implements Parcelable {
         public static final int MSCHAPV2    = 3;
         /** Generic Token Card */
         public static final int GTC         = 4;
-        /** EAP-Subscriber Identity Module [RFC-4186] */
-        public static final int SIM         = 5;
-        /** EAP-Authentication and Key Agreement [RFC-4187] */
-        public static final int AKA         = 6;
-        /** EAP-Authentication and Key Agreement Prime [RFC-5448] */
-        public static final int AKA_PRIME   = 7;
         private static final String AUTH_PREFIX = "auth=";
         private static final String AUTHEAP_PREFIX = "autheap=";
         /** @hide */
         public static final String[] strings = {EMPTY_VALUE, "PAP", "MSCHAP",
-                "MSCHAPV2", "GTC", "SIM", "AKA", "AKA'" };
+                "MSCHAPV2", "GTC" };
 
         /** Prevent initialization */
         private Phase2() {}
@@ -437,7 +455,7 @@ public class WifiEnterpriseConfig implements Parcelable {
             case Eap.AKA:
             case Eap.AKA_PRIME:
                 mEapMethod = eapMethod;
-                setFieldValue(OPP_KEY_CACHING, "1");
+                mFields.put(OPP_KEY_CACHING, "1");
                 break;
             default:
                 throw new IllegalArgumentException("Unknown EAP method");
@@ -468,9 +486,6 @@ public class WifiEnterpriseConfig implements Parcelable {
             case Phase2.MSCHAP:
             case Phase2.MSCHAPV2:
             case Phase2.GTC:
-            case Phase2.SIM:
-            case Phase2.AKA:
-            case Phase2.AKA_PRIME:
                 mPhase2Method = phase2Method;
                 break;
             default:
@@ -499,7 +514,7 @@ public class WifiEnterpriseConfig implements Parcelable {
      * @return the identity
      */
     public String getIdentity() {
-        return getFieldValue(IDENTITY_KEY);
+        return getFieldValue(IDENTITY_KEY, "");
     }
 
     /**
@@ -508,7 +523,7 @@ public class WifiEnterpriseConfig implements Parcelable {
      * @param anonymousIdentity the anonymous identity
      */
     public void setAnonymousIdentity(String anonymousIdentity) {
-        setFieldValue(ANON_IDENTITY_KEY, anonymousIdentity);
+        setFieldValue(ANON_IDENTITY_KEY, anonymousIdentity, "");
     }
 
     /**
@@ -516,7 +531,7 @@ public class WifiEnterpriseConfig implements Parcelable {
      * @return anonymous identity
      */
     public String getAnonymousIdentity() {
-        return getFieldValue(ANON_IDENTITY_KEY);
+        return getFieldValue(ANON_IDENTITY_KEY, "");
     }
 
     /**
@@ -524,7 +539,7 @@ public class WifiEnterpriseConfig implements Parcelable {
      * @param password the password
      */
     public void setPassword(String password) {
-        setFieldValue(PASSWORD_KEY, password);
+        setFieldValue(PASSWORD_KEY, password, "");
     }
 
     /**
@@ -534,7 +549,7 @@ public class WifiEnterpriseConfig implements Parcelable {
      * framework, returns "*".
      */
     public String getPassword() {
-        return getFieldValue(PASSWORD_KEY);
+        return getFieldValue(PASSWORD_KEY, "");
     }
 
     /**
@@ -576,7 +591,6 @@ public class WifiEnterpriseConfig implements Parcelable {
      * @param alias identifies the certificate
      * @hide
      */
-    @UnsupportedAppUsage
     public void setCaCertificateAlias(String alias) {
         setFieldValue(CA_CERT_KEY, alias, CA_CERT_PREFIX);
     }
@@ -615,7 +629,6 @@ public class WifiEnterpriseConfig implements Parcelable {
      * @return alias to the CA certificate
      * @hide
      */
-    @UnsupportedAppUsage
     public String getCaCertificateAlias() {
         return getFieldValue(CA_CERT_KEY, CA_CERT_PREFIX);
     }
@@ -626,7 +639,7 @@ public class WifiEnterpriseConfig implements Parcelable {
      * @hide
      */
     @Nullable public String[] getCaCertificateAliases() {
-        String value = getFieldValue(CA_CERT_KEY);
+        String value = getFieldValue(CA_CERT_KEY, "");
         if (value.startsWith(CA_CERT_PREFIX)) {
             // Backwards compatibility: parse the original alias prefix.
             return new String[] {getFieldValue(CA_CERT_KEY, CA_CERT_PREFIX)};
@@ -660,10 +673,8 @@ public class WifiEnterpriseConfig implements Parcelable {
     public void setCaCertificate(@Nullable X509Certificate cert) {
         if (cert != null) {
             if (cert.getBasicConstraints() >= 0) {
-                mIsAppInstalledCaCert = true;
                 mCaCerts = new X509Certificate[] {cert};
             } else {
-                mCaCerts = null;
                 throw new IllegalArgumentException("Not a CA certificate");
             }
         } else {
@@ -704,12 +715,10 @@ public class WifiEnterpriseConfig implements Parcelable {
                 if (certs[i].getBasicConstraints() >= 0) {
                     newCerts[i] = certs[i];
                 } else {
-                    mCaCerts = null;
                     throw new IllegalArgumentException("Not a CA certificate");
                 }
             }
             mCaCerts = newCerts;
-            mIsAppInstalledCaCert = true;
         } else {
             mCaCerts = null;
         }
@@ -757,7 +766,7 @@ public class WifiEnterpriseConfig implements Parcelable {
      * @hide
      */
     public String getCaPath() {
-        return getFieldValue(CA_PATH_KEY);
+        return getFieldValue(CA_PATH_KEY, "");
     }
 
     /** Set Client certificate alias.
@@ -768,17 +777,16 @@ public class WifiEnterpriseConfig implements Parcelable {
      * @param alias identifies the certificate
      * @hide
      */
-    @UnsupportedAppUsage
     public void setClientCertificateAlias(String alias) {
         setFieldValue(CLIENT_CERT_KEY, alias, CLIENT_CERT_PREFIX);
         setFieldValue(PRIVATE_KEY_ID_KEY, alias, Credentials.USER_PRIVATE_KEY);
         // Also, set engine parameters
         if (TextUtils.isEmpty(alias)) {
-            setFieldValue(ENGINE_KEY, ENGINE_DISABLE);
-            setFieldValue(ENGINE_ID_KEY, "");
+            mFields.put(ENGINE_KEY, ENGINE_DISABLE);
+            mFields.put(ENGINE_ID_KEY, EMPTY_VALUE);
         } else {
-            setFieldValue(ENGINE_KEY, ENGINE_ENABLE);
-            setFieldValue(ENGINE_ID_KEY, ENGINE_ID_KEYSTORE);
+            mFields.put(ENGINE_KEY, ENGINE_ENABLE);
+            mFields.put(ENGINE_ID_KEY, convertToQuotedString(ENGINE_ID_KEYSTORE));
         }
     }
 
@@ -787,7 +795,6 @@ public class WifiEnterpriseConfig implements Parcelable {
      * @return alias to the client certificate
      * @hide
      */
-    @UnsupportedAppUsage
     public String getClientCertificateAlias() {
         return getFieldValue(CLIENT_CERT_KEY, CLIENT_CERT_PREFIX);
     }
@@ -800,61 +807,15 @@ public class WifiEnterpriseConfig implements Parcelable {
      * key entry when the config is saved and removing the key entry when
      * the config is removed.
 
-     * @param privateKey a PrivateKey instance for the end certificate.
-     * @param clientCertificate an X509Certificate representing the end certificate.
+     * @param privateKey
+     * @param clientCertificate
      * @throws IllegalArgumentException for an invalid key or certificate.
      */
     public void setClientKeyEntry(PrivateKey privateKey, X509Certificate clientCertificate) {
-        X509Certificate[] clientCertificates = null;
         if (clientCertificate != null) {
-            clientCertificates = new X509Certificate[] {clientCertificate};
-        }
-        setClientKeyEntryWithCertificateChain(privateKey, clientCertificates);
-    }
-
-    /**
-     * Specify a private key and client certificate chain for client authorization.
-     *
-     * <p>A default name is automatically assigned to the key entry and used
-     * with this configuration.  The framework takes care of installing the
-     * key entry when the config is saved and removing the key entry when
-     * the config is removed.
-     *
-     * @param privateKey a PrivateKey instance for the end certificate.
-     * @param clientCertificateChain an array of X509Certificate instances which starts with
-     *         end certificate and continues with additional CA certificates necessary to
-     *         link the end certificate with some root certificate known by the authenticator.
-     * @throws IllegalArgumentException for an invalid key or certificate.
-     */
-    public void setClientKeyEntryWithCertificateChain(PrivateKey privateKey,
-            X509Certificate[] clientCertificateChain) {
-        X509Certificate[] newCerts = null;
-        if (clientCertificateChain != null && clientCertificateChain.length > 0) {
-            // We validate that this is a well formed chain that starts
-            // with an end-certificate and is followed by CA certificates.
-            // We don't validate that each following certificate verifies
-            // the previous. https://en.wikipedia.org/wiki/Chain_of_trust
-            //
-            // Basic constraints is an X.509 extension type that defines
-            // whether a given certificate is allowed to sign additional
-            // certificates and what path length restrictions may exist.
-            // We use this to judge whether the certificate is an end
-            // certificate or a CA certificate.
-            // https://cryptography.io/en/latest/x509/reference/
-            if (clientCertificateChain[0].getBasicConstraints() != -1) {
-                throw new IllegalArgumentException(
-                        "First certificate in the chain must be a client end certificate");
+            if (clientCertificate.getBasicConstraints() != -1) {
+                throw new IllegalArgumentException("Cannot be a CA certificate");
             }
-
-            for (int i = 1; i < clientCertificateChain.length; i++) {
-                if (clientCertificateChain[i].getBasicConstraints() == -1) {
-                    throw new IllegalArgumentException(
-                            "All certificates following the first must be CA certificates");
-                }
-            }
-            newCerts = Arrays.copyOf(clientCertificateChain,
-                    clientCertificateChain.length);
-
             if (privateKey == null) {
                 throw new IllegalArgumentException("Client cert without a private key");
             }
@@ -864,8 +825,7 @@ public class WifiEnterpriseConfig implements Parcelable {
         }
 
         mClientPrivateKey = privateKey;
-        mClientCertificateChain = newCerts;
-        mIsAppInstalledDeviceKeyAndCert = true;
+        mClientCertificate = clientCertificate;
     }
 
     /**
@@ -874,32 +834,7 @@ public class WifiEnterpriseConfig implements Parcelable {
      * @return X.509 client certificate
      */
     public X509Certificate getClientCertificate() {
-        if (mClientCertificateChain != null && mClientCertificateChain.length > 0) {
-            return mClientCertificateChain[0];
-        } else {
-            return null;
-        }
-    }
-
-    /**
-     * Get the complete client certificate chain in the same order as it was last supplied.
-     *
-     * <p>If the chain was last supplied by a call to
-     * {@link #setClientKeyEntry(java.security.PrivateKey, java.security.cert.X509Certificate)}
-     * with a non-null * certificate instance, a single-element array containing the certificate
-     * will be * returned. If {@link #setClientKeyEntryWithCertificateChain(
-     * java.security.PrivateKey, java.security.cert.X509Certificate[])} was last called with a
-     * non-empty array, this array will be returned in the same order as it was supplied.
-     * Otherwise, {@code null} will be returned.
-     *
-     * @return X.509 client certificates
-     */
-    @Nullable public X509Certificate[] getClientCertificateChain() {
-        if (mClientCertificateChain != null && mClientCertificateChain.length > 0) {
-            return mClientCertificateChain;
-        } else {
-            return null;
-        }
+        return mClientCertificate;
     }
 
     /**
@@ -907,7 +842,7 @@ public class WifiEnterpriseConfig implements Parcelable {
      */
     public void resetClientKeyEntry() {
         mClientPrivateKey = null;
-        mClientCertificateChain = null;
+        mClientCertificate = null;
     }
 
     /**
@@ -924,7 +859,7 @@ public class WifiEnterpriseConfig implements Parcelable {
      * @deprecated in favor of altSubjectMatch
      */
     public void setSubjectMatch(String subjectMatch) {
-        setFieldValue(SUBJECT_MATCH_KEY, subjectMatch);
+        setFieldValue(SUBJECT_MATCH_KEY, subjectMatch, "");
     }
 
     /**
@@ -933,7 +868,7 @@ public class WifiEnterpriseConfig implements Parcelable {
      * @deprecated in favor of altSubjectMatch
      */
     public String getSubjectMatch() {
-        return getFieldValue(SUBJECT_MATCH_KEY);
+        return getFieldValue(SUBJECT_MATCH_KEY, "");
     }
 
     /**
@@ -943,7 +878,7 @@ public class WifiEnterpriseConfig implements Parcelable {
      *                     DNS:server.example.com;EMAIL:server@example.com
      */
     public void setAltSubjectMatch(String altSubjectMatch) {
-        setFieldValue(ALTSUBJECT_MATCH_KEY, altSubjectMatch);
+        setFieldValue(ALTSUBJECT_MATCH_KEY, altSubjectMatch, "");
     }
 
     /**
@@ -951,7 +886,7 @@ public class WifiEnterpriseConfig implements Parcelable {
      * @return the alternate subject match string
      */
     public String getAltSubjectMatch() {
-        return getFieldValue(ALTSUBJECT_MATCH_KEY);
+        return getFieldValue(ALTSUBJECT_MATCH_KEY, "");
     }
 
     /**
@@ -959,19 +894,16 @@ public class WifiEnterpriseConfig implements Parcelable {
      * for Hotspot 2.0 defined matching of AAA server certs per WFA HS2.0 spec, section 7.3.3.2,
      * second paragraph.
      *
-     * <p>From wpa_supplicant documentation:
-     * <p>Constraint for server domain name. If set, this FQDN is used as a suffix match requirement
+     * From wpa_supplicant documentation:
+     * Constraint for server domain name. If set, this FQDN is used as a suffix match requirement
      * for the AAAserver certificate in SubjectAltName dNSName element(s). If a matching dNSName is
-     * found, this constraint is met.
-     * <p>Suffix match here means that the host/domain name is compared one label at a time starting
+     * found, this constraint is met. If no dNSName values are present, this constraint is matched
+     * against SubjectName CN using same suffix match comparison.
+     * Suffix match here means that the host/domain name is compared one label at a time starting
      * from the top-level domain and all the labels in domain_suffix_match shall be included in the
      * certificate. The certificate may include additional sub-level labels in addition to the
      * required labels.
-     * <p>More than one match string can be provided by using semicolons to separate the strings
-     * (e.g., example.org;example.com). When multiple strings are specified, a match with any one of
-     * the values is considered a sufficient match for the certificate, i.e., the conditions are
-     * ORed ogether.
-     * <p>For example, domain_suffix_match=example.com would match test.example.com but would not
+     * For example, domain_suffix_match=example.com would match test.example.com but would not
      * match test-example.com.
      * @param domain The domain value
      */
@@ -984,41 +916,41 @@ public class WifiEnterpriseConfig implements Parcelable {
      * @return The domain value.
      */
     public String getDomainSuffixMatch() {
-        return getFieldValue(DOM_SUFFIX_MATCH_KEY);
+        return getFieldValue(DOM_SUFFIX_MATCH_KEY, "");
     }
 
     /**
-     * Set realm for Passpoint credential; realm identifies a set of networks where your
-     * Passpoint credential can be used
+     * Set realm for passpoint credential; realm identifies a set of networks where your
+     * passpoint credential can be used
      * @param realm the realm
      */
     public void setRealm(String realm) {
-        setFieldValue(REALM_KEY, realm);
+        setFieldValue(REALM_KEY, realm, "");
     }
 
     /**
-     * Get realm for Passpoint credential; see {@link #setRealm(String)} for more information
+     * Get realm for passpoint credential; see {@link #setRealm(String)} for more information
      * @return the realm
      */
     public String getRealm() {
-        return getFieldValue(REALM_KEY);
+        return getFieldValue(REALM_KEY, "");
     }
 
     /**
-     * Set plmn (Public Land Mobile Network) of the provider of Passpoint credential
+     * Set plmn (Public Land Mobile Network) of the provider of passpoint credential
      * @param plmn the plmn value derived from mcc (mobile country code) & mnc (mobile network code)
      */
     public void setPlmn(String plmn) {
-        setFieldValue(PLMN_KEY, plmn);
+        setFieldValue(PLMN_KEY, plmn, "");
     }
 
     /**
-     * Get plmn (Public Land Mobile Network) for Passpoint credential; see {@link #setPlmn
+     * Get plmn (Public Land Mobile Network) for passpoint credential; see {@link #setPlmn
      * (String)} for more information
      * @return the plmn
      */
     public String getPlmn() {
-        return getFieldValue(PLMN_KEY);
+        return getFieldValue(PLMN_KEY, "");
     }
 
     /** See {@link WifiConfiguration#getKeyIdForCredentials} @hide */
@@ -1063,13 +995,13 @@ public class WifiEnterpriseConfig implements Parcelable {
     }
 
     /**
-     * Returns the field value for the key with prefix removed.
+     * Returns the field value for the key.
      * @param key into the hash
      * @param prefix is the prefix that the value may have
      * @return value
      * @hide
      */
-    private String getFieldValue(String key, String prefix) {
+    public String getFieldValue(String key, String prefix) {
         // TODO: Should raise an exception if |key| is EAP_KEY or PHASE2_KEY since
         // neither of these keys should be retrieved in this manner.
         String value = mFields.get(key);
@@ -1085,14 +1017,22 @@ public class WifiEnterpriseConfig implements Parcelable {
     }
 
     /**
-     * Returns the field value for the key.
+     * Set a value with an optional prefix at key
      * @param key into the hash
-     * @return value
+     * @param value to be set
+     * @param prefix an optional value to be prefixed to actual value
      * @hide
      */
-    public String getFieldValue(String key) {
-        return getFieldValue(key, "");
+    public void setFieldValue(String key, String value, String prefix) {
+        // TODO: Should raise an exception if |key| is EAP_KEY or PHASE2_KEY since
+        // neither of these keys should be set in this manner.
+        if (TextUtils.isEmpty(value)) {
+            mFields.put(key, EMPTY_VALUE);
+        } else {
+            mFields.put(key, convertToQuotedString(prefix + value));
+        }
     }
+
 
     /**
      * Set a value with an optional prefix at key
@@ -1101,30 +1041,14 @@ public class WifiEnterpriseConfig implements Parcelable {
      * @param prefix an optional value to be prefixed to actual value
      * @hide
      */
-    private void setFieldValue(String key, String value, String prefix) {
+    public void setFieldValue(String key, String value) {
         // TODO: Should raise an exception if |key| is EAP_KEY or PHASE2_KEY since
         // neither of these keys should be set in this manner.
         if (TextUtils.isEmpty(value)) {
-            mFields.put(key, EMPTY_VALUE);
+           mFields.put(key, EMPTY_VALUE);
         } else {
-            String valueToSet;
-            if (!UNQUOTED_KEYS.contains(key)) {
-                valueToSet = convertToQuotedString(prefix + value);
-            } else {
-                valueToSet = prefix + value;
-            }
-            mFields.put(key, valueToSet);
+            mFields.put(key, convertToQuotedString(value));
         }
-    }
-
-    /**
-     * Set a value at key
-     * @param key into the hash
-     * @param value to be set
-     * @hide
-     */
-    public void setFieldValue(String key, String value) {
-        setFieldValue(key, value, "");
     }
 
     @Override
@@ -1134,12 +1058,6 @@ public class WifiEnterpriseConfig implements Parcelable {
             // Don't display password in toString().
             String value = PASSWORD_KEY.equals(key) ? "<removed>" : mFields.get(key);
             sb.append(key).append(" ").append(value).append("\n");
-        }
-        if (mEapMethod >= 0 && mEapMethod < Eap.strings.length) {
-            sb.append("eap_method: ").append(Eap.strings[mEapMethod]).append("\n");
-        }
-        if (mPhase2Method > 0 && mPhase2Method < Phase2.strings.length) {
-            sb.append("phase2_method: ").append(Phase2.strings[mPhase2Method]).append("\n");
         }
         return sb.toString();
     }
@@ -1163,31 +1081,5 @@ public class WifiEnterpriseConfig implements Parcelable {
             return false;
         }
         return true;
-    }
-
-    /**
-     * Check if certificate was installed by an app, or manually (not by an app). If true,
-     * certificate and keys will be removed from key storage when this network is removed. If not,
-     * then certificates and keys remain persistent until the user manually removes them.
-     *
-     * @return true if certificate was installed by an app, false if certificate was installed
-     * manually by the user.
-     * @hide
-     */
-    public boolean isAppInstalledDeviceKeyAndCert() {
-        return mIsAppInstalledDeviceKeyAndCert;
-    }
-
-    /**
-     * Check if CA certificate was installed by an app, or manually (not by an app). If true,
-     * CA certificate will be removed from key storage when this network is removed. If not,
-     * then certificates and keys remain persistent until the user manually removes them.
-     *
-     * @return true if CA certificate was installed by an app, false if CA certificate was installed
-     * manually by the user.
-     * @hide
-     */
-    public boolean isAppInstalledCaCert() {
-        return mIsAppInstalledCaCert;
     }
 }

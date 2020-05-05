@@ -135,23 +135,10 @@ public class TestSuiteBuilderTest extends TestCase {
 
         TestSuite testSuite = new OuterTest().buildTestsUnderHereRecursively();
         assertContentsInOrder(getTestCaseNames(testSuite),
-                "testOuter",
-                "testPublicConstructor",
-                "testErrorOne",
-                "testErrorTwo",
-                "testFailOne",
-                "testFailTwo",
-                "testInstrumentation",
-                "testLevel1",
-                "testLevel2",
-                "testAnotherOne",
-                "testSimpleOne",
-                "testSimpleTwo",
-                "testNonSmoke",
-                "testSmoke",
-                "testSubclass",
-                "testSuperclass",
-                "testUnSuppressedMethod");
+                "testOuter", "testErrorOne", "testErrorTwo", "testFailOne", "testFailTwo",
+                "testInstrumentation", "testLevel1", "testLevel2", "testAnotherOne",
+                "testSimpleOne", "testSimpleTwo", "testNonSmoke", "testSmoke", "testSubclass",
+                "testSuperclass", "testUnSuppressedMethod");
     }
 
     private void assertContentsInOrder(List<String> actual, String... source) {

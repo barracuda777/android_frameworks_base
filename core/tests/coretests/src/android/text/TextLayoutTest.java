@@ -16,38 +16,35 @@
 
 package android.text;
 
-import android.platform.test.annotations.Presubmit;
+import android.test.suitebuilder.annotation.SmallTest;
+import android.text.DynamicLayout;
+import android.text.Layout;
+import android.text.StaticLayout;
+import android.text.TextPaint;
+import junit.framework.TestCase;
 
-import androidx.test.filters.SmallTest;
-import androidx.test.runner.AndroidJUnit4;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+public class TextLayoutTest extends TestCase {
 
-@Presubmit
-@SmallTest
-@RunWith(AndroidJUnit4.class)
-public class TextLayoutTest {
-    private String mString;
-    private TextPaint mPaint;
+    protected String mString;
+    protected TextPaint mPaint;
 
-    @Before
-    public void setup() {
+    protected void setUp() throws Exception {
+        super.setUp();
         mString = "The quick brown fox";
         mPaint = new TextPaint();
     }
 
-    @Test
-    public void testStaticLayout() {
-        new StaticLayout(mString, mPaint, 200,
+    @SmallTest
+    public void testStaticLayout() throws Exception {
+        Layout l = new StaticLayout(mString, mPaint, 200,
                 Layout.Alignment.ALIGN_NORMAL, 1, 0,
                 true);
     }
 
-    @Test
-    public void testDynamicLayoutTest() {
-        new DynamicLayout(mString, mPaint, 200,
+    @SmallTest
+    public void testDynamicLayoutTest() throws Exception {
+        Layout l = new DynamicLayout(mString, mPaint, 200,
                 Layout.Alignment.ALIGN_NORMAL, 1, 0,
                 true);
     }

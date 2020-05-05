@@ -18,8 +18,6 @@ package android.os;
 
 import android.view.Display;
 
-import java.util.function.Consumer;
-
 /**
  * Power manager local system service interface.
  *
@@ -55,6 +53,24 @@ public abstract class PowerManagerInternal {
      */
     public static final int WAKEFULNESS_DOZING = 3;
 
+
+    /**
+     * Power hint:
+     * Interaction: The user is interacting with the device. The corresponding data field must be
+     * the expected duration of the interaction, or 0 if unknown.
+     *
+     * Sustained Performance Mode: The corresponding data field must be Enable/Disable
+     * Sustained Performance Mode.
+     *
+     * Launch: This is specific for activity launching. The corresponding data field must be
+     * the expected duration of the required boost, or 0 if unknown.
+     *
+     * These must be kept in sync with the values in hardware/libhardware/include/hardware/power.h
+     */
+    public static final int POWER_HINT_INTERACTION = 2;
+    public static final int POWER_HINT_SUSTAINED_PERFORMANCE_MODE = 6;
+    public static final int POWER_HINT_LAUNCH = 8;
+
     public static String wakefulnessToString(int wakefulness) {
         switch (wakefulness) {
             case WAKEFULNESS_ASLEEP:
@@ -67,24 +83,6 @@ public abstract class PowerManagerInternal {
                 return "Dozing";
             default:
                 return Integer.toString(wakefulness);
-        }
-    }
-
-    /**
-     * Converts platform constants to proto enums.
-     */
-    public static int wakefulnessToProtoEnum(int wakefulness) {
-        switch (wakefulness) {
-            case WAKEFULNESS_ASLEEP:
-                return PowerManagerInternalProto.WAKEFULNESS_ASLEEP;
-            case WAKEFULNESS_AWAKE:
-                return PowerManagerInternalProto.WAKEFULNESS_AWAKE;
-            case WAKEFULNESS_DREAMING:
-                return PowerManagerInternalProto.WAKEFULNESS_DREAMING;
-            case WAKEFULNESS_DOZING:
-                return PowerManagerInternalProto.WAKEFULNESS_DOZING;
-            default:
-                return wakefulness;
         }
     }
 
@@ -138,7 +136,7 @@ public abstract class PowerManagerInternal {
      *
      * This method must only be called by the device administration policy manager.
      */
-    public abstract void setMaximumScreenOffTimeoutFromDeviceAdmin(int userId, long timeMs);
+    public abstract void setMaximumScreenOffTimeoutFromDeviceAdmin(int timeMs);
 
     /**
      * Used by the dream manager to override certain properties while dozing.
@@ -151,38 +149,12 @@ public abstract class PowerManagerInternal {
     public abstract void setDozeOverrideFromDreamManager(
             int screenState, int screenBrightness);
 
-    /**
-     * Used by sidekick manager to tell the power manager if it shouldn't change the display state
-     * when a draw wake lock is acquired. Some processes may grab such a wake lock to do some work
-     * in a powered-up state, but we shouldn't give up sidekick control over the display until this
-     * override is lifted.
-     */
-    public abstract void setDrawWakeLockOverrideFromSidekick(boolean keepState);
-
-    public abstract PowerSaveState getLowPowerState(int serviceType);
+    public abstract boolean getLowPowerModeEnabled();
 
     public abstract void registerLowPowerModeObserver(LowPowerModeListener listener);
 
-    /**
-     * Same as {@link #registerLowPowerModeObserver} but can take a lambda.
-     */
-    public void registerLowPowerModeObserver(int serviceType, Consumer<PowerSaveState> listener) {
-        registerLowPowerModeObserver(new LowPowerModeListener() {
-            @Override
-            public int getServiceType() {
-                return serviceType;
-            }
-
-            @Override
-            public void onLowPowerModeChanged(PowerSaveState state) {
-                listener.accept(state);
-            }
-        });
-    }
-
     public interface LowPowerModeListener {
-        int getServiceType();
-        void onLowPowerModeChanged(PowerSaveState state);
+        public void onLowPowerModeChanged(boolean enabled);
     }
 
     public abstract boolean setDeviceIdleMode(boolean enabled);
@@ -193,29 +165,11 @@ public abstract class PowerManagerInternal {
 
     public abstract void setDeviceIdleTempWhitelist(int[] appids);
 
-    public abstract void startUidChanges();
-
-    public abstract void finishUidChanges();
-
     public abstract void updateUidProcState(int uid, int procState);
 
     public abstract void uidGone(int uid);
 
-    public abstract void uidActive(int uid);
-
-    public abstract void uidIdle(int uid);
-
-    /**
-     * The hintId sent through this method should be in-line with the
-     * PowerHint defined in android/hardware/power/<version 1.0 & up>/IPower.h
-     */
     public abstract void powerHint(int hintId, int data);
-
-    /** Returns whether there hasn't been a user activity event for the given number of ms. */
-    public abstract boolean wasDeviceIdleFor(long ms);
-
-    /** Returns information about the last wakeup event. */
-    public abstract PowerManager.WakeData getLastWakeup();
 
     public abstract boolean setPowerSaveMode(boolean mode);
 

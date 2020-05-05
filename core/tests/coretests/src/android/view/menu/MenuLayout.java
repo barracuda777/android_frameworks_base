@@ -16,6 +16,8 @@
 
 package android.view.menu;
 
+import android.view.menu.MenuScenario.Params;
+
 import android.os.Bundle;
 import android.view.Menu;
 import android.widget.Button;

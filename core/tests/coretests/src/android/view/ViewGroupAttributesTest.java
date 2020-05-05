@@ -18,8 +18,7 @@ package android.view;
 
 import android.content.Context;
 import android.test.AndroidTestCase;
-
-import androidx.test.filters.SmallTest;
+import android.test.suitebuilder.annotation.SmallTest;
 
 public class ViewGroupAttributesTest extends AndroidTestCase {
 

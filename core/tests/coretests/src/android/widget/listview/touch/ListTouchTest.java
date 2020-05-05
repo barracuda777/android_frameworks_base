@@ -17,12 +17,12 @@
 package android.widget.listview.touch;
 
 import android.test.ActivityInstrumentationTestCase;
+import android.test.suitebuilder.annotation.MediumTest;
 import android.test.TouchUtils;
 import android.view.View;
 import android.widget.ListView;
-import android.widget.listview.ListTopGravity;
 
-import androidx.test.filters.MediumTest;
+import android.widget.listview.ListTopGravity;
 
 /**
  * Touch tests for a list where all of the items fit on the screen.

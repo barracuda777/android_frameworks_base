@@ -34,16 +34,13 @@
     <uses-permission android:name="com.android.printspooler.permission.ACCESS_ALL_PRINT_JOBS"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.START_PRINT_SERVICE_CONFIG_ACTIVITY"/>
-    <uses-permission android:name="android.permission.READ_PRINT_SERVICES" />
-    <uses-permission android:name="android.permission.READ_PRINT_SERVICE_RECOMMENDATIONS" />
-
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
 
     <application
         android:allowClearUserData="true"
         android:label="@string/app_label"
-        android:icon="@drawable/ic_app_icon"
+        android:allowBackup= "false"
         android:supportsRtl="true">
 
         <service
@@ -74,7 +71,6 @@
             android:name=".ui.SelectPrinterActivity"
             android:label="@string/all_printers_label"
             android:theme="@style/Theme.SelectPrinterActivity"
-            android:parentActivityName=".ui.PrintActivity"
             android:exported="false">
         </activity>
 
@@ -82,7 +78,6 @@
             android:name=".ui.AddPrinterActivity"
             android:label="@string/print_add_printer"
             android:theme="@style/Theme.AddPrinterActivity"
-            android:parentActivityName=".ui.SelectPrinterActivity"
             android:exported="false">
         </activity>
 

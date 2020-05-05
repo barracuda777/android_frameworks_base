@@ -19,7 +19,8 @@
 
 #include "core_jni_helpers.h"
 
-#include <nativehelper/ScopedUtfChars.h>
+#include <ScopedUtfChars.h>
+#include <UniquePtr.h>
 #include <androidfw/ZipFileRO.h>
 #include <androidfw/ZipUtils.h>
 #include <utils/Log.h>
@@ -27,7 +28,6 @@
 
 #include <zlib.h>
 
-#include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,8 +36,7 @@
 #include <inttypes.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-
-#include <memory>
+#include <dlfcn.h>
 
 #define APK_LIB "lib/"
 #define APK_LIB_LEN (sizeof(APK_LIB) - 1)
@@ -50,8 +49,61 @@
 
 #define RS_BITCODE_SUFFIX ".bc"
 
+#define GDBSERVER "gdbserver"
+#define GDBSERVER_LEN (sizeof(GDBSERVER) - 1)
+
 #define TMP_FILE_PATTERN "/tmp.XXXXXX"
 #define TMP_FILE_PATTERN_LEN (sizeof(TMP_FILE_PATTERN) - 1)
+
+typedef void* PFilterObject;
+
+typedef PFilterObject (*PRegistFilterObject)(int fd);
+
+typedef void (*PUnRegistFilterObject)(int fd);
+
+typedef PFilterObject (*PGetFilterObject)(int fd);
+
+typedef int (*PNameFilter)(char* name, int length, void* param);
+
+typedef int (*PFilterLibrary)(PFilterObject obj, PNameFilter filter, void* param);
+
+typedef int (*PHasRenderScript)(PFilterObject obj);
+
+#define LIB_UNINIT             0
+#define LIB_INITED_AND_FAIL    -1
+#define LIB_INITED_AND_SUCCESS 1
+static int g_libInit = LIB_UNINIT;
+
+static PRegistFilterObject RegistFilterObjectFunc = NULL;
+static PUnRegistFilterObject UnRegistFilterObjectFunc = NULL;
+static PGetFilterObject GetFilterObjectFunc = NULL;
+static PFilterLibrary FilterLibraryFunc = NULL;
+static PHasRenderScript HasRenderScriptFunc = NULL;
+
+static int initApkScanLib() {
+    if (g_libInit!=LIB_UNINIT)
+        return g_libInit;
+    void* handle = dlopen("libapkscanner.so", RTLD_NOW);
+    if (handle != NULL) {
+        RegistFilterObjectFunc = (PRegistFilterObject)dlsym(handle, "RegistFilterObject");
+        UnRegistFilterObjectFunc = (PUnRegistFilterObject)dlsym(handle, "UnRegistFilterObject");
+        GetFilterObjectFunc = (PGetFilterObject)dlsym(handle, "GetFilterObject");
+        FilterLibraryFunc = (PFilterLibrary)dlsym(handle, "FilterLibrary");
+        HasRenderScriptFunc = (PHasRenderScript)dlsym(handle, "HasRenderScript");
+        if (NULL != RegistFilterObjectFunc &&
+            NULL != UnRegistFilterObjectFunc &&
+            NULL != GetFilterObjectFunc &&
+            NULL != FilterLibraryFunc &&
+            NULL != HasRenderScriptFunc) {
+            g_libInit = LIB_INITED_AND_SUCCESS;
+        } else {
+            g_libInit = LIB_INITED_AND_FAIL;
+        }
+    } else {
+        g_libInit = LIB_INITED_AND_FAIL;
+    }
+    return g_libInit;
+}
 
 namespace android {
 
@@ -125,7 +177,7 @@ isFileDifferent(const char* filePath, uint32_t fileSize, time_t modifiedTime,
         return true;
     }
 
-    int fd = TEMP_FAILURE_RETRY(open(filePath, O_RDONLY | O_CLOEXEC));
+    int fd = TEMP_FAILURE_RETRY(open(filePath, O_RDONLY));
     if (fd < 0) {
         ALOGV("Couldn't open file %s: %s", filePath, strerror(errno));
         return true;
@@ -176,6 +228,7 @@ copyFileIfChanged(JNIEnv *env, void* arg, ZipFileRO* zipFile, ZipEntryRO zipEntr
     void** args = reinterpret_cast<void**>(arg);
     jstring* javaNativeLibPath = (jstring*) args[0];
     jboolean extractNativeLibs = *(jboolean*) args[1];
+    jboolean hasNativeBridge = *(jboolean*) args[2];
 
     ScopedUtfChars nativeLibPath(env, *javaNativeLibPath);
 
@@ -187,25 +240,27 @@ copyFileIfChanged(JNIEnv *env, void* arg, ZipFileRO* zipFile, ZipEntryRO zipEntr
     off64_t offset;
 
     if (!zipFile->getEntryInfo(zipEntry, &method, &uncompLen, NULL, &offset, &when, &crc)) {
-        ALOGE("Couldn't read zip entry info\n");
+        ALOGD("Couldn't read zip entry info\n");
         return INSTALL_FAILED_INVALID_APK;
     }
 
     if (!extractNativeLibs) {
         // check if library is uncompressed and page-aligned
         if (method != ZipFileRO::kCompressStored) {
-            ALOGE("Library '%s' is compressed - will not be able to open it directly from apk.\n",
+            ALOGD("Library '%s' is compressed - will not be able to open it directly from apk.\n",
                 fileName);
             return INSTALL_FAILED_INVALID_APK;
         }
 
         if (offset % PAGE_SIZE != 0) {
-            ALOGE("Library '%s' is not page-aligned - will not be able to open it directly from"
+            ALOGD("Library '%s' is not page-aligned - will not be able to open it directly from"
                 " apk.\n", fileName);
             return INSTALL_FAILED_INVALID_APK;
         }
 
-        return INSTALL_SUCCEEDED;
+        if (!hasNativeBridge) {
+          return INSTALL_SUCCEEDED;
+        }
     }
 
     // Build local file path
@@ -213,7 +268,7 @@ copyFileIfChanged(JNIEnv *env, void* arg, ZipFileRO* zipFile, ZipEntryRO zipEntr
     char localFileName[nativeLibPath.size() + fileNameLen + 2];
 
     if (strlcpy(localFileName, nativeLibPath.c_str(), sizeof(localFileName)) != nativeLibPath.size()) {
-        ALOGE("Couldn't allocate local file name for library");
+        ALOGD("Couldn't allocate local file name for library");
         return INSTALL_FAILED_INTERNAL_ERROR;
     }
 
@@ -221,7 +276,7 @@ copyFileIfChanged(JNIEnv *env, void* arg, ZipFileRO* zipFile, ZipEntryRO zipEntr
 
     if (strlcpy(localFileName + nativeLibPath.size() + 1, fileName, sizeof(localFileName)
                     - nativeLibPath.size() - 1) != fileNameLen) {
-        ALOGE("Couldn't allocate local file name for library");
+        ALOGD("Couldn't allocate local file name for library");
         return INSTALL_FAILED_INTERNAL_ERROR;
     }
 
@@ -234,27 +289,29 @@ copyFileIfChanged(JNIEnv *env, void* arg, ZipFileRO* zipFile, ZipEntryRO zipEntr
         return INSTALL_SUCCEEDED;
     }
 
-    char localTmpFileName[nativeLibPath.size() + TMP_FILE_PATTERN_LEN + 1];
+    char localTmpFileName[nativeLibPath.size() + TMP_FILE_PATTERN_LEN + 2];
     if (strlcpy(localTmpFileName, nativeLibPath.c_str(), sizeof(localTmpFileName))
             != nativeLibPath.size()) {
-        ALOGE("Couldn't allocate local file name for library");
+        ALOGD("Couldn't allocate local file name for library");
         return INSTALL_FAILED_INTERNAL_ERROR;
     }
 
+    *(localFileName + nativeLibPath.size()) = '/';
+
     if (strlcpy(localTmpFileName + nativeLibPath.size(), TMP_FILE_PATTERN,
-                    TMP_FILE_PATTERN_LEN + 1) != TMP_FILE_PATTERN_LEN) {
-        ALOGE("Couldn't allocate temporary file name for library");
+                    TMP_FILE_PATTERN_LEN - nativeLibPath.size()) != TMP_FILE_PATTERN_LEN) {
+        ALOGI("Couldn't allocate temporary file name for library");
         return INSTALL_FAILED_INTERNAL_ERROR;
     }
 
     int fd = mkstemp(localTmpFileName);
     if (fd < 0) {
-        ALOGE("Couldn't open temporary file name: %s: %s\n", localTmpFileName, strerror(errno));
+        ALOGI("Couldn't open temporary file name: %s: %s\n", localTmpFileName, strerror(errno));
         return INSTALL_FAILED_CONTAINER_ERROR;
     }
 
     if (!zipFile->uncompressEntry(zipEntry, fd)) {
-        ALOGE("Failed uncompressing %s to %s\n", fileName, localTmpFileName);
+        ALOGI("Failed uncompressing %s to %s\n", fileName, localTmpFileName);
         close(fd);
         unlink(localTmpFileName);
         return INSTALL_FAILED_CONTAINER_ERROR;
@@ -268,7 +325,7 @@ copyFileIfChanged(JNIEnv *env, void* arg, ZipFileRO* zipFile, ZipEntryRO zipEntr
     times[1].tv_sec = modTime;
     times[0].tv_usec = times[1].tv_usec = 0;
     if (utimes(localTmpFileName, times) < 0) {
-        ALOGE("Couldn't change modification time on %s: %s\n", localTmpFileName, strerror(errno));
+        ALOGI("Couldn't change modification time on %s: %s\n", localTmpFileName, strerror(errno));
         unlink(localTmpFileName);
         return INSTALL_FAILED_CONTAINER_ERROR;
     }
@@ -276,14 +333,14 @@ copyFileIfChanged(JNIEnv *env, void* arg, ZipFileRO* zipFile, ZipEntryRO zipEntr
     // Set the mode to 755
     static const mode_t mode = S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP |  S_IXGRP | S_IROTH | S_IXOTH;
     if (chmod(localTmpFileName, mode) < 0) {
-        ALOGE("Couldn't change permissions on %s: %s\n", localTmpFileName, strerror(errno));
+        ALOGI("Couldn't change permissions on %s: %s\n", localTmpFileName, strerror(errno));
         unlink(localTmpFileName);
         return INSTALL_FAILED_CONTAINER_ERROR;
     }
 
     // Finally, rename it to the final name.
     if (rename(localTmpFileName, localFileName) < 0) {
-        ALOGE("Couldn't rename %s to %s: %s\n", localTmpFileName, localFileName, strerror(errno));
+        ALOGI("Couldn't rename %s to %s: %s\n", localTmpFileName, localFileName, strerror(errno));
         unlink(localTmpFileName);
         return INSTALL_FAILED_CONTAINER_ERROR;
     }
@@ -306,20 +363,20 @@ copyFileIfChanged(JNIEnv *env, void* arg, ZipFileRO* zipFile, ZipEntryRO zipEntr
  */
 class NativeLibrariesIterator {
 private:
-    NativeLibrariesIterator(ZipFileRO* zipFile, bool debuggable, void* cookie)
-        : mZipFile(zipFile), mDebuggable(debuggable), mCookie(cookie), mLastSlash(NULL) {
+    NativeLibrariesIterator(ZipFileRO* zipFile, void* cookie)
+        : mZipFile(zipFile), mCookie(cookie), mLastSlash(NULL) {
         fileName[0] = '\0';
     }
 
 public:
-    static NativeLibrariesIterator* create(ZipFileRO* zipFile, bool debuggable) {
+    static NativeLibrariesIterator* create(ZipFileRO* zipFile) {
         void* cookie = NULL;
         // Do not specify a suffix to find both .so files and gdbserver.
         if (!zipFile->startIteration(&cookie, APK_LIB, NULL /* suffix */)) {
             return NULL;
         }
 
-        return new NativeLibrariesIterator(zipFile, debuggable, cookie);
+        return new NativeLibrariesIterator(zipFile, cookie);
     }
 
     ZipEntryRO next() {
@@ -340,22 +397,21 @@ public:
             const char* lastSlash = strrchr(fileName, '/');
             ALOG_ASSERT(lastSlash != NULL, "last slash was null somehow for %s\n", fileName);
 
-            // Skip directories.
-            if (*(lastSlash + 1) == 0) {
+            // Exception: If we find the gdbserver binary, return it.
+            if (!strncmp(lastSlash + 1, GDBSERVER, GDBSERVER_LEN)) {
+                mLastSlash = lastSlash;
+                break;
+            }
+
+            // Make sure the filename starts with lib and ends with ".so".
+            if (strncmp(fileName + fileNameLen - LIB_SUFFIX_LEN, LIB_SUFFIX, LIB_SUFFIX_LEN)
+                || strncmp(lastSlash, LIB_PREFIX, LIB_PREFIX_LEN)) {
                 continue;
             }
 
             // Make sure the filename is safe.
             if (!isFilenameSafe(lastSlash + 1)) {
                 continue;
-            }
-
-            if (!mDebuggable) {
-              // Make sure the filename starts with lib and ends with ".so".
-              if (strncmp(fileName + fileNameLen - LIB_SUFFIX_LEN, LIB_SUFFIX, LIB_SUFFIX_LEN)
-                  || strncmp(lastSlash, LIB_PREFIX, LIB_PREFIX_LEN)) {
-                  continue;
-              }
             }
 
             mLastSlash = lastSlash;
@@ -380,21 +436,110 @@ private:
 
     char fileName[PATH_MAX];
     ZipFileRO* const mZipFile;
-    const bool mDebuggable;
     void* mCookie;
     const char* mLastSlash;
 };
 
+typedef struct _LibFileDealer
+{
+    ZipFileRO* zipFile;
+    iterFunc callFunc;
+    JNIEnv *env;
+    void* callArg;
+    const ScopedUtfChars* cpuAbi;
+    install_status_t ret;
+} LibFileDealer, *PLibFileDealer;
+
+typedef struct _LibFileAbiDealer
+{
+    int status;
+    int numAbis;
+    Vector<ScopedUtfChars*>* supportedAbis;
+} LibFileAbiDealer, *PLibFileAbiDealer;
+
+static int dealLibFile(char* fileName, int fileNameLen, void* param)
+{
+    PLibFileDealer dealer = (PLibFileDealer)param;
+    char temp = fileName[fileNameLen];
+    fileName[fileNameLen] = '\0';
+    // Check to make sure the CPU ABI of this file is one we support.
+    const char* lastSlash = strrchr(fileName, '/');
+    const char* cpuAbiOffset = fileName + APK_LIB_LEN;
+    const size_t cpuAbiRegionSize = lastSlash - cpuAbiOffset;
+    int ret = 0;
+    if (dealer->cpuAbi->size() == cpuAbiRegionSize
+            && !strncmp(cpuAbiOffset, dealer->cpuAbi->c_str(), cpuAbiRegionSize)) {
+        ZipEntryRO entry = dealer->zipFile->findEntryByName(fileName);
+        dealer->ret = dealer->callFunc(dealer->env, dealer->callArg,
+                dealer->zipFile, entry, lastSlash + 1);
+        if (dealer->ret != INSTALL_SUCCEEDED) {
+            ALOGV("Failure for entry %s", lastSlash + 1);
+            ret = 1;
+        }
+    }
+    fileName[fileNameLen] = temp;
+    return ret;
+}
+
+static int dealLibAbiFile(char* fileName, int fileNameLen, void* param)
+{
+    PLibFileAbiDealer dealer = (PLibFileAbiDealer)param;
+    char temp = fileName[fileNameLen];
+    fileName[fileNameLen] = '\0';
+    int status = dealer->status;
+    if (status == NO_NATIVE_LIBRARIES) {
+        status = dealer->status = INSTALL_FAILED_NO_MATCHING_ABIS;
+    }
+    const char* abiOffset = fileName + APK_LIB_LEN;
+    const char* lastSlash = strrchr(fileName, '/');
+    const size_t abiSize = lastSlash - abiOffset;
+    int ret = 0;
+    for (int i = 0; i < dealer->numAbis; i++) {
+        const ScopedUtfChars* abi = (*(dealer->supportedAbis))[i];
+        if (abi != NULL && abi->size() == abiSize && !strncmp(abiOffset, abi->c_str(), abiSize)) {
+            // The entry that comes in first (i.e. with a lower index) has the higher priority.
+            if (((i < status) && (status >= 0)) || (status < 0) ) {
+                status = dealer->status = i;
+                if (0 == status) {
+                    ret = 1;
+                    break;
+                }
+            }
+        }
+    }
+    fileName[fileNameLen] = temp;
+    return ret;
+}
+
 static install_status_t
 iterateOverNativeFiles(JNIEnv *env, jlong apkHandle, jstring javaCpuAbi,
-                       jboolean debuggable, iterFunc callFunc, void* callArg) {
+                       iterFunc callFunc, void* callArg) {
     ZipFileRO* zipFile = reinterpret_cast<ZipFileRO*>(apkHandle);
     if (zipFile == NULL) {
         return INSTALL_FAILED_INVALID_APK;
     }
-
-    std::unique_ptr<NativeLibrariesIterator> it(
-            NativeLibrariesIterator::create(zipFile, debuggable));
+    if (initApkScanLib() == LIB_INITED_AND_SUCCESS) {
+        PFilterObject filter = GetFilterObjectFunc(zipFile->getFileDescriptor());
+        if (filter != NULL) {
+            const ScopedUtfChars cpuAbi(env, javaCpuAbi);
+            if (cpuAbi.c_str() == NULL) {
+                // This would've thrown, so this return code isn't observable by
+                // Java.
+                return INSTALL_FAILED_INVALID_APK;
+            }
+            LibFileDealer param;
+            param.zipFile = zipFile;
+            param.callFunc = callFunc;
+            param.env = env;
+            param.callArg = callArg;
+            param.cpuAbi = &cpuAbi;
+            param.ret = INSTALL_SUCCEEDED;
+            if (0 == FilterLibraryFunc(filter, dealLibFile, &param)) {
+                return param.ret;
+            }
+        }
+    }
+    UniquePtr<NativeLibrariesIterator> it(NativeLibrariesIterator::create(zipFile));
     if (it.get() == NULL) {
         return INSTALL_FAILED_INVALID_APK;
     }
@@ -428,8 +573,7 @@ iterateOverNativeFiles(JNIEnv *env, jlong apkHandle, jstring javaCpuAbi,
 }
 
 
-static int findSupportedAbi(JNIEnv *env, jlong apkHandle, jobjectArray supportedAbisArray,
-        jboolean debuggable) {
+static int findSupportedAbi(JNIEnv *env, jlong apkHandle, jobjectArray supportedAbisArray) {
     const int numAbis = env->GetArrayLength(supportedAbisArray);
     Vector<ScopedUtfChars*> supportedAbis;
 
@@ -442,15 +586,32 @@ static int findSupportedAbi(JNIEnv *env, jlong apkHandle, jobjectArray supported
     if (zipFile == NULL) {
         return INSTALL_FAILED_INVALID_APK;
     }
+    int status = NO_NATIVE_LIBRARIES;
+    if (initApkScanLib() == LIB_INITED_AND_SUCCESS) {
+        PFilterObject filter = GetFilterObjectFunc(zipFile->getFileDescriptor());
+        if (filter != NULL) {
+            LibFileAbiDealer param;
+            param.status = status;
+            param.numAbis = numAbis;
+            param.supportedAbis = &supportedAbis;
+            int ret = FilterLibraryFunc(filter, dealLibAbiFile, &param);
+            if ((0 == ret) || (1 == ret)) {
+                status = param.status;
+                for (int i = 0; i < numAbis; ++i) {
+                    delete supportedAbis[i];
+                }
+                return status;
+            }
+        }
+    }
 
-    std::unique_ptr<NativeLibrariesIterator> it(
-            NativeLibrariesIterator::create(zipFile, debuggable));
+    UniquePtr<NativeLibrariesIterator> it(NativeLibrariesIterator::create(zipFile));
     if (it.get() == NULL) {
         return INSTALL_FAILED_INVALID_APK;
     }
 
     ZipEntryRO entry = NULL;
-    int status = NO_NATIVE_LIBRARIES;
+
     while ((entry = it->next()) != NULL) {
         // We're currently in the lib/ directory of the APK, so it does have some native
         // code. We should return INSTALL_FAILED_NO_MATCHING_ABIS if none of the
@@ -486,29 +647,29 @@ static int findSupportedAbi(JNIEnv *env, jlong apkHandle, jobjectArray supported
 static jint
 com_android_internal_content_NativeLibraryHelper_copyNativeBinaries(JNIEnv *env, jclass clazz,
         jlong apkHandle, jstring javaNativeLibPath, jstring javaCpuAbi,
-        jboolean extractNativeLibs, jboolean debuggable)
+        jboolean extractNativeLibs, jboolean hasNativeBridge)
 {
-    void* args[] = { &javaNativeLibPath, &extractNativeLibs };
-    return (jint) iterateOverNativeFiles(env, apkHandle, javaCpuAbi, debuggable,
+    void* args[] = { &javaNativeLibPath, &extractNativeLibs, &hasNativeBridge };
+    return (jint) iterateOverNativeFiles(env, apkHandle, javaCpuAbi,
             copyFileIfChanged, reinterpret_cast<void*>(args));
 }
 
 static jlong
 com_android_internal_content_NativeLibraryHelper_sumNativeBinaries(JNIEnv *env, jclass clazz,
-        jlong apkHandle, jstring javaCpuAbi, jboolean debuggable)
+        jlong apkHandle, jstring javaCpuAbi)
 {
     size_t totalSize = 0;
 
-    iterateOverNativeFiles(env, apkHandle, javaCpuAbi, debuggable, sumFiles, &totalSize);
+    iterateOverNativeFiles(env, apkHandle, javaCpuAbi, sumFiles, &totalSize);
 
     return totalSize;
 }
 
 static jint
 com_android_internal_content_NativeLibraryHelper_findSupportedAbi(JNIEnv *env, jclass clazz,
-        jlong apkHandle, jobjectArray javaCpuAbisToSearch, jboolean debuggable)
+        jlong apkHandle, jobjectArray javaCpuAbisToSearch)
 {
-    return (jint) findSupportedAbi(env, apkHandle, javaCpuAbisToSearch, debuggable);
+    return (jint) findSupportedAbi(env, apkHandle, javaCpuAbisToSearch);
 }
 
 enum bitcode_scan_result_t {
@@ -521,6 +682,16 @@ static jint
 com_android_internal_content_NativeLibraryHelper_hasRenderscriptBitcode(JNIEnv *env, jclass clazz,
         jlong apkHandle) {
     ZipFileRO* zipFile = reinterpret_cast<ZipFileRO*>(apkHandle);
+    if (initApkScanLib() == LIB_INITED_AND_SUCCESS) {
+        PFilterObject filter = GetFilterObjectFunc(zipFile->getFileDescriptor());
+        if (filter != NULL) {
+            int ret = HasRenderScriptFunc(filter);
+            if (1 == ret)
+                return BITCODE_PRESENT;
+            else if(0 == ret)
+                return NO_BITCODE_PRESENT;
+        }
+    }
     void* cookie = NULL;
     if (!zipFile->startIteration(&cookie, NULL /* prefix */, RS_BITCODE_SUFFIX)) {
         return APK_SCAN_ERROR;
@@ -549,30 +720,9 @@ com_android_internal_content_NativeLibraryHelper_openApk(JNIEnv *env, jclass, js
 {
     ScopedUtfChars filePath(env, apkPath);
     ZipFileRO* zipFile = ZipFileRO::open(filePath.c_str());
-
-    return reinterpret_cast<jlong>(zipFile);
-}
-
-static jlong
-com_android_internal_content_NativeLibraryHelper_openApkFd(JNIEnv *env, jclass,
-        jobject fileDescriptor, jstring debugPathName)
-{
-    ScopedUtfChars debugFilePath(env, debugPathName);
-
-    int fd = jniGetFDFromFileDescriptor(env, fileDescriptor);
-    if (fd < 0) {
-        jniThrowException(env, "java/lang/IllegalArgumentException", "Bad FileDescriptor");
-        return 0;
+    if (zipFile != NULL && initApkScanLib() == LIB_INITED_AND_SUCCESS) {
+        RegistFilterObjectFunc(zipFile->getFileDescriptor());
     }
-
-    int dupedFd = fcntl(fd, F_DUPFD_CLOEXEC, 0);
-    if (dupedFd == -1) {
-        jniThrowExceptionFmt(env, "java/lang/IllegalArgumentException",
-                             "Failed to dup FileDescriptor: %s", strerror(errno));
-        return 0;
-    }
-
-    ZipFileRO* zipFile = ZipFileRO::openFd(dupedFd, debugFilePath.c_str());
 
     return reinterpret_cast<jlong>(zipFile);
 }
@@ -580,6 +730,13 @@ com_android_internal_content_NativeLibraryHelper_openApkFd(JNIEnv *env, jclass,
 static void
 com_android_internal_content_NativeLibraryHelper_close(JNIEnv *env, jclass, jlong apkHandle)
 {
+    if (initApkScanLib() == LIB_INITED_AND_SUCCESS) {
+        ZipFileRO* zipFile = reinterpret_cast<ZipFileRO*>(apkHandle);
+        if (zipFile != NULL) {
+            UnRegistFilterObjectFunc(zipFile->getFileDescriptor());
+        }
+    }
+
     delete reinterpret_cast<ZipFileRO*>(apkHandle);
 }
 
@@ -587,9 +744,6 @@ static const JNINativeMethod gMethods[] = {
     {"nativeOpenApk",
             "(Ljava/lang/String;)J",
             (void *)com_android_internal_content_NativeLibraryHelper_openApk},
-    {"nativeOpenApkFd",
-            "(Ljava/io/FileDescriptor;Ljava/lang/String;)J",
-            (void *)com_android_internal_content_NativeLibraryHelper_openApkFd},
     {"nativeClose",
             "(J)V",
             (void *)com_android_internal_content_NativeLibraryHelper_close},
@@ -597,10 +751,10 @@ static const JNINativeMethod gMethods[] = {
             "(JLjava/lang/String;Ljava/lang/String;ZZ)I",
             (void *)com_android_internal_content_NativeLibraryHelper_copyNativeBinaries},
     {"nativeSumNativeBinaries",
-            "(JLjava/lang/String;Z)J",
+            "(JLjava/lang/String;)J",
             (void *)com_android_internal_content_NativeLibraryHelper_sumNativeBinaries},
     {"nativeFindSupportedAbi",
-            "(J[Ljava/lang/String;Z)I",
+            "(J[Ljava/lang/String;)I",
             (void *)com_android_internal_content_NativeLibraryHelper_findSupportedAbi},
     {"hasRenderscriptBitcode", "(J)I",
             (void *)com_android_internal_content_NativeLibraryHelper_hasRenderscriptBitcode},

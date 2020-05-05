@@ -27,7 +27,7 @@
 
 #include "android_runtime/AndroidRuntime.h"
 #include "jni.h"
-#include <nativehelper/JNIHelp.h>
+#include "JNIHelp.h"
 
 namespace android {
 

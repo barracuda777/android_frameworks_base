@@ -20,27 +20,19 @@ package com.android.systemui.qs.tiles;
 import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.SyncStatusObserver;
-import android.service.quicksettings.Tile;
 
-import com.android.systemui.plugins.qs.QSTile.BooleanState;
-import com.android.systemui.qs.QSHost;
-import com.android.systemui.qs.tileimpl.QSTileImpl;
 import com.android.systemui.R;
+import com.android.systemui.qs.QSTile;
 
-import org.lineageos.internal.logging.LineageMetricsLogger;
-
-import javax.inject.Inject;
+import org.cyanogenmod.internal.logging.CMMetricsLogger;
 
 /** Quick settings tile: Sync **/
-public class SyncTile extends QSTileImpl<BooleanState> {
-
-    private final Icon mIcon = ResourceIcon.get(R.drawable.ic_qs_sync);
+public class SyncTile extends QSTile<QSTile.BooleanState> {
 
     private Object mSyncObserverHandle = null;
     private boolean mListening;
 
-    @Inject
-    public SyncTile(QSHost host) {
+    public SyncTile(Host host) {
         super(host);
     }
 
@@ -56,25 +48,29 @@ public class SyncTile extends QSTileImpl<BooleanState> {
     }
 
     @Override
-    public Intent getLongClickIntent() {
+    public void handleLongClick() {
         Intent intent = new Intent("android.settings.SYNC_SETTINGS");
         intent.addCategory(Intent.CATEGORY_DEFAULT);
-        return intent;
+        mHost.startActivityDismissingKeyguard(intent);
+    }
+
+    @Override
+    public Intent getLongClickIntent() {
+        return null;
     }
 
     @Override
     protected void handleUpdateState(BooleanState state, Object arg) {
         state.value = ContentResolver.getMasterSyncAutomatically();
         state.label = mContext.getString(R.string.quick_settings_sync_label);
-        state.icon = mIcon;
         if (state.value) {
+            state.icon = ResourceIcon.get(R.drawable.ic_qs_sync_on);
             state.contentDescription =  mContext.getString(
                     R.string.accessibility_quick_settings_sync_on);
-            state.state = Tile.STATE_ACTIVE;
         } else {
+            state.icon = ResourceIcon.get(R.drawable.ic_qs_sync_off);
             state.contentDescription =  mContext.getString(
                     R.string.accessibility_quick_settings_sync_off);
-            state.state = Tile.STATE_INACTIVE;
         }
     }
 
@@ -85,7 +81,7 @@ public class SyncTile extends QSTileImpl<BooleanState> {
 
     @Override
     public int getMetricsCategory() {
-        return LineageMetricsLogger.TILE_SYNC;
+        return CMMetricsLogger.TILE_SYNC;
     }
 
     @Override
@@ -98,7 +94,7 @@ public class SyncTile extends QSTileImpl<BooleanState> {
     }
 
     @Override
-    public void handleSetListening(boolean listening) {
+    public void setListening(boolean listening) {
         if (mListening == listening) return;
         mListening = listening;
 

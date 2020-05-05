@@ -24,42 +24,25 @@ import android.os.BatteryManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.PowerManager;
-import android.os.PowerSaveState;
 import android.util.Log;
-
-import androidx.annotation.Nullable;
-
-import com.android.internal.annotations.VisibleForTesting;
-import com.android.settingslib.fuelgauge.BatterySaverUtils;
-import com.android.settingslib.fuelgauge.Estimate;
-import com.android.settingslib.utils.PowerUtil;
-import com.android.systemui.Dependency;
-import com.android.systemui.power.EnhancedEstimates;
+import com.android.systemui.DemoMode;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
-import java.text.NumberFormat;
 import java.util.ArrayList;
-
-import javax.inject.Inject;
-import javax.inject.Singleton;
 
 /**
  * Default implementation of a {@link BatteryController}. This controller monitors for battery
  * level change events that are broadcasted by the system.
  */
-@Singleton
 public class BatteryControllerImpl extends BroadcastReceiver implements BatteryController {
     private static final String TAG = "BatteryController";
 
     public static final String ACTION_LEVEL_TEST = "com.android.systemui.BATTERY_LEVEL_TEST";
 
     private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
-    private static final int UPDATE_GRANULARITY_MSEC = 1000 * 60;
 
-    private final EnhancedEstimates mEstimates;
     private final ArrayList<BatteryController.BatteryStateChangeCallback> mChangeCallbacks = new ArrayList<>();
-    private final ArrayList<EstimateFetchCompletion> mFetchCallbacks = new ArrayList<>();
     private final PowerManager mPowerManager;
     private final Handler mHandler;
     private final Context mContext;
@@ -69,28 +52,16 @@ public class BatteryControllerImpl extends BroadcastReceiver implements BatteryC
     protected boolean mCharging;
     protected boolean mCharged;
     protected boolean mPowerSave;
-    protected boolean mAodPowerSave;
     private boolean mTestmode = false;
     private boolean mHasReceivedBattery = false;
-    private Estimate mEstimate;
-    private boolean mFetchingEstimate = false;
 
-    @Inject
-    public BatteryControllerImpl(Context context, EnhancedEstimates enhancedEstimates) {
-        this(context, enhancedEstimates, context.getSystemService(PowerManager.class));
-    }
-
-    @VisibleForTesting
-    BatteryControllerImpl(Context context, EnhancedEstimates enhancedEstimates,
-            PowerManager powerManager) {
+    public BatteryControllerImpl(Context context) {
         mContext = context;
         mHandler = new Handler();
-        mPowerManager = powerManager;
-        mEstimates = enhancedEstimates;
+        mPowerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
 
         registerReceiver();
         updatePowerSave();
-        updateEstimate();
     }
 
     private void registerReceiver() {
@@ -114,11 +85,11 @@ public class BatteryControllerImpl extends BroadcastReceiver implements BatteryC
 
     @Override
     public void setPowerSaveMode(boolean powerSave) {
-        BatterySaverUtils.setPowerSaveMode(mContext, powerSave, /*needFirstTimeWarning*/ true);
+        mPowerManager.setPowerSaveMode(powerSave);
     }
 
     @Override
-    public void addCallback(BatteryController.BatteryStateChangeCallback cb) {
+    public void addStateChangedCallback(BatteryController.BatteryStateChangeCallback cb) {
         synchronized (mChangeCallbacks) {
             mChangeCallbacks.add(cb);
         }
@@ -128,7 +99,7 @@ public class BatteryControllerImpl extends BroadcastReceiver implements BatteryC
     }
 
     @Override
-    public void removeCallback(BatteryController.BatteryStateChangeCallback cb) {
+    public void removeStateChangedCallback(BatteryController.BatteryStateChangeCallback cb) {
         synchronized (mChangeCallbacks) {
             mChangeCallbacks.remove(cb);
         }
@@ -195,77 +166,6 @@ public class BatteryControllerImpl extends BroadcastReceiver implements BatteryC
         return mPowerSave;
     }
 
-    @Override
-    public boolean isAodPowerSave() {
-        return mAodPowerSave;
-    }
-
-    @Override
-    public void getEstimatedTimeRemainingString(EstimateFetchCompletion completion) {
-        // Need to fetch or refresh the estimate, but it may involve binder calls so offload the
-        // work
-        synchronized (mFetchCallbacks) {
-            mFetchCallbacks.add(completion);
-        }
-        updateEstimateInBackground();
-    }
-
-    @Nullable
-    private String generateTimeRemainingString() {
-        synchronized (mFetchCallbacks) {
-            if (mEstimate == null) {
-                return null;
-            }
-
-            String percentage = NumberFormat.getPercentInstance().format((double) mLevel / 100.0);
-            return PowerUtil.getBatteryRemainingShortStringFormatted(
-                    mContext, mEstimate.getEstimateMillis());
-        }
-    }
-
-    private void updateEstimateInBackground() {
-        if (mFetchingEstimate) {
-            // Already dispatched a fetch. It will notify all listeners when finished
-            return;
-        }
-
-        mFetchingEstimate = true;
-        Dependency.get(Dependency.BG_HANDLER).post(() -> {
-            // Only fetch the estimate if they are enabled
-            synchronized (mFetchCallbacks) {
-                mEstimate = null;
-                if (mEstimates.isHybridNotificationEnabled()) {
-                    updateEstimate();
-                }
-            }
-            mFetchingEstimate = false;
-            Dependency.get(Dependency.MAIN_HANDLER).post(this::notifyEstimateFetchCallbacks);
-        });
-    }
-
-    private void notifyEstimateFetchCallbacks() {
-        synchronized (mFetchCallbacks) {
-            String estimate = generateTimeRemainingString();
-            for (EstimateFetchCompletion completion : mFetchCallbacks) {
-                completion.onBatteryRemainingEstimateRetrieved(estimate);
-            }
-
-            mFetchCallbacks.clear();
-        }
-    }
-
-    private void updateEstimate() {
-        // if the estimate has been cached we can just use that, otherwise get a new one and
-        // throw it in the cache.
-        mEstimate = Estimate.getCachedEstimateIfAvailable(mContext);
-        if (mEstimate == null) {
-            mEstimate = mEstimates.getEstimate();
-            if (mEstimate != null) {
-                Estimate.storeCachedEstimate(mContext, mEstimate);
-            }
-        }
-    }
-
     private void updatePowerSave() {
         setPowerSave(mPowerManager.isPowerSaveMode());
     }
@@ -273,11 +173,6 @@ public class BatteryControllerImpl extends BroadcastReceiver implements BatteryC
     private void setPowerSave(boolean powerSave) {
         if (powerSave == mPowerSave) return;
         mPowerSave = powerSave;
-
-        // AOD power saving setting might be different from PowerManager power saving mode.
-        PowerSaveState state = mPowerManager.getPowerSaveState(PowerManager.ServiceType.AOD);
-        mAodPowerSave = state.batterySaverEnabled;
-
         if (DEBUG) Log.d(TAG, "Power save is " + (mPowerSave ? "on" : "off"));
         firePowerSaveChanged();
     }
@@ -312,19 +207,14 @@ public class BatteryControllerImpl extends BroadcastReceiver implements BatteryC
             registerReceiver();
             updatePowerSave();
         } else if (mDemoMode && command.equals(COMMAND_BATTERY)) {
-            String level = args.getString("level");
-            String plugged = args.getString("plugged");
-            String powerSave = args.getString("powersave");
-            if (level != null) {
-                mLevel = Math.min(Math.max(Integer.parseInt(level), 0), 100);
-            }
-            if (plugged != null) {
-                mPluggedIn = Boolean.parseBoolean(plugged);
-            }
-            if (powerSave != null) {
-                mPowerSave = powerSave.equals("true");
-                firePowerSaveChanged();
-            }
+           String level = args.getString("level");
+           String plugged = args.getString("plugged");
+           if (level != null) {
+               mLevel = Math.min(Math.max(Integer.parseInt(level), 0), 100);
+           }
+           if (plugged != null) {
+               mPluggedIn = Boolean.parseBoolean(plugged);
+           }
             fireBatteryLevelChanged();
         }
     }

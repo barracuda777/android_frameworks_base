@@ -19,10 +19,6 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="car_guest" msgid="3738772168718508650">"ผู้มาเยือน"</string>
-    <string name="start_guest_session" msgid="7055742120180595689">"ผู้มาเยือน"</string>
-    <string name="car_add_user" msgid="5245196248349230898">"เพิ่มผู้ใช้"</string>
-    <string name="car_new_user" msgid="8142927244990323906">"ผู้ใช้ใหม่"</string>
-    <string name="user_add_user_message_setup" msgid="1791011504259527329">"เมื่อคุณเพิ่มผู้ใช้ใหม่ ผู้ใช้ดังกล่าวจะต้องตั้งค่าพื้นที่ของตนเอง"</string>
-    <string name="user_add_user_message_update" msgid="3383320289232716179">"ผู้ใช้ทุกคนจะอัปเดตแอปให้แก่ผู้ใช้คนอื่นๆ ได้"</string>
+    <string name="car_lockscreen_disclaimer_title" msgid="7997539137376896441">"ขับขี่อย่างปลอดภัย"</string>
+    <string name="car_lockscreen_disclaimer_text" msgid="3061224684092952864">"มีสติรู้ตัวเต็มที่ในสภาพการขับขี่ต่างๆ เและปฏิบัติตามกฎหมายที่บังคับใช้เสมอ ทั้งนี้เส้นทางอาจไม่ถูกต้อง ไม่ครบถ้วน เป็นอันตราย ไม่เหมาะสม ห้ามใช้ หรือมีการข้ามเขตปกครอง นอกจากนี้ข้อมูลทางธุรกิจอาจไม่ถูกต้องหรือไม่สมบูรณ์ ข้อมูลไม่ใช่แบบเรียลไทม์ และไม่สามารถรับประกันความถูกต้องของตำแหน่ง อย่าใช้งานอุปกรณ์เคลื่อนที่หรือใช้แอปที่ไม่ได้ออกแบบมาสำหรับ Android Auto ขณะขับรถ"</string>
 </resources>

@@ -16,15 +16,12 @@
 
 package android.view;
 
-import android.annotation.FloatRange;
-import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
+import android.annotation.SystemApi;
 import android.app.AppGlobals;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Point;
-import android.os.Build;
 import android.os.RemoteException;
 import android.provider.Settings;
 import android.util.DisplayMetrics;
@@ -38,7 +35,7 @@ public class ViewConfiguration {
      * Defines the width of the horizontal scrollbar and the height of the vertical scrollbar in
      * dips
      */
-    private static final int SCROLL_BAR_SIZE = 4;
+    private static final int SCROLL_BAR_SIZE = 10;
 
     /**
      * Duration of the fade when scrollbars fade away in milliseconds
@@ -84,24 +81,6 @@ public class ViewConfiguration {
      * lock screen, etc).
      */
     private static final int GLOBAL_ACTIONS_KEY_TIMEOUT = 500;
-
-    /**
-     * Defines the duration in milliseconds a user needs to hold down the
-     * appropriate buttons (power + volume down) to trigger the screenshot chord.
-     */
-    private static final int SCREENSHOT_CHORD_KEY_TIMEOUT = 500;
-
-    /**
-     * Defines the duration in milliseconds a user needs to hold down the
-     * appropriate button to bring up the accessibility shortcut for the first time
-     */
-    private static final int A11Y_SHORTCUT_KEY_TIMEOUT = 3000;
-
-    /**
-     * Defines the duration in milliseconds a user needs to hold down the
-     * appropriate button to enable the accessibility shortcut once it's configured.
-     */
-    private static final int A11Y_SHORTCUT_KEY_TIMEOUT_AFTER_CONFIRMATION = 1000;
 
     /**
      * Defines the duration in milliseconds we will wait to see if a touch event
@@ -170,11 +149,6 @@ public class ViewConfiguration {
     private static final int TOUCH_SLOP = 8;
 
     /**
-     * Defines the minimum size of the touch target for a scrollbar in dips
-     */
-    private static final int MIN_SCROLLBAR_TOUCH_TARGET = 48;
-
-    /**
      * Distance the first touch can wander before we stop considering this event a double tap
      * (in dips)
      */
@@ -233,7 +207,6 @@ public class ViewConfiguration {
     /**
      * The coefficient of friction applied to flings/scrolls.
      */
-    @UnsupportedAppUsage
     private static final float SCROLL_FRICTION = 0.015f;
 
     /**
@@ -247,44 +220,15 @@ public class ViewConfiguration {
     private static final int OVERFLING_DISTANCE = 6;
 
     /**
-     * Amount to scroll in response to a horizontal {@link MotionEvent#ACTION_SCROLL} event,
-     * in dips per axis value.
+     * Amount to scroll in response to a {@link MotionEvent#ACTION_SCROLL} event, in dips per
+     * axis value.
      */
-    private static final float HORIZONTAL_SCROLL_FACTOR = 64;
-
-    /**
-     * Amount to scroll in response to a vertical {@link MotionEvent#ACTION_SCROLL} event,
-     * in dips per axis value.
-     */
-    private static final float VERTICAL_SCROLL_FACTOR = 64;
+    private static final int SCROLL_FACTOR = 64;
 
     /**
      * Default duration to hide an action mode for.
      */
     private static final long ACTION_MODE_HIDE_DURATION_DEFAULT = 2000;
-
-    /**
-     * Defines the duration in milliseconds before an end of a long press causes a tooltip to be
-     * hidden.
-     */
-    private static final int LONG_PRESS_TOOLTIP_HIDE_TIMEOUT = 1500;
-
-    /**
-     * Defines the duration in milliseconds before a hover event causes a tooltip to be shown.
-     */
-    private static final int HOVER_TOOLTIP_SHOW_TIMEOUT = 500;
-
-    /**
-     * Defines the duration in milliseconds before mouse inactivity causes a tooltip to be hidden.
-     * (default variant to be used when {@link View#SYSTEM_UI_FLAG_LOW_PROFILE} is not set).
-     */
-    private static final int HOVER_TOOLTIP_HIDE_TIMEOUT = 15000;
-
-    /**
-     * Defines the duration in milliseconds before mouse inactivity causes a tooltip to be hidden
-     * (short version to be used when {@link View#SYSTEM_UI_FLAG_LOW_PROFILE} is set).
-     */
-    private static final int HOVER_TOOLTIP_HIDE_SHORT_TIMEOUT = 3000;
 
     /**
      * Configuration values for overriding {@link #hasPermanentMenuKey()} behavior.
@@ -294,21 +238,12 @@ public class ViewConfiguration {
     private static final int HAS_PERMANENT_MENU_KEY_TRUE = 1;
     private static final int HAS_PERMANENT_MENU_KEY_FALSE = 2;
 
-    /**
-     * The multiplication factor for inhibiting default gestures.
-     */
-    private static final float AMBIGUOUS_GESTURE_MULTIPLIER = 2f;
-
-    private final boolean mConstructedWithContext;
     private final int mEdgeSlop;
     private final int mFadingEdgeLength;
     private final int mMinimumFlingVelocity;
     private final int mMaximumFlingVelocity;
     private final int mScrollbarSize;
     private final int mTouchSlop;
-    private final int mMinScalingSpan;
-    private final int mHoverSlop;
-    private final int mMinScrollbarTouchTarget;
     private final int mDoubleTapTouchSlop;
     private final int mPagingTouchSlop;
     private final int mDoubleTapSlop;
@@ -316,20 +251,13 @@ public class ViewConfiguration {
     private final int mMaximumDrawingCacheSize;
     private final int mOverscrollDistance;
     private final int mOverflingDistance;
-    @UnsupportedAppUsage
     private final boolean mFadingMarqueeEnabled;
     private final long mGlobalActionsKeyTimeout;
-    private final float mVerticalScrollFactor;
-    private final float mHorizontalScrollFactor;
-    private final boolean mShowMenuShortcutsWhenKeyboardPresent;
-    private final long mScreenshotChordKeyTimeout;
+    private final int mScrollFactor;
 
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 123768915)
     private boolean sHasPermanentMenuKey;
-    @UnsupportedAppUsage
     private boolean sHasPermanentMenuKeySet;
 
-    @UnsupportedAppUsage
     static final SparseArray<ViewConfiguration> sConfigurations =
             new SparseArray<ViewConfiguration>(2);
 
@@ -338,15 +266,12 @@ public class ViewConfiguration {
      */
     @Deprecated
     public ViewConfiguration() {
-        mConstructedWithContext = false;
         mEdgeSlop = EDGE_SLOP;
         mFadingEdgeLength = FADING_EDGE_LENGTH;
         mMinimumFlingVelocity = MINIMUM_FLING_VELOCITY;
         mMaximumFlingVelocity = MAXIMUM_FLING_VELOCITY;
         mScrollbarSize = SCROLL_BAR_SIZE;
         mTouchSlop = TOUCH_SLOP;
-        mHoverSlop = TOUCH_SLOP / 2;
-        mMinScrollbarTouchTarget = MIN_SCROLLBAR_TOUCH_TARGET;
         mDoubleTapTouchSlop = DOUBLE_TAP_TOUCH_SLOP;
         mPagingTouchSlop = PAGING_TOUCH_SLOP;
         mDoubleTapSlop = DOUBLE_TAP_SLOP;
@@ -357,14 +282,7 @@ public class ViewConfiguration {
         mOverflingDistance = OVERFLING_DISTANCE;
         mFadingMarqueeEnabled = true;
         mGlobalActionsKeyTimeout = GLOBAL_ACTIONS_KEY_TIMEOUT;
-        mHorizontalScrollFactor = HORIZONTAL_SCROLL_FACTOR;
-        mVerticalScrollFactor = VERTICAL_SCROLL_FACTOR;
-        mShowMenuShortcutsWhenKeyboardPresent = false;
-        mScreenshotChordKeyTimeout = SCREENSHOT_CHORD_KEY_TIMEOUT;
-
-        // Getter throws if mConstructedWithContext is false so doesn't matter what
-        // this value is.
-        mMinScalingSpan = 0;
+        mScrollFactor = SCROLL_FACTOR;
     }
 
     /**
@@ -378,7 +296,6 @@ public class ViewConfiguration {
      * @see android.util.DisplayMetrics
      */
     private ViewConfiguration(Context context) {
-        mConstructedWithContext = true;
         final Resources res = context.getResources();
         final DisplayMetrics metrics = res.getDisplayMetrics();
         final Configuration config = res.getConfiguration();
@@ -392,8 +309,7 @@ public class ViewConfiguration {
 
         mEdgeSlop = (int) (sizeAndDensity * EDGE_SLOP + 0.5f);
         mFadingEdgeLength = (int) (sizeAndDensity * FADING_EDGE_LENGTH + 0.5f);
-        mScrollbarSize = res.getDimensionPixelSize(
-                com.android.internal.R.dimen.config_scrollbarSize);
+        mScrollbarSize = (int) (density * SCROLL_BAR_SIZE + 0.5f);
         mDoubleTapSlop = (int) (sizeAndDensity * DOUBLE_TAP_SLOP + 0.5f);
         mWindowTouchSlop = (int) (sizeAndDensity * WINDOW_TOUCH_SLOP + 0.5f);
 
@@ -416,7 +332,7 @@ public class ViewConfiguration {
                 case HAS_PERMANENT_MENU_KEY_AUTODETECT: {
                     IWindowManager wm = WindowManagerGlobal.getWindowManagerService();
                     try {
-                        sHasPermanentMenuKey = !wm.hasNavigationBar(context.getDisplayId());
+                        sHasPermanentMenuKey = !wm.hasNavigationBar();
                         sHasPermanentMenuKeySet = true;
                     } catch (RemoteException ex) {
                         sHasPermanentMenuKey = false;
@@ -440,10 +356,6 @@ public class ViewConfiguration {
                 com.android.internal.R.bool.config_ui_enableFadingMarquee);
         mTouchSlop = res.getDimensionPixelSize(
                 com.android.internal.R.dimen.config_viewConfigurationTouchSlop);
-        mHoverSlop = res.getDimensionPixelSize(
-                com.android.internal.R.dimen.config_viewConfigurationHoverSlop);
-        mMinScrollbarTouchTarget = res.getDimensionPixelSize(
-                com.android.internal.R.dimen.config_minScrollbarTouchTarget);
         mPagingTouchSlop = mTouchSlop * 2;
 
         mDoubleTapTouchSlop = mTouchSlop;
@@ -454,20 +366,8 @@ public class ViewConfiguration {
                 com.android.internal.R.dimen.config_viewMaxFlingVelocity);
         mGlobalActionsKeyTimeout = res.getInteger(
                 com.android.internal.R.integer.config_globalActionsKeyTimeout);
-
-        mHorizontalScrollFactor = res.getDimensionPixelSize(
-                com.android.internal.R.dimen.config_horizontalScrollFactor);
-        mVerticalScrollFactor = res.getDimensionPixelSize(
-                com.android.internal.R.dimen.config_verticalScrollFactor);
-
-        mShowMenuShortcutsWhenKeyboardPresent = res.getBoolean(
-            com.android.internal.R.bool.config_showMenuShortcutsWhenKeyboardPresent);
-
-        mMinScalingSpan = res.getDimensionPixelSize(
-                com.android.internal.R.dimen.config_minScalingSpan);
-
-        mScreenshotChordKeyTimeout = res.getInteger(
-                com.android.internal.R.integer.config_screenshotChordKeyTimeout);
+        mScrollFactor = res.getDimensionPixelSize(
+                com.android.internal.R.dimen.config_scrollFactor);
     }
 
     /**
@@ -507,14 +407,6 @@ public class ViewConfiguration {
      */
     public int getScaledScrollBarSize() {
         return mScrollbarSize;
-    }
-
-    /**
-     * @return the minimum size of the scrollbar thumb's touch target in pixels
-     * @hide
-     */
-    public int getScaledMinScrollbarTouchTarget() {
-        return mMinScrollbarTouchTarget;
     }
 
     /**
@@ -623,7 +515,6 @@ public class ViewConfiguration {
      *
      * @hide
      */
-    @UnsupportedAppUsage
     public static int getDoubleTapMinTime() {
         return DOUBLE_TAP_MIN_TIME;
     }
@@ -644,7 +535,6 @@ public class ViewConfiguration {
      * to a hover movement gesture.
      * @hide
      */
-    @UnsupportedAppUsage
     public static int getHoverTapSlop() {
         return HOVER_TAP_SLOP;
     }
@@ -686,19 +576,10 @@ public class ViewConfiguration {
     }
 
     /**
-     * @return Distance in pixels a hover can wander while it is still considered "stationary".
-     *
-     */
-    public int getScaledHoverSlop() {
-        return mHoverSlop;
-    }
-
-    /**
      * @return Distance in pixels the first touch can wander before we do not consider this a
      * potential double tap event
      * @hide
      */
-    @UnsupportedAppUsage
     public int getScaledDoubleTapTouchSlop() {
         return mDoubleTapTouchSlop;
     }
@@ -719,7 +600,6 @@ public class ViewConfiguration {
      *       for clients that still use its deprecated constructor.
      */
     @Deprecated
-    @UnsupportedAppUsage
     public static int getDoubleTapSlop() {
         return DOUBLE_TAP_SLOP;
     }
@@ -802,27 +682,11 @@ public class ViewConfiguration {
     /**
      * @return Amount to scroll in response to a {@link MotionEvent#ACTION_SCROLL} event. Multiply
      * this by the event's axis value to obtain the number of pixels to be scrolled.
-     *
-     * @removed
+     * @hide
+     * @SystemApi
      */
     public int getScaledScrollFactor() {
-        return (int) mVerticalScrollFactor;
-    }
-
-    /**
-     * @return Amount to scroll in response to a horizontal {@link MotionEvent#ACTION_SCROLL} event.
-     * Multiply this by the event's axis value to obtain the number of pixels to be scrolled.
-     */
-    public float getScaledHorizontalScrollFactor() {
-        return mHorizontalScrollFactor;
-    }
-
-    /**
-     * @return Amount to scroll in response to a vertical {@link MotionEvent#ACTION_SCROLL} event.
-     * Multiply this by the event's axis value to obtain the number of pixels to be scrolled.
-     */
-    public float getScaledVerticalScrollFactor() {
-        return mVerticalScrollFactor;
+        return mScrollFactor;
     }
 
     /**
@@ -895,42 +759,8 @@ public class ViewConfiguration {
      *   the global actions dialog.
      * @hide
      */
-    @TestApi
     public long getDeviceGlobalActionKeyTimeout() {
         return mGlobalActionsKeyTimeout;
-    }
-
-    /**
-     * The amount of time a user needs to press the relevant keys to trigger
-     * the screenshot chord.
-     *
-     * @return how long a user needs to press the relevant keys to trigger
-     *   the screenshot chord.
-     * @hide
-     */
-    public long getScreenshotChordKeyTimeout() {
-        return mScreenshotChordKeyTimeout;
-    }
-
-    /**
-     * The amount of time a user needs to press the relevant keys to activate the accessibility
-     * shortcut.
-     *
-     * @return how long a user needs to press the relevant keys to activate the accessibility
-     *   shortcut.
-     * @hide
-     */
-    public long getAccessibilityShortcutKeyTimeout() {
-        return A11Y_SHORTCUT_KEY_TIMEOUT;
-    }
-
-    /**
-     * @return The amount of time a user needs to press the relevant keys to activate the
-     *   accessibility shortcut after it's confirmed that accessibility shortcut is used.
-     * @hide
-     */
-    public long getAccessibilityShortcutKeyTimeoutAfterConfirmation() {
-        return A11Y_SHORTCUT_KEY_TIMEOUT_AFTER_CONFIRMATION;
     }
 
     /**
@@ -951,22 +781,6 @@ public class ViewConfiguration {
     }
 
     /**
-     * If a MotionEvent has {@link android.view.MotionEvent#CLASSIFICATION_AMBIGUOUS_GESTURE} set,
-     * then certain actions, such as scrolling, will be inhibited.
-     * However, to account for the possibility of incorrect classification,
-     * the default scrolling will only be inhibited if the pointer travels less than
-     * (getScaledTouchSlop() * this factor).
-     * Likewise, the default long press timeout will be increased by this factor for some situations
-     * where the default behaviour is to cancel it.
-     *
-     * @return The multiplication factor for inhibiting default gestures.
-     */
-    @FloatRange(from = 1.0)
-    public static float getAmbiguousGestureMultiplier() {
-        return AMBIGUOUS_GESTURE_MULTIPLIER;
-    }
-
-    /**
      * Report if the device has a permanent menu key available to the user.
      *
      * <p>As of Android 3.0, devices may not have a permanent menu key available.
@@ -983,79 +797,10 @@ public class ViewConfiguration {
     }
 
     /**
-     * Check if shortcuts should be displayed in menus.
-     *
-     * @return {@code True} if shortcuts should be displayed in menus.
-     */
-    public boolean shouldShowMenuShortcutsWhenKeyboardPresent() {
-        return mShowMenuShortcutsWhenKeyboardPresent;
-    }
-
-    /**
-     * Retrieves the distance in pixels between touches that must be reached for a gesture to be
-     * interpreted as scaling.
-     *
-     * In general, scaling shouldn't start until this distance has been met or surpassed, and
-     * scaling should end when the distance in pixels between touches drops below this distance.
-     *
-     * @return The distance in pixels
-     * @throws IllegalStateException if this method is called on a ViewConfiguration that was
-     *         instantiated using a constructor with no Context parameter.
-     */
-    public int getScaledMinimumScalingSpan() {
-        if (!mConstructedWithContext) {
-            throw new IllegalStateException("Min scaling span cannot be determined when this "
-                    + "method is called on a ViewConfiguration that was instantiated using a "
-                    + "constructor with no Context parameter");
-        }
-        return mMinScalingSpan;
-    }
-
-    /**
      * @hide
      * @return Whether or not marquee should use fading edges.
      */
-    @UnsupportedAppUsage
     public boolean isFadingMarqueeEnabled() {
         return mFadingMarqueeEnabled;
-    }
-
-    /**
-     * @return the duration in milliseconds before an end of a long press causes a tooltip to be
-     * hidden
-     * @hide
-     */
-    @TestApi
-    public static int getLongPressTooltipHideTimeout() {
-        return LONG_PRESS_TOOLTIP_HIDE_TIMEOUT;
-    }
-
-    /**
-     * @return the duration in milliseconds before a hover event causes a tooltip to be shown
-     * @hide
-     */
-    @TestApi
-    public static int getHoverTooltipShowTimeout() {
-        return HOVER_TOOLTIP_SHOW_TIMEOUT;
-    }
-
-    /**
-     * @return the duration in milliseconds before mouse inactivity causes a tooltip to be hidden
-     * (default variant to be used when {@link View#SYSTEM_UI_FLAG_LOW_PROFILE} is not set).
-     * @hide
-     */
-    @TestApi
-    public static int getHoverTooltipHideTimeout() {
-        return HOVER_TOOLTIP_HIDE_TIMEOUT;
-    }
-
-    /**
-     * @return the duration in milliseconds before mouse inactivity causes a tooltip to be hidden
-     * (shorter variant to be used when {@link View#SYSTEM_UI_FLAG_LOW_PROFILE} is set).
-     * @hide
-     */
-    @TestApi
-    public static int getHoverTooltipHideShortTimeout() {
-        return HOVER_TOOLTIP_HIDE_SHORT_TIMEOUT;
     }
 }

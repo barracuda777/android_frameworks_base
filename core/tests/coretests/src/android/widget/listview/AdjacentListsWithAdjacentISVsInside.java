@@ -16,9 +16,10 @@
 
 package android.widget.listview;
 
+import android.util.InternalSelectionView;
+
 import android.app.Activity;
 import android.os.Bundle;
-import android.util.InternalSelectionView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
@@ -79,7 +80,6 @@ public class AdjacentListsWithAdjacentISVsInside extends Activity {
 
 
         setContentView(combineAdjacent(mLeftListView, mRightListView));
-        getWindow().getDecorView().restoreDefaultFocus();
     }
 
     private static View combineAdjacent(View... views) {

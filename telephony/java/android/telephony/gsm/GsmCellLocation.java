@@ -16,8 +16,6 @@
 
 package android.telephony.gsm;
 
-import android.annotation.UnsupportedAppUsage;
-import android.os.Build;
 import android.os.Bundle;
 import android.telephony.CellLocation;
 
@@ -93,7 +91,6 @@ public class GsmCellLocation extends CellLocation {
      * Set the primary scrambling code.
      * @hide
      */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     public void setPsc(int psc) {
         mPsc = psc;
     }

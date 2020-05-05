@@ -21,11 +21,11 @@
 
 #include "CreateJavaOutputStreamAdaptor.h"
 
-#include "SkPDFDocument.h"
+#include "SkDocument.h"
 #include "SkPicture.h"
 #include "SkPictureRecorder.h"
-#include "SkRect.h"
 #include "SkStream.h"
+#include "SkRect.h"
 
 #include <hwui/Canvas.h>
 
@@ -81,19 +81,20 @@ public:
         assert(mCurrentPage != NULL);
         assert(mCurrentPage->mPictureRecorder != NULL);
         assert(mCurrentPage->mPicture == NULL);
-        mCurrentPage->mPicture = mCurrentPage->mPictureRecorder->finishRecordingAsPicture().release();
+        mCurrentPage->mPicture = mCurrentPage->mPictureRecorder->endRecording();
         delete mCurrentPage->mPictureRecorder;
         mCurrentPage->mPictureRecorder = NULL;
         mCurrentPage = NULL;
     }
 
     void write(SkWStream* stream) {
-        sk_sp<SkDocument> document = SkPDF::MakeDocument(stream);
+        SkAutoTUnref<SkDocument> document(SkDocument::CreatePDF(stream));
         for (unsigned i = 0; i < mPages.size(); i++) {
             PageRecord* page =  mPages[i];
 
             SkCanvas* canvas = document->beginPage(page->mWidth, page->mHeight,
                     &(page->mContentRect));
+
             canvas->drawPicture(page->mPicture);
 
             document->endPage();

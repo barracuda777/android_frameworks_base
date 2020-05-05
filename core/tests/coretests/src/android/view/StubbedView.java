@@ -16,10 +16,11 @@
 
 package android.view;
 
-import android.app.Activity;
-import android.os.Bundle;
-
 import com.android.frameworks.coretests.R;
+
+import android.os.Bundle;
+import android.app.Activity;
+import android.view.View;
 
 /**
  * Exercise <ViewStub /> tag in XML files.

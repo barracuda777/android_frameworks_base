@@ -21,10 +21,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.telecom.ConnectionRequest;
 import android.telecom.DisconnectCause;
-import android.telecom.Logging.Session;
 import android.telecom.ParcelableConnection;
 import android.telecom.ParcelableConference;
-import android.telecom.PhoneAccountHandle;
 import android.telecom.StatusHints;
 
 import com.android.internal.telecom.IVideoProvider;
@@ -41,89 +39,59 @@ oneway interface IConnectionServiceAdapter {
     void handleCreateConnectionComplete(
             String callId,
             in ConnectionRequest request,
-            in ParcelableConnection connection,
-            in Session.Info sessionInfo);
+            in ParcelableConnection connection);
 
-    void setActive(String callId, in Session.Info sessionInfo);
+    void setActive(String callId);
 
-    void setRinging(String callId, in Session.Info sessionInfo);
+    void setRinging(String callId);
 
-    void setDialing(String callId, in Session.Info sessionInfo);
+    void setDialing(String callId);
 
-    void setPulling(String callId, in Session.Info sessionInfo);
+    void setPulling(String callId);
 
-    void setDisconnected(String callId, in DisconnectCause disconnectCause,
-    in Session.Info sessionInfo);
+    void setDisconnected(String callId, in DisconnectCause disconnectCause);
 
-    void setOnHold(String callId, in Session.Info sessionInfo);
+    void setOnHold(String callId);
 
-    void setRingbackRequested(String callId, boolean ringing, in Session.Info sessionInfo);
+    void setRingbackRequested(String callId, boolean ringing);
 
-    void setConnectionCapabilities(String callId, int connectionCapabilities,
-    in Session.Info sessionInfo);
+    void setConnectionCapabilities(String callId, int connectionCapabilities);
 
-    void setConnectionProperties(String callId, int connectionProperties,
-    in Session.Info sessionInfo);
+    void setConnectionProperties(String callId, int connectionProperties);
 
-    void setIsConferenced(String callId, String conferenceCallId, in Session.Info sessionInfo);
+    void setIsConferenced(String callId, String conferenceCallId);
 
-    void setConferenceMergeFailed(String callId, in Session.Info sessionInfo);
+    void setConferenceMergeFailed(String callId);
 
-    void addConferenceCall(String callId, in ParcelableConference conference,
-    in Session.Info sessionInfo);
+    void addConferenceCall(String callId, in ParcelableConference conference);
 
-    void removeCall(String callId, in Session.Info sessionInfo);
+    void removeCall(String callId);
 
-    void onPostDialWait(String callId, String remaining, in Session.Info sessionInfo);
+    void onPostDialWait(String callId, String remaining);
 
-    void onPostDialChar(String callId, char nextChar, in Session.Info sessionInfo);
+    void onPostDialChar(String callId, char nextChar);
 
-    void queryRemoteConnectionServices(RemoteServiceCallback callback, String callingPackage,
-    in Session.Info sessionInfo);
+    void queryRemoteConnectionServices(RemoteServiceCallback callback);
 
-    void setVideoProvider(String callId, IVideoProvider videoProvider, in Session.Info sessionInfo);
+    void setVideoProvider(String callId, IVideoProvider videoProvider);
 
-    void setVideoState(String callId, int videoState, in Session.Info sessionInfo);
+    void setVideoState(String callId, int videoState);
 
-    void setIsVoipAudioMode(String callId, boolean isVoip, in Session.Info sessionInfo);
+    void setIsVoipAudioMode(String callId, boolean isVoip);
 
-    void setStatusHints(String callId, in StatusHints statusHints, in Session.Info sessionInfo);
+    void setStatusHints(String callId, in StatusHints statusHints);
 
-    void setAddress(String callId, in Uri address, int presentation, in Session.Info sessionInfo);
+    void setAddress(String callId, in Uri address, int presentation);
 
-    void setCallerDisplayName(String callId, String callerDisplayName, int presentation,
-    in Session.Info sessionInfo);
+    void setCallerDisplayName(String callId, String callerDisplayName, int presentation);
 
-    void setConferenceableConnections(String callId, in List<String> conferenceableCallIds,
-    in Session.Info sessionInfo);
+    void setConferenceableConnections(String callId, in List<String> conferenceableCallIds);
 
-    void addExistingConnection(String callId, in ParcelableConnection connection,
-    in Session.Info sessionInfo);
+    void addExistingConnection(String callId, in ParcelableConnection connection);
 
-    void putExtras(String callId, in Bundle extras, in Session.Info sessionInfo);
+    void putExtras(String callId, in Bundle extras);
 
-    void removeExtras(String callId, in List<String> keys, in Session.Info sessionInfo);
+    void removeExtras(String callId, in List<String> keys);
 
-    void setAudioRoute(String callId, int audioRoute, String bluetoothAddress,
-            in Session.Info sessionInfo);
-
-    void onConnectionEvent(String callId, String event, in Bundle extras,
-    in Session.Info sessionInfo);
-
-    void onRttInitiationSuccess(String callId, in Session.Info sessionInfo);
-
-    void onRttInitiationFailure(String callId, int reason, in Session.Info sessionInfo);
-
-    void onRttSessionRemotelyTerminated(String callId, in Session.Info sessionInfo);
-
-    void onRemoteRttRequest(String callId, in Session.Info sessionInfo);
-
-    void onPhoneAccountChanged(String callId, in PhoneAccountHandle pHandle,
-    in Session.Info sessionInfo);
-
-    void onConnectionServiceFocusReleased(in Session.Info sessionInfo);
-
-    void resetConnectionTime(String callIdi, in Session.Info sessionInfo);
-
-    void setConferenceState(String callId, boolean isConference, in Session.Info sessionInfo);
+    void onConnectionEvent(String callId, String event, in Bundle extras);
 }

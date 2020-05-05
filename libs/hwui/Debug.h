@@ -98,13 +98,10 @@
 // Turn on to enable debugging shadow
 #define DEBUG_SHADOW 0
 
-// Turn on to enable debugging vector drawable
-#define DEBUG_VECTOR_DRAWABLE 0
-
 #if DEBUG_INIT
-#define INIT_LOGD(...) ALOGD(__VA_ARGS__)
+    #define INIT_LOGD(...) ALOGD(__VA_ARGS__)
 #else
-#define INIT_LOGD(...)
+    #define INIT_LOGD(...)
 #endif
 
-#endif  // ANDROID_HWUI_DEBUG_H
+#endif // ANDROID_HWUI_DEBUG_H

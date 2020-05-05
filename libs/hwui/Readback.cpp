@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,32 +16,94 @@
 
 #include "Readback.h"
 
-#include "pipeline/skia/LayerDrawable.h"
+#include "Caches.h"
+#include "Image.h"
+#include "GlopBuilder.h"
+#include "renderstate/RenderState.h"
 #include "renderthread/EglManager.h"
-#include "renderthread/VulkanManager.h"
+#include "utils/GLUtils.h"
 
-#include <gui/Surface.h>
+#include <GLES2/gl2.h>
 #include <ui/Fence.h>
 #include <ui/GraphicBuffer.h>
-#include "DeferredLayerUpdater.h"
-#include "Properties.h"
-#include "hwui/Bitmap.h"
-#include "utils/Color.h"
-#include "utils/MathUtils.h"
-#include "utils/TraceUtils.h"
-
-using namespace android::uirenderer::renderthread;
 
 namespace android {
 namespace uirenderer {
 
-CopyResult Readback::copySurfaceInto(Surface& surface, const Rect& srcRect, SkBitmap* bitmap) {
-    ATRACE_CALL();
+CopyResult Readback::copySurfaceInto(renderthread::RenderThread& renderThread,
+        Surface& surface, SkBitmap* bitmap) {
+    // TODO: Clean this up and unify it with LayerRenderer::copyLayer,
+    // of which most of this is copied from.
+    renderThread.eglManager().initialize();
+
+    Caches& caches = Caches::getInstance();
+    RenderState& renderState = renderThread.renderState();
+    int destWidth = bitmap->width();
+    int destHeight = bitmap->height();
+    if (destWidth > caches.maxTextureSize
+                || destHeight > caches.maxTextureSize) {
+        ALOGW("Can't copy surface into bitmap, %dx%d exceeds max texture size %d",
+                destWidth, destHeight, caches.maxTextureSize);
+        return CopyResult::DestinationInvalid;
+    }
+    GLuint fbo = renderState.createFramebuffer();
+    if (!fbo) {
+        ALOGW("Could not obtain an FBO");
+        return CopyResult::UnknownError;
+    }
+
+    SkAutoLockPixels alp(*bitmap);
+
+    GLuint texture;
+
+    GLenum format;
+    GLenum type;
+
+    switch (bitmap->colorType()) {
+        case kAlpha_8_SkColorType:
+            format = GL_ALPHA;
+            type = GL_UNSIGNED_BYTE;
+            break;
+        case kRGB_565_SkColorType:
+            format = GL_RGB;
+            type = GL_UNSIGNED_SHORT_5_6_5;
+            break;
+        case kARGB_4444_SkColorType:
+            format = GL_RGBA;
+            type = GL_UNSIGNED_SHORT_4_4_4_4;
+            break;
+        case kN32_SkColorType:
+        default:
+            format = GL_RGBA;
+            type = GL_UNSIGNED_BYTE;
+            break;
+    }
+
+    renderState.bindFramebuffer(fbo);
+
+    // TODO: Use layerPool or something to get this maybe? But since we
+    // need explicit format control we can't currently.
+
+    // Setup the rendertarget
+    glGenTextures(1, &texture);
+    caches.textureState().activateTexture(0);
+    caches.textureState().bindTexture(texture);
+    glPixelStorei(GL_PACK_ALIGNMENT, bitmap->bytesPerPixel());
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D, 0, format, destWidth, destHeight,
+            0, format, type, nullptr);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+            GL_TEXTURE_2D, texture, 0);
+
     // Setup the source
     sp<GraphicBuffer> sourceBuffer;
     sp<Fence> sourceFence;
     Matrix4 texTransform;
-    status_t err = surface.getLastQueuedBuffer(&sourceBuffer, &sourceFence, texTransform.data);
+    status_t err = surface.getLastQueuedBuffer(&sourceBuffer, &sourceFence,
+            texTransform.data);
     texTransform.invalidateType();
     if (err != NO_ERROR) {
         ALOGW("Failed to get last queued buffer, error = %d", err);
@@ -60,152 +122,79 @@ CopyResult Readback::copySurfaceInto(Surface& surface, const Rect& srcRect, SkBi
         ALOGE("Timeout (500ms) exceeded waiting for buffer fence, abandoning readback attempt");
         return CopyResult::Timeout;
     }
-    if (!sourceBuffer.get()) {
+
+    // TODO: Can't use Image helper since it forces GL_TEXTURE_2D usage via
+    // GL_OES_EGL_image, which doesn't work since we need samplerExternalOES
+    // to be able to properly sample from the buffer.
+
+    // Create the EGLImage object that maps the GraphicBuffer
+    EGLDisplay display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    EGLClientBuffer clientBuffer = (EGLClientBuffer) sourceBuffer->getNativeBuffer();
+    EGLint attrs[] = { EGL_IMAGE_PRESERVED_KHR, EGL_TRUE, EGL_NONE };
+
+    EGLImageKHR sourceImage = eglCreateImageKHR(display, EGL_NO_CONTEXT,
+            EGL_NATIVE_BUFFER_ANDROID, clientBuffer, attrs);
+
+    if (sourceImage == EGL_NO_IMAGE_KHR) {
+        ALOGW("eglCreateImageKHR failed (%#x)", eglGetError());
+        return CopyResult::UnknownError;
+    }
+    GLuint sourceTexId;
+    // Create a 2D texture to sample from the EGLImage
+    glGenTextures(1, &sourceTexId);
+    Caches::getInstance().textureState().bindTexture(GL_TEXTURE_EXTERNAL_OES, sourceTexId);
+    glEGLImageTargetTexture2DOES(GL_TEXTURE_EXTERNAL_OES, sourceImage);
+
+    GLenum status = GL_NO_ERROR;
+    while ((status = glGetError()) != GL_NO_ERROR) {
+        ALOGW("glEGLImageTargetTexture2DOES failed (%#x)", status);
+        eglDestroyImageKHR(display, sourceImage);
         return CopyResult::UnknownError;
     }
 
-    sk_sp<SkColorSpace> colorSpace =
-            DataSpaceToColorSpace(static_cast<android_dataspace>(surface.getBuffersDataSpace()));
-    sk_sp<SkImage> image = SkImage::MakeFromAHardwareBuffer(
-            reinterpret_cast<AHardwareBuffer*>(sourceBuffer.get()),
-            kPremul_SkAlphaType, colorSpace);
-    return copyImageInto(image, texTransform, srcRect, bitmap);
+    Texture sourceTexture(caches);
+    sourceTexture.wrap(sourceTexId,
+            sourceBuffer->getWidth(), sourceBuffer->getHeight(), 0 /* total lie */);
+
+    {
+        // Draw & readback
+        renderState.setViewport(destWidth, destHeight);
+        renderState.scissor().setEnabled(false);
+        renderState.blend().syncEnabled();
+        renderState.stencil().disable();
+
+        Rect destRect(destWidth, destHeight);
+        Glop glop;
+        GlopBuilder(renderState, caches, &glop)
+                .setRoundRectClipState(nullptr)
+                .setMeshTexturedUnitQuad(nullptr)
+                .setFillExternalTexture(sourceTexture, texTransform)
+                .setTransform(Matrix4::identity(), TransformFlags::None)
+                .setModelViewMapUnitToRect(destRect)
+                .build();
+        Matrix4 ortho;
+        ortho.loadOrtho(destWidth, destHeight);
+        renderState.render(glop, ortho);
+
+        glReadPixels(0, 0, bitmap->width(), bitmap->height(), format,
+                type, bitmap->getPixels());
+    }
+
+    // Cleanup
+    caches.textureState().deleteTexture(texture);
+    renderState.deleteFramebuffer(fbo);
+
+    sourceTexture.deleteTexture();
+    // All we're flushing & finishing is the deletion of the texture since
+    // copyTextureInto already did a major flush & finish as an implicit
+    // part of glReadPixels, so this shouldn't pose any major stalls.
+    glFinish();
+    eglDestroyImageKHR(display, sourceImage);
+
+    GL_CHECKPOINT(MODERATE);
+
+    return CopyResult::Success;
 }
 
-CopyResult Readback::copyHWBitmapInto(Bitmap* hwBitmap, SkBitmap* bitmap) {
-    LOG_ALWAYS_FATAL_IF(!hwBitmap->isHardware());
-
-    Rect srcRect;
-    Matrix4 transform;
-    transform.loadScale(1, -1, 1);
-    transform.translate(0, -1);
-
-    return copyImageInto(hwBitmap->makeImage(), transform, srcRect, bitmap);
-}
-
-CopyResult Readback::copyLayerInto(DeferredLayerUpdater* deferredLayer, SkBitmap* bitmap) {
-    ATRACE_CALL();
-    if (!mRenderThread.getGrContext()) {
-        return CopyResult::UnknownError;
-    }
-
-    // acquire most recent buffer for drawing
-    deferredLayer->updateTexImage();
-    deferredLayer->apply();
-    const SkRect dstRect = SkRect::MakeIWH(bitmap->width(), bitmap->height());
-    CopyResult copyResult = CopyResult::UnknownError;
-    Layer* layer = deferredLayer->backingLayer();
-    if (layer) {
-        if (copyLayerInto(layer, nullptr, &dstRect, bitmap)) {
-            copyResult = CopyResult::Success;
-        }
-    }
-    return copyResult;
-}
-
-CopyResult Readback::copyImageInto(const sk_sp<SkImage>& image, Matrix4& texTransform,
-                                   const Rect& srcRect, SkBitmap* bitmap) {
-    ATRACE_CALL();
-    if (Properties::getRenderPipelineType() == RenderPipelineType::SkiaGL) {
-        mRenderThread.requireGlContext();
-    } else {
-        mRenderThread.requireVkContext();
-    }
-    if (!image.get()) {
-        return CopyResult::UnknownError;
-    }
-    int imgWidth = image->width();
-    int imgHeight = image->height();
-    sk_sp<GrContext> grContext = sk_ref_sp(mRenderThread.getGrContext());
-
-    if (bitmap->colorType() == kRGBA_F16_SkColorType &&
-        !grContext->colorTypeSupportedAsSurface(bitmap->colorType())) {
-        ALOGW("Can't copy surface into bitmap, RGBA_F16 config is not supported");
-        return CopyResult::DestinationInvalid;
-    }
-
-    CopyResult copyResult = CopyResult::UnknownError;
-
-    int displayedWidth = imgWidth, displayedHeight = imgHeight;
-    // If this is a 90 or 270 degree rotation we need to swap width/height to get the device
-    // size.
-    if (texTransform[Matrix4::kSkewX] >= 0.5f || texTransform[Matrix4::kSkewX] <= -0.5f) {
-        std::swap(displayedWidth, displayedHeight);
-    }
-    SkRect skiaDestRect = SkRect::MakeWH(bitmap->width(), bitmap->height());
-    SkRect skiaSrcRect = srcRect.toSkRect();
-    if (skiaSrcRect.isEmpty()) {
-        skiaSrcRect = SkRect::MakeIWH(displayedWidth, displayedHeight);
-    }
-    bool srcNotEmpty = skiaSrcRect.intersect(SkRect::MakeIWH(displayedWidth, displayedHeight));
-    if (!srcNotEmpty) {
-        return copyResult;
-    }
-
-    Layer layer(mRenderThread.renderState(), nullptr, 255, SkBlendMode::kSrc);
-    bool disableFilter = MathUtils::areEqual(skiaSrcRect.width(), skiaDestRect.width()) &&
-                         MathUtils::areEqual(skiaSrcRect.height(), skiaDestRect.height());
-    layer.setForceFilter(!disableFilter);
-    layer.setSize(displayedWidth, displayedHeight);
-    texTransform.copyTo(layer.getTexTransform());
-    layer.setImage(image);
-    if (copyLayerInto(&layer, &skiaSrcRect, &skiaDestRect, bitmap)) {
-        copyResult = CopyResult::Success;
-    }
-
-    return copyResult;
-}
-
-bool Readback::copyLayerInto(Layer* layer, const SkRect* srcRect, const SkRect* dstRect,
-                             SkBitmap* bitmap) {
-    /* This intermediate surface is present to work around a bug in SwiftShader that
-     * prevents us from reading the contents of the layer's texture directly. The
-     * workaround involves first rendering that texture into an intermediate buffer and
-     * then reading from the intermediate buffer into the bitmap.
-     * Another reason to render in an offscreen buffer is to scale and to avoid an issue b/62262733
-     * with reading incorrect data from EGLImage backed SkImage (likely a driver bug).
-     */
-    sk_sp<SkSurface> tmpSurface = SkSurface::MakeRenderTarget(mRenderThread.getGrContext(),
-                                                              SkBudgeted::kYes, bitmap->info(), 0,
-                                                              kTopLeft_GrSurfaceOrigin, nullptr);
-
-    // if we can't generate a GPU surface that matches the destination bitmap (e.g. 565) then we
-    // attempt to do the intermediate rendering step in 8888
-    if (!tmpSurface.get()) {
-        SkImageInfo tmpInfo = bitmap->info().makeColorType(SkColorType::kN32_SkColorType);
-        tmpSurface = SkSurface::MakeRenderTarget(mRenderThread.getGrContext(), SkBudgeted::kYes,
-                                                 tmpInfo, 0, kTopLeft_GrSurfaceOrigin, nullptr);
-        if (!tmpSurface.get()) {
-            ALOGW("Unable to generate GPU buffer in a format compatible with the provided bitmap");
-            return false;
-        }
-    }
-
-    if (!skiapipeline::LayerDrawable::DrawLayer(mRenderThread.getGrContext(),
-                                                tmpSurface->getCanvas(), layer, srcRect, dstRect,
-                                                false)) {
-        ALOGW("Unable to draw content from GPU into the provided bitmap");
-        return false;
-    }
-
-    if (!tmpSurface->readPixels(*bitmap, 0, 0)) {
-        // if we fail to readback from the GPU directly (e.g. 565) then we attempt to read into
-        // 8888 and then convert that into the destination format before giving up.
-        SkBitmap tmpBitmap;
-        SkImageInfo tmpInfo = bitmap->info().makeColorType(SkColorType::kN32_SkColorType);
-        if (bitmap->info().colorType() == SkColorType::kN32_SkColorType ||
-                !tmpBitmap.tryAllocPixels(tmpInfo) ||
-                !tmpSurface->readPixels(tmpBitmap, 0, 0) ||
-                !tmpBitmap.readPixels(bitmap->info(), bitmap->getPixels(),
-                                      bitmap->rowBytes(), 0, 0)) {
-            ALOGW("Unable to convert content into the provided bitmap");
-            return false;
-        }
-    }
-
-    bitmap->notifyPixelsChanged();
-    return true;
-}
-
-} /* namespace uirenderer */
-} /* namespace android */
+} // namespace uirenderer
+} // namespace android

@@ -16,27 +16,16 @@
 
 package android.text;
 
-import static org.junit.Assert.assertEquals;
-
-import android.platform.test.annotations.Presubmit;
+import android.test.InstrumentationTestCase;
 import android.test.MoreAsserts;
+import android.test.suitebuilder.annotation.MediumTest;
+import android.text.Spannable;
 
-import androidx.test.filters.SmallTest;
-import androidx.test.runner.AndroidJUnit4;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
-import java.util.concurrent.CountDownLatch;
-
-@Presubmit
-@SmallTest
-@RunWith(AndroidJUnit4.class)
-public abstract class SpannableTest {
+public abstract class SpannableTest extends InstrumentationTestCase {
 
     protected abstract Spannable newSpannableWithText(String text);
 
-    @Test
+    @MediumTest
     public void testGetSpans() {
         Spannable spannable = newSpannableWithText("abcdef");
         Object emptySpan = new Object();
@@ -57,35 +46,5 @@ public abstract class SpannableTest {
         MoreAsserts.assertEquals(new Object[]{emptySpan, unemptySpan}, spans);
         spans = spannable.getSpans(2, 2, Object.class);
         MoreAsserts.assertEquals(new Object[]{unemptySpan}, spans);
-    }
-
-    @Test
-    public void testRemoveSpanWithIntermediateFlag() {
-        Spannable spannable = newSpannableWithText("abcdef");
-        Object emptySpan = new Object();
-        spannable.setSpan(emptySpan, 1, 1, 0);
-        Object unemptySpan = new Object();
-        spannable.setSpan(unemptySpan, 1, 2, 0);
-
-        final CountDownLatch latch = new CountDownLatch(1);
-        SpanWatcher watcher = new SpanWatcher() {
-            @Override
-            public void onSpanAdded(Spannable text, Object what, int start, int end) {}
-
-            @Override
-            public void onSpanRemoved(Spannable text, Object what, int start, int end) {
-                latch.countDown();
-            }
-
-            @Override
-            public void onSpanChanged(Spannable text, Object what, int ostart, int oend, int nstart,
-                    int nend) {}
-        };
-        spannable.setSpan(watcher, 0, 2, 0);
-
-        spannable.removeSpan(emptySpan, Spanned.SPAN_INTERMEDIATE);
-        assertEquals(1, latch.getCount());
-        spannable.removeSpan(unemptySpan);
-        assertEquals(0, latch.getCount());
     }
 }

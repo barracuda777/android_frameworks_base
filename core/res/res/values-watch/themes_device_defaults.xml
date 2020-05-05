@@ -10,7 +10,7 @@
      Unless required by applicable law or agreed to in writing, software
      distributed under the License is distributed on an "AS IS" BASIS,
      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-     See the License for the specific language gning permissions and
+     See the License for the specific language governing permissions and
      limitations under the License.
 -->
 
@@ -37,16 +37,11 @@ a similar way.
         <!-- Color palette Dark -->
         <item name="colorPrimary">@color/primary_device_default_dark</item>
         <item name="colorPrimaryDark">@color/primary_dark_device_default_dark</item>
-        <item name="colorForeground">@color/foreground_device_default_dark</item>
         <item name="colorAccent">@color/accent_device_default_dark</item>
         <item name="colorBackground">@color/background_device_default_dark</item>
         <item name="colorBackgroundFloating">@color/background_floating_device_default_dark</item>
         <item name="colorBackgroundCacheHint">@color/background_cache_hint_selector_device_default</item>
         <item name="colorButtonNormal">@color/button_normal_device_default_dark</item>
-        <item name="colorError">@color/error_color_device_default_dark</item>
-        <item name="disabledAlpha">@dimen/disabled_alpha_device_default</item>
-        <item name="primaryContentAlpha">@dimen/primary_content_alpha_device_default</item>
-        <item name="secondaryContentAlpha">@dimen/secondary_content_alpha_device_default</item>
     </style>
 
     <!-- Variant of {@link #Theme_DeviceDefault} with no action bar -->
@@ -54,16 +49,11 @@ a similar way.
         <!-- Color palette Dark -->
         <item name="colorPrimary">@color/primary_device_default_dark</item>
         <item name="colorPrimaryDark">@color/primary_dark_device_default_dark</item>
-        <item name="colorForeground">@color/foreground_device_default_dark</item>
         <item name="colorAccent">@color/accent_device_default_dark</item>
         <item name="colorBackground">@color/background_device_default_dark</item>
         <item name="colorBackgroundFloating">@color/background_floating_device_default_dark</item>
         <item name="colorBackgroundCacheHint">@color/background_cache_hint_selector_device_default</item>
         <item name="colorButtonNormal">@color/button_normal_device_default_dark</item>
-        <item name="colorError">@color/error_color_device_default_dark</item>
-        <item name="disabledAlpha">@dimen/disabled_alpha_device_default</item>
-        <item name="primaryContentAlpha">@dimen/primary_content_alpha_device_default</item>
-        <item name="secondaryContentAlpha">@dimen/secondary_content_alpha_device_default</item>
     </style>
 
     <!-- Variant of {@link #Theme_DeviceDefault} with no action bar and no status bar.  This theme
@@ -72,16 +62,11 @@ a similar way.
         <!-- Color palette Dark -->
         <item name="colorPrimary">@color/primary_device_default_dark</item>
         <item name="colorPrimaryDark">@color/primary_dark_device_default_dark</item>
-        <item name="colorForeground">@color/foreground_device_default_dark</item>
         <item name="colorAccent">@color/accent_device_default_dark</item>
         <item name="colorBackground">@color/background_device_default_dark</item>
         <item name="colorBackgroundFloating">@color/background_floating_device_default_dark</item>
         <item name="colorBackgroundCacheHint">@color/background_cache_hint_selector_device_default</item>
         <item name="colorButtonNormal">@color/button_normal_device_default_dark</item>
-        <item name="colorError">@color/error_color_device_default_dark</item>
-        <item name="disabledAlpha">@dimen/disabled_alpha_device_default</item>
-        <item name="primaryContentAlpha">@dimen/primary_content_alpha_device_default</item>
-        <item name="secondaryContentAlpha">@dimen/secondary_content_alpha_device_default</item>
     </style>
 
     <!-- Variant of {@link #Theme_DeviceDefault} with no action bar and no status bar and
@@ -92,16 +77,11 @@ a similar way.
         <!-- Color palette Dark -->
         <item name="colorPrimary">@color/primary_device_default_dark</item>
         <item name="colorPrimaryDark">@color/primary_dark_device_default_dark</item>
-        <item name="colorForeground">@color/foreground_device_default_dark</item>
         <item name="colorAccent">@color/accent_device_default_dark</item>
         <item name="colorBackground">@color/background_device_default_dark</item>
         <item name="colorBackgroundFloating">@color/background_floating_device_default_dark</item>
         <item name="colorBackgroundCacheHint">@color/background_cache_hint_selector_device_default</item>
         <item name="colorButtonNormal">@color/button_normal_device_default_dark</item>
-        <item name="colorError">@color/error_color_device_default_dark</item>
-        <item name="disabledAlpha">@dimen/disabled_alpha_device_default</item>
-        <item name="primaryContentAlpha">@dimen/primary_content_alpha_device_default</item>
-        <item name="secondaryContentAlpha">@dimen/secondary_content_alpha_device_default</item>
     </style>
 
     <!-- Variant of {@link #Theme_DeviceDefault} that has no title bar and translucent
@@ -111,16 +91,11 @@ a similar way.
         <!-- Color palette Dark -->
         <item name="colorPrimary">@color/primary_device_default_dark</item>
         <item name="colorPrimaryDark">@color/primary_dark_device_default_dark</item>
-        <item name="colorForeground">@color/foreground_device_default_dark</item>
         <item name="colorAccent">@color/accent_device_default_dark</item>
         <item name="colorBackground">@color/background_device_default_dark</item>
         <item name="colorBackgroundFloating">@color/background_floating_device_default_dark</item>
         <item name="colorBackgroundCacheHint">@color/background_cache_hint_selector_device_default</item>
         <item name="colorButtonNormal">@color/button_normal_device_default_dark</item>
-        <item name="colorError">@color/error_color_device_default_dark</item>
-        <item name="disabledAlpha">@dimen/disabled_alpha_device_default</item>
-        <item name="primaryContentAlpha">@dimen/primary_content_alpha_device_default</item>
-        <item name="secondaryContentAlpha">@dimen/secondary_content_alpha_device_default</item>
     </style>
 
     <!-- Theme used for the intent picker activity. -->
@@ -147,7 +122,6 @@ a similar way.
     an activity that looks like a Dialog.-->
     <style name="Theme.DeviceDefault.Dialog" parent="Theme.Material.Dialog" >
         <item name="windowIsFloating">false</item>
-        <item name="windowElevation">0dp</item>
         <item name="windowTitleStyle">@style/DialogWindowTitle.DeviceDefault</item>
         <item name="windowAnimationStyle">@style/Animation.DeviceDefault.Dialog</item>
 
@@ -160,16 +134,11 @@ a similar way.
         <!-- Color palette Dark -->
         <item name="colorPrimary">@color/primary_device_default_dark</item>
         <item name="colorPrimaryDark">@color/primary_dark_device_default_dark</item>
-        <item name="colorForeground">@color/foreground_device_default_dark</item>
         <item name="colorAccent">@color/accent_device_default_dark</item>
         <item name="colorBackground">@color/background_device_default_dark</item>
         <item name="colorBackgroundFloating">@color/background_floating_device_default_dark</item>
         <item name="colorBackgroundCacheHint">@color/background_cache_hint_selector_device_default</item>
         <item name="colorButtonNormal">@color/button_normal_device_default_dark</item>
-        <item name="colorError">@color/error_color_device_default_dark</item>
-        <item name="disabledAlpha">@dimen/disabled_alpha_device_default</item>
-        <item name="primaryContentAlpha">@dimen/primary_content_alpha_device_default</item>
-        <item name="secondaryContentAlpha">@dimen/secondary_content_alpha_device_default</item>
     </style>
 
     <!-- DeviceDefault theme for a window that should look like the Settings app.  -->
@@ -184,97 +153,67 @@ a similar way.
 
     <style name="Theme.DeviceDefault.Settings.Dialog.Alert" parent="Theme.Material.Dialog.Alert">
         <item name="windowIsFloating">false</item>
-        <item name="windowElevation">0dp</item>
         <!-- Color palette Dark -->
         <item name="colorPrimary">@color/primary_device_default_dark</item>
         <item name="colorPrimaryDark">@color/primary_dark_device_default_dark</item>
-        <item name="colorForeground">@color/foreground_device_default_dark</item>
         <item name="colorAccent">@color/accent_device_default_dark</item>
         <item name="colorBackground">@color/background_device_default_dark</item>
         <item name="colorBackgroundFloating">@color/background_floating_device_default_dark</item>
         <item name="colorBackgroundCacheHint">@color/background_cache_hint_selector_device_default</item>
         <item name="colorButtonNormal">@color/button_normal_device_default_dark</item>
-        <item name="colorError">@color/error_color_device_default_dark</item>
-        <item name="disabledAlpha">@dimen/disabled_alpha_device_default</item>
-        <item name="primaryContentAlpha">@dimen/primary_content_alpha_device_default</item>
-        <item name="secondaryContentAlpha">@dimen/secondary_content_alpha_device_default</item>
     </style>
 
     <style name="Theme.DeviceDefault.Settings.CompactMenu" parent="Theme.Material.CompactMenu">
         <item name="windowIsFloating">false</item>
-        <item name="windowElevation">0dp</item>
         <!-- Color palette Dark -->
         <item name="colorPrimary">@color/primary_device_default_dark</item>
         <item name="colorPrimaryDark">@color/primary_dark_device_default_dark</item>
-        <item name="colorForeground">@color/foreground_device_default_dark</item>
         <item name="colorAccent">@color/accent_device_default_dark</item>
         <item name="colorBackground">@color/background_device_default_dark</item>
         <item name="colorBackgroundFloating">@color/background_floating_device_default_dark</item>
         <item name="colorBackgroundCacheHint">@color/background_cache_hint_selector_device_default</item>
         <item name="colorButtonNormal">@color/button_normal_device_default_dark</item>
-        <item name="colorError">@color/error_color_device_default_dark</item>
-        <item name="disabledAlpha">@dimen/disabled_alpha_device_default</item>
-        <item name="primaryContentAlpha">@dimen/primary_content_alpha_device_default</item>
-        <item name="secondaryContentAlpha">@dimen/secondary_content_alpha_device_default</item>
     </style>
 
     <!-- Variant of {@link #Theme_DeviceDefault_Dialog} that has a nice minimum width for a
     regular dialog. -->
     <style name="Theme.DeviceDefault.Dialog.MinWidth" parent="Theme.Material.Dialog.MinWidth">
         <item name="windowIsFloating">false</item>
-        <item name="windowElevation">0dp</item>
         <!-- Color palette Dark -->
         <item name="colorPrimary">@color/primary_device_default_dark</item>
         <item name="colorPrimaryDark">@color/primary_dark_device_default_dark</item>
-        <item name="colorForeground">@color/foreground_device_default_dark</item>
         <item name="colorAccent">@color/accent_device_default_dark</item>
         <item name="colorBackground">@color/background_device_default_dark</item>
         <item name="colorBackgroundFloating">@color/background_floating_device_default_dark</item>
         <item name="colorBackgroundCacheHint">@color/background_cache_hint_selector_device_default</item>
         <item name="colorButtonNormal">@color/button_normal_device_default_dark</item>
-        <item name="colorError">@color/error_color_device_default_dark</item>
-        <item name="disabledAlpha">@dimen/disabled_alpha_device_default</item>
-        <item name="primaryContentAlpha">@dimen/primary_content_alpha_device_default</item>
-        <item name="secondaryContentAlpha">@dimen/secondary_content_alpha_device_default</item>
     </style>
 
     <!-- Variant of {@link #Theme_DeviceDefault_Dialog} without an action bar -->
     <style name="Theme.DeviceDefault.Dialog.NoActionBar" parent="Theme.Material.Dialog.NoActionBar">
         <item name="windowIsFloating">false</item>
-        <item name="windowElevation">0dp</item>
         <!-- Color palette Dark -->
         <item name="colorPrimary">@color/primary_device_default_dark</item>
         <item name="colorPrimaryDark">@color/primary_dark_device_default_dark</item>
-        <item name="colorForeground">@color/foreground_device_default_dark</item>
         <item name="colorAccent">@color/accent_device_default_dark</item>
         <item name="colorBackground">@color/background_device_default_dark</item>
         <item name="colorBackgroundFloating">@color/background_floating_device_default_dark</item>
         <item name="colorBackgroundCacheHint">@color/background_cache_hint_selector_device_default</item>
         <item name="colorButtonNormal">@color/button_normal_device_default_dark</item>
-        <item name="colorError">@color/error_color_device_default_dark</item>
-        <item name="disabledAlpha">@dimen/disabled_alpha_device_default</item>
-        <item name="primaryContentAlpha">@dimen/primary_content_alpha_device_default</item>
-        <item name="secondaryContentAlpha">@dimen/secondary_content_alpha_device_default</item>
     </style>
 
     <!-- Variant of {@link #Theme_DeviceDefault_Dialog_NoActionBar} that has a nice minimum width
     for a regular dialog. -->
     <style name="Theme.DeviceDefault.Dialog.NoActionBar.MinWidth" parent="Theme.Material.Dialog.NoActionBar.MinWidth">
         <item name="windowIsFloating">false</item>
-        <item name="windowElevation">0dp</item>
         <!-- Color palette Dark -->
         <item name="colorPrimary">@color/primary_device_default_dark</item>
         <item name="colorPrimaryDark">@color/primary_dark_device_default_dark</item>
-        <item name="colorForeground">@color/foreground_device_default_dark</item>
         <item name="colorAccent">@color/accent_device_default_dark</item>
         <item name="colorBackground">@color/background_device_default_dark</item>
         <item name="colorBackgroundFloating">@color/background_floating_device_default_dark</item>
         <item name="colorBackgroundCacheHint">@color/background_cache_hint_selector_device_default</item>
         <item name="colorButtonNormal">@color/button_normal_device_default_dark</item>
-        <item name="colorError">@color/error_color_device_default_dark</item>
-        <item name="disabledAlpha">@dimen/disabled_alpha_device_default</item>
-        <item name="primaryContentAlpha">@dimen/primary_content_alpha_device_default</item>
-        <item name="secondaryContentAlpha">@dimen/secondary_content_alpha_device_default</item>
     </style>
 
    <!-- DeviceDefault theme for a window that will be displayed either full-screen on smaller
@@ -283,16 +222,11 @@ a similar way.
         <!-- Color palette Dark -->
         <item name="colorPrimary">@color/primary_device_default_dark</item>
         <item name="colorPrimaryDark">@color/primary_dark_device_default_dark</item>
-        <item name="colorForeground">@color/foreground_device_default_dark</item>
         <item name="colorAccent">@color/accent_device_default_dark</item>
         <item name="colorBackground">@color/background_device_default_dark</item>
         <item name="colorBackgroundFloating">@color/background_floating_device_default_dark</item>
         <item name="colorBackgroundCacheHint">@color/background_cache_hint_selector_device_default</item>
         <item name="colorButtonNormal">@color/button_normal_device_default_dark</item>
-        <item name="colorError">@color/error_color_device_default_dark</item>
-        <item name="disabledAlpha">@dimen/disabled_alpha_device_default</item>
-        <item name="primaryContentAlpha">@dimen/primary_content_alpha_device_default</item>
-        <item name="secondaryContentAlpha">@dimen/secondary_content_alpha_device_default</item>
     </style>
 
     <!-- DeviceDefault theme for a window without an action bar that will be displayed either
@@ -302,16 +236,11 @@ a similar way.
         <!-- Color palette Dark -->
         <item name="colorPrimary">@color/primary_device_default_dark</item>
         <item name="colorPrimaryDark">@color/primary_dark_device_default_dark</item>
-        <item name="colorForeground">@color/foreground_device_default_dark</item>
         <item name="colorAccent">@color/accent_device_default_dark</item>
         <item name="colorBackground">@color/background_device_default_dark</item>
         <item name="colorBackgroundFloating">@color/background_floating_device_default_dark</item>
         <item name="colorBackgroundCacheHint">@color/background_cache_hint_selector_device_default</item>
         <item name="colorButtonNormal">@color/button_normal_device_default_dark</item>
-        <item name="colorError">@color/error_color_device_default_dark</item>
-        <item name="disabledAlpha">@dimen/disabled_alpha_device_default</item>
-        <item name="primaryContentAlpha">@dimen/primary_content_alpha_device_default</item>
-        <item name="secondaryContentAlpha">@dimen/secondary_content_alpha_device_default</item>
     </style>
 
     <!-- DeviceDefault theme for a presentation window on a secondary display. -->
@@ -319,16 +248,11 @@ a similar way.
         <!-- Color palette Dark -->
         <item name="colorPrimary">@color/primary_device_default_dark</item>
         <item name="colorPrimaryDark">@color/primary_dark_device_default_dark</item>
-        <item name="colorForeground">@color/foreground_device_default_dark</item>
         <item name="colorAccent">@color/accent_device_default_dark</item>
         <item name="colorBackground">@color/background_device_default_dark</item>
         <item name="colorBackgroundFloating">@color/background_floating_device_default_dark</item>
         <item name="colorBackgroundCacheHint">@color/background_cache_hint_selector_device_default</item>
         <item name="colorButtonNormal">@color/button_normal_device_default_dark</item>
-        <item name="colorError">@color/error_color_device_default_dark</item>
-        <item name="disabledAlpha">@dimen/disabled_alpha_device_default</item>
-        <item name="primaryContentAlpha">@dimen/primary_content_alpha_device_default</item>
-        <item name="secondaryContentAlpha">@dimen/secondary_content_alpha_device_default</item>
     </style>
 
     <!-- DeviceDefault theme for panel windows. This removes all extraneous window
@@ -338,16 +262,11 @@ a similar way.
         <!-- Color palette Dark -->
         <item name="colorPrimary">@color/primary_device_default_dark</item>
         <item name="colorPrimaryDark">@color/primary_dark_device_default_dark</item>
-        <item name="colorForeground">@color/foreground_device_default_dark</item>
         <item name="colorAccent">@color/accent_device_default_dark</item>
         <item name="colorBackground">@color/background_device_default_dark</item>
         <item name="colorBackgroundFloating">@color/background_floating_device_default_dark</item>
         <item name="colorBackgroundCacheHint">@color/background_cache_hint_selector_device_default</item>
         <item name="colorButtonNormal">@color/button_normal_device_default_dark</item>
-        <item name="colorError">@color/error_color_device_default_dark</item>
-        <item name="disabledAlpha">@dimen/disabled_alpha_device_default</item>
-        <item name="primaryContentAlpha">@dimen/primary_content_alpha_device_default</item>
-        <item name="secondaryContentAlpha">@dimen/secondary_content_alpha_device_default</item>
     </style>
 
     <!-- DeviceDefault theme for windows that want to have the user's selected wallpaper appear
@@ -356,16 +275,11 @@ a similar way.
         <!-- Color palette Dark -->
         <item name="colorPrimary">@color/primary_device_default_dark</item>
         <item name="colorPrimaryDark">@color/primary_dark_device_default_dark</item>
-        <item name="colorForeground">@color/foreground_device_default_dark</item>
         <item name="colorAccent">@color/accent_device_default_dark</item>
         <item name="colorBackground">@color/background_device_default_dark</item>
         <item name="colorBackgroundFloating">@color/background_floating_device_default_dark</item>
         <item name="colorBackgroundCacheHint">@color/background_cache_hint_selector_device_default</item>
         <item name="colorButtonNormal">@color/button_normal_device_default_dark</item>
-        <item name="colorError">@color/error_color_device_default_dark</item>
-        <item name="disabledAlpha">@dimen/disabled_alpha_device_default</item>
-        <item name="primaryContentAlpha">@dimen/primary_content_alpha_device_default</item>
-        <item name="secondaryContentAlpha">@dimen/secondary_content_alpha_device_default</item>
     </style>
 
     <!-- DeviceDefault theme for windows that want to have the user's selected wallpaper appear
@@ -374,16 +288,11 @@ a similar way.
         <!-- Color palette Dark -->
         <item name="colorPrimary">@color/primary_device_default_dark</item>
         <item name="colorPrimaryDark">@color/primary_dark_device_default_dark</item>
-        <item name="colorForeground">@color/foreground_device_default_dark</item>
         <item name="colorAccent">@color/accent_device_default_dark</item>
         <item name="colorBackground">@color/background_device_default_dark</item>
         <item name="colorBackgroundFloating">@color/background_floating_device_default_dark</item>
         <item name="colorBackgroundCacheHint">@color/background_cache_hint_selector_device_default</item>
         <item name="colorButtonNormal">@color/button_normal_device_default_dark</item>
-        <item name="colorError">@color/error_color_device_default_dark</item>
-        <item name="disabledAlpha">@dimen/disabled_alpha_device_default</item>
-        <item name="primaryContentAlpha">@dimen/primary_content_alpha_device_default</item>
-        <item name="secondaryContentAlpha">@dimen/secondary_content_alpha_device_default</item>
     </style>
 
     <!-- DeviceDefault style for input methods, which is used by the
@@ -392,16 +301,11 @@ a similar way.
         <!-- Color palette Dark -->
         <item name="colorPrimary">@color/primary_device_default_dark</item>
         <item name="colorPrimaryDark">@color/primary_dark_device_default_dark</item>
-        <item name="colorForeground">@color/foreground_device_default_dark</item>
         <item name="colorAccent">@color/accent_device_default_dark</item>
         <item name="colorBackground">@color/background_device_default_dark</item>
         <item name="colorBackgroundFloating">@color/background_floating_device_default_dark</item>
         <item name="colorBackgroundCacheHint">@color/background_cache_hint_selector_device_default</item>
         <item name="colorButtonNormal">@color/button_normal_device_default_dark</item>
-        <item name="colorError">@color/error_color_device_default_dark</item>
-        <item name="disabledAlpha">@dimen/disabled_alpha_device_default</item>
-        <item name="primaryContentAlpha">@dimen/primary_content_alpha_device_default</item>
-        <item name="secondaryContentAlpha">@dimen/secondary_content_alpha_device_default</item>
     </style>
 
     <style name="Theme.DeviceDefault.Dialog.Alert" parent="Theme.Material.Dialog.Alert">
@@ -410,56 +314,33 @@ a similar way.
         <!-- Color palette Dialog -->
         <item name="colorPrimary">@color/primary_device_default_dark</item>
         <item name="colorPrimaryDark">@color/primary_dark_device_default_dark</item>
-        <item name="colorForeground">@color/foreground_device_default_dark</item>
         <item name="colorAccent">@color/accent_device_default_dark</item>
         <item name="colorBackground">@color/background_device_default_dark</item>
         <item name="colorBackgroundFloating">@color/background_floating_device_default_dark</item>
         <item name="colorBackgroundCacheHint">@color/background_cache_hint_selector_device_default</item>
         <item name="colorButtonNormal">@color/button_normal_device_default_dark</item>
-        <item name="colorError">@color/error_color_device_default_dark</item>
-        <item name="disabledAlpha">@dimen/disabled_alpha_device_default</item>
-        <item name="primaryContentAlpha">@dimen/primary_content_alpha_device_default</item>
-        <item name="secondaryContentAlpha">@dimen/secondary_content_alpha_device_default</item>
-    </style>
-
-    <!-- Theme for the dialog shown when an app crashes or ANRs. Override to make it dark. -->
-    <style name="Theme.DeviceDefault.Dialog.AppError" parent="Theme.DeviceDefault.Dialog.Alert">
-        <item name="windowContentTransitions">false</item>
-        <item name="windowActivityTransitions">false</item>
-        <item name="windowCloseOnTouchOutside">false</item>
     </style>
 
     <style name="Theme.DeviceDefault.SearchBar" parent="Theme.Material.SearchBar">
         <!-- Color palette Dark -->
         <item name="colorPrimary">@color/primary_device_default_dark</item>
         <item name="colorPrimaryDark">@color/primary_dark_device_default_dark</item>
-        <item name="colorForeground">@color/foreground_device_default_dark</item>
         <item name="colorAccent">@color/accent_device_default_dark</item>
         <item name="colorBackground">@color/background_device_default_dark</item>
         <item name="colorBackgroundFloating">@color/background_floating_device_default_dark</item>
         <item name="colorBackgroundCacheHint">@color/background_cache_hint_selector_device_default</item>
         <item name="colorButtonNormal">@color/button_normal_device_default_dark</item>
-        <item name="colorError">@color/error_color_device_default_dark</item>
-        <item name="disabledAlpha">@dimen/disabled_alpha_device_default</item>
-        <item name="primaryContentAlpha">@dimen/primary_content_alpha_device_default</item>
-        <item name="secondaryContentAlpha">@dimen/secondary_content_alpha_device_default</item>
     </style>
 
     <style name="Theme.DeviceDefault.Dialog.NoFrame" parent="Theme.Material.Dialog.NoFrame">
         <item name="windowIsFloating">false</item>
-        <item name="windowElevation">0dp</item>
         <!-- Color palette Dialog -->
         <item name="colorPrimary">@color/primary_device_default_dark</item>
         <item name="colorPrimaryDark">@color/primary_dark_device_default_dark</item>
-        <item name="colorForeground">@color/foreground_device_default_dark</item>
         <item name="colorAccent">@color/accent_device_default_dark</item>
         <item name="colorBackground">?attr/colorBackgroundFloating</item>
         <item name="colorBackgroundFloating">@color/background_floating_device_default_dark</item>
         <item name="colorBackgroundCacheHint">@color/background_cache_hint_selector_device_default</item>
         <item name="colorButtonNormal">@color/button_normal_device_default_dark</item>
-        <item name="colorError">@color/error_color_device_default_dark</item>
-        <item name="disabledAlpha">@dimen/disabled_alpha_device_default</item>
-        <item name="primaryContentAlpha">@dimen/primary_content_alpha_device_default</item>
-        <item name="secondaryContentAlpha">@dimen/secondary_content_alpha_device_default</item>
     </style>
 </resources>

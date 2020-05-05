@@ -20,7 +20,6 @@ import android.os.Bundle;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 
-import android.annotation.UnsupportedAppUsage;
 import android.telephony.cdma.CdmaCellLocation;
 import android.telephony.gsm.GsmCellLocation;
 import com.android.internal.telephony.ITelephony;
@@ -58,7 +57,6 @@ public abstract class CellLocation {
      *
      * @hide
      */
-    @UnsupportedAppUsage
     public static CellLocation newFromBundle(Bundle bundle) {
         // TelephonyManager.getDefault().getCurrentPhoneType() handles the case when
         // ITelephony interface is not up yet.
@@ -75,13 +73,11 @@ public abstract class CellLocation {
     /**
      * @hide
      */
-    @UnsupportedAppUsage
     public abstract void fillInNotifierBundle(Bundle bundle);
 
     /**
      * @hide
      */
-    @UnsupportedAppUsage
     public abstract boolean isEmpty();
 
     /**

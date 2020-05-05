@@ -16,34 +16,19 @@
 
 #include "RenderThread.h"
 
-#include "../HardwareBitmapUploader.h"
+#include "../renderstate/RenderState.h"
 #include "CanvasContext.h"
-#include "DeviceInfo.h"
 #include "EglManager.h"
-#include "Readback.h"
 #include "RenderProxy.h"
-#include "VulkanManager.h"
-#include "hwui/Bitmap.h"
-#include "pipeline/skia/SkiaOpenGLPipeline.h"
-#include "pipeline/skia/SkiaVulkanPipeline.h"
-#include "renderstate/RenderState.h"
 #include "utils/FatVector.h"
-#include "utils/TimeUtils.h"
-#include "utils/TraceUtils.h"
-
-#ifdef HWUI_GLES_WRAP_ENABLED
-#include "debug/GlesDriver.h"
-#endif
-
-#include <GrContextOptions.h>
-#include <gl/GrGLInterface.h>
 
 #include <gui/DisplayEventReceiver.h>
+#include <gui/ISurfaceComposer.h>
+#include <gui/SurfaceComposerClient.h>
 #include <sys/resource.h>
 #include <utils/Condition.h>
 #include <utils/Log.h>
 #include <utils/Mutex.h>
-#include <thread>
 
 namespace android {
 namespace uirenderer {
@@ -54,76 +39,107 @@ namespace renderthread {
 // using just a few large reads.
 static const size_t EVENT_BUFFER_SIZE = 100;
 
-static bool gHasRenderThreadInstance = false;
+// Slight delay to give the UI time to push us a new frame before we replay
+static const nsecs_t DISPATCH_FRAME_CALLBACKS_DELAY = milliseconds_to_nanoseconds(4);
 
-static JVMAttachHook gOnStartHook = nullptr;
+TaskQueue::TaskQueue() : mHead(nullptr), mTail(nullptr) {}
 
-class DisplayEventReceiverWrapper : public VsyncSource {
-public:
-    DisplayEventReceiverWrapper(std::unique_ptr<DisplayEventReceiver>&& receiver,
-            const std::function<void()>& onDisplayConfigChanged)
-            : mDisplayEventReceiver(std::move(receiver))
-            , mOnDisplayConfigChanged(onDisplayConfigChanged) {}
-
-    virtual void requestNextVsync() override {
-        status_t status = mDisplayEventReceiver->requestNextVsync();
-        LOG_ALWAYS_FATAL_IF(status != NO_ERROR, "requestNextVsync failed with status: %d", status);
+RenderTask* TaskQueue::next() {
+    RenderTask* ret = mHead;
+    if (ret) {
+        mHead = ret->mNext;
+        if (!mHead) {
+            mTail = nullptr;
+        }
+        ret->mNext = nullptr;
     }
+    return ret;
+}
 
-    virtual nsecs_t latestVsyncEvent() override {
-        DisplayEventReceiver::Event buf[EVENT_BUFFER_SIZE];
-        nsecs_t latest = 0;
-        ssize_t n;
-        while ((n = mDisplayEventReceiver->getEvents(buf, EVENT_BUFFER_SIZE)) > 0) {
-            for (ssize_t i = 0; i < n; i++) {
-                const DisplayEventReceiver::Event& ev = buf[i];
-                switch (ev.header.type) {
-                    case DisplayEventReceiver::DISPLAY_EVENT_VSYNC:
-                        latest = ev.header.timestamp;
-                        break;
-                    case DisplayEventReceiver::DISPLAY_EVENT_CONFIG_CHANGED:
-                        mOnDisplayConfigChanged();
-                        break;
+RenderTask* TaskQueue::peek() {
+    return mHead;
+}
+
+void TaskQueue::queue(RenderTask* task) {
+    // Since the RenderTask itself forms the linked list it is not allowed
+    // to have the same task queued twice
+    LOG_ALWAYS_FATAL_IF(task->mNext || mTail == task, "Task is already in the queue!");
+    if (mTail) {
+        // Fast path if we can just append
+        if (mTail->mRunAt <= task->mRunAt) {
+            mTail->mNext = task;
+            mTail = task;
+        } else {
+            // Need to find the proper insertion point
+            RenderTask* previous = nullptr;
+            RenderTask* next = mHead;
+            while (next && next->mRunAt <= task->mRunAt) {
+                previous = next;
+                next = next->mNext;
+            }
+            if (!previous) {
+                task->mNext = mHead;
+                mHead = task;
+            } else {
+                previous->mNext = task;
+                if (next) {
+                    task->mNext = next;
+                } else {
+                    mTail = task;
                 }
             }
         }
-        if (n < 0) {
-            ALOGW("Failed to get events from display event receiver, status=%d", status_t(n));
+    } else {
+        mTail = mHead = task;
+    }
+}
+
+void TaskQueue::queueAtFront(RenderTask* task) {
+    if (mTail) {
+        task->mNext = mHead;
+        mHead = task;
+    } else {
+        mTail = mHead = task;
+    }
+}
+
+void TaskQueue::remove(RenderTask* task) {
+    // TaskQueue is strict here to enforce that users are keeping track of
+    // their RenderTasks due to how their memory is managed
+    LOG_ALWAYS_FATAL_IF(!task->mNext && mTail != task,
+            "Cannot remove a task that isn't in the queue!");
+
+    // If task is the head we can just call next() to pop it off
+    // Otherwise we need to scan through to find the task before it
+    if (peek() == task) {
+        next();
+    } else {
+        RenderTask* previous = mHead;
+        while (previous->mNext != task) {
+            previous = previous->mNext;
         }
-        return latest;
+        previous->mNext = task->mNext;
+        if (mTail == task) {
+            mTail = previous;
+        }
     }
+}
 
-private:
-    std::unique_ptr<DisplayEventReceiver> mDisplayEventReceiver;
-    std::function<void()> mOnDisplayConfigChanged;
-};
-
-class DummyVsyncSource : public VsyncSource {
-public:
-    DummyVsyncSource(RenderThread* renderThread) : mRenderThread(renderThread) {}
-
-    virtual void requestNextVsync() override {
-        mRenderThread->queue().postDelayed(16_ms,
-                                           [this]() { mRenderThread->drainDisplayEventQueue(); });
-    }
-
-    virtual nsecs_t latestVsyncEvent() override { return systemTime(CLOCK_MONOTONIC); }
-
+class DispatchFrameCallbacks : public RenderTask {
 private:
     RenderThread* mRenderThread;
+public:
+    DispatchFrameCallbacks(RenderThread* rt) : mRenderThread(rt) {}
+
+    virtual void run() override {
+        mRenderThread->dispatchFrameCallbacks();
+    }
 };
+
+static bool gHasRenderThreadInstance = false;
 
 bool RenderThread::hasInstance() {
     return gHasRenderThreadInstance;
-}
-
-void RenderThread::setOnStartHook(JVMAttachHook onStartHook) {
-    LOG_ALWAYS_FATAL_IF(hasInstance(), "can't set an onStartHook after we've started...");
-    gOnStartHook = onStartHook;
-}
-
-JVMAttachHook RenderThread::getOnStartHook() {
-    return gOnStartHook;
 }
 
 RenderThread& RenderThread::getInstance() {
@@ -135,17 +151,18 @@ RenderThread& RenderThread::getInstance() {
     return *sInstance;
 }
 
-RenderThread::RenderThread()
-        : ThreadBase()
-        , mVsyncSource(nullptr)
+RenderThread::RenderThread() : Thread(true)
+        , mNextWakeup(LLONG_MAX)
+        , mDisplayEventReceiver(nullptr)
         , mVsyncRequested(false)
         , mFrameCallbackTaskPending(false)
+        , mFrameCallbackTask(nullptr)
         , mRenderState(nullptr)
-        , mEglManager(nullptr)
-        , mFunctorManager(WebViewFunctorManager::instance())
-        , mVkManager(nullptr) {
+        , mEglManager(nullptr) {
     Properties::load();
-    start("RenderThread");
+    mFrameCallbackTask = new DispatchFrameCallbacks(this);
+    mLooper = new Looper(false);
+    run("RenderThread");
 }
 
 RenderThread::~RenderThread() {
@@ -153,181 +170,78 @@ RenderThread::~RenderThread() {
 }
 
 void RenderThread::initializeDisplayEventReceiver() {
-    LOG_ALWAYS_FATAL_IF(mVsyncSource, "Initializing a second DisplayEventReceiver?");
+    LOG_ALWAYS_FATAL_IF(mDisplayEventReceiver, "Initializing a second DisplayEventReceiver?");
+    mDisplayEventReceiver = new DisplayEventReceiver();
+    status_t status = mDisplayEventReceiver->initCheck();
+    LOG_ALWAYS_FATAL_IF(status != NO_ERROR, "Initialization of DisplayEventReceiver "
+            "failed with status: %d", status);
 
-    if (!Properties::isolatedProcess) {
-        auto receiver = std::make_unique<DisplayEventReceiver>(
-            ISurfaceComposer::eVsyncSourceApp,
-            ISurfaceComposer::eConfigChangedDispatch);
-        status_t status = receiver->initCheck();
-        LOG_ALWAYS_FATAL_IF(status != NO_ERROR,
-                            "Initialization of DisplayEventReceiver "
-                            "failed with status: %d",
-                            status);
-
-        // Register the FD
-        mLooper->addFd(receiver->getFd(), 0, Looper::EVENT_INPUT,
-                       RenderThread::displayEventReceiverCallback, this);
-        mVsyncSource = new DisplayEventReceiverWrapper(std::move(receiver), [this] {
-            DeviceInfo::get()->onDisplayConfigChanged();
-            setupFrameInterval();
-        });
-    } else {
-        mVsyncSource = new DummyVsyncSource(this);
-    }
+    // Register the FD
+    mLooper->addFd(mDisplayEventReceiver->getFd(), 0,
+            Looper::EVENT_INPUT, RenderThread::displayEventReceiverCallback, this);
 }
 
 void RenderThread::initThreadLocals() {
-    setupFrameInterval();
-    initializeDisplayEventReceiver();
-    mEglManager = new EglManager();
-    mRenderState = new RenderState(*this);
-    mVkManager = new VulkanManager();
-    mCacheManager = new CacheManager(DeviceInfo::get()->displayInfo());
-}
-
-void RenderThread::setupFrameInterval() {
-    auto& displayInfo = DeviceInfo::get()->displayInfo();
-    nsecs_t frameIntervalNanos = static_cast<nsecs_t>(1000000000 / displayInfo.fps);
+    sp<IBinder> dtoken(SurfaceComposerClient::getBuiltInDisplay(
+            ISurfaceComposer::eDisplayIdMain));
+    status_t status = SurfaceComposerClient::getDisplayInfo(dtoken, &mDisplayInfo);
+    LOG_ALWAYS_FATAL_IF(status, "Failed to get display info\n");
+    nsecs_t frameIntervalNanos = static_cast<nsecs_t>(1000000000 / mDisplayInfo.fps);
     mTimeLord.setFrameInterval(frameIntervalNanos);
-    mDispatchFrameDelay = static_cast<nsecs_t>(frameIntervalNanos * .25f);
-}
-
-void RenderThread::requireGlContext() {
-    if (mEglManager->hasEglContext()) {
-        return;
-    }
-    mEglManager->initialize();
-
-#ifdef HWUI_GLES_WRAP_ENABLED
-    debug::GlesDriver* driver = debug::GlesDriver::get();
-    sk_sp<const GrGLInterface> glInterface(driver->getSkiaInterface());
-#else
-    sk_sp<const GrGLInterface> glInterface(GrGLCreateNativeInterface());
-#endif
-    LOG_ALWAYS_FATAL_IF(!glInterface.get());
-
-    GrContextOptions options;
-    initGrContextOptions(options);
-    auto glesVersion = reinterpret_cast<const char*>(glGetString(GL_VERSION));
-    auto size = glesVersion ? strlen(glesVersion) : -1;
-    cacheManager().configureContext(&options, glesVersion, size);
-    sk_sp<GrContext> grContext(GrContext::MakeGL(std::move(glInterface), options));
-    LOG_ALWAYS_FATAL_IF(!grContext.get());
-    setGrContext(grContext);
-}
-
-void RenderThread::requireVkContext() {
-    if (mVkManager->hasVkContext()) {
-        return;
-    }
-    mVkManager->initialize();
-    GrContextOptions options;
-    initGrContextOptions(options);
-    auto vkDriverVersion = mVkManager->getDriverVersion();
-    cacheManager().configureContext(&options, &vkDriverVersion, sizeof(vkDriverVersion));
-    sk_sp<GrContext> grContext = mVkManager->createContext(options);
-    LOG_ALWAYS_FATAL_IF(!grContext.get());
-    setGrContext(grContext);
-}
-
-void RenderThread::initGrContextOptions(GrContextOptions& options) {
-    options.fPreferExternalImagesOverES3 = true;
-    options.fDisableDistanceFieldPaths = true;
-}
-
-void RenderThread::destroyRenderingContext() {
-    mFunctorManager.onContextDestroyed();
-    if (Properties::getRenderPipelineType() == RenderPipelineType::SkiaGL) {
-        if (mEglManager->hasEglContext()) {
-            setGrContext(nullptr);
-            mEglManager->destroy();
-        }
-    } else {
-        if (vulkanManager().hasVkContext()) {
-            setGrContext(nullptr);
-            vulkanManager().destroy();
-        }
-    }
-}
-
-void RenderThread::dumpGraphicsMemory(int fd) {
-    globalProfileData()->dump(fd);
-
-    String8 cachesOutput;
-    String8 pipeline;
-    auto renderType = Properties::getRenderPipelineType();
-    switch (renderType) {
-        case RenderPipelineType::SkiaGL: {
-            mCacheManager->dumpMemoryUsage(cachesOutput, mRenderState);
-            pipeline.appendFormat("Skia (OpenGL)");
-            break;
-        }
-        case RenderPipelineType::SkiaVulkan: {
-            mCacheManager->dumpMemoryUsage(cachesOutput, mRenderState);
-            pipeline.appendFormat("Skia (Vulkan)");
-            break;
-        }
-        default:
-            LOG_ALWAYS_FATAL("canvas context type %d not supported", (int32_t)renderType);
-            break;
-    }
-
-    dprintf(fd, "\n%s\n", cachesOutput.string());
-    dprintf(fd, "\nPipeline=%s\n", pipeline.string());
-}
-
-Readback& RenderThread::readback() {
-    if (!mReadback) {
-        mReadback = new Readback(*this);
-    }
-
-    return *mReadback;
-}
-
-void RenderThread::setGrContext(sk_sp<GrContext> context) {
-    mCacheManager->reset(context);
-    if (mGrContext) {
-        mRenderState->onContextDestroyed();
-        mGrContext->releaseResourcesAndAbandonContext();
-    }
-    mGrContext = std::move(context);
-    if (mGrContext) {
-        mRenderState->onContextCreated();
-        DeviceInfo::setMaxTextureSize(mGrContext->maxRenderTargetSize());
-    }
+    initializeDisplayEventReceiver();
+    mEglManager = new EglManager(*this);
+    mRenderState = new RenderState(*this);
+    mJankTracker = new JankTracker(mDisplayInfo);
 }
 
 int RenderThread::displayEventReceiverCallback(int fd, int events, void* data) {
     if (events & (Looper::EVENT_ERROR | Looper::EVENT_HANGUP)) {
         ALOGE("Display event receiver pipe was closed or an error occurred.  "
-              "events=0x%x",
-              events);
-        return 0;  // remove the callback
+                "events=0x%x", events);
+        return 0; // remove the callback
     }
 
     if (!(events & Looper::EVENT_INPUT)) {
         ALOGW("Received spurious callback for unhandled poll event.  "
-              "events=0x%x",
-              events);
-        return 1;  // keep the callback
+                "events=0x%x", events);
+        return 1; // keep the callback
     }
 
     reinterpret_cast<RenderThread*>(data)->drainDisplayEventQueue();
 
-    return 1;  // keep the callback
+    return 1; // keep the callback
+}
+
+static nsecs_t latestVsyncEvent(DisplayEventReceiver* receiver) {
+    DisplayEventReceiver::Event buf[EVENT_BUFFER_SIZE];
+    nsecs_t latest = 0;
+    ssize_t n;
+    while ((n = receiver->getEvents(buf, EVENT_BUFFER_SIZE)) > 0) {
+        for (ssize_t i = 0; i < n; i++) {
+            const DisplayEventReceiver::Event& ev = buf[i];
+            switch (ev.header.type) {
+            case DisplayEventReceiver::DISPLAY_EVENT_VSYNC:
+                latest = ev.header.timestamp;
+                break;
+            }
+        }
+    }
+    if (n < 0) {
+        ALOGW("Failed to get events from display event receiver, status=%d", status_t(n));
+    }
+    return latest;
 }
 
 void RenderThread::drainDisplayEventQueue() {
     ATRACE_CALL();
-    nsecs_t vsyncEvent = mVsyncSource->latestVsyncEvent();
+    nsecs_t vsyncEvent = latestVsyncEvent(mDisplayEventReceiver);
     if (vsyncEvent > 0) {
         mVsyncRequested = false;
         if (mTimeLord.vsyncReceived(vsyncEvent) && !mFrameCallbackTaskPending) {
             ATRACE_NAME("queue mFrameCallbackTask");
             mFrameCallbackTaskPending = true;
-            nsecs_t runAt = (vsyncEvent + mDispatchFrameDelay);
-            queue().postAt(runAt, [this]() { dispatchFrameCallbacks(); });
+            nsecs_t runAt = (vsyncEvent + DISPATCH_FRAME_CALLBACKS_DELAY);
+            queueAt(mFrameCallbackTask, runAt);
         }
     }
 }
@@ -343,8 +257,7 @@ void RenderThread::dispatchFrameCallbacks() {
         // Assume one of them will probably animate again so preemptively
         // request the next vsync in case it occurs mid-frame
         requestVsync();
-        for (std::set<IFrameCallback*>::iterator it = callbacks.begin(); it != callbacks.end();
-             it++) {
+        for (std::set<IFrameCallback*>::iterator it = callbacks.begin(); it != callbacks.end(); it++) {
             (*it)->doFrame();
         }
     }
@@ -353,26 +266,50 @@ void RenderThread::dispatchFrameCallbacks() {
 void RenderThread::requestVsync() {
     if (!mVsyncRequested) {
         mVsyncRequested = true;
-        mVsyncSource->requestNextVsync();
+        status_t status = mDisplayEventReceiver->requestNextVsync();
+        LOG_ALWAYS_FATAL_IF(status != NO_ERROR,
+                "requestNextVsync failed with status: %d", status);
     }
 }
 
 bool RenderThread::threadLoop() {
     setpriority(PRIO_PROCESS, 0, PRIORITY_DISPLAY);
-    Looper::setForThread(mLooper);
-    if (gOnStartHook) {
-        gOnStartHook("RenderThread");
-    }
     initThreadLocals();
 
-    while (true) {
-        waitForWork();
-        processQueue();
+    int timeoutMillis = -1;
+    for (;;) {
+        int result = mLooper->pollOnce(timeoutMillis);
+        LOG_ALWAYS_FATAL_IF(result == Looper::POLL_ERROR,
+                "RenderThread Looper POLL_ERROR!");
+
+        nsecs_t nextWakeup;
+        {
+            FatVector<RenderTask*, 10> workQueue;
+            // Process our queue, if we have anything. By first acquiring
+            // all the pending events then processing them we avoid vsync
+            // starvation if more tasks are queued while we are processing tasks.
+            while (RenderTask* task = nextTask(&nextWakeup)) {
+                workQueue.push_back(task);
+            }
+            for (auto task : workQueue) {
+                task->run();
+                // task may have deleted itself, do not reference it again
+            }
+        }
+        if (nextWakeup == LLONG_MAX) {
+            timeoutMillis = -1;
+        } else {
+            nsecs_t timeoutNanos = nextWakeup - systemTime(SYSTEM_TIME_MONOTONIC);
+            timeoutMillis = nanoseconds_to_milliseconds(timeoutNanos);
+            if (timeoutMillis < 0) {
+                timeoutMillis = 0;
+            }
+        }
 
         if (mPendingRegistrationFrameCallbacks.size() && !mFrameCallbackTaskPending) {
             drainDisplayEventQueue();
-            mFrameCallbacks.insert(mPendingRegistrationFrameCallbacks.begin(),
-                                   mPendingRegistrationFrameCallbacks.end());
+            mFrameCallbacks.insert(
+                    mPendingRegistrationFrameCallbacks.begin(), mPendingRegistrationFrameCallbacks.end());
             mPendingRegistrationFrameCallbacks.clear();
             requestVsync();
         }
@@ -387,6 +324,46 @@ bool RenderThread::threadLoop() {
     }
 
     return false;
+}
+
+void RenderThread::queue(RenderTask* task) {
+    AutoMutex _lock(mLock);
+    mQueue.queue(task);
+    if (mNextWakeup && task->mRunAt < mNextWakeup) {
+        mNextWakeup = 0;
+        mLooper->wake();
+    }
+}
+
+void RenderThread::queueAndWait(RenderTask* task) {
+    // These need to be local to the thread to avoid the Condition
+    // signaling the wrong thread. The easiest way to achieve that is to just
+    // make this on the stack, although that has a slight cost to it
+    Mutex mutex;
+    Condition condition;
+    SignalingRenderTask syncTask(task, &mutex, &condition);
+
+    AutoMutex _lock(mutex);
+    queue(&syncTask);
+    while (!syncTask.hasRun()) {
+        condition.wait(mutex);
+    }
+}
+
+void RenderThread::queueAtFront(RenderTask* task) {
+    AutoMutex _lock(mLock);
+    mQueue.queueAtFront(task);
+    mLooper->wake();
+}
+
+void RenderThread::queueAt(RenderTask* task, nsecs_t runAtNs) {
+    task->mRunAt = runAtNs;
+    queue(task);
+}
+
+void RenderThread::remove(RenderTask* task) {
+    AutoMutex _lock(mLock);
+    mQueue.remove(task);
 }
 
 void RenderThread::postFrameCallback(IFrameCallback* callback) {
@@ -406,31 +383,24 @@ void RenderThread::pushBackFrameCallback(IFrameCallback* callback) {
     }
 }
 
-sk_sp<Bitmap> RenderThread::allocateHardwareBitmap(SkBitmap& skBitmap) {
-    auto renderType = Properties::getRenderPipelineType();
-    switch (renderType) {
-        case RenderPipelineType::SkiaVulkan:
-            return skiapipeline::SkiaVulkanPipeline::allocateHardwareBitmap(*this, skBitmap);
-        default:
-            LOG_ALWAYS_FATAL("canvas context type %d not supported", (int32_t)renderType);
-            break;
-    }
-    return nullptr;
-}
-
-bool RenderThread::isCurrent() {
-    return gettid() == getInstance().getTid();
-}
-
-void RenderThread::preload() {
-    // EGL driver is always preloaded only if HWUI renders with GL.
-    if (Properties::getRenderPipelineType() == RenderPipelineType::SkiaGL) {
-        std::thread eglInitThread([]() { eglGetDisplay(EGL_DEFAULT_DISPLAY); });
-        eglInitThread.detach();
+RenderTask* RenderThread::nextTask(nsecs_t* nextWakeup) {
+    AutoMutex _lock(mLock);
+    RenderTask* next = mQueue.peek();
+    if (!next) {
+        mNextWakeup = LLONG_MAX;
     } else {
-        requireVkContext();
+        mNextWakeup = next->mRunAt;
+        // Most tasks won't be delayed, so avoid unnecessary systemTime() calls
+        if (next->mRunAt <= 0 || next->mRunAt <= systemTime(SYSTEM_TIME_MONOTONIC)) {
+            next = mQueue.next();
+        } else {
+            next = nullptr;
+        }
     }
-    HardwareBitmapUploader::initialize();
+    if (nextWakeup) {
+        *nextWakeup = mNextWakeup;
+    }
+    return next;
 }
 
 } /* namespace renderthread */

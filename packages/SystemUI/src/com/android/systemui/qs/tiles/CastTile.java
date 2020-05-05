@@ -16,70 +16,43 @@
 
 package com.android.systemui.qs.tiles;
 
-import static android.media.MediaRouter.ROUTE_TYPE_REMOTE_DISPLAY;
-
-import android.app.Dialog;
 import android.content.Context;
 import android.content.Intent;
-import android.media.MediaRouter.RouteInfo;
 import android.provider.Settings;
-import android.service.quicksettings.Tile;
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnAttachStateChangeListener;
 import android.view.ViewGroup;
-import android.view.WindowManager.LayoutParams;
 import android.widget.Button;
 
-import com.android.internal.app.MediaRouteDialogPresenter;
 import com.android.internal.logging.MetricsLogger;
-import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.systemui.R;
-import com.android.systemui.plugins.ActivityStarter;
-import com.android.systemui.plugins.qs.DetailAdapter;
-import com.android.systemui.plugins.qs.QSTile.BooleanState;
 import com.android.systemui.qs.QSDetailItems;
 import com.android.systemui.qs.QSDetailItems.Item;
-import com.android.systemui.qs.QSHost;
-import com.android.systemui.qs.tileimpl.QSTileImpl;
-import com.android.systemui.statusbar.phone.SystemUIDialog;
+import com.android.systemui.qs.QSTile;
 import com.android.systemui.statusbar.policy.CastController;
 import com.android.systemui.statusbar.policy.CastController.CastDevice;
 import com.android.systemui.statusbar.policy.KeyguardMonitor;
-import com.android.systemui.statusbar.policy.NetworkController;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.List;
-
-import javax.inject.Inject;
+import java.util.Set;
 
 /** Quick settings tile: Cast **/
-public class CastTile extends QSTileImpl<BooleanState> {
+public class CastTile extends QSTile<QSTile.BooleanState> {
     private static final Intent CAST_SETTINGS =
             new Intent(Settings.ACTION_CAST_SETTINGS);
 
     private final CastController mController;
     private final CastDetailAdapter mDetailAdapter;
     private final KeyguardMonitor mKeyguard;
-    private final NetworkController mNetworkController;
     private final Callback mCallback = new Callback();
-    private final ActivityStarter mActivityStarter;
-    private Dialog mDialog;
-    private boolean mWifiConnected;
 
-    @Inject
-    public CastTile(QSHost host, CastController castController, KeyguardMonitor keyguardMonitor,
-            NetworkController networkController, ActivityStarter activityStarter) {
+    public CastTile(Host host) {
         super(host);
-        mController = castController;
+        mController = host.getCastController();
         mDetailAdapter = new CastDetailAdapter();
-        mKeyguard = keyguardMonitor;
-        mNetworkController = networkController;
-        mActivityStarter = activityStarter;
-        mController.observe(this, mCallback);
-        mKeyguard.observe(this, mCallback);
-        mNetworkController.observe(this, mSignalCallback);
+        mKeyguard = host.getKeyguardMonitor();
     }
 
     @Override
@@ -89,22 +62,27 @@ public class CastTile extends QSTileImpl<BooleanState> {
 
     @Override
     public BooleanState newTileState() {
-        BooleanState state = new BooleanState();
-        state.handlesLongClick = false;
-        return state;
+        return new BooleanState();
     }
 
     @Override
-    public void handleSetListening(boolean listening) {
-        if (DEBUG) Log.d(TAG, "handleSetListening " + listening);
-        if (!listening) {
+    public void setListening(boolean listening) {
+        if (mController == null) return;
+        if (DEBUG) Log.d(TAG, "setListening " + listening);
+        if (listening) {
+            mController.addCallback(mCallback);
+            mKeyguard.addCallback(mCallback);
+        } else {
             mController.setDiscovering(false);
+            mController.removeCallback(mCallback);
+            mKeyguard.removeCallback(mCallback);
         }
     }
 
     @Override
     protected void handleUserSwitch(int newUserId) {
         super.handleUserSwitch(newUserId);
+        if (mController == null) return;
         mController.setCurrentUserId(newUserId);
     }
 
@@ -114,63 +92,20 @@ public class CastTile extends QSTileImpl<BooleanState> {
     }
 
     @Override
-    protected void handleSecondaryClick() {
-        handleClick();
-    }
-
-    @Override
-    protected void handleLongClick() {
-        handleClick();
-    }
-
-    @Override
     protected void handleClick() {
-        if (getState().state == Tile.STATE_UNAVAILABLE) {
+        if (mKeyguard.isSecure() && !mKeyguard.canSkipBouncer()) {
+            mHost.startRunnableDismissingKeyguard(new Runnable() {
+                @Override
+                public void run() {
+                    MetricsLogger.action(mContext, getMetricsCategory());
+                    showDetail(true);
+                    mHost.openPanels();
+                }
+            });
             return;
         }
-
-        List<CastDevice> activeDevices = getActiveDevices();
-        // We want to pop up the media route selection dialog if we either have no active devices
-        // (neither routes nor projection), or if we have an active route. In other cases, we assume
-        // that a projection is active. This is messy, but this tile never correctly handled the
-        // case where multiple devices were active :-/.
-        if (activeDevices.isEmpty() || (activeDevices.get(0).tag instanceof RouteInfo)) {
-            mActivityStarter.postQSRunnableDismissingKeyguard(() -> {
-                showDetail(true);
-            });
-        } else {
-            mController.stopCasting(activeDevices.get(0));
-        }
-    }
-
-    private List<CastDevice> getActiveDevices() {
-        ArrayList<CastDevice> activeDevices = new ArrayList<>();
-        for (CastDevice device : mController.getCastDevices()) {
-            if (device.state == CastDevice.STATE_CONNECTED
-                    || device.state == CastDevice.STATE_CONNECTING) {
-                activeDevices.add(device);
-            }
-        }
-
-        return activeDevices;
-    }
-
-    @Override
-    public void showDetail(boolean show) {
-        mUiHandler.post(() -> {
-            mDialog = MediaRouteDialogPresenter.createDialog(mContext, ROUTE_TYPE_REMOTE_DISPLAY,
-                    v -> {
-                        mDialog.dismiss();
-                        mActivityStarter
-                                .postStartActivityDismissingKeyguard(getLongClickIntent(), 0);
-                    });
-            mDialog.getWindow().setType(LayoutParams.TYPE_KEYGUARD_DIALOG);
-            SystemUIDialog.setShowForAllUsers(mDialog, true);
-            SystemUIDialog.registerDismissListener(mDialog);
-            SystemUIDialog.setWindowOnTop(mDialog);
-            mUiHandler.post(() -> mDialog.show());
-            mHost.collapsePanels();
-        });
+        MetricsLogger.action(mContext, getMetricsCategory());
+        showDetail(true);
     }
 
     @Override
@@ -183,43 +118,29 @@ public class CastTile extends QSTileImpl<BooleanState> {
         state.label = mContext.getString(R.string.quick_settings_cast_title);
         state.contentDescription = state.label;
         state.value = false;
-        final List<CastDevice> devices = mController.getCastDevices();
+        state.autoMirrorDrawable = false;
+        final Set<CastDevice> devices = mController.getCastDevices();
         boolean connecting = false;
-        // We always choose the first device that's in the CONNECTED state in the case where
-        // multiple devices are CONNECTED at the same time.
         for (CastDevice device : devices) {
             if (device.state == CastDevice.STATE_CONNECTED) {
                 state.value = true;
-                state.secondaryLabel = getDeviceName(device);
+                state.label = getDeviceName(device);
                 state.contentDescription = state.contentDescription + "," +
                         mContext.getString(R.string.accessibility_cast_name, state.label);
-                connecting = false;
-                break;
             } else if (device.state == CastDevice.STATE_CONNECTING) {
                 connecting = true;
             }
         }
-        if (connecting && !state.value) {
-            state.secondaryLabel = mContext.getString(R.string.quick_settings_connecting);
+        if (!state.value && connecting) {
+            state.label = mContext.getString(R.string.quick_settings_connecting);
         }
-        state.icon = ResourceIcon.get(state.value ? R.drawable.ic_cast_connected
-                : R.drawable.ic_cast);
-        if (mWifiConnected || state.value) {
-            state.state = state.value ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
-            if (!state.value) {
-                state.secondaryLabel = "";
-            }
-            state.contentDescription = state.contentDescription + ","
-                    + mContext.getString(R.string.accessibility_quick_settings_open_details);
-            state.expandedAccessibilityClassName = Button.class.getName();
-        } else {
-            state.state = Tile.STATE_UNAVAILABLE;
-            String noWifi = mContext.getString(R.string.quick_settings_cast_no_wifi);
-            state.secondaryLabel = noWifi;
-            state.contentDescription = state.contentDescription + ", " + mContext.getString(
-                    R.string.accessibility_quick_settings_not_available, noWifi);
-        }
+        state.icon = ResourceIcon.get(state.value ? R.drawable.ic_qs_cast_on
+                : R.drawable.ic_qs_cast_off);
         mDetailAdapter.updateItems(devices);
+        state.minimalAccessibilityClassName = state.expandedAccessibilityClassName =
+                Button.class.getName();
+        state.contentDescription = state.contentDescription + ","
+                + mContext.getString(R.string.accessibility_quick_settings_open_details);
     }
 
     @Override
@@ -241,22 +162,6 @@ public class CastTile extends QSTileImpl<BooleanState> {
                 : mContext.getString(R.string.quick_settings_cast_device_default_name);
     }
 
-    private final NetworkController.SignalCallback mSignalCallback =
-            new NetworkController.SignalCallback() {
-                @Override
-                public void setWifiIndicators(boolean enabled,
-                        NetworkController.IconState statusIcon,
-                        NetworkController.IconState qsIcon, boolean activityIn, boolean activityOut,
-                        String description, boolean isTransient, String statusLabel) {
-                    // statusIcon.visible has the connected status information
-                    boolean enabledAndConnected = enabled && qsIcon.visible;
-                    if (enabledAndConnected != mWifiConnected) {
-                        mWifiConnected = enabledAndConnected;
-                        refreshState();
-                    }
-                }
-            };
-
     private final class Callback implements CastController.Callback, KeyguardMonitor.Callback {
         @Override
         public void onCastDevicesChanged() {
@@ -264,7 +169,7 @@ public class CastTile extends QSTileImpl<BooleanState> {
         }
 
         @Override
-        public void onKeyguardShowingChanged() {
+        public void onKeyguardChanged() {
             refreshState();
         }
     };
@@ -326,7 +231,7 @@ public class CastTile extends QSTileImpl<BooleanState> {
             return mItems;
         }
 
-        private void updateItems(List<CastDevice> devices) {
+        private void updateItems(Set<CastDevice> devices) {
             if (mItems == null) return;
             Item[] items = null;
             if (devices != null && !devices.isEmpty()) {
@@ -334,7 +239,7 @@ public class CastTile extends QSTileImpl<BooleanState> {
                 for (CastDevice device : devices) {
                     if (device.state == CastDevice.STATE_CONNECTED) {
                         final Item item = new Item();
-                        item.iconResId = R.drawable.ic_cast_connected;
+                        item.icon = R.drawable.ic_qs_cast_on;
                         item.line1 = getDeviceName(device);
                         item.line2 = mContext.getString(R.string.quick_settings_connected);
                         item.tag = device;
@@ -354,7 +259,7 @@ public class CastTile extends QSTileImpl<BooleanState> {
                         final CastDevice device = mVisibleOrder.get(id);
                         if (!devices.contains(device)) continue;
                         final Item item = new Item();
-                        item.iconResId = R.drawable.ic_cast;
+                        item.icon = R.drawable.ic_qs_cast_off;
                         item.line1 = getDeviceName(device);
                         if (device.state == CastDevice.STATE_CONNECTING) {
                             item.line2 = mContext.getString(R.string.quick_settings_connecting);

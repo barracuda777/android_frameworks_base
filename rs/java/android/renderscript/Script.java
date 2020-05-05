@@ -16,7 +16,6 @@
 
 package android.renderscript;
 
-import android.annotation.UnsupportedAppUsage;
 import android.util.SparseArray;
 
 /**
@@ -42,6 +41,7 @@ public class Script extends BaseObj {
             mScript = s;
             mSlot = slot;
             mSig = sig;
+            guard.open("destroy");
         }
     }
 
@@ -119,6 +119,7 @@ public class Script extends BaseObj {
             super(id, rs);
             mScript = s;
             mSlot = slot;
+            guard.open("destroy");
         }
     }
 
@@ -476,10 +477,8 @@ public class Script extends BaseObj {
      *
      */
     public static class Builder {
-        @UnsupportedAppUsage
         RenderScript mRS;
 
-        @UnsupportedAppUsage
         Builder(RenderScript rs) {
             mRS = rs;
         }

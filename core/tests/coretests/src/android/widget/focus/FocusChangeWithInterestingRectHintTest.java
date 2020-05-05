@@ -16,12 +16,13 @@
 
 package android.widget.focus;
 
-import android.test.ActivityInstrumentationTestCase;
+import android.widget.focus.AdjacentVerticalRectLists;
 import android.util.InternalSelectionView;
-import android.view.KeyEvent;
 
-import androidx.test.filters.LargeTest;
-import androidx.test.filters.MediumTest;
+import android.test.ActivityInstrumentationTestCase;
+import android.test.suitebuilder.annotation.LargeTest;
+import android.test.suitebuilder.annotation.MediumTest;
+import android.view.KeyEvent;
 
 /**
  * {@link android.view.FocusFinder#findNextFocus(android.view.ViewGroup, android.view.View, int)}

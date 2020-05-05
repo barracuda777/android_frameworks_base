@@ -19,10 +19,6 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="car_guest" msgid="3738772168718508650">"게스트"</string>
-    <string name="start_guest_session" msgid="7055742120180595689">"게스트"</string>
-    <string name="car_add_user" msgid="5245196248349230898">"사용자 추가"</string>
-    <string name="car_new_user" msgid="8142927244990323906">"신규 사용자"</string>
-    <string name="user_add_user_message_setup" msgid="1791011504259527329">"추가된 새로운 사용자는 자신의 공간을 설정해야 합니다."</string>
-    <string name="user_add_user_message_update" msgid="3383320289232716179">"모든 사용자는 다른 사용자를 위해 앱을 업데이트할 수 있습니다."</string>
+    <string name="car_lockscreen_disclaimer_title" msgid="7997539137376896441">"안전 운전"</string>
+    <string name="car_lockscreen_disclaimer_text" msgid="3061224684092952864">"도로 상황에 주의를 기울이고 관련 법규를 항상 준수하세요. 경로가 정확하지 않거나 불완전하거나 위험하거나 적합하지 않을 수 있으며 금지된 지역이나 여러 행정 구역을 통과할 수 있습니다. 비즈니스 정보 또한 부정확하거나 불완전할 수 있습니다. 데이터는 실시간이 아니며 위치의 정확도를 보증할 수 없습니다. 운전 중에 휴대기기를 조작하거나 Android Auto가 지원되지 않는 앱을 사용해서는 안 됩니다."</string>
 </resources>

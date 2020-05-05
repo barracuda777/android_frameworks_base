@@ -16,41 +16,28 @@
 
 package android.location;
 
-import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
-import static android.Manifest.permission.ACCESS_FINE_LOCATION;
-import static android.Manifest.permission.LOCATION_HARDWARE;
-import static android.Manifest.permission.WRITE_SECURE_SETTINGS;
+import com.android.internal.location.ProviderProperties;
 
-import android.Manifest;
-import android.annotation.NonNull;
-import android.annotation.Nullable;
-import android.annotation.RequiresFeature;
 import android.annotation.RequiresPermission;
-import android.annotation.SuppressLint;
 import android.annotation.SystemApi;
-import android.annotation.SystemService;
 import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
-import android.os.Process;
 import android.os.RemoteException;
-import android.os.UserHandle;
-import android.provider.Settings;
-import android.util.ArrayMap;
 import android.util.Log;
 
-import com.android.internal.location.ProviderProperties;
-
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+
+import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
+import static android.Manifest.permission.ACCESS_FINE_LOCATION;
 
 /**
  * This class provides access to the system location services.  These
@@ -58,6 +45,11 @@ import java.util.List;
  * device's geographical location, or to fire an application-specified
  * {@link Intent} when the device enters the proximity of a given
  * geographical location.
+ *
+ * <p>You do not
+ * instantiate this class directly; instead, retrieve it through
+ * {@link android.content.Context#getSystemService
+ * Context.getSystemService(Context.LOCATION_SERVICE)}.
  *
  * <p class="note">Unless noted, all Location API methods require
  * the {@link android.Manifest.permission#ACCESS_COARSE_LOCATION} or
@@ -67,25 +59,28 @@ import java.util.List;
  * return location results, but the update rate will be throttled and the exact
  * location will be obfuscated to a coarse level of accuracy.
  */
-@SystemService(Context.LOCATION_SERVICE)
-@RequiresFeature(PackageManager.FEATURE_LOCATION)
 public class LocationManager {
     private static final String TAG = "LocationManager";
 
     private final Context mContext;
-    @UnsupportedAppUsage
     private final ILocationManager mService;
     private final GnssMeasurementCallbackTransport mGnssMeasurementCallbackTransport;
     private final GnssNavigationMessageCallbackTransport mGnssNavigationMessageCallbackTransport;
-    private final BatchedLocationCallbackTransport mBatchedLocationCallbackTransport;
-    private final ArrayMap<GnssStatus.Callback, GnssStatusListenerTransport> mGnssStatusListeners =
-            new ArrayMap<>();
-    private final ArrayMap<OnNmeaMessageListener, GnssStatusListenerTransport> mGnssNmeaListeners =
-            new ArrayMap<>();
-    private final ArrayMap<GpsStatus.Listener, GnssStatusListenerTransport> mGpsStatusListeners =
-            new ArrayMap<>();
-    // volatile + GnssStatus final-fields pattern to avoid a partially published object
-    private volatile GnssStatus mGnssStatus;
+    private final HashMap<GpsStatus.Listener, GnssStatusListenerTransport> mGpsStatusListeners =
+            new HashMap<>();
+    private final HashMap<GpsStatus.NmeaListener, GnssStatusListenerTransport> mGpsNmeaListeners =
+            new HashMap<>();
+    private final HashMap<GnssStatusCallback, GnssStatusListenerTransport>
+            mOldGnssStatusListeners = new HashMap<>();
+    private final HashMap<GnssStatus.Callback, GnssStatusListenerTransport> mGnssStatusListeners =
+            new HashMap<>();
+    private final HashMap<GnssNmeaListener, GnssStatusListenerTransport> mOldGnssNmeaListeners =
+            new HashMap<>();
+    private final HashMap<OnNmeaMessageListener, GnssStatusListenerTransport> mGnssNmeaListeners =
+            new HashMap<>();
+    private final HashMap<GnssNavigationMessageEvent.Callback, GnssNavigationMessage.Callback>
+            mNavigationMessageBridge = new HashMap<>();
+    private GnssStatus mGnssStatus;
     private int mTimeToFirstFix;
 
     /**
@@ -145,14 +140,9 @@ public class LocationManager {
     public static final String KEY_PROXIMITY_ENTERING = "entering";
 
     /**
-     * This key is no longer in use.
-     *
      * Key used for a Bundle extra holding an Integer status value
      * when a status change is broadcast using a PendingIntent.
-     *
-     * @deprecated Status changes are deprecated and no longer broadcast.
      */
-    @Deprecated
     public static final String KEY_STATUS_CHANGED = "status";
 
     /**
@@ -168,39 +158,55 @@ public class LocationManager {
     public static final String KEY_LOCATION_CHANGED = "location";
 
     /**
-     * Broadcast intent action when the set of enabled location providers changes. To check the
-     * status of a provider, use {@link #isProviderEnabled(String)}. From Android Q and above, will
-     * include a string intent extra, {@link #EXTRA_PROVIDER_NAME}, with the name of the provider
-     * whose state has changed.
+     * Broadcast intent action indicating that the GPS has either been
+     * enabled or disabled. An intent extra provides this state as a boolean,
+     * where {@code true} means enabled.
+     * @see #EXTRA_GPS_ENABLED
      *
-     * @see #EXTRA_PROVIDER_NAME
+     * @hide
      */
-    public static final String PROVIDERS_CHANGED_ACTION = "android.location.PROVIDERS_CHANGED";
+    public static final String GPS_ENABLED_CHANGE_ACTION =
+        "android.location.GPS_ENABLED_CHANGE";
 
     /**
-     * Intent extra included with {@link #PROVIDERS_CHANGED_ACTION} broadcasts, containing the name
-     * of the location provider that has changed, to be used with location provider APIs.
+     * Broadcast intent action when the configured location providers
+     * change. For use with {@link #isProviderEnabled(String)}. If you're interacting with the
+     * {@link android.provider.Settings.Secure#LOCATION_MODE} API, use {@link #MODE_CHANGED_ACTION}
+     * instead.
      */
-    public static final String EXTRA_PROVIDER_NAME = "android.location.extra.PROVIDER_NAME";
+    public static final String PROVIDERS_CHANGED_ACTION =
+        "android.location.PROVIDERS_CHANGED";
 
     /**
-     * Broadcast intent action when the device location mode changes. To check the location mode,
-     * use {@link #isLocationEnabled()}.
-     */
-    public static final String MODE_CHANGED_ACTION = "android.location.MODE_CHANGED";
-
-    /**
-     * Broadcast intent action when {@link android.provider.Settings.Secure#LOCATION_MODE} is
-     * about to be changed through Settings app or Quick Settings.
+     * Broadcast intent action when {@link android.provider.Settings.Secure#LOCATION_MODE} changes.
      * For use with the {@link android.provider.Settings.Secure#LOCATION_MODE} API.
      * If you're interacting with {@link #isProviderEnabled(String)}, use
      * {@link #PROVIDERS_CHANGED_ACTION} instead.
      *
-     * @deprecated Do not use.
+     * In the future, there may be mode changes that do not result in
+     * {@link #PROVIDERS_CHANGED_ACTION} broadcasts.
+     */
+    public static final String MODE_CHANGED_ACTION = "android.location.MODE_CHANGED";
+
+    /**
+     * Broadcast intent action indicating that the GPS has either started or
+     * stopped receiving GPS fixes. An intent extra provides this state as a
+     * boolean, where {@code true} means that the GPS is actively receiving fixes.
+     * @see #EXTRA_GPS_ENABLED
+     *
      * @hide
      */
-    @Deprecated
-    public static final String MODE_CHANGING_ACTION = "com.android.settings.location.MODE_CHANGING";
+    public static final String GPS_FIX_CHANGE_ACTION =
+        "android.location.GPS_FIX_CHANGE";
+
+    /**
+     * The lookup key for a boolean that indicates whether GPS is enabled or
+     * disabled. {@code true} means GPS is enabled. Retrieve it with
+     * {@link android.content.Intent#getBooleanExtra(String,boolean)}.
+     *
+     * @hide
+     */
+    public static final String EXTRA_GPS_ENABLED = "enabled";
 
     /**
      * Broadcast intent action indicating that a high power location requests
@@ -213,64 +219,9 @@ public class LocationManager {
     public static final String HIGH_POWER_REQUEST_CHANGE_ACTION =
         "android.location.HIGH_POWER_REQUEST_CHANGE";
 
-    /**
-     * Broadcast intent action for Settings app to inject a footer at the bottom of location
-     * settings.
-     *
-     * <p>This broadcast is used for two things:
-     * <ol>
-     *     <li>For receivers to inject a footer with provided text. This is for use only by apps
-     *         that are included in the system image. </li>
-     *     <li>For receivers to know their footer is injected under location settings.</li>
-     * </ol>
-     *
-     * <p>To inject a footer to location settings, you must declare a broadcast receiver of
-     * {@link LocationManager#SETTINGS_FOOTER_DISPLAYED_ACTION} in the manifest as so:
-     * <pre>
-     *     &lt;receiver android:name="com.example.android.footer.MyFooterInjector"&gt;
-     *         &lt;intent-filter&gt;
-     *             &lt;action android:name="com.android.settings.location.INJECT_FOOTER" /&gt;
-     *         &lt;/intent-filter&gt;
-     *         &lt;meta-data
-     *             android:name="com.android.settings.location.FOOTER_STRING"
-     *             android:resource="@string/my_injected_footer_string" /&gt;
-     *     &lt;/receiver&gt;
-     * </pre>
-     *
-     * <p>On entering location settings, Settings app will send a
-     * {@link #SETTINGS_FOOTER_DISPLAYED_ACTION} broadcast to receivers whose footer is successfully
-     * injected. On leaving location settings, the footer becomes not visible to users. Settings app
-     * will send a {@link #SETTINGS_FOOTER_REMOVED_ACTION} broadcast to those receivers.
-     *
-     * @hide
-     */
-    public static final String SETTINGS_FOOTER_DISPLAYED_ACTION =
-            "com.android.settings.location.DISPLAYED_FOOTER";
-
-    /**
-     * Broadcast intent action when location settings footer is not visible to users.
-     *
-     * <p>See {@link #SETTINGS_FOOTER_DISPLAYED_ACTION} for more detail on how to use.
-     *
-     * @hide
-     */
-    public static final String SETTINGS_FOOTER_REMOVED_ACTION =
-            "com.android.settings.location.REMOVED_FOOTER";
-
-    /**
-     * Metadata name for {@link LocationManager#SETTINGS_FOOTER_DISPLAYED_ACTION} broadcast
-     * receivers to specify a string resource id as location settings footer text. This is for use
-     * only by apps that are included in the system image.
-     *
-     * <p>See {@link #SETTINGS_FOOTER_DISPLAYED_ACTION} for more detail on how to use.
-     *
-     * @hide
-     */
-    public static final String METADATA_SETTINGS_FOOTER_STRING =
-            "com.android.settings.location.FOOTER_STRING";
-
     // Map from LocationListeners to their associated ListenerTransport objects
-    private final ArrayMap<LocationListener, ListenerTransport> mListeners = new ArrayMap<>();
+    private HashMap<LocationListener,ListenerTransport> mListeners =
+        new HashMap<LocationListener,ListenerTransport>();
 
     private class ListenerTransport extends ILocationListener.Stub {
         private static final int TYPE_LOCATION_CHANGED = 1;
@@ -306,7 +257,7 @@ public class LocationManager {
             Message msg = Message.obtain();
             msg.what = TYPE_LOCATION_CHANGED;
             msg.obj = location;
-            sendCallbackMessage(msg);
+            mListenerHandler.sendMessage(msg);
         }
 
         @Override
@@ -320,7 +271,7 @@ public class LocationManager {
                 b.putBundle("extras", extras);
             }
             msg.obj = b;
-            sendCallbackMessage(msg);
+            mListenerHandler.sendMessage(msg);
         }
 
         @Override
@@ -328,7 +279,7 @@ public class LocationManager {
             Message msg = Message.obtain();
             msg.what = TYPE_PROVIDER_ENABLED;
             msg.obj = provider;
-            sendCallbackMessage(msg);
+            mListenerHandler.sendMessage(msg);
         }
 
         @Override
@@ -336,13 +287,7 @@ public class LocationManager {
             Message msg = Message.obtain();
             msg.what = TYPE_PROVIDER_DISABLED;
             msg.obj = provider;
-            sendCallbackMessage(msg);
-        }
-
-        private void sendCallbackMessage(Message msg) {
-            if (!mListenerHandler.sendMessage(msg)) {
-                locationCallbackFinished();
-            }
+            mListenerHandler.sendMessage(msg);
         }
 
         private void _handleMessage(Message msg) {
@@ -365,10 +310,6 @@ public class LocationManager {
                     mListener.onProviderDisabled((String) msg.obj);
                     break;
             }
-            locationCallbackFinished();
-        }
-
-        private void locationCallbackFinished() {
             try {
                 mService.locationCallbackFinished(this);
             } catch (RemoteException e) {
@@ -378,45 +319,17 @@ public class LocationManager {
     }
 
     /**
-     * @hide
-     */
-    @TestApi
-    public @NonNull String[] getBackgroundThrottlingWhitelist() {
-        try {
-            return mService.getBackgroundThrottlingWhitelist();
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * @hide
-     */
-    @TestApi
-    public @NonNull String[] getIgnoreSettingsWhitelist() {
-        try {
-            return mService.getIgnoreSettingsWhitelist();
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
      * @hide - hide this constructor because it has a parameter
      * of type ILocationManager, which is a system private class. The
      * right way to create an instance of this class is using the
      * factory Context.getSystemService.
      */
-    public LocationManager(@NonNull Context context, @NonNull ILocationManager service) {
+    public LocationManager(Context context, ILocationManager service) {
         mService = service;
         mContext = context;
-        mGnssMeasurementCallbackTransport =
-                new GnssMeasurementCallbackTransport(mContext, mService);
+        mGnssMeasurementCallbackTransport = new GnssMeasurementCallbackTransport(mContext, mService);
         mGnssNavigationMessageCallbackTransport =
                 new GnssNavigationMessageCallbackTransport(mContext, mService);
-        mBatchedLocationCallbackTransport =
-                new BatchedLocationCallbackTransport(mContext, mService);
-
     }
 
     private LocationProvider createProvider(String name, ProviderProperties properties) {
@@ -430,7 +343,7 @@ public class LocationManager {
      *
      * @return list of Strings containing names of the provider
      */
-    public @NonNull List<String> getAllProviders() {
+    public List<String> getAllProviders() {
         try {
             return mService.getAllProviders();
         } catch (RemoteException e) {
@@ -445,7 +358,7 @@ public class LocationManager {
      * enabled are returned.
      * @return list of Strings containing names of the providers
      */
-    public @NonNull List<String> getProviders(boolean enabledOnly) {
+    public List<String> getProviders(boolean enabledOnly) {
         try {
             return mService.getProviders(null, enabledOnly);
         } catch (RemoteException e) {
@@ -464,7 +377,7 @@ public class LocationManager {
      * @throws SecurityException if the caller is not permitted to access the
      * given provider.
      */
-    public @Nullable LocationProvider getProvider(@NonNull String name) {
+    public LocationProvider getProvider(String name) {
         checkProvider(name);
         try {
             ProviderProperties properties = mService.getProviderProperties(name);
@@ -487,7 +400,7 @@ public class LocationManager {
      * enabled are returned.
      * @return list of Strings containing names of the providers
      */
-    public @NonNull List<String> getProviders(@NonNull Criteria criteria, boolean enabledOnly) {
+    public List<String> getProviders(Criteria criteria, boolean enabledOnly) {
         checkCriteria(criteria);
         try {
             return mService.getProviders(criteria, enabledOnly);
@@ -518,7 +431,7 @@ public class LocationManager {
      * @param enabledOnly if true then only a provider that is currently enabled is returned
      * @return name of the provider that best matches the requirements
      */
-    public @Nullable String getBestProvider(@NonNull Criteria criteria, boolean enabledOnly) {
+    public String getBestProvider(Criteria criteria, boolean enabledOnly) {
         checkCriteria(criteria);
         try {
             return mService.getBestProvider(criteria, enabledOnly);
@@ -548,8 +461,9 @@ public class LocationManager {
      * @throws SecurityException if no suitable permission is present
      */
     @RequiresPermission(anyOf = {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION})
-    public void requestLocationUpdates(@NonNull String provider, long minTime, float minDistance,
-            @NonNull LocationListener listener) {
+    public void requestLocationUpdates(String provider, long minTime, float minDistance,
+            LocationListener listener) {
+        android.util.SeempLog.record(47);
         checkProvider(provider);
         checkListener(listener);
 
@@ -580,8 +494,9 @@ public class LocationManager {
      * @throws SecurityException if no suitable permission is present
      */
     @RequiresPermission(anyOf = {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION})
-    public void requestLocationUpdates(@NonNull String provider, long minTime, float minDistance,
-            @NonNull LocationListener listener, @Nullable Looper looper) {
+    public void requestLocationUpdates(String provider, long minTime, float minDistance,
+            LocationListener listener, Looper looper) {
+        android.util.SeempLog.record(47);
         checkProvider(provider);
         checkListener(listener);
 
@@ -613,8 +528,9 @@ public class LocationManager {
      * @throws SecurityException if no suitable permission is present
      */
     @RequiresPermission(anyOf = {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION})
-    public void requestLocationUpdates(long minTime, float minDistance, @NonNull Criteria criteria,
-            @NonNull LocationListener listener, @Nullable Looper looper) {
+    public void requestLocationUpdates(long minTime, float minDistance, Criteria criteria,
+            LocationListener listener, Looper looper) {
+        android.util.SeempLog.record(47);
         checkCriteria(criteria);
         checkListener(listener);
 
@@ -641,8 +557,9 @@ public class LocationManager {
      * @throws SecurityException if no suitable permission is present
      */
     @RequiresPermission(anyOf = {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION})
-    public void requestLocationUpdates(@NonNull String provider, long minTime, float minDistance,
-            @NonNull PendingIntent intent) {
+    public void requestLocationUpdates(String provider, long minTime, float minDistance,
+            PendingIntent intent) {
+        android.util.SeempLog.record(47);
         checkProvider(provider);
         checkPendingIntent(intent);
 
@@ -727,11 +644,6 @@ public class LocationManager {
      * calling Activity. If a Looper is specified with a {@link LocationListener}
      * then callbacks are made on the supplied Looper thread.
      *
-     * <p> When location callbacks are invoked, the system will hold a wakelock
-     * on your application's behalf for some period of time, but not
-     * indefinitely. If your application requires a long running wakelock
-     * within the location callback, you should acquire it yourself.
-     *
      * <p class="note"> Prior to Jellybean, the minTime parameter was
      * only a hint, and some location provider implementations ignored it.
      * From Jellybean and onwards it is mandatory for Android compatible
@@ -748,8 +660,9 @@ public class LocationManager {
      * @throws SecurityException if no suitable permission is present
      */
     @RequiresPermission(anyOf = {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION})
-    public void requestLocationUpdates(long minTime, float minDistance, @NonNull Criteria criteria,
-            @NonNull PendingIntent intent) {
+    public void requestLocationUpdates(long minTime, float minDistance, Criteria criteria,
+            PendingIntent intent) {
+        android.util.SeempLog.record(47);
         checkCriteria(criteria);
         checkPendingIntent(intent);
 
@@ -778,8 +691,8 @@ public class LocationManager {
      * @throws SecurityException if no suitable permission is present
      */
     @RequiresPermission(anyOf = {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION})
-    public void requestSingleUpdate(
-            @NonNull String provider, @NonNull LocationListener listener, @Nullable Looper looper) {
+    public void requestSingleUpdate(String provider, LocationListener listener, Looper looper) {
+        android.util.SeempLog.record(64);
         checkProvider(provider);
         checkListener(listener);
 
@@ -809,10 +722,8 @@ public class LocationManager {
      * @throws SecurityException if no suitable permission is present
      */
     @RequiresPermission(anyOf = {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION})
-    public void requestSingleUpdate(
-            @NonNull Criteria criteria,
-            @NonNull LocationListener listener,
-            @Nullable Looper looper) {
+    public void requestSingleUpdate(Criteria criteria, LocationListener listener, Looper looper) {
+        android.util.SeempLog.record(64);
         checkCriteria(criteria);
         checkListener(listener);
 
@@ -835,7 +746,8 @@ public class LocationManager {
      * @throws SecurityException if no suitable permission is present
      */
     @RequiresPermission(anyOf = {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION})
-    public void requestSingleUpdate(@NonNull String provider, @NonNull PendingIntent intent) {
+    public void requestSingleUpdate(String provider, PendingIntent intent) {
+        android.util.SeempLog.record(64);
         checkProvider(provider);
         checkPendingIntent(intent);
 
@@ -859,7 +771,8 @@ public class LocationManager {
      * @throws SecurityException if no suitable permission is present
      */
     @RequiresPermission(anyOf = {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION})
-    public void requestSingleUpdate(@NonNull Criteria criteria, @NonNull PendingIntent intent) {
+    public void requestSingleUpdate(Criteria criteria, PendingIntent intent) {
+        android.util.SeempLog.record(64);
         checkCriteria(criteria);
         checkPendingIntent(intent);
 
@@ -926,12 +839,9 @@ public class LocationManager {
      * @hide
      */
     @SystemApi
-    @TestApi
-    @RequiresPermission(anyOf = {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION})
-    public void requestLocationUpdates(
-            @NonNull LocationRequest request,
-            @NonNull LocationListener listener,
-            @Nullable Looper looper) {
+    public void requestLocationUpdates(LocationRequest request, LocationListener listener,
+            Looper looper) {
+        android.util.SeempLog.record(47);
         checkListener(listener);
         requestLocationUpdates(request, listener, looper, null);
     }
@@ -958,40 +868,10 @@ public class LocationManager {
      * @hide
      */
     @SystemApi
-    @TestApi
-    @RequiresPermission(anyOf = {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION})
-    public void requestLocationUpdates(
-            @NonNull LocationRequest request, @NonNull PendingIntent intent) {
+    public void requestLocationUpdates(LocationRequest request, PendingIntent intent) {
+        android.util.SeempLog.record(47);
         checkPendingIntent(intent);
         requestLocationUpdates(request, null, null, intent);
-    }
-
-    /**
-     * Set the last known location with a new location.
-     *
-     * <p>A privileged client can inject a {@link Location} if it has a better estimate of what
-     * the recent location is.  This is especially useful when the device boots up and the GPS
-     * chipset is in the process of getting the first fix.  If the client has cached the location,
-     * it can inject the {@link Location}, so if an app requests for a {@link Location} from {@link
-     * #getLastKnownLocation(String)}, the location information is still useful before getting
-     * the first fix.</p>
-     *
-     * <p> Useful in products like Auto.
-     *
-     * @param newLocation newly available {@link Location} object
-     * @return true if update was successful, false if not
-     *
-     * @throws SecurityException if no suitable permission is present
-     *
-     * @hide
-     */
-    @RequiresPermission(allOf = {LOCATION_HARDWARE, ACCESS_FINE_LOCATION})
-    public boolean injectLocation(@NonNull Location newLocation) {
-        try {
-            return mService.injectLocation(newLocation);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
     }
 
     private ListenerTransport wrapListener(LocationListener listener, Looper looper) {
@@ -1006,9 +886,9 @@ public class LocationManager {
         }
     }
 
-    @UnsupportedAppUsage
     private void requestLocationUpdates(LocationRequest request, LocationListener listener,
             Looper looper, PendingIntent intent) {
+        android.util.SeempLog.record(47);
 
         String packageName = mContext.getPackageName();
 
@@ -1031,7 +911,7 @@ public class LocationManager {
      * @param listener listener object that no longer needs location updates
      * @throws IllegalArgumentException if listener is null
      */
-    public void removeUpdates(@NonNull LocationListener listener) {
+    public void removeUpdates(LocationListener listener) {
         checkListener(listener);
         String packageName = mContext.getPackageName();
 
@@ -1056,7 +936,7 @@ public class LocationManager {
      * @param intent pending intent object that no longer needs location updates
      * @throws IllegalArgumentException if intent is null
      */
-    public void removeUpdates(@NonNull PendingIntent intent) {
+    public void removeUpdates(PendingIntent intent) {
         checkPendingIntent(intent);
         String packageName = mContext.getPackageName();
 
@@ -1116,7 +996,8 @@ public class LocationManager {
      */
     @RequiresPermission(anyOf = {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION})
     public void addProximityAlert(double latitude, double longitude, float radius, long expiration,
-            @NonNull PendingIntent intent) {
+            PendingIntent intent) {
+        android.util.SeempLog.record(45);
         checkPendingIntent(intent);
         if (expiration < 0) expiration = Long.MAX_VALUE;
 
@@ -1166,10 +1047,7 @@ public class LocationManager {
      * @hide
      */
     @RequiresPermission(anyOf = {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION})
-    public void addGeofence(
-            @NonNull LocationRequest request,
-            @NonNull Geofence fence,
-            @NonNull PendingIntent intent) {
+    public void addGeofence(LocationRequest request, Geofence fence, PendingIntent intent) {
         checkPendingIntent(intent);
         checkGeofence(fence);
 
@@ -1196,7 +1074,7 @@ public class LocationManager {
      * @throws SecurityException if {@link android.Manifest.permission#ACCESS_FINE_LOCATION}
      * permission is not present
      */
-    public void removeProximityAlert(@NonNull PendingIntent intent) {
+    public void removeProximityAlert(PendingIntent intent) {
         checkPendingIntent(intent);
         String packageName = mContext.getPackageName();
 
@@ -1223,7 +1101,7 @@ public class LocationManager {
      *
      * @hide
      */
-    public void removeGeofence(@NonNull Geofence fence, @NonNull PendingIntent intent) {
+    public void removeGeofence(Geofence fence, PendingIntent intent) {
         checkPendingIntent(intent);
         checkGeofence(fence);
         String packageName = mContext.getPackageName();
@@ -1246,7 +1124,7 @@ public class LocationManager {
      *
      * @hide
      */
-    public void removeAllGeofences(@NonNull PendingIntent intent) {
+    public void removeAllGeofences(PendingIntent intent) {
         checkPendingIntent(intent);
         String packageName = mContext.getPackageName();
 
@@ -1258,125 +1136,34 @@ public class LocationManager {
     }
 
     /**
-     * Returns the current enabled/disabled state of location. To listen for changes, see
-     * {@link #MODE_CHANGED_ACTION}.
+     * Returns the current enabled/disabled status of the given provider.
      *
-     * @return true if location is enabled and false if location is disabled.
-     */
-    public boolean isLocationEnabled() {
-        return isLocationEnabledForUser(Process.myUserHandle());
-    }
-
-    /**
-     * Returns the current enabled/disabled state of location.
+     * <p>If the user has enabled this provider in the Settings menu, true
+     * is returned otherwise false is returned
      *
-     * @param userHandle the user to query
-     * @return true if location is enabled and false if location is disabled.
+     * <p>Callers should instead use
+     * {@link android.provider.Settings.Secure#LOCATION_MODE}
+     * unless they depend on provider-specific APIs such as
+     * {@link #requestLocationUpdates(String, long, float, LocationListener)}.
      *
-     * @hide
-     */
-    @SystemApi
-    public boolean isLocationEnabledForUser(@NonNull UserHandle userHandle) {
-        try {
-            return mService.isLocationEnabledForUser(userHandle.getIdentifier());
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * Enables or disables the location setting.
-     *
-     * @param enabled true to enable location and false to disable location.
-     * @param userHandle the user to set
-     *
-     * @hide
-     */
-    @SystemApi
-    @TestApi
-    @RequiresPermission(WRITE_SECURE_SETTINGS)
-    public void setLocationEnabledForUser(boolean enabled, @NonNull UserHandle userHandle) {
-        Settings.Secure.putIntForUser(
-                mContext.getContentResolver(),
-                Settings.Secure.LOCATION_MODE,
-                enabled
-                        ? Settings.Secure.LOCATION_MODE_ON
-                        : Settings.Secure.LOCATION_MODE_OFF,
-                userHandle.getIdentifier());
-    }
-
-    /**
-     * Returns the current enabled/disabled status of the given provider. To listen for changes, see
-     * {@link #PROVIDERS_CHANGED_ACTION}.
-     *
-     * Before API version {@link android.os.Build.VERSION_CODES#LOLLIPOP}, this method would throw
-     * {@link SecurityException} if the location permissions were not sufficient to use the
-     * specified provider.
+     * <p>
+     * Before API version {@link android.os.Build.VERSION_CODES#LOLLIPOP}, this
+     * method would throw {@link SecurityException} if the location permissions
+     * were not sufficient to use the specified provider.
      *
      * @param provider the name of the provider
      * @return true if the provider exists and is enabled
      *
      * @throws IllegalArgumentException if provider is null
      */
-    public boolean isProviderEnabled(@NonNull String provider) {
-        return isProviderEnabledForUser(provider, Process.myUserHandle());
-    }
-
-    /**
-     * Returns the current enabled/disabled status of the given provider and user. Callers should
-     * prefer {@link #isLocationEnabledForUser(UserHandle)} unless they depend on provider-specific
-     * APIs.
-     *
-     * Before API version {@link android.os.Build.VERSION_CODES#LOLLIPOP}, this method would throw
-     * {@link SecurityException} if the location permissions were not sufficient to use the
-     * specified provider.
-     *
-     * @param provider the name of the provider
-     * @param userHandle the user to query
-     * @return true if the provider exists and is enabled
-     *
-     * @throws IllegalArgumentException if provider is null
-     * @hide
-     */
-    @SystemApi
-    public boolean isProviderEnabledForUser(
-            @NonNull String provider, @NonNull UserHandle userHandle) {
+    public boolean isProviderEnabled(String provider) {
         checkProvider(provider);
 
         try {
-            return mService.isProviderEnabledForUser(provider, userHandle.getIdentifier());
+            return mService.isProviderEnabled(provider);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
-    }
-
-    /**
-     * Method for enabling or disabling a single location provider. This method is deprecated and
-     * functions as a best effort. It should not be relied on in any meaningful sense as providers
-     * may no longer be enabled or disabled by clients.
-     *
-     * @param provider the name of the provider
-     * @param enabled true to enable the provider. false to disable the provider
-     * @param userHandle the user to set
-     * @return true if the value was set, false otherwise
-     *
-     * @throws IllegalArgumentException if provider is null
-     * @deprecated Do not manipulate providers individually, use
-     * {@link #setLocationEnabledForUser(boolean, UserHandle)} instead.
-     * @hide
-     */
-    @Deprecated
-    @SystemApi
-    @RequiresPermission(WRITE_SECURE_SETTINGS)
-    public boolean setProviderEnabledForUser(
-            @NonNull String provider, boolean enabled, @NonNull UserHandle userHandle) {
-        checkProvider(provider);
-
-        return Settings.Secure.putStringForUser(
-                mContext.getContentResolver(),
-                Settings.Secure.LOCATION_PROVIDERS_ALLOWED,
-                (enabled ? "+" : "-") + provider,
-                userHandle.getIdentifier());
     }
 
     /**
@@ -1393,7 +1180,6 @@ public class LocationManager {
      *
      * @hide
      */
-    @Nullable
     public Location getLastLocation() {
         String packageName = mContext.getPackageName();
 
@@ -1422,8 +1208,8 @@ public class LocationManager {
      * @throws IllegalArgumentException if provider is null or doesn't exist
      */
     @RequiresPermission(anyOf = {ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION})
-    @Nullable
-    public Location getLastKnownLocation(@NonNull String provider) {
+    public Location getLastKnownLocation(String provider) {
+        android.util.SeempLog.record(46);
         checkProvider(provider);
         String packageName = mContext.getPackageName();
         LocationRequest request = LocationRequest.createFromDeprecatedProvider(
@@ -1436,6 +1222,10 @@ public class LocationManager {
         }
     }
 
+    // --- Mock provider support ---
+    // TODO: It would be fantastic to deprecate mock providers entirely, and replace
+    // with something closer to LocationProviderBase.java
+
     /**
      * Creates a mock location provider and adds it to the set of active providers.
      *
@@ -1446,8 +1236,7 @@ public class LocationManager {
      * allowed} for your app.
      * @throws IllegalArgumentException if a provider with the given name already exists
      */
-    public void addTestProvider(
-            @NonNull String name, boolean requiresNetwork, boolean requiresSatellite,
+    public void addTestProvider(String name, boolean requiresNetwork, boolean requiresSatellite,
             boolean requiresCell, boolean hasMonetaryCost, boolean supportsAltitude,
             boolean supportsSpeed, boolean supportsBearing, int powerRequirement, int accuracy) {
         ProviderProperties properties = new ProviderProperties(requiresNetwork,
@@ -1474,7 +1263,7 @@ public class LocationManager {
      * allowed} for your app.
      * @throws IllegalArgumentException if no provider with the given name exists
      */
-    public void removeTestProvider(@NonNull String provider) {
+    public void removeTestProvider(String provider) {
         try {
             mService.removeTestProvider(provider, mContext.getOpPackageName());
         } catch (RemoteException e) {
@@ -1498,7 +1287,7 @@ public class LocationManager {
      * @throws IllegalArgumentException if no provider with the given name exists
      * @throws IllegalArgumentException if the location is incomplete
      */
-    public void setTestProviderLocation(@NonNull String provider, @NonNull Location loc) {
+    public void setTestProviderLocation(String provider, Location loc) {
         if (!loc.isComplete()) {
             IllegalArgumentException e = new IllegalArgumentException(
                     "Incomplete location object, missing timestamp or accuracy? " + loc);
@@ -1528,11 +1317,14 @@ public class LocationManager {
      * mock location app op} is not set to {@link android.app.AppOpsManager#MODE_ALLOWED
      * allowed} for your app.
      * @throws IllegalArgumentException if no provider with the given name exists
-     *
-     * @deprecated This function has always been a no-op, and may be removed in the future.
      */
-    @Deprecated
-    public void clearTestProviderLocation(@NonNull String provider) {}
+    public void clearTestProviderLocation(String provider) {
+        try {
+            mService.clearTestProviderLocation(provider, mContext.getOpPackageName());
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
 
     /**
      * Sets a mock enabled value for the given provider.  This value will be used in place
@@ -1546,7 +1338,7 @@ public class LocationManager {
      * allowed} for your app.
      * @throws IllegalArgumentException if no provider with the given name exists
      */
-    public void setTestProviderEnabled(@NonNull String provider, boolean enabled) {
+    public void setTestProviderEnabled(String provider, boolean enabled) {
         try {
             mService.setTestProviderEnabled(provider, enabled, mContext.getOpPackageName());
         } catch (RemoteException e) {
@@ -1563,16 +1355,18 @@ public class LocationManager {
      * mock location app op} is not set to {@link android.app.AppOpsManager#MODE_ALLOWED
      * allowed} for your app.
      * @throws IllegalArgumentException if no provider with the given name exists
-     *
-     * @deprecated Use {@link #setTestProviderEnabled(String, boolean)} instead.
      */
-    @Deprecated
-    public void clearTestProviderEnabled(@NonNull String provider) {
-        setTestProviderEnabled(provider, false);
+    public void clearTestProviderEnabled(String provider) {
+        try {
+            mService.clearTestProviderEnabled(provider, mContext.getOpPackageName());
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
     }
 
     /**
-     * This method has no effect as provider status has been deprecated and is no longer supported.
+     * Sets mock status values for the given provider.  These values will be used in place
+     * of any actual values from the provider.
      *
      * @param provider the provider name
      * @param status the mock status
@@ -1583,12 +1377,8 @@ public class LocationManager {
      * mock location app op} is not set to {@link android.app.AppOpsManager#MODE_ALLOWED
      * allowed} for your app.
      * @throws IllegalArgumentException if no provider with the given name exists
-     *
-     * @deprecated This method has no effect.
      */
-    @Deprecated
-    public void setTestProviderStatus(
-            @NonNull String provider, int status, @Nullable Bundle extras, long updateTime) {
+    public void setTestProviderStatus(String provider, int status, Bundle extras, long updateTime) {
         try {
             mService.setTestProviderStatus(provider, status, extras, updateTime,
                     mContext.getOpPackageName());
@@ -1598,33 +1388,18 @@ public class LocationManager {
     }
 
     /**
-     * This method has no effect as provider status has been deprecated and is no longer supported.
+     * Removes any mock status values associated with the given provider.
      *
      * @param provider the provider name
+     *
      * @throws SecurityException if {@link android.app.AppOpsManager#OPSTR_MOCK_LOCATION
      * mock location app op} is not set to {@link android.app.AppOpsManager#MODE_ALLOWED
      * allowed} for your app.
      * @throws IllegalArgumentException if no provider with the given name exists
-     *
-     * @deprecated This method has no effect.
      */
-    @Deprecated
-    public void clearTestProviderStatus(@NonNull String provider) {
-        setTestProviderStatus(provider, LocationProvider.AVAILABLE, null, 0L);
-    }
-
-    /**
-     * Get the last list of {@link LocationRequest}s sent to the provider.
-     *
-     * @hide
-     */
-    @TestApi
-    @NonNull
-    public List<LocationRequest> getTestProviderCurrentRequests(String providerName) {
-        checkProvider(providerName);
+    public void clearTestProviderStatus(String provider) {
         try {
-            return mService.getTestProviderCurrentRequests(providerName,
-                    mContext.getOpPackageName());
+            mService.clearTestProviderStatus(provider, mContext.getOpPackageName());
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
@@ -1635,11 +1410,15 @@ public class LocationManager {
     // This class is used to send Gnss status events to the client's specific thread.
     private class GnssStatusListenerTransport extends IGnssStatusListener.Stub {
 
+        private final GpsStatus.Listener mGpsListener;
+        private final GpsStatus.NmeaListener mGpsNmeaListener;
+        private final GnssStatusCallback mOldGnssCallback;
         private final GnssStatus.Callback mGnssCallback;
+        private final GnssNmeaListener mOldGnssNmeaListener;
         private final OnNmeaMessageListener mGnssNmeaListener;
 
         private class GnssHandler extends Handler {
-            GnssHandler(Handler handler) {
+            public GnssHandler(Handler handler) {
                 super(handler != null ? handler.getLooper() : Looper.myLooper());
             }
 
@@ -1648,22 +1427,24 @@ public class LocationManager {
                 switch (msg.what) {
                     case NMEA_RECEIVED:
                         synchronized (mNmeaBuffer) {
-                            for (Nmea nmea : mNmeaBuffer) {
+                            int length = mNmeaBuffer.size();
+                            for (int i = 0; i < length; i++) {
+                                Nmea nmea = mNmeaBuffer.get(i);
                                 mGnssNmeaListener.onNmeaMessage(nmea.mNmea, nmea.mTimestamp);
                             }
                             mNmeaBuffer.clear();
                         }
                         break;
-                    case GNSS_EVENT_STARTED:
+                    case GpsStatus.GPS_EVENT_STARTED:
                         mGnssCallback.onStarted();
                         break;
-                    case GNSS_EVENT_STOPPED:
+                    case GpsStatus.GPS_EVENT_STOPPED:
                         mGnssCallback.onStopped();
                         break;
-                    case GNSS_EVENT_FIRST_FIX:
+                    case GpsStatus.GPS_EVENT_FIRST_FIX:
                         mGnssCallback.onFirstFix(mTimeToFirstFix);
                         break;
-                    case GNSS_EVENT_SATELLITE_STATUS:
+                    case GpsStatus.GPS_EVENT_SATELLITE_STATUS:
                         mGnssCallback.onSatelliteStatusChanged(mGnssStatus);
                         break;
                     default:
@@ -1674,11 +1455,8 @@ public class LocationManager {
 
         private final Handler mGnssHandler;
 
-        private static final int NMEA_RECEIVED = 1;
-        private static final int GNSS_EVENT_STARTED = 2;
-        private static final int GNSS_EVENT_STOPPED = 3;
-        private static final int GNSS_EVENT_FIRST_FIX = 4;
-        private static final int GNSS_EVENT_SATELLITE_STATUS = 5;
+        // This must not equal any of the GpsStatus event IDs
+        private static final int NMEA_RECEIVED = 1000;
 
         private class Nmea {
             long mTimestamp;
@@ -1691,58 +1469,161 @@ public class LocationManager {
         }
         private final ArrayList<Nmea> mNmeaBuffer;
 
-        GnssStatusListenerTransport(GnssStatus.Callback callback, Handler handler) {
-            mGnssCallback = callback;
-            mGnssHandler = new GnssHandler(handler);
-            mGnssNmeaListener = null;
-            mNmeaBuffer = null;
-        }
-
-        GnssStatusListenerTransport(OnNmeaMessageListener listener, Handler handler) {
-            mGnssCallback = null;
-            mGnssHandler = new GnssHandler(handler);
-            mGnssNmeaListener = listener;
-            mNmeaBuffer = new ArrayList<>();
+        GnssStatusListenerTransport(GpsStatus.Listener listener) {
+            this(listener, null);
         }
 
         GnssStatusListenerTransport(GpsStatus.Listener listener, Handler handler) {
+            mGpsListener = listener;
             mGnssHandler = new GnssHandler(handler);
+            mGpsNmeaListener = null;
             mNmeaBuffer = null;
-            mGnssCallback = listener != null ? new GnssStatus.Callback() {
+            mOldGnssCallback = null;
+            mGnssCallback = mGpsListener != null ? new GnssStatus.Callback() {
                 @Override
                 public void onStarted() {
-                    listener.onGpsStatusChanged(GpsStatus.GPS_EVENT_STARTED);
+                    mGpsListener.onGpsStatusChanged(GpsStatus.GPS_EVENT_STARTED);
                 }
 
                 @Override
                 public void onStopped() {
-                    listener.onGpsStatusChanged(GpsStatus.GPS_EVENT_STOPPED);
+                    mGpsListener.onGpsStatusChanged(GpsStatus.GPS_EVENT_STOPPED);
                 }
 
                 @Override
                 public void onFirstFix(int ttff) {
-                    listener.onGpsStatusChanged(GpsStatus.GPS_EVENT_FIRST_FIX);
+                    mGpsListener.onGpsStatusChanged(GpsStatus.GPS_EVENT_FIRST_FIX);
                 }
 
                 @Override
                 public void onSatelliteStatusChanged(GnssStatus status) {
-                    listener.onGpsStatusChanged(GpsStatus.GPS_EVENT_SATELLITE_STATUS);
+                    mGpsListener.onGpsStatusChanged(GpsStatus.GPS_EVENT_SATELLITE_STATUS);
                 }
             } : null;
+            mOldGnssNmeaListener = null;
             mGnssNmeaListener = null;
+        }
+
+        GnssStatusListenerTransport(GpsStatus.NmeaListener listener) {
+            this(listener, null);
+        }
+
+        GnssStatusListenerTransport(GpsStatus.NmeaListener listener, Handler handler) {
+            mGpsListener = null;
+            mGnssHandler = new GnssHandler(handler);
+            mGpsNmeaListener = listener;
+            mNmeaBuffer = new ArrayList<Nmea>();
+            mOldGnssCallback = null;
+            mGnssCallback = null;
+            mOldGnssNmeaListener = null;
+            mGnssNmeaListener = mGpsNmeaListener != null ? new OnNmeaMessageListener() {
+                @Override
+                public void onNmeaMessage(String nmea, long timestamp) {
+                    mGpsNmeaListener.onNmeaReceived(timestamp, nmea);
+                }
+            } : null;
+        }
+
+        GnssStatusListenerTransport(GnssStatusCallback callback) {
+            this(callback, null);
+        }
+
+        GnssStatusListenerTransport(GnssStatusCallback callback, Handler handler) {
+            mOldGnssCallback = callback;
+            mGnssCallback = mOldGnssCallback != null ? new GnssStatus.Callback() {
+                @Override
+                public void onStarted() {
+                    mOldGnssCallback.onStarted();
+                }
+
+                @Override
+                public void onStopped() {
+                    mOldGnssCallback.onStopped();
+                }
+
+                @Override
+                public void onFirstFix(int ttff) {
+                    mOldGnssCallback.onFirstFix(ttff);
+                }
+
+                @Override
+                public void onSatelliteStatusChanged(GnssStatus status) {
+                    mOldGnssCallback.onSatelliteStatusChanged(status);
+                }
+            } : null;
+            mGnssHandler = new GnssHandler(handler);
+            mOldGnssNmeaListener = null;
+            mGnssNmeaListener = null;
+            mNmeaBuffer = null;
+            mGpsListener = null;
+            mGpsNmeaListener = null;
+        }
+
+        GnssStatusListenerTransport(GnssStatus.Callback callback) {
+            this(callback, null);
+        }
+
+        GnssStatusListenerTransport(GnssStatus.Callback callback, Handler handler) {
+            mOldGnssCallback = null;
+            mGnssCallback = callback;
+            mGnssHandler = new GnssHandler(handler);
+            mOldGnssNmeaListener = null;
+            mGnssNmeaListener = null;
+            mNmeaBuffer = null;
+            mGpsListener = null;
+            mGpsNmeaListener = null;
+        }
+
+        GnssStatusListenerTransport(GnssNmeaListener listener) {
+            this(listener, null);
+        }
+
+        GnssStatusListenerTransport(GnssNmeaListener listener, Handler handler) {
+            mGnssCallback = null;
+            mOldGnssCallback = null;
+            mGnssHandler = new GnssHandler(handler);
+            mOldGnssNmeaListener = listener;
+            mGnssNmeaListener = mOldGnssNmeaListener != null ? new OnNmeaMessageListener() {
+                @Override
+                public void onNmeaMessage(String message, long timestamp) {
+                    mOldGnssNmeaListener.onNmeaReceived(timestamp, message);
+                }
+            } : null;
+            mGpsListener = null;
+            mGpsNmeaListener = null;
+            mNmeaBuffer = new ArrayList<Nmea>();
+        }
+
+        GnssStatusListenerTransport(OnNmeaMessageListener listener) {
+            this(listener, null);
+        }
+
+        GnssStatusListenerTransport(OnNmeaMessageListener listener, Handler handler) {
+            mOldGnssCallback = null;
+            mGnssCallback = null;
+            mGnssHandler = new GnssHandler(handler);
+            mOldGnssNmeaListener = null;
+            mGnssNmeaListener = listener;
+            mGpsListener = null;
+            mGpsNmeaListener = null;
+            mNmeaBuffer = new ArrayList<Nmea>();
         }
 
         @Override
         public void onGnssStarted() {
             if (mGnssCallback != null) {
-                mGnssHandler.obtainMessage(GNSS_EVENT_STARTED).sendToTarget();
+                Message msg = Message.obtain();
+                msg.what = GpsStatus.GPS_EVENT_STARTED;
+                mGnssHandler.sendMessage(msg);
             }
         }
 
         @Override
         public void onGnssStopped() {
             if (mGnssCallback != null) {
-                mGnssHandler.obtainMessage(GNSS_EVENT_STOPPED).sendToTarget();
+                Message msg = Message.obtain();
+                msg.what = GpsStatus.GPS_EVENT_STOPPED;
+                mGnssHandler.sendMessage(msg);
             }
         }
 
@@ -1750,19 +1631,23 @@ public class LocationManager {
         public void onFirstFix(int ttff) {
             if (mGnssCallback != null) {
                 mTimeToFirstFix = ttff;
-                mGnssHandler.obtainMessage(GNSS_EVENT_FIRST_FIX).sendToTarget();
+                Message msg = Message.obtain();
+                msg.what = GpsStatus.GPS_EVENT_FIRST_FIX;
+                mGnssHandler.sendMessage(msg);
             }
         }
 
         @Override
         public void onSvStatusChanged(int svCount, int[] prnWithFlags,
-                float[] cn0s, float[] elevations, float[] azimuths, float[] carrierFreqs) {
+                float[] cn0s, float[] elevations, float[] azimuths) {
             if (mGnssCallback != null) {
-                mGnssStatus = new GnssStatus(svCount, prnWithFlags, cn0s, elevations, azimuths,
-                        carrierFreqs);
+                mGnssStatus = new GnssStatus(svCount, prnWithFlags, cn0s, elevations, azimuths);
 
-                mGnssHandler.removeMessages(GNSS_EVENT_SATELLITE_STATUS);
-                mGnssHandler.obtainMessage(GNSS_EVENT_SATELLITE_STATUS).sendToTarget();
+                Message msg = Message.obtain();
+                msg.what = GpsStatus.GPS_EVENT_SATELLITE_STATUS;
+                // remove any SV status messages already in the queue
+                mGnssHandler.removeMessages(GpsStatus.GPS_EVENT_SATELLITE_STATUS);
+                mGnssHandler.sendMessage(msg);
             }
         }
 
@@ -1772,9 +1657,11 @@ public class LocationManager {
                 synchronized (mNmeaBuffer) {
                     mNmeaBuffer.add(new Nmea(timestamp, nmea));
                 }
-
+                Message msg = Message.obtain();
+                msg.what = NMEA_RECEIVED;
+                // remove any NMEA_RECEIVED messages already in the queue
                 mGnssHandler.removeMessages(NMEA_RECEIVED);
-                mGnssHandler.obtainMessage(NMEA_RECEIVED).sendToTarget();
+                mGnssHandler.sendMessage(msg);
             }
         }
     }
@@ -1792,13 +1679,15 @@ public class LocationManager {
     @Deprecated
     @RequiresPermission(ACCESS_FINE_LOCATION)
     public boolean addGpsStatusListener(GpsStatus.Listener listener) {
+        android.util.SeempLog.record(43);
         boolean result;
 
         if (mGpsStatusListeners.get(listener) != null) {
+            // listener is already registered
             return true;
         }
         try {
-            GnssStatusListenerTransport transport = new GnssStatusListenerTransport(listener, null);
+            GnssStatusListenerTransport transport = new GnssStatusListenerTransport(listener);
             result = mService.registerGnssStatusCallback(transport, mContext.getPackageName());
             if (result) {
                 mGpsStatusListeners.put(listener, transport);
@@ -1829,23 +1718,87 @@ public class LocationManager {
     }
 
     /**
-     * Registers a GNSS status callback.
+     * Registers a GNSS status listener.
      *
-     * @param callback GNSS status callback object to register
+     * @param callback GNSS status listener object to register
+     *
+     * @return true if the listener was successfully added
+     *
+     * @throws SecurityException if the ACCESS_FINE_LOCATION permission is not present
+     * @removed
+     */
+    @RequiresPermission(ACCESS_FINE_LOCATION)
+    public boolean registerGnssStatusCallback(GnssStatusCallback callback) {
+        return registerGnssStatusCallback(callback, null);
+    }
+
+    /**
+     * Registers a GNSS status listener.
+     *
+     * @param callback GNSS status listener object to register
+     * @param handler the handler that the callback runs on.
+     *
+     * @return true if the listener was successfully added
+     *
+     * @throws SecurityException if the ACCESS_FINE_LOCATION permission is not present
+     * @removed
+     */
+    @RequiresPermission(ACCESS_FINE_LOCATION)
+    public boolean registerGnssStatusCallback(GnssStatusCallback callback, Handler handler) {
+        boolean result;
+        if (mOldGnssStatusListeners.get(callback) != null) {
+            // listener is already registered
+            return true;
+        }
+        try {
+            GnssStatusListenerTransport transport =
+                    new GnssStatusListenerTransport(callback, handler);
+            result = mService.registerGnssStatusCallback(transport, mContext.getPackageName());
+            if (result) {
+                mOldGnssStatusListeners.put(callback, transport);
+            }
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+
+        return result;
+    }
+
+    /**
+     * Removes a GNSS status listener.
+     *
+     * @param callback GNSS status listener object to remove
+     * @removed
+     */
+    public void unregisterGnssStatusCallback(GnssStatusCallback callback) {
+        try {
+            GnssStatusListenerTransport transport = mOldGnssStatusListeners.remove(callback);
+            if (transport != null) {
+                mService.unregisterGnssStatusCallback(transport);
+            }
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /**
+     * Registers a GNSS status listener.
+     *
+     * @param callback GNSS status listener object to register
      *
      * @return true if the listener was successfully added
      *
      * @throws SecurityException if the ACCESS_FINE_LOCATION permission is not present
      */
     @RequiresPermission(ACCESS_FINE_LOCATION)
-    public boolean registerGnssStatusCallback(@NonNull GnssStatus.Callback callback) {
+    public boolean registerGnssStatusCallback(GnssStatus.Callback callback) {
         return registerGnssStatusCallback(callback, null);
     }
 
     /**
-     * Registers a GNSS status callback.
+     * Registers a GNSS status listener.
      *
-     * @param callback GNSS status callback object to register
+     * @param callback GNSS status listener object to register
      * @param handler the handler that the callback runs on.
      *
      * @return true if the listener was successfully added
@@ -1853,43 +1806,39 @@ public class LocationManager {
      * @throws SecurityException if the ACCESS_FINE_LOCATION permission is not present
      */
     @RequiresPermission(ACCESS_FINE_LOCATION)
-    public boolean registerGnssStatusCallback(
-            @NonNull GnssStatus.Callback callback, @Nullable Handler handler) {
+    public boolean registerGnssStatusCallback(GnssStatus.Callback callback, Handler handler) {
         boolean result;
-        synchronized (mGnssStatusListeners) {
-            if (mGnssStatusListeners.get(callback) != null) {
-                return true;
+        if (mGnssStatusListeners.get(callback) != null) {
+            // listener is already registered
+            return true;
+        }
+        try {
+            GnssStatusListenerTransport transport =
+                    new GnssStatusListenerTransport(callback, handler);
+            result = mService.registerGnssStatusCallback(transport, mContext.getPackageName());
+            if (result) {
+                mGnssStatusListeners.put(callback, transport);
             }
-            try {
-                GnssStatusListenerTransport transport =
-                        new GnssStatusListenerTransport(callback, handler);
-                result = mService.registerGnssStatusCallback(transport, mContext.getPackageName());
-                if (result) {
-                    mGnssStatusListeners.put(callback, transport);
-                }
-            } catch (RemoteException e) {
-                throw e.rethrowFromSystemServer();
-            }
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
         }
 
         return result;
     }
 
     /**
-     * Removes a GNSS status callback.
+     * Removes a GNSS status listener.
      *
-     * @param callback GNSS status callback object to remove
+     * @param callback GNSS status listener object to remove
      */
-    public void unregisterGnssStatusCallback(@NonNull GnssStatus.Callback callback) {
-        synchronized (mGnssStatusListeners) {
-            try {
-                GnssStatusListenerTransport transport = mGnssStatusListeners.remove(callback);
-                if (transport != null) {
-                    mService.unregisterGnssStatusCallback(transport);
-                }
-            } catch (RemoteException e) {
-                throw e.rethrowFromSystemServer();
+    public void unregisterGnssStatusCallback(GnssStatus.Callback callback) {
+        try {
+            GnssStatusListenerTransport transport = mGnssStatusListeners.remove(callback);
+            if (transport != null) {
+                mService.unregisterGnssStatusCallback(transport);
             }
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
         }
     }
 
@@ -1902,12 +1851,28 @@ public class LocationManager {
      *
      * @throws SecurityException if the ACCESS_FINE_LOCATION permission is not present
      * @deprecated use {@link #addNmeaListener(OnNmeaMessageListener)} instead.
-     * @removed
      */
     @Deprecated
     @RequiresPermission(ACCESS_FINE_LOCATION)
     public boolean addNmeaListener(GpsStatus.NmeaListener listener) {
-        return false;
+        android.util.SeempLog.record(44);
+        boolean result;
+
+        if (mGpsNmeaListeners.get(listener) != null) {
+            // listener is already registered
+            return true;
+        }
+        try {
+            GnssStatusListenerTransport transport = new GnssStatusListenerTransport(listener);
+            result = mService.registerGnssStatusCallback(transport, mContext.getPackageName());
+            if (result) {
+                mGpsNmeaListeners.put(listener, transport);
+            }
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+
+        return result;
     }
 
     /**
@@ -1915,10 +1880,83 @@ public class LocationManager {
      *
      * @param listener a {@link GpsStatus.NmeaListener} object to remove
      * @deprecated use {@link #removeNmeaListener(OnNmeaMessageListener)} instead.
-     * @removed
      */
     @Deprecated
-    public void removeNmeaListener(GpsStatus.NmeaListener listener) {}
+    public void removeNmeaListener(GpsStatus.NmeaListener listener) {
+        try {
+            GnssStatusListenerTransport transport = mGpsNmeaListeners.remove(listener);
+            if (transport != null) {
+                mService.unregisterGnssStatusCallback(transport);
+            }
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /**
+     * Adds an NMEA listener.
+     *
+     * @param listener a {@link GnssNmeaListener} object to register
+     *
+     * @return true if the listener was successfully added
+     *
+     * @throws SecurityException if the ACCESS_FINE_LOCATION permission is not present
+     * @removed
+     */
+    @RequiresPermission(ACCESS_FINE_LOCATION)
+    public boolean addNmeaListener(GnssNmeaListener listener) {
+        return addNmeaListener(listener, null);
+    }
+
+    /**
+     * Adds an NMEA listener.
+     *
+     * @param listener a {@link GnssNmeaListener} object to register
+     * @param handler the handler that the listener runs on.
+     *
+     * @return true if the listener was successfully added
+     *
+     * @throws SecurityException if the ACCESS_FINE_LOCATION permission is not present
+     * @removed
+     */
+    @RequiresPermission(ACCESS_FINE_LOCATION)
+    public boolean addNmeaListener(GnssNmeaListener listener, Handler handler) {
+        boolean result;
+
+        if (mGpsNmeaListeners.get(listener) != null) {
+            // listener is already registered
+            return true;
+        }
+        try {
+            GnssStatusListenerTransport transport =
+                    new GnssStatusListenerTransport(listener, handler);
+            result = mService.registerGnssStatusCallback(transport, mContext.getPackageName());
+            if (result) {
+                mOldGnssNmeaListeners.put(listener, transport);
+            }
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+
+        return result;
+    }
+
+    /**
+     * Removes an NMEA listener.
+     *
+     * @param listener a {@link GnssNmeaListener} object to remove
+     * @removed
+     */
+    public void removeNmeaListener(GnssNmeaListener listener) {
+        try {
+            GnssStatusListenerTransport transport = mOldGnssNmeaListeners.remove(listener);
+            if (transport != null) {
+                mService.unregisterGnssStatusCallback(transport);
+            }
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
 
     /**
      * Adds an NMEA listener.
@@ -1930,7 +1968,7 @@ public class LocationManager {
      * @throws SecurityException if the ACCESS_FINE_LOCATION permission is not present
      */
     @RequiresPermission(ACCESS_FINE_LOCATION)
-    public boolean addNmeaListener(@NonNull OnNmeaMessageListener listener) {
+    public boolean addNmeaListener(OnNmeaMessageListener listener) {
         return addNmeaListener(listener, null);
     }
 
@@ -1945,11 +1983,10 @@ public class LocationManager {
      * @throws SecurityException if the ACCESS_FINE_LOCATION permission is not present
      */
     @RequiresPermission(ACCESS_FINE_LOCATION)
-    public boolean addNmeaListener(
-            @NonNull OnNmeaMessageListener listener, @Nullable Handler handler) {
+    public boolean addNmeaListener(OnNmeaMessageListener listener, Handler handler) {
         boolean result;
 
-        if (mGnssNmeaListeners.get(listener) != null) {
+        if (mGpsNmeaListeners.get(listener) != null) {
             // listener is already registered
             return true;
         }
@@ -1972,7 +2009,7 @@ public class LocationManager {
      *
      * @param listener a {@link OnNmeaMessageListener} object to remove
      */
-    public void removeNmeaListener(@NonNull OnNmeaMessageListener listener) {
+    public void removeNmeaListener(OnNmeaMessageListener listener) {
         try {
             GnssStatusListenerTransport transport = mGnssNmeaListeners.remove(listener);
             if (transport != null) {
@@ -1988,11 +2025,9 @@ public class LocationManager {
      * Don't use it. Use {@link #registerGnssMeasurementsCallback} instead.
      * @hide
      * @deprecated Not supported anymore.
-     * @removed
      */
     @Deprecated
     @SystemApi
-    @SuppressLint("Doclava125")
     public boolean addGpsMeasurementListener(GpsMeasurementsEvent.Listener listener) {
         return false;
     }
@@ -2004,8 +2039,7 @@ public class LocationManager {
      * @return {@code true} if the callback was added successfully, {@code false} otherwise.
      */
     @RequiresPermission(ACCESS_FINE_LOCATION)
-    public boolean registerGnssMeasurementsCallback(
-            @NonNull GnssMeasurementsEvent.Callback callback) {
+    public boolean registerGnssMeasurementsCallback(GnssMeasurementsEvent.Callback callback) {
         return registerGnssMeasurementsCallback(callback, null);
     }
 
@@ -2017,72 +2051,29 @@ public class LocationManager {
      * @return {@code true} if the callback was added successfully, {@code false} otherwise.
      */
     @RequiresPermission(ACCESS_FINE_LOCATION)
-    public boolean registerGnssMeasurementsCallback(
-            @NonNull GnssMeasurementsEvent.Callback callback, @Nullable Handler handler) {
+    public boolean registerGnssMeasurementsCallback(GnssMeasurementsEvent.Callback callback,
+            Handler handler) {
         return mGnssMeasurementCallbackTransport.add(callback, handler);
     }
 
     /**
-     * Injects GNSS measurement corrections into the GNSS chipset.
-     *
-     * @param measurementCorrections a {@link GnssMeasurementCorrections} object with the GNSS
-     *     measurement corrections to be injected into the GNSS chipset.
-     * @hide
-     */
-    @SystemApi
-    @RequiresPermission(ACCESS_FINE_LOCATION)
-    public void injectGnssMeasurementCorrections(
-            @NonNull GnssMeasurementCorrections measurementCorrections) {
-        try {
-            mGnssMeasurementCallbackTransport.injectGnssMeasurementCorrections(
-                    measurementCorrections);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * Returns the supported capabilities of the GNSS chipset.
-     *
-     * @throws SecurityException if the ACCESS_FINE_LOCATION permission is not present.
-     *
-     * @hide
-     */
-    @SystemApi
-    @RequiresPermission(ACCESS_FINE_LOCATION)
-    public @NonNull GnssCapabilities getGnssCapabilities() {
-        try {
-            long gnssCapabilities = mGnssMeasurementCallbackTransport.getGnssCapabilities();
-            if (gnssCapabilities == GnssCapabilities.INVALID_CAPABILITIES) {
-                gnssCapabilities = 0L;
-            }
-            return GnssCapabilities.of(gnssCapabilities);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * No-op method to keep backward-compatibility. Don't use it. Use {@link
-     * #unregisterGnssMeasurementsCallback} instead.
-     *
+     * No-op method to keep backward-compatibility.
+     * Don't use it. Use {@link #unregisterGnssMeasurementsCallback} instead.
      * @hide
      * @deprecated use {@link #unregisterGnssMeasurementsCallback(GnssMeasurementsEvent.Callback)}
-     *     instead.
-     * @removed
+     * instead.
      */
     @Deprecated
     @SystemApi
-    @SuppressLint("Doclava125")
-    public void removeGpsMeasurementListener(GpsMeasurementsEvent.Listener listener) {}
+    public void removeGpsMeasurementListener(GpsMeasurementsEvent.Listener listener) {
+    }
 
     /**
      * Unregisters a GPS Measurement callback.
      *
      * @param callback a {@link GnssMeasurementsEvent.Callback} object to remove.
      */
-    public void unregisterGnssMeasurementsCallback(
-            @NonNull GnssMeasurementsEvent.Callback callback) {
+    public void unregisterGnssMeasurementsCallback(GnssMeasurementsEvent.Callback callback) {
         mGnssMeasurementCallbackTransport.remove(callback);
     }
 
@@ -2091,11 +2082,9 @@ public class LocationManager {
      * Don't use it. Use {@link #registerGnssNavigationMessageCallback} instead.
      * @hide
      * @deprecated Not supported anymore.
-     * @removed
      */
     @Deprecated
     @SystemApi
-    @SuppressLint("Doclava125")
     public boolean addGpsNavigationMessageListener(GpsNavigationMessageEvent.Listener listener) {
         return false;
     }
@@ -2104,15 +2093,65 @@ public class LocationManager {
      * No-op method to keep backward-compatibility.
      * Don't use it. Use {@link #unregisterGnssNavigationMessageCallback} instead.
      * @hide
-     * @deprecated use
-     * {@link #unregisterGnssNavigationMessageCallback(GnssNavigationMessage.Callback)}
+     * @deprecated use {@link #unregisterGnssNavigationMessageCallback(GnssMeasurements.Callback)}
      * instead
-     * @removed
      */
     @Deprecated
     @SystemApi
-    @SuppressLint("Doclava125")
-    public void removeGpsNavigationMessageListener(GpsNavigationMessageEvent.Listener listener) {}
+    public void removeGpsNavigationMessageListener(GpsNavigationMessageEvent.Listener listener) {
+    }
+
+    /**
+     * Registers a GNSS Navigation Message callback.
+     *
+     * @param callback a {@link GnssNavigationMessageEvent.Callback} object to register.
+     * @return {@code true} if the callback was added successfully, {@code false} otherwise.
+     * @removed
+     */
+    public boolean registerGnssNavigationMessageCallback(
+            GnssNavigationMessageEvent.Callback callback) {
+        return registerGnssNavigationMessageCallback(callback, null);
+    }
+
+    /**
+     * Registers a GNSS Navigation Message callback.
+     *
+     * @param callback a {@link GnssNavigationMessageEvent.Callback} object to register.
+     * @param handler the handler that the callback runs on.
+     * @return {@code true} if the callback was added successfully, {@code false} otherwise.
+     * @removed
+     */
+    @RequiresPermission(ACCESS_FINE_LOCATION)
+    public boolean registerGnssNavigationMessageCallback(
+            final GnssNavigationMessageEvent.Callback callback, Handler handler) {
+        GnssNavigationMessage.Callback bridge = new GnssNavigationMessage.Callback() {
+            @Override
+            public void onGnssNavigationMessageReceived(GnssNavigationMessage message) {
+                GnssNavigationMessageEvent event = new GnssNavigationMessageEvent(message);
+                callback.onGnssNavigationMessageReceived(event);
+            }
+
+            @Override
+            public void onStatusChanged(int status) {
+                callback.onStatusChanged(status);
+            }
+        };
+        mNavigationMessageBridge.put(callback, bridge);
+        return mGnssNavigationMessageCallbackTransport.add(bridge, handler);
+    }
+
+    /**
+     * Unregisters a GNSS Navigation Message callback.
+     *
+     * @param callback a {@link GnssNavigationMessageEvent.Callback} object to remove.
+     * @removed
+     */
+    public void unregisterGnssNavigationMessageCallback(
+            GnssNavigationMessageEvent.Callback callback) {
+        mGnssNavigationMessageCallbackTransport.remove(
+                mNavigationMessageBridge.remove(
+                        callback));
+    }
 
     /**
      * Registers a GNSS Navigation Message callback.
@@ -2121,7 +2160,7 @@ public class LocationManager {
      * @return {@code true} if the callback was added successfully, {@code false} otherwise.
      */
     public boolean registerGnssNavigationMessageCallback(
-            @NonNull GnssNavigationMessage.Callback callback) {
+            GnssNavigationMessage.Callback callback) {
         return registerGnssNavigationMessageCallback(callback, null);
     }
 
@@ -2134,7 +2173,7 @@ public class LocationManager {
      */
     @RequiresPermission(ACCESS_FINE_LOCATION)
     public boolean registerGnssNavigationMessageCallback(
-            @NonNull GnssNavigationMessage.Callback callback, @Nullable Handler handler) {
+            GnssNavigationMessage.Callback callback, Handler handler) {
         return mGnssNavigationMessageCallbackTransport.add(callback, handler);
     }
 
@@ -2144,7 +2183,7 @@ public class LocationManager {
      * @param callback a {@link GnssNavigationMessage.Callback} object to remove.
      */
     public void unregisterGnssNavigationMessageCallback(
-            @NonNull GnssNavigationMessage.Callback callback) {
+            GnssNavigationMessage.Callback callback) {
         mGnssNavigationMessageCallbackTransport.remove(callback);
     }
 
@@ -2161,12 +2200,12 @@ public class LocationManager {
      */
     @Deprecated
     @RequiresPermission(ACCESS_FINE_LOCATION)
-    public @Nullable GpsStatus getGpsStatus(@Nullable GpsStatus status) {
+    public GpsStatus getGpsStatus(GpsStatus status) {
         if (status == null) {
             status = new GpsStatus();
         }
         // When mGnssStatus is null, that means that this method is called outside
-        // onGpsStatusChanged().  Return an empty status to maintain backwards compatibility.
+        // onGpsStatusChanged().  Return an empty status  to maintain backwards compatibility.
         if (mGnssStatus != null) {
             status.setStatus(mGnssStatus, mTimeToFirstFix);
         }
@@ -2174,124 +2213,14 @@ public class LocationManager {
     }
 
     /**
-     * Returns the model year of the GNSS hardware and software build.
-     *
-     * <p> More details, such as build date, may be available in {@link #getGnssHardwareModelName()}.
-     *
-     * <p> May return 0 if the model year is less than 2016.
+     * Returns the system information of the GPS hardware.
+     * May return 0 if GPS hardware is earlier than 2016.
+     * @hide
      */
+    @TestApi
     public int getGnssYearOfHardware() {
         try {
             return mService.getGnssYearOfHardware();
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * Returns the Model Name (including Vendor and Hardware/Software Version) of the GNSS hardware
-     * driver.
-     *
-     * <p> No device-specific serial number or ID is returned from this API.
-     *
-     * <p> Will return null when the GNSS hardware abstraction layer does not support providing
-     * this value.
-     */
-    @Nullable
-    public String getGnssHardwareModelName() {
-        try {
-            return mService.getGnssHardwareModelName();
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * Returns the batch size (in number of Location objects) that are supported by the batching
-     * interface.
-     *
-     * @return Maximum number of location objects that can be returned
-     * @hide
-     */
-    @SystemApi
-    @RequiresPermission(Manifest.permission.LOCATION_HARDWARE)
-    public int getGnssBatchSize() {
-        try {
-            return mService.getGnssBatchSize(mContext.getPackageName());
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * Start hardware-batching of GNSS locations. This API is primarily used when the AP is
-     * asleep and the device can batch GNSS locations in the hardware.
-     *
-     * Note this is designed (as was the fused location interface before it) for a single user
-     * SystemApi - requests are not consolidated.  Care should be taken when the System switches
-     * users that may have different batching requests, to stop hardware batching for one user, and
-     * restart it for the next.
-     *
-     * @param periodNanos Time interval, in nanoseconds, that the GNSS locations are requested
-     *                    within the batch
-     * @param wakeOnFifoFull True if the hardware batching should flush the locations in a
-     *                       a callback to the listener, when it's internal buffer is full.  If
-     *                       set to false, the oldest location information is, instead,
-     *                       dropped when the buffer is full.
-     * @param callback The listener on which to return the batched locations
-     * @param handler The handler on which to process the callback
-     *
-     * @return True if batching was successfully started
-     * @hide
-     */
-    @SystemApi
-    @RequiresPermission(Manifest.permission.LOCATION_HARDWARE)
-    public boolean registerGnssBatchedLocationCallback(long periodNanos, boolean wakeOnFifoFull,
-            @NonNull BatchedLocationCallback callback, @Nullable Handler handler) {
-        mBatchedLocationCallbackTransport.add(callback, handler);
-
-        try {
-            return mService.startGnssBatch(periodNanos, wakeOnFifoFull, mContext.getPackageName());
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * Flush the batched GNSS locations.
-     * All GNSS locations currently ready in the batch are returned via the callback sent in
-     * startGnssBatch(), and the buffer containing the batched locations is cleared.
-     *
-     * @hide
-     */
-    @SystemApi
-    @RequiresPermission(Manifest.permission.LOCATION_HARDWARE)
-    public void flushGnssBatch() {
-        try {
-            mService.flushGnssBatch(mContext.getPackageName());
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * Stop batching locations. This API is primarily used when the AP is
-     * asleep and the device can batch locations in the hardware.
-     *
-     * @param callback the specific callback class to remove from the transport layer
-     *
-     * @return True if batching was successfully started
-     * @hide
-     */
-    @SystemApi
-    @RequiresPermission(Manifest.permission.LOCATION_HARDWARE)
-    public boolean unregisterGnssBatchedLocationCallback(
-            @NonNull BatchedLocationCallback callback) {
-
-        mBatchedLocationCallbackTransport.remove(callback);
-
-        try {
-            return mService.stopGnssBatch();
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
@@ -2308,8 +2237,8 @@ public class LocationManager {
      *
      * @return true if the command succeeds.
      */
-    public boolean sendExtraCommand(
-            @NonNull String provider, @NonNull String command, @Nullable Bundle extras) {
+    public boolean sendExtraCommand(String provider, String command, Bundle extras) {
+        android.util.SeempLog.record(48);
         try {
             return mService.sendExtraCommand(provider, command, extras);
         } catch (RemoteException e) {
@@ -2323,7 +2252,6 @@ public class LocationManager {
      *
      * @hide
      */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     public boolean sendNiResponse(int notifId, int userResponse) {
         try {
             return mService.sendNiResponse(notifId, userResponse);
@@ -2370,117 +2298,4 @@ public class LocationManager {
             throw new IllegalArgumentException("invalid geofence: " + fence);
         }
     }
-
-    /**
-     * Returns true if the given package name matches a location provider package, and false
-     * otherwise.
-     *
-     * @hide
-     */
-    @SystemApi
-    public boolean isProviderPackage(@NonNull String packageName) {
-        try {
-            return mService.isProviderPackage(packageName);
-        } catch (RemoteException e) {
-            e.rethrowFromSystemServer();
-            return false;
-        }
-    }
-
-    /**
-     * Set the extra location controller package for location services on the device.
-     *
-     * @hide
-     */
-    @SystemApi
-    @RequiresPermission(Manifest.permission.LOCATION_HARDWARE)
-    public void setExtraLocationControllerPackage(@Nullable String packageName) {
-        try {
-            mService.setExtraLocationControllerPackage(packageName);
-        } catch (RemoteException e) {
-            e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * Set the extra location controller package for location services on the device.
-     *
-     * @removed
-     * @deprecated Use {@link #setExtraLocationControllerPackage} instead.
-     * @hide
-     */
-    @Deprecated
-    @SystemApi
-    @RequiresPermission(Manifest.permission.LOCATION_HARDWARE)
-    public void setLocationControllerExtraPackage(String packageName) {
-        try {
-            mService.setExtraLocationControllerPackage(packageName);
-        } catch (RemoteException e) {
-            e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * Returns the extra location controller package on the device.
-     *
-     * @hide
-     */
-    @SystemApi
-    public @Nullable String getExtraLocationControllerPackage() {
-        try {
-            return mService.getExtraLocationControllerPackage();
-        } catch (RemoteException e) {
-            e.rethrowFromSystemServer();
-            return null;
-        }
-    }
-
-    /**
-     * Set whether the extra location controller package is currently enabled on the device.
-     *
-     * @removed
-     * @deprecated Use {@link #setExtraLocationControllerPackageEnabled} instead.
-     * @hide
-     */
-    @SystemApi
-    @Deprecated
-    @RequiresPermission(Manifest.permission.LOCATION_HARDWARE)
-    public void setLocationControllerExtraPackageEnabled(boolean enabled) {
-        try {
-            mService.setExtraLocationControllerPackageEnabled(enabled);
-        } catch (RemoteException e) {
-            e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * Set whether the extra location controller package is currently enabled on the device.
-     *
-     * @hide
-     */
-    @SystemApi
-    @RequiresPermission(Manifest.permission.LOCATION_HARDWARE)
-    public void setExtraLocationControllerPackageEnabled(boolean enabled) {
-        try {
-            mService.setExtraLocationControllerPackageEnabled(enabled);
-        } catch (RemoteException e) {
-            e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * Returns whether extra location controller package is currently enabled on the device.
-     *
-     * @hide
-     */
-    @SystemApi
-    public boolean isExtraLocationControllerPackageEnabled() {
-        try {
-            return mService.isExtraLocationControllerPackageEnabled();
-        } catch (RemoteException e) {
-            e.rethrowFromSystemServer();
-            return false;
-        }
-    }
-
 }

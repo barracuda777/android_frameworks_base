@@ -16,13 +16,11 @@
 
 package android.widget;
 
-import android.annotation.FloatRange;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.LayerDrawable;
 import android.util.AttributeSet;
-import android.view.inspector.InspectableProperty;
 
 /**
  * Displays checked/unchecked states as a button
@@ -49,8 +47,6 @@ public class ToggleButton extends CompoundButton {
 
         final TypedArray a = context.obtainStyledAttributes(
                 attrs, com.android.internal.R.styleable.ToggleButton, defStyleAttr, defStyleRes);
-        saveAttributeDataForStyleable(context, com.android.internal.R.styleable.ToggleButton,
-                attrs, a, defStyleAttr, defStyleRes);
         mTextOn = a.getText(com.android.internal.R.styleable.ToggleButton_textOn);
         mTextOff = a.getText(com.android.internal.R.styleable.ToggleButton_textOff);
         mDisabledAlpha = a.getFloat(com.android.internal.R.styleable.ToggleButton_disabledAlpha, 0.5f);
@@ -91,7 +87,6 @@ public class ToggleButton extends CompoundButton {
      * 
      * @return The text.
      */
-    @InspectableProperty
     public CharSequence getTextOn() {
         return mTextOn;
     }
@@ -110,7 +105,6 @@ public class ToggleButton extends CompoundButton {
      * 
      * @return The text.
      */
-    @InspectableProperty
     public CharSequence getTextOff() {
         return mTextOff;
     }
@@ -122,17 +116,6 @@ public class ToggleButton extends CompoundButton {
      */
     public void setTextOff(CharSequence textOff) {
         mTextOff = textOff;
-    }
-
-    /**
-     * Returns the alpha value of the button when it is disabled
-     *
-     * @return the alpha value, 0.0-1.0
-     */
-    @InspectableProperty
-    @FloatRange(from = 0.0, to = 1.0)
-    public float getDisabledAlpha() {
-        return mDisabledAlpha;
     }
 
     @Override

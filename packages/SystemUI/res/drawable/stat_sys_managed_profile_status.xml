@@ -1,7 +1,7 @@
 <!--
-    Copyright (C) 2019 The Android Open Source Project
+Copyright (C) 2015 The Android Open Source Project
 
-    Licensed under the Apache License, Version 2.0 (the "License");
+   Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
     You may obtain a copy of the License at
 
@@ -14,14 +14,29 @@
     limitations under the License.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="17dp"
-    android:height="17dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
+    android:width="23dp"
+    android:height="18dp"
+    android:viewportWidth="23"
+    android:viewportHeight="18">
+<!--
+    The asset contains a briefcase symbol of 15.26dp x 13.6dp in the center.
+-->
     <path
         android:fillColor="@android:color/white"
-        android:pathData="M20,6h-4V4c0-1.1-0.9-2-2-2h-4C8.9,2,8,2.9,8,4v2H4C2.9,6,2,6.9,2,8l0,11c0,1.1,0.9,2,2,2h16c1.1,0,2-0.9,2-2V8 C22,6.9,21.1,6,20,6z M10,4h4v2h-4V4z M20,19H4V8h16V19z" />
+        android:pathData="M15.0815,4.5903 L15.0815,3.43636 L13.9276,2.2 L9.14696,2.2 L7.99302,3.43636
+L7.99302,4.5903 L9.14696,4.5903 L9.14696,3.43636 L13.9276,3.43636
+L13.9276,4.5903 Z" />
     <path
         android:fillColor="@android:color/white"
-        android:pathData="M 12 12 C 12.8284271247 12 13.5 12.6715728753 13.5 13.5 C 13.5 14.3284271247 12.8284271247 15 12 15 C 11.1715728753 15 10.5 14.3284271247 10.5 13.5 C 10.5 12.6715728753 11.1715728753 12 12 12 Z" />
+        android:pathData="M18.0488,4.5903 L5.02575,4.5903 C4.36635,4.5903,3.87181,5.08485,3.87181,5.74424
+L3.87181,9.28848 C3.87181,9.94788,4.36635,10.4424,5.02575,10.4424
+L9.72393,10.4424 L9.72393,9.28848 L13.2682,9.28848 L13.2682,10.4424
+L17.9664,10.4424 C18.6257,10.4424,19.1203,9.94788,19.1203,9.28848
+L19.1203,5.74424 C19.2027,5.08485,18.6257,4.5903,18.0488,4.5903 Z" />
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M9.80635,12.8327 L9.80635,11.6788 L4.44878,11.6788 L4.44878,14.6461
+C4.44878,15.3055,4.94332,15.8,5.60272,15.8 L17.3894,15.8
+C18.0488,15.8,18.5433,15.3055,18.5433,14.6461 L18.5433,11.6788 L13.2682,11.6788
+L13.2682,12.8327 L9.80635,12.8327 Z" />
 </vector>

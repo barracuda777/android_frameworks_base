@@ -16,6 +16,8 @@
 
 package android.widget.listview;
 
+import android.widget.listview.ListInVertical;
+
 public class ListInVerticalTest extends ListUnspecifiedMeasure<ListInVertical> {
     public ListInVerticalTest() {
         super(ListInVertical.class);

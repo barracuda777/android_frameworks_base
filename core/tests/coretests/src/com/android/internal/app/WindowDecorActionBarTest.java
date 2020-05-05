@@ -17,17 +17,14 @@
 package com.android.internal.app;
 
 import android.test.ActivityInstrumentationTestCase2;
+import android.test.UiThreadTest;
 import android.view.ActionMode;
 import android.view.Menu;
 import android.view.MenuItem;
 
-import androidx.test.annotation.UiThreadTest;
-import androidx.test.filters.SmallTest;
-
 /**
  * Tests for {@link WindowDecorActionBar}.
  */
-@SmallTest
 public class WindowDecorActionBarTest
         extends ActivityInstrumentationTestCase2<WindowDecorActionBarTestActivity> {
     private WindowDecorActionBar mWindowDecorActionBar;

@@ -23,8 +23,7 @@ import android.util.Log;
 /**
  * HdmiPlaybackClient represents HDMI-CEC logical device of type Playback
  * in the Android system which acts as a playback device such as set-top box.
- *
- * <p>HdmiPlaybackClient provides methods that control, get information from TV/Display device
+ * It provides with methods that control, get information from TV/Display device
  * connected through HDMI bus.
  *
  * @hide

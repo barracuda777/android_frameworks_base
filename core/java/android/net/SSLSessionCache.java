@@ -16,7 +16,6 @@
 
 package android.net;
 
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.util.Log;
 
@@ -40,7 +39,6 @@ import javax.net.ssl.SSLSessionContext;
  */
 public final class SSLSessionCache {
     private static final String TAG = "SSLSessionCache";
-    @UnsupportedAppUsage
     /* package */ final SSLClientSessionCache mSessionCache;
 
     /**

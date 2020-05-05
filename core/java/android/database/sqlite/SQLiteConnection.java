@@ -16,11 +16,13 @@
 
 package android.database.sqlite;
 
+import dalvik.system.BlockGuard;
+import dalvik.system.CloseGuard;
+
 import android.database.Cursor;
 import android.database.CursorWindow;
 import android.database.DatabaseUtils;
 import android.database.sqlite.SQLiteDebug.DbStats;
-import android.database.sqlite.SQLiteDebug.NoPreloadHolder;
 import android.os.CancellationSignal;
 import android.os.OperationCanceledException;
 import android.os.ParcelFileDescriptor;
@@ -30,15 +32,11 @@ import android.util.Log;
 import android.util.LruCache;
 import android.util.Printer;
 
-import dalvik.system.BlockGuard;
-import dalvik.system.CloseGuard;
-
-import java.io.File;
-import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * Represents a SQLite database connection.
@@ -106,7 +104,7 @@ public final class SQLiteConnection implements CancellationSignal.OnCancelListen
     private PreparedStatement mPreparedStatementPool;
 
     // The recent operations log.
-    private final OperationLog mRecentOperations;
+    private final OperationLog mRecentOperations = new OperationLog();
 
     // The native SQLiteConnection pointer.  (FOR INTERNAL USE ONLY)
     private long mConnectionPtr;
@@ -120,8 +118,7 @@ public final class SQLiteConnection implements CancellationSignal.OnCancelListen
     private int mCancellationSignalAttachCount;
 
     private static native long nativeOpen(String path, int openFlags, String label,
-            boolean enableTrace, boolean enableProfile, int lookasideSlotSize,
-            int lookasideSlotCount);
+            boolean enableTrace, boolean enableProfile);
     private static native void nativeClose(long connectionPtr);
     private static native void nativeRegisterCustomFunction(long connectionPtr,
             SQLiteCustomFunction function);
@@ -164,7 +161,6 @@ public final class SQLiteConnection implements CancellationSignal.OnCancelListen
             SQLiteDatabaseConfiguration configuration,
             int connectionId, boolean primaryConnection) {
         mPool = pool;
-        mRecentOperations = new OperationLog(mPool);
         mConfiguration = new SQLiteDatabaseConfiguration(configuration);
         mConnectionId = connectionId;
         mIsPrimaryConnection = primaryConnection;
@@ -210,15 +206,10 @@ public final class SQLiteConnection implements CancellationSignal.OnCancelListen
     }
 
     private void open() {
-        final int cookie = mRecentOperations.beginOperation("open", null, null);
-        try {
-            mConnectionPtr = nativeOpen(mConfiguration.path, mConfiguration.openFlags,
-                    mConfiguration.label,
-                    NoPreloadHolder.DEBUG_SQL_STATEMENTS, NoPreloadHolder.DEBUG_SQL_TIME,
-                    mConfiguration.lookasideSlotSize, mConfiguration.lookasideSlotCount);
-        } finally {
-            mRecentOperations.endOperation(cookie);
-        }
+        mConnectionPtr = nativeOpen(mConfiguration.path, mConfiguration.openFlags,
+                mConfiguration.label,
+                SQLiteDebug.DEBUG_SQL_STATEMENTS, SQLiteDebug.DEBUG_SQL_TIME);
+
         setPageSize();
         setForeignKeyModeFromConfiguration();
         setWalModeFromConfiguration();
@@ -296,62 +287,13 @@ public final class SQLiteConnection implements CancellationSignal.OnCancelListen
 
     private void setWalModeFromConfiguration() {
         if (!mConfiguration.isInMemoryDb() && !mIsReadOnlyConnection) {
-            final boolean walEnabled =
-                    (mConfiguration.openFlags & SQLiteDatabase.ENABLE_WRITE_AHEAD_LOGGING) != 0;
-            // Use compatibility WAL unless an app explicitly set journal/synchronous mode
-            // or DISABLE_COMPATIBILITY_WAL flag is set
-            final boolean isCompatibilityWalEnabled =
-                    mConfiguration.isLegacyCompatibilityWalEnabled();
-            if (walEnabled || isCompatibilityWalEnabled) {
+            if ((mConfiguration.openFlags & SQLiteDatabase.ENABLE_WRITE_AHEAD_LOGGING) != 0) {
                 setJournalMode("WAL");
-                if (mConfiguration.syncMode != null) {
-                    setSyncMode(mConfiguration.syncMode);
-                } else if (isCompatibilityWalEnabled) {
-                    setSyncMode(SQLiteCompatibilityWalFlags.getWALSyncMode());
-                } else {
-                    setSyncMode(SQLiteGlobal.getWALSyncMode());
-                }
-                maybeTruncateWalFile();
+                setSyncMode(SQLiteGlobal.getWALSyncMode());
             } else {
-                setJournalMode(mConfiguration.journalMode == null
-                        ? SQLiteGlobal.getDefaultJournalMode() : mConfiguration.journalMode);
-                setSyncMode(mConfiguration.syncMode == null
-                        ? SQLiteGlobal.getDefaultSyncMode() : mConfiguration.syncMode);
+                setJournalMode(SQLiteGlobal.getDefaultJournalMode());
+                setSyncMode(SQLiteGlobal.getDefaultSyncMode());
             }
-        }
-    }
-
-    /**
-     * If the WAL file exists and larger than a threshold, truncate it by executing
-     * PRAGMA wal_checkpoint.
-     */
-    private void maybeTruncateWalFile() {
-        final long threshold = SQLiteGlobal.getWALTruncateSize();
-        if (DEBUG) {
-            Log.d(TAG, "Truncate threshold=" + threshold);
-        }
-        if (threshold == 0) {
-            return;
-        }
-
-        final File walFile = new File(mConfiguration.path + "-wal");
-        if (!walFile.isFile()) {
-            return;
-        }
-        final long size = walFile.length();
-        if (size < threshold) {
-            if (DEBUG) {
-                Log.d(TAG, walFile.getAbsolutePath() + " " + size + " bytes: No need to truncate");
-            }
-            return;
-        }
-
-        Log.i(TAG, walFile.getAbsolutePath() + " " + size + " bytes: Bigger than "
-                + threshold + "; truncating");
-        try {
-            executeForString("PRAGMA wal_checkpoint(TRUNCATE)", null, null);
-        } catch (SQLiteException e) {
-            Log.w(TAG, "Failed to truncate the -wal file", e);
         }
     }
 
@@ -364,10 +306,12 @@ public final class SQLiteConnection implements CancellationSignal.OnCancelListen
     }
 
     private static String canonicalizeSyncMode(String value) {
-        switch (value) {
-            case "0": return "OFF";
-            case "1": return "NORMAL";
-            case "2": return "FULL";
+        if (value.equals("0")) {
+            return "OFF";
+        } else if (value.equals("1")) {
+            return "NORMAL";
+        } else if (value.equals("2")) {
+            return "FULL";
         }
         return value;
     }
@@ -416,10 +360,6 @@ public final class SQLiteConnection implements CancellationSignal.OnCancelListen
         final String newLocale = mConfiguration.locale.toString();
         nativeRegisterLocalizedCollators(mConnectionPtr, newLocale);
 
-        if (!mConfiguration.isInMemoryDb()) {
-            checkDatabaseWiped();
-        }
-
         // If the database is read-only, we cannot modify the android metadata table
         // or existing indexes.
         if (mIsReadOnlyConnection) {
@@ -449,41 +389,9 @@ public final class SQLiteConnection implements CancellationSignal.OnCancelListen
             } finally {
                 execute(success ? "COMMIT" : "ROLLBACK", null, null);
             }
-        } catch (SQLiteException ex) {
-            throw ex;
         } catch (RuntimeException ex) {
             throw new SQLiteException("Failed to change locale for db '" + mConfiguration.label
                     + "' to '" + newLocale + "'.", ex);
-        }
-    }
-
-    private void checkDatabaseWiped() {
-        if (!SQLiteGlobal.checkDbWipe()) {
-            return;
-        }
-        try {
-            final File checkFile = new File(mConfiguration.path
-                    + SQLiteGlobal.WIPE_CHECK_FILE_SUFFIX);
-
-            final boolean hasMetadataTable = executeForLong(
-                    "SELECT count(*) FROM sqlite_master"
-                            + " WHERE type='table' AND name='android_metadata'", null, null) > 0;
-            final boolean hasCheckFile = checkFile.exists();
-
-            if (!mIsReadOnlyConnection && !hasCheckFile) {
-                // Create the check file, unless it's a readonly connection,
-                // in which case we can't create the metadata table anyway.
-                checkFile.createNewFile();
-            }
-
-            if (!hasMetadataTable && hasCheckFile) {
-                // Bad. The DB is gone unexpectedly.
-                SQLiteDatabase.wipeDetected(mConfiguration.path, "unknown");
-            }
-
-        } catch (RuntimeException | IOException ex) {
-            SQLiteDatabase.wtfAsSystemServer(TAG,
-                    "Unexpected exception while checking for wipe", ex);
         }
     }
 
@@ -504,8 +412,7 @@ public final class SQLiteConnection implements CancellationSignal.OnCancelListen
         boolean foreignKeyModeChanged = configuration.foreignKeyConstraintsEnabled
                 != mConfiguration.foreignKeyConstraintsEnabled;
         boolean walModeChanged = ((configuration.openFlags ^ mConfiguration.openFlags)
-                & (SQLiteDatabase.ENABLE_WRITE_AHEAD_LOGGING
-                | SQLiteDatabase.ENABLE_LEGACY_COMPATIBILITY_WAL)) != 0;
+                & SQLiteDatabase.ENABLE_WRITE_AHEAD_LOGGING) != 0;
         boolean localeChanged = !configuration.locale.equals(mConfiguration.locale);
 
         // Update configuration parameters.
@@ -688,9 +595,7 @@ public final class SQLiteConnection implements CancellationSignal.OnCancelListen
                 applyBlockGuardPolicy(statement);
                 attachCancellationSignal(cancellationSignal);
                 try {
-                    long ret = nativeExecuteForLong(mConnectionPtr, statement.mStatementPtr);
-                    mRecentOperations.setResult(ret);
-                    return ret;
+                    return nativeExecuteForLong(mConnectionPtr, statement.mStatementPtr);
                 } finally {
                     detachCancellationSignal(cancellationSignal);
                 }
@@ -733,9 +638,7 @@ public final class SQLiteConnection implements CancellationSignal.OnCancelListen
                 applyBlockGuardPolicy(statement);
                 attachCancellationSignal(cancellationSignal);
                 try {
-                    String ret = nativeExecuteForString(mConnectionPtr, statement.mStatementPtr);
-                    mRecentOperations.setResult(ret);
-                    return ret;
+                    return nativeExecuteForString(mConnectionPtr, statement.mStatementPtr);
                 } finally {
                     detachCancellationSignal(cancellationSignal);
                 }
@@ -1174,7 +1077,7 @@ public final class SQLiteConnection implements CancellationSignal.OnCancelListen
         printer.println("  isPrimaryConnection: " + mIsPrimaryConnection);
         printer.println("  onlyAllowReadOnlyOperations: " + mOnlyAllowReadOnlyOperations);
 
-        mRecentOperations.dump(printer);
+        mRecentOperations.dump(printer, verbose);
 
         if (verbose) {
             mPreparedStatementCache.dump(printer);
@@ -1394,18 +1297,8 @@ public final class SQLiteConnection implements CancellationSignal.OnCancelListen
         private final Operation[] mOperations = new Operation[MAX_RECENT_OPERATIONS];
         private int mIndex;
         private int mGeneration;
-        private final SQLiteConnectionPool mPool;
-        private long mResultLong = Long.MIN_VALUE;
-        private String mResultString;
-
-        OperationLog(SQLiteConnectionPool pool) {
-            mPool = pool;
-        }
 
         public int beginOperation(String kind, String sql, Object[] bindArgs) {
-            mResultLong = Long.MIN_VALUE;
-            mResultString = null;
-
             synchronized (mOperations) {
                 final int index = (mIndex + 1) % MAX_RECENT_OPERATIONS;
                 Operation operation = mOperations[index];
@@ -1423,9 +1316,6 @@ public final class SQLiteConnection implements CancellationSignal.OnCancelListen
                 operation.mStartTime = SystemClock.uptimeMillis();
                 operation.mKind = kind;
                 operation.mSql = sql;
-                operation.mPath = mPool.getPath();
-                operation.mResultLong = Long.MIN_VALUE;
-                operation.mResultString = null;
                 if (bindArgs != null) {
                     if (operation.mBindArgs == null) {
                         operation.mBindArgs = new ArrayList<Object>();
@@ -1481,14 +1371,6 @@ public final class SQLiteConnection implements CancellationSignal.OnCancelListen
             }
         }
 
-        public void setResult(long longResult) {
-            mResultLong = longResult;
-        }
-
-        public void setResult(String stringResult) {
-            mResultString = stringResult;
-        }
-
         private boolean endOperationDeferLogLocked(int cookie) {
             final Operation operation = getOperationLocked(cookie);
             if (operation != null) {
@@ -1498,20 +1380,16 @@ public final class SQLiteConnection implements CancellationSignal.OnCancelListen
                 }
                 operation.mEndTime = SystemClock.uptimeMillis();
                 operation.mFinished = true;
-                final long execTime = operation.mEndTime - operation.mStartTime;
-                mPool.onStatementExecuted(execTime);
-                return NoPreloadHolder.DEBUG_LOG_SLOW_QUERIES && SQLiteDebug.shouldLogSlowQuery(
-                        execTime);
+                return SQLiteDebug.DEBUG_LOG_SLOW_QUERIES && SQLiteDebug.shouldLogSlowQuery(
+                                operation.mEndTime - operation.mStartTime);
             }
             return false;
         }
 
         private void logOperationLocked(int cookie, String detail) {
             final Operation operation = getOperationLocked(cookie);
-            operation.mResultLong = mResultLong;
-            operation.mResultString = mResultString;
             StringBuilder msg = new StringBuilder();
-            operation.describe(msg, true);
+            operation.describe(msg, false);
             if (detail != null) {
                 msg.append(", ").append(detail);
             }
@@ -1541,24 +1419,19 @@ public final class SQLiteConnection implements CancellationSignal.OnCancelListen
             }
         }
 
-        public void dump(Printer printer) {
+        public void dump(Printer printer, boolean verbose) {
             synchronized (mOperations) {
                 printer.println("  Most recently executed operations:");
                 int index = mIndex;
                 Operation operation = mOperations[index];
                 if (operation != null) {
-                    // Note: SimpleDateFormat is not thread-safe, cannot be compile-time created,
-                    // and is relatively expensive to create during preloading. This method is only
-                    // used when dumping a connection, which is a rare (mainly error) case.
-                    SimpleDateFormat opDF = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
                     int n = 0;
                     do {
                         StringBuilder msg = new StringBuilder();
                         msg.append("    ").append(n).append(": [");
-                        String formattedStartTime = opDF.format(new Date(operation.mStartWallTime));
-                        msg.append(formattedStartTime);
+                        msg.append(operation.getFormattedStartTime());
                         msg.append("] ");
-                        operation.describe(msg, false); // Never dump bingargs in a bugreport
+                        operation.describe(msg, verbose);
                         printer.println(msg.toString());
 
                         if (index > 0) {
@@ -1592,11 +1465,8 @@ public final class SQLiteConnection implements CancellationSignal.OnCancelListen
         public boolean mFinished;
         public Exception mException;
         public int mCookie;
-        public String mPath;
-        public long mResultLong; // MIN_VALUE means "value not set".
-        public String mResultString;
 
-        public void describe(StringBuilder msg, boolean allowDetailedLog) {
+        public void describe(StringBuilder msg, boolean verbose) {
             msg.append(mKind);
             if (mFinished) {
                 msg.append(" took ").append(mEndTime - mStartTime).append("ms");
@@ -1608,9 +1478,7 @@ public final class SQLiteConnection implements CancellationSignal.OnCancelListen
             if (mSql != null) {
                 msg.append(", sql=\"").append(trimSqlForDisplay(mSql)).append("\"");
             }
-            final boolean dumpDetails = allowDetailedLog && NoPreloadHolder.DEBUG_LOG_DETAILED
-                    && mBindArgs != null && mBindArgs.size() != 0;
-            if (dumpDetails) {
+            if (verbose && mBindArgs != null && mBindArgs.size() != 0) {
                 msg.append(", bindArgs=[");
                 final int count = mBindArgs.size();
                 for (int i = 0; i < count; i++) {
@@ -1630,15 +1498,8 @@ public final class SQLiteConnection implements CancellationSignal.OnCancelListen
                 }
                 msg.append("]");
             }
-            msg.append(", path=").append(mPath);
             if (mException != null) {
                 msg.append(", exception=\"").append(mException.getMessage()).append("\"");
-            }
-            if (mResultLong != Long.MIN_VALUE) {
-                msg.append(", result=").append(mResultLong);
-            }
-            if (mResultString != null) {
-                msg.append(", result=\"").append(mResultString).append("\"");
             }
         }
 
@@ -1656,5 +1517,12 @@ public final class SQLiteConnection implements CancellationSignal.OnCancelListen
             return methodName;
         }
 
+        private String getFormattedStartTime() {
+            // Note: SimpleDateFormat is not thread-safe, cannot be compile-time created, and is
+            //       relatively expensive to create during preloading. This method is only used
+            //       when dumping a connection, which is a rare (mainly error) case. So:
+            //       DO NOT CACHE.
+            return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(new Date(mStartWallTime));
+        }
     }
 }

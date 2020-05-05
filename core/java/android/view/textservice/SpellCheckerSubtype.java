@@ -16,6 +16,8 @@
 
 package android.view.textservice;
 
+import com.android.internal.inputmethod.InputMethodUtils;
+
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.content.Context;
@@ -24,8 +26,6 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.text.TextUtils;
 import android.util.Slog;
-
-import com.android.internal.inputmethod.SubtypeLocaleUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -100,7 +100,6 @@ public final class SpellCheckerSubtype implements Parcelable {
      * {@link SpellCheckerSubtype} objects right now.  Hence only the system is expected to be able
      * to instantiate {@link SpellCheckerSubtype} object.
      */
-    @Deprecated
     public SpellCheckerSubtype(int nameId, String locale, String extraValue) {
         this(nameId, locale, SUBTYPE_LANGUAGE_TAG_NONE, extraValue, SUBTYPE_ID_NONE);
     }
@@ -228,7 +227,7 @@ public final class SpellCheckerSubtype implements Parcelable {
         if (!TextUtils.isEmpty(mSubtypeLanguageTag)) {
             return Locale.forLanguageTag(mSubtypeLanguageTag);
         }
-        return SubtypeLocaleUtils.constructLocaleFromString(mSubtypeLocale);
+        return InputMethodUtils.constructLocaleFromString(mSubtypeLocale);
     }
 
     /**
@@ -271,7 +270,7 @@ public final class SpellCheckerSubtype implements Parcelable {
         dest.writeInt(mSubtypeId);
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<SpellCheckerSubtype> CREATOR
+    public static final Parcelable.Creator<SpellCheckerSubtype> CREATOR
             = new Parcelable.Creator<SpellCheckerSubtype>() {
         @Override
         public SpellCheckerSubtype createFromParcel(Parcel source) {

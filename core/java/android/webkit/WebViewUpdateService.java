@@ -17,7 +17,6 @@
 package android.webkit;
 
 import android.annotation.SystemApi;
-import android.annotation.UnsupportedAppUsage;
 import android.os.RemoteException;
 
 /**
@@ -26,21 +25,16 @@ import android.os.RemoteException;
 @SystemApi
 public final class WebViewUpdateService {
 
-    @UnsupportedAppUsage
     private WebViewUpdateService () {}
 
     /**
      * Fetch all packages that could potentially implement WebView.
      */
     public static WebViewProviderInfo[] getAllWebViewPackages() {
-        IWebViewUpdateService service = getUpdateService();
-        if (service == null) {
-            return new WebViewProviderInfo[0];
-        }
         try {
-            return service.getAllWebViewPackages();
+            return getUpdateService().getAllWebViewPackages();
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            throw new RuntimeException(e);
         }
     }
 
@@ -48,14 +42,10 @@ public final class WebViewUpdateService {
      * Fetch all packages that could potentially implement WebView and are currently valid.
      */
     public static WebViewProviderInfo[] getValidWebViewPackages() {
-        IWebViewUpdateService service = getUpdateService();
-        if (service == null) {
-            return new WebViewProviderInfo[0];
-        }
         try {
-            return service.getValidWebViewPackages();
+            return getUpdateService().getValidWebViewPackages();
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            throw new RuntimeException(e);
         }
     }
 
@@ -63,14 +53,10 @@ public final class WebViewUpdateService {
      * Used by DevelopmentSetting to get the name of the WebView provider currently in use.
      */
     public static String getCurrentWebViewPackageName() {
-        IWebViewUpdateService service = getUpdateService();
-        if (service == null) {
-            return null;
-        }
         try {
-            return service.getCurrentWebViewPackageName();
+            return getUpdateService().getCurrentWebViewPackageName();
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            throw new RuntimeException(e);
         }
     }
 

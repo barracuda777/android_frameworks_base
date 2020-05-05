@@ -21,22 +21,16 @@ import java.util.ArrayList;
 import android.database.ContentObserver;
 import android.net.Uri;
 import android.os.Handler;
-import android.os.Looper;
 import android.os.UserHandle;
 import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.server.content.ContentService.ObserverCall;
 import com.android.server.content.ContentService.ObserverNode;
 
-/**
- * atest FrameworksServicesTests:com.android.server.content.ObserverNodeTest
- */
-@SmallTest
 public class ObserverNodeTest extends AndroidTestCase {
     static class TestObserver  extends ContentObserver {
         public TestObserver() {
-            super(new Handler(Looper.getMainLooper()));
+            super(new Handler());
         }
     }
 

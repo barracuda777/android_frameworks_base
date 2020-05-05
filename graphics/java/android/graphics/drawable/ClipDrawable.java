@@ -23,7 +23,6 @@ import org.xmlpull.v1.XmlPullParserException;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.content.res.Resources.Theme;
@@ -59,7 +58,6 @@ public class ClipDrawable extends DrawableWrapper {
 
     private final Rect mTmpRect = new Rect();
 
-    @UnsupportedAppUsage
     private ClipState mState;
 
     ClipDrawable() {

@@ -21,9 +21,6 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
-import android.annotation.SystemService;
-import android.content.Context;
-import android.content.Intent;
 import android.graphics.Rect;
 import android.media.PlaybackParams;
 import android.net.Uri;
@@ -59,7 +56,9 @@ import java.util.Map;
 
 /**
  * Central system API to the overall TV input framework (TIF) architecture, which arbitrates
- * interaction between applications and the selected TV inputs.
+ * interaction between applications and the selected TV inputs. You can retrieve an instance of
+ * this interface with {@link android.content.Context#getSystemService
+ * Context.getSystemService(Context.TV_INPUT_SERVICE)}.
  *
  * <p>There are three primary parties involved in the TV input framework (TIF) architecture:
  *
@@ -78,7 +77,6 @@ import java.util.Map;
  * programs.
  * </ul>
  */
-@SystemService(Context.TV_INPUT_SERVICE)
 public final class TvInputManager {
     private static final String TAG = "TvInputManager";
 
@@ -109,7 +107,7 @@ public final class TvInputManager {
     public @interface VideoUnavailableReason {}
 
     static final int VIDEO_UNAVAILABLE_REASON_START = 0;
-    static final int VIDEO_UNAVAILABLE_REASON_END = 5;
+    static final int VIDEO_UNAVAILABLE_REASON_END = 4;
 
     /**
      * Reason for {@link TvInputService.Session#notifyVideoUnavailable(int)} and
@@ -140,14 +138,7 @@ public final class TvInputManager {
      * {@link TvView.TvInputCallback#onVideoUnavailable(String, int)}: Video is unavailable because
      * the current TV program is audio-only.
      */
-    public static final int VIDEO_UNAVAILABLE_REASON_AUDIO_ONLY = 4;
-    /**
-     * Reason for {@link TvInputService.Session#notifyVideoUnavailable(int)} and
-     * {@link TvView.TvInputCallback#onVideoUnavailable(String, int)}: Video is unavailable because
-     * the source is not physically connected, for example the HDMI cable is not connected.
-     * @hide
-     */
-    public static final int VIDEO_UNAVAILABLE_REASON_NOT_CONNECTED = VIDEO_UNAVAILABLE_REASON_END;
+    public static final int VIDEO_UNAVAILABLE_REASON_AUDIO_ONLY = VIDEO_UNAVAILABLE_REASON_END;
 
     /** @hide */
     @Retention(RetentionPolicy.SOURCE)
@@ -233,8 +224,9 @@ public final class TvInputManager {
      * {@link TvInputCallback#onInputStateChanged(String, int)}: The input source is connected.
      *
      * <p>This state indicates that a source device is connected to the input port and is in the
-     * normal operation mode. It is mostly relevant to hardware inputs such as HDMI input.
-     * Non-hardware inputs are considered connected all the time.
+     * normal operation mode. It is mostly relevant to hardware inputs such as HDMI input. This is
+     * the default state for any hardware inputs where their states are unknown. Non-hardware inputs
+     * are considered connected all the time.
      */
     public static final int INPUT_STATE_CONNECTED = 0;
 
@@ -244,8 +236,7 @@ public final class TvInputManager {
      * in standby mode.
      *
      * <p>This state indicates that a source device is connected to the input port but is in standby
-     * or low power mode. It is mostly relevant to hardware inputs such as HDMI input and Component
-     * inputs.
+     * mode. It is mostly relevant to hardware inputs such as HDMI input.
      */
     public static final int INPUT_STATE_CONNECTED_STANDBY = 1;
 
@@ -325,13 +316,6 @@ public final class TvInputManager {
      * {@link android.R.attr#setupActivity} of each TV input service.
      */
     public static final String ACTION_SETUP_INPUTS = "android.media.tv.action.SETUP_INPUTS";
-
-    /**
-     * Activity action to display the recording schedules. When invoked, the system will display an
-     * appropriate UI to browse the schedules.
-     */
-    public static final String ACTION_VIEW_RECORDING_SCHEDULES =
-            "android.media.tv.action.VIEW_RECORDING_SCHEDULES";
 
     private final ITvInputManager mService;
 
@@ -895,8 +879,6 @@ public final class TvInputManager {
                     if (token != null) {
                         session = new Session(token, channel, mService, mUserId, seq,
                                 mSessionCallbackRecordMap);
-                    } else {
-                        mSessionCallbackRecordMap.delete(seq);
                     }
                     record.postSessionCreated(session);
                 }
@@ -1338,7 +1320,9 @@ public final class TvInputManager {
      * Returns the list of blocked content ratings.
      *
      * @return the list of content ratings blocked by the user.
+     * @hide
      */
+    @SystemApi
     public List<TvContentRating> getBlockedRatings() {
         try {
             List<TvContentRating> ratings = new ArrayList<>();
@@ -1394,68 +1378,9 @@ public final class TvInputManager {
      * @hide
      */
     @SystemApi
-    @RequiresPermission(android.Manifest.permission.READ_CONTENT_RATING_SYSTEMS)
     public List<TvContentRatingSystemInfo> getTvContentRatingSystemList() {
         try {
             return mService.getTvContentRatingSystemList(mUserId);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * Notifies the TV input of the given preview program that the program's browsable state is
-     * disabled.
-     * @hide
-     */
-    @SystemApi
-    @RequiresPermission(android.Manifest.permission.NOTIFY_TV_INPUTS)
-    public void notifyPreviewProgramBrowsableDisabled(String packageName, long programId) {
-        Intent intent = new Intent();
-        intent.setAction(TvContract.ACTION_PREVIEW_PROGRAM_BROWSABLE_DISABLED);
-        intent.putExtra(TvContract.EXTRA_PREVIEW_PROGRAM_ID, programId);
-        intent.setPackage(packageName);
-        try {
-            mService.sendTvInputNotifyIntent(intent, mUserId);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * Notifies the TV input of the given watch next program that the program's browsable state is
-     * disabled.
-     * @hide
-     */
-    @SystemApi
-    @RequiresPermission(android.Manifest.permission.NOTIFY_TV_INPUTS)
-    public void notifyWatchNextProgramBrowsableDisabled(String packageName, long programId) {
-        Intent intent = new Intent();
-        intent.setAction(TvContract.ACTION_WATCH_NEXT_PROGRAM_BROWSABLE_DISABLED);
-        intent.putExtra(TvContract.EXTRA_WATCH_NEXT_PROGRAM_ID, programId);
-        intent.setPackage(packageName);
-        try {
-            mService.sendTvInputNotifyIntent(intent, mUserId);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * Notifies the TV input of the given preview program that the program is added to watch next.
-     * @hide
-     */
-    @SystemApi
-    @RequiresPermission(android.Manifest.permission.NOTIFY_TV_INPUTS)
-    public void notifyPreviewProgramAddedToWatchNext(String packageName, long previewProgramId,
-            long watchNextProgramId) {
-        Intent intent = new Intent();
-        intent.setAction(TvContract.ACTION_PREVIEW_PROGRAM_ADDED_TO_WATCH_NEXT);
-        intent.putExtra(TvContract.EXTRA_PREVIEW_PROGRAM_ID, previewProgramId);
-        intent.putExtra(TvContract.EXTRA_WATCH_NEXT_PROGRAM_ID, watchNextProgramId);
-        intent.setPackage(packageName);
-        try {
-            mService.sendTvInputNotifyIntent(intent, mUserId);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
@@ -1525,7 +1450,6 @@ public final class TvInputManager {
      * @hide
      */
     @SystemApi
-    @RequiresPermission(android.Manifest.permission.CAPTURE_TV_INPUT)
     public List<TvStreamConfig> getAvailableTvStreamConfigList(String inputId) {
         try {
             return mService.getAvailableTvStreamConfigList(inputId, mUserId);
@@ -1544,7 +1468,6 @@ public final class TvInputManager {
      * @hide
      */
     @SystemApi
-    @RequiresPermission(android.Manifest.permission.CAPTURE_TV_INPUT)
     public boolean captureFrame(String inputId, Surface surface, TvStreamConfig config) {
         try {
             return mService.captureFrame(inputId, surface, config, mUserId);
@@ -1559,7 +1482,6 @@ public final class TvInputManager {
      * @hide
      */
     @SystemApi
-    @RequiresPermission(android.Manifest.permission.CAPTURE_TV_INPUT)
     public boolean isSingleSessionActive() {
         try {
             return mService.isSingleSessionActive(mUserId);
@@ -1594,10 +1516,8 @@ public final class TvInputManager {
      * @param info The TV input which will use the acquired Hardware.
      * @return Hardware on success, {@code null} otherwise.
      *
-     * @hide
      * @removed
      */
-    @SystemApi
     @RequiresPermission(android.Manifest.permission.TV_INPUT_HARDWARE)
     public Hardware acquireTvInputHardware(int deviceId, final HardwareCallback callback,
             TvInputInfo info) {
@@ -1689,23 +1609,6 @@ public final class TvInputManager {
                 throw new IllegalArgumentException("Invalid DVB device: " + device);
             }
             return mService.openDvbDevice(info, device);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * Requests to make a channel browsable.
-     *
-     * <p>Once called, the system will review the request and make the channel browsable based on
-     * its policy. The first request from a package is guaranteed to be approved.
-     *
-     * @param channelUri The URI for the channel to be browsable.
-     * @hide
-     */
-    public void requestChannelBrowsable(Uri channelUri) {
-        try {
-            mService.requestChannelBrowsable(channelUri, mUserId);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
@@ -2495,7 +2398,7 @@ public final class TvInputManager {
                 }
             }
             synchronized (mSessionCallbackRecordMap) {
-                mSessionCallbackRecordMap.delete(mSeq);
+                mSessionCallbackRecordMap.remove(mSeq);
             }
         }
 
@@ -2601,10 +2504,12 @@ public final class TvInputManager {
             }
         }
 
-        /** @removed */
-        @SystemApi
         public boolean dispatchKeyEventToHdmi(KeyEvent event) {
-            return false;
+            try {
+                return mInterface.dispatchKeyEventToHdmi(event);
+            } catch (RemoteException e) {
+                throw new RuntimeException(e);
+            }
         }
 
         public void overrideAudioSink(int audioType, String audioAddress, int samplingRate,

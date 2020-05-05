@@ -17,110 +17,41 @@
 #ifndef AAPT_PROGUARD_RULES_H
 #define AAPT_PROGUARD_RULES_H
 
+#include "Resource.h"
+#include "Source.h"
+#include "xml/XmlDom.h"
+
 #include <map>
 #include <ostream>
 #include <set>
 #include <string>
 
-#include "androidfw/StringPiece.h"
-
-#include "Resource.h"
-#include "ResourceTable.h"
-#include "Source.h"
-#include "ValueVisitor.h"
-#include "io/Io.h"
-#include "process/IResourceTableConsumer.h"
-#include "xml/XmlDom.h"
-
 namespace aapt {
 namespace proguard {
 
-struct UsageLocation {
-  ResourceName name;
-  Source source;
-};
-
-struct NameAndSignature {
-  std::string name;
-  std::string signature;
-};
-
 class KeepSet {
- public:
-  KeepSet() = default;
+public:
+    inline void addClass(const Source& source, const std::u16string& className) {
+        mKeepSet[className].insert(source);
+    }
 
-  explicit KeepSet(bool conditional_keep_rules) : conditional_keep_rules_(conditional_keep_rules) {
-  }
+    inline void addMethod(const Source& source, const std::u16string& methodName) {
+        mKeepMethodSet[methodName].insert(source);
+    }
 
-  inline void AddManifestClass(const UsageLocation& file, const std::string& class_name) {
-    manifest_class_set_[class_name].insert(file);
-  }
+private:
+    friend bool writeKeepSet(std::ostream* out, const KeepSet& keepSet);
 
-  inline void AddConditionalClass(const UsageLocation& file,
-                                  const NameAndSignature& class_and_signature) {
-    conditional_class_set_[class_and_signature].insert(file);
-  }
-
-  inline void AddMethod(const UsageLocation& file, const NameAndSignature& name_and_signature) {
-    method_set_[name_and_signature].insert(file);
-  }
-
-  inline void AddReference(const UsageLocation& file, const ResourceName& resource_name) {
-    reference_set_[resource_name].insert(file);
-  }
-
- private:
-  friend void WriteKeepSet(const KeepSet& keep_set, io::OutputStream* out, bool minimal_keep);
-
-  friend bool CollectLocations(const UsageLocation& location, const KeepSet& keep_set,
-                               std::set<UsageLocation>* locations);
-
-  bool conditional_keep_rules_ = false;
-  std::map<std::string, std::set<UsageLocation>> manifest_class_set_;
-  std::map<NameAndSignature, std::set<UsageLocation>> method_set_;
-  std::map<NameAndSignature, std::set<UsageLocation>> conditional_class_set_;
-  std::map<ResourceName, std::set<UsageLocation>> reference_set_;
+    std::map<std::u16string, std::set<Source>> mKeepSet;
+    std::map<std::u16string, std::set<Source>> mKeepMethodSet;
 };
 
-bool CollectProguardRulesForManifest(xml::XmlResource* res, KeepSet* keep_set,
-                                     bool main_dex_only = false);
+bool collectProguardRulesForManifest(const Source& source, xml::XmlResource* res, KeepSet* keepSet);
+bool collectProguardRules(const Source& source, xml::XmlResource* res, KeepSet* keepSet);
 
-bool CollectProguardRules(IAaptContext* context, xml::XmlResource* res, KeepSet* keep_set);
+bool writeKeepSet(std::ostream* out, const KeepSet& keepSet);
 
-bool CollectResourceReferences(IAaptContext* context, ResourceTable* table, KeepSet* keep_set);
+} // namespace proguard
+} // namespace aapt
 
-void WriteKeepSet(const KeepSet& keep_set, io::OutputStream* out, bool minimal_keep);
-
-bool CollectLocations(const UsageLocation& location, const KeepSet& keep_set,
-                      std::set<UsageLocation>* locations);
-
-//
-// UsageLocation implementation.
-//
-
-inline bool operator==(const UsageLocation& lhs, const UsageLocation& rhs) {
-  return lhs.name == rhs.name;
-}
-
-inline int operator<(const UsageLocation& lhs, const UsageLocation& rhs) {
-  return lhs.name.compare(rhs.name);
-}
-
-//
-// NameAndSignature implementation.
-//
-
-inline bool operator<(const NameAndSignature& lhs, const NameAndSignature& rhs) {
-  if (lhs.name < rhs.name) {
-    return true;
-  }
-  if (lhs.name == rhs.name) {
-    return lhs.signature < rhs.signature;
-  }
-  return false;
-}
-
-}  // namespace proguard
-}  // namespace aapt
-
-#endif  // AAPT_PROGUARD_RULES_H
+#endif // AAPT_PROGUARD_RULES_H

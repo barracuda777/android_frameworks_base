@@ -18,7 +18,6 @@ package com.android.internal.view.menu;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.os.Parcelable;
 import android.view.ViewGroup;
@@ -48,7 +47,6 @@ public interface MenuPresenter {
          * @return true if the Callback will handle presenting the submenu, false if
          *         the presenter should attempt to do so.
          */
-        @UnsupportedAppUsage
         public boolean onOpenSubMenu(MenuBuilder subMenu);
     }
 

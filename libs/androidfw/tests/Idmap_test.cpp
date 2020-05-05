@@ -14,114 +14,102 @@
  * limitations under the License.
  */
 
-#include "androidfw/ResourceTypes.h"
+#include <androidfw/ResourceTypes.h>
 
-#include "utils/String16.h"
-#include "utils/String8.h"
-
+#include <utils/String8.h>
+#include <utils/String16.h>
 #include "TestHelpers.h"
 #include "data/basic/R.h"
 
-using ::com::android::basic::R;
+#include <gtest/gtest.h>
 
-namespace android {
+using namespace android;
+
+namespace {
+
+/**
+ * Include a binary resource table.
+ *
+ * Package: com.android.test.basic
+ */
+#include "data/basic/basic_arsc.h"
+
+/**
+ * Include a binary resource table.
+ * This table is an overlay.
+ *
+ * Package: com.android.test.basic
+ */
+#include "data/overlay/overlay_arsc.h"
+
+enum { MAY_NOT_BE_BAG = false };
 
 class IdmapTest : public ::testing::Test {
- protected:
-  void SetUp() override {
-    std::string contents;
-    ASSERT_TRUE(ReadFileFromZipToString(GetTestDataPath() + "/basic/basic.apk", "resources.arsc",
-                                        &contents));
-    ASSERT_EQ(NO_ERROR, target_table_.add(contents.data(), contents.size(), 0, true));
+protected:
+    virtual void SetUp() {
+        ASSERT_EQ(NO_ERROR, mTargetTable.add(basic_arsc, basic_arsc_len));
+        ASSERT_EQ(NO_ERROR, mOverlayTable.add(overlay_arsc, overlay_arsc_len));
+        char targetName[256] = "com.android.test.basic";
+        ASSERT_EQ(NO_ERROR, mTargetTable.createIdmap(mOverlayTable, 0, 0,
+                    targetName, targetName, &mData, &mDataSize));
+    }
 
-    ASSERT_TRUE(ReadFileFromZipToString(GetTestDataPath() + "/overlay/overlay.apk",
-                                        "resources.arsc", &overlay_data_));
-    ResTable overlay_table;
-    ASSERT_EQ(NO_ERROR, overlay_table.add(overlay_data_.data(), overlay_data_.size()));
+    virtual void TearDown() {
+        free(mData);
+    }
 
-    char target_name[256] = "com.android.basic";
-    ASSERT_EQ(NO_ERROR, overlay_table.createIdmap(target_table_, 0, 0, target_name, target_name,
-                                                  &data_, &data_size_));
-  }
-
-  void TearDown() override {
-    ::free(data_);
-  }
-
-  ResTable target_table_;
-  std::string overlay_data_;
-  void* data_ = nullptr;
-  size_t data_size_ = 0;
+    ResTable mTargetTable;
+    ResTable mOverlayTable;
+    void* mData;
+    size_t mDataSize;
 };
 
-TEST_F(IdmapTest, CanLoadIdmap) {
-  ASSERT_EQ(NO_ERROR,
-            target_table_.add(overlay_data_.data(), overlay_data_.size(), data_, data_size_));
+TEST_F(IdmapTest, canLoadIdmap) {
+    ASSERT_EQ(NO_ERROR, mTargetTable.add(overlay_arsc, overlay_arsc_len, mData, mDataSize));
 }
 
-TEST_F(IdmapTest, OverlayOverridesResourceValue) {
-  Res_value val;
-  ssize_t block = target_table_.getResource(R::string::test2, &val, false);
-  ASSERT_GE(block, 0);
-  ASSERT_EQ(Res_value::TYPE_STRING, val.dataType);
-  const ResStringPool* pool = target_table_.getTableStringBlock(block);
-  ASSERT_TRUE(pool != NULL);
-  ASSERT_LT(val.data, pool->size());
+TEST_F(IdmapTest, overlayOverridesResourceValue) {
+    Res_value val;
+    ssize_t block = mTargetTable.getResource(base::R::string::test2, &val, false);
+    ASSERT_GE(block, 0);
+    ASSERT_EQ(Res_value::TYPE_STRING, val.dataType);
+    const ResStringPool* pool = mTargetTable.getTableStringBlock(block);
+    ASSERT_TRUE(pool != NULL);
+    ASSERT_LT(val.data, pool->size());
 
-  size_t str_len;
-  const char16_t* target_str16 = pool->stringAt(val.data, &str_len);
-  ASSERT_TRUE(target_str16 != NULL);
-  ASSERT_EQ(String16("test2"), String16(target_str16, str_len));
+    size_t strLen;
+    const char16_t* targetStr16 = pool->stringAt(val.data, &strLen);
+    ASSERT_TRUE(targetStr16 != NULL);
+    ASSERT_EQ(String16("test2"), String16(targetStr16, strLen));
 
-  ASSERT_EQ(NO_ERROR,
-            target_table_.add(overlay_data_.data(), overlay_data_.size(), data_, data_size_));
+    ASSERT_EQ(NO_ERROR, mTargetTable.add(overlay_arsc, overlay_arsc_len, mData, mDataSize));
 
-  ssize_t new_block = target_table_.getResource(R::string::test2, &val, false);
-  ASSERT_GE(new_block, 0);
-  ASSERT_NE(block, new_block);
-  ASSERT_EQ(Res_value::TYPE_STRING, val.dataType);
-  pool = target_table_.getTableStringBlock(new_block);
-  ASSERT_TRUE(pool != NULL);
-  ASSERT_LT(val.data, pool->size());
+    ssize_t newBlock = mTargetTable.getResource(base::R::string::test2, &val, false);
+    ASSERT_GE(newBlock, 0);
+    ASSERT_NE(block, newBlock);
+    ASSERT_EQ(Res_value::TYPE_STRING, val.dataType);
+    pool = mTargetTable.getTableStringBlock(newBlock);
+    ASSERT_TRUE(pool != NULL);
+    ASSERT_LT(val.data, pool->size());
 
-  target_str16 = pool->stringAt(val.data, &str_len);
-  ASSERT_TRUE(target_str16 != NULL);
-  ASSERT_EQ(String16("test2-overlay"), String16(target_str16, str_len));
+    targetStr16 = pool->stringAt(val.data, &strLen);
+    ASSERT_TRUE(targetStr16 != NULL);
+    ASSERT_EQ(String16("test2-overlay"), String16(targetStr16, strLen));
 }
 
-TEST_F(IdmapTest, OverlaidResourceHasSameName) {
-  ASSERT_EQ(NO_ERROR,
-            target_table_.add(overlay_data_.data(), overlay_data_.size(), data_, data_size_));
+TEST_F(IdmapTest, overlaidResourceHasSameName) {
+    ASSERT_EQ(NO_ERROR, mTargetTable.add(overlay_arsc, overlay_arsc_len, mData, mDataSize));
 
-  ResTable::resource_name res_name;
-  ASSERT_TRUE(target_table_.getResourceName(R::array::integerArray1, true, &res_name));
+    ResTable::resource_name resName;
+    ASSERT_TRUE(mTargetTable.getResourceName(base::R::array::integerArray1, false, &resName));
 
-  ASSERT_TRUE(res_name.package != NULL);
-  ASSERT_TRUE(res_name.type != NULL);
-  ASSERT_TRUE(res_name.name8 != NULL);
+    ASSERT_TRUE(resName.package != NULL);
+    ASSERT_TRUE(resName.type != NULL);
+    ASSERT_TRUE(resName.name != NULL);
 
-  EXPECT_EQ(String16("com.android.basic"), String16(res_name.package, res_name.packageLen));
-  EXPECT_EQ(String16("array"), String16(res_name.type, res_name.typeLen));
-  EXPECT_EQ(String8("integerArray1"), String8(res_name.name8, res_name.nameLen));
+    EXPECT_EQ(String16("com.android.test.basic"), String16(resName.package, resName.packageLen));
+    EXPECT_EQ(String16("array"), String16(resName.type, resName.typeLen));
+    EXPECT_EQ(String16("integerArray1"), String16(resName.name, resName.nameLen));
 }
 
-constexpr const uint32_t kNonOverlaidResourceId = 0x7fff0000u;
-
-TEST_F(IdmapTest, OverlayDoesNotIncludeNonOverlaidResources) {
-  // First check that the resource we're trying to not include when overlaid is present when
-  // the overlay is loaded as a standalone APK.
-  ResTable table;
-  ASSERT_EQ(NO_ERROR, table.add(overlay_data_.data(), overlay_data_.size(), 0, true));
-
-  Res_value val;
-  ssize_t block = table.getResource(kNonOverlaidResourceId, &val, false /*mayBeBag*/);
-  ASSERT_GE(block, 0);
-
-  // Now add the overlay and verify that the unoverlaid resource is gone.
-  ASSERT_EQ(NO_ERROR,
-            target_table_.add(overlay_data_.data(), overlay_data_.size(), data_, data_size_));
-  block = target_table_.getResource(kNonOverlaidResourceId, &val, false /*mayBeBag*/);
-  ASSERT_LT(block, 0);
-}
-
-}  // namespace
+} // namespace

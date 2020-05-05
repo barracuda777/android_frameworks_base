@@ -20,6 +20,7 @@ import android.annotation.IntDef;
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.app.admin.DevicePolicyManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.UserHandle;
@@ -27,8 +28,6 @@ import android.provider.Settings;
 import android.text.format.DateUtils;
 
 import com.android.internal.R;
-import com.android.internal.messages.nano.SystemMessageProto.SystemMessage;
-import com.android.internal.notification.SystemNotificationChannels;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -38,7 +37,7 @@ import java.lang.annotation.RetentionPolicy;
  */
 class RemoteBugreportUtils {
 
-    static final int NOTIFICATION_ID = SystemMessage.NOTE_REMOTE_BUGREPORT;
+    static final int NOTIFICATION_ID = 678432343;
 
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({
@@ -63,14 +62,14 @@ class RemoteBugreportUtils {
         PendingIntent pendingDialogIntent = PendingIntent.getActivityAsUser(context, type,
                 dialogIntent, 0, null, UserHandle.CURRENT);
 
-        Notification.Builder builder =
-                new Notification.Builder(context, SystemNotificationChannels.DEVICE_ADMIN)
-                        .setSmallIcon(com.android.internal.R.drawable.stat_sys_adb)
-                        .setOngoing(true)
-                        .setLocalOnly(true)
-                        .setContentIntent(pendingDialogIntent)
-                        .setColor(context.getColor(
-                                com.android.internal.R.color.system_notification_accent_color));
+        Notification.Builder builder = new Notification.Builder(context)
+                .setSmallIcon(com.android.internal.R.drawable.stat_sys_adb)
+                .setOngoing(true)
+                .setLocalOnly(true)
+                .setPriority(Notification.PRIORITY_HIGH)
+                .setContentIntent(pendingDialogIntent)
+                .setColor(context.getColor(
+                        com.android.internal.R.color.system_notification_accent_color));
 
         if (type == DevicePolicyManager.NOTIFICATION_BUGREPORT_ACCEPTED_NOT_FINISHED) {
             builder.setContentTitle(context.getString(

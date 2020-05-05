@@ -18,10 +18,8 @@ package android.security.keystore;
 
 import android.annotation.Nullable;
 import android.security.Credentials;
-import android.security.GateKeeper;
 import android.security.KeyPairGeneratorSpec;
 import android.security.KeyStore;
-import android.security.KeyStoreException;
 import android.security.keymaster.KeyCharacteristics;
 import android.security.keymaster.KeymasterArguments;
 import android.security.keymaster.KeymasterCertificateChain;
@@ -303,7 +301,7 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
             if (mKeySizeBits == -1) {
                 mKeySizeBits = getDefaultKeySize(keymasterAlgorithm);
             }
-            checkValidKeySize(keymasterAlgorithm, mKeySizeBits, mSpec.isStrongBoxBacked());
+            checkValidKeySize(keymasterAlgorithm, mKeySizeBits);
 
             if (spec.getKeystoreAlias() == null) {
                 throw new InvalidAlgorithmParameterException("KeyStore entry alias not provided");
@@ -344,7 +342,11 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
                 // Check that user authentication related parameters are acceptable. This method
                 // will throw an IllegalStateException if there are issues (e.g., secure lock screen
                 // not set up).
-                KeymasterUtils.addUserAuthArgs(new KeymasterArguments(), mSpec);
+                KeymasterUtils.addUserAuthArgs(new KeymasterArguments(),
+                        mSpec.isUserAuthenticationRequired(),
+                        mSpec.getUserAuthenticationValidityDurationSeconds(),
+                        mSpec.isUserAuthenticationValidWhileOnBody(),
+                        mSpec.isInvalidatedByBiometricEnrollment());
             } catch (IllegalArgumentException | IllegalStateException e) {
                 throw new InvalidAlgorithmParameterException(e);
             }
@@ -447,16 +449,12 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
             throw new IllegalStateException("Not initialized");
         }
 
-        int flags = (mEncryptionAtRestRequired) ? KeyStore.FLAG_ENCRYPTED : 0;
+        final int flags = (mEncryptionAtRestRequired) ? KeyStore.FLAG_ENCRYPTED : 0;
         if (((flags & KeyStore.FLAG_ENCRYPTED) != 0)
                 && (mKeyStore.state() != KeyStore.State.UNLOCKED)) {
             throw new IllegalStateException(
                     "Encryption at rest using secure lock screen credential requested for key pair"
                     + ", but the user has not yet entered the credential");
-        }
-
-        if (mSpec.isStrongBoxBacked()) {
-            flags |= KeyStore.FLAG_STRONGBOX;
         }
 
         byte[] additionalEntropy =
@@ -475,12 +473,6 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
 
             success = true;
             return keyPair;
-        } catch (ProviderException e) {
-          if ((mSpec.getPurposes() & KeyProperties.PURPOSE_WRAP_KEY) != 0) {
-              throw new SecureKeyImportUnavailableException(e);
-          } else {
-              throw e;
-          }
         } finally {
             if (!success) {
                 Credentials.deleteAllTypesForAlias(mKeyStore, mEntryAlias, mEntryUid);
@@ -507,12 +499,8 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
         int errorCode = mKeyStore.generateKey(privateKeyAlias, args, additionalEntropy,
                 mEntryUid, flags, resultingKeyCharacteristics);
         if (errorCode != KeyStore.NO_ERROR) {
-            if (errorCode == KeyStore.HARDWARE_TYPE_UNAVAILABLE) {
-                throw new StrongBoxUnavailableException("Failed to generate key pair");
-            } else {
-                throw new ProviderException(
-                        "Failed to generate key pair", KeyStore.getKeyStoreException(errorCode));
-            }
+            throw new ProviderException(
+                    "Failed to generate key pair", KeyStore.getKeyStoreException(errorCode));
         }
     }
 
@@ -526,7 +514,7 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
                                 + result.getPrivate().getAlgorithm() + " vs " + mJcaKeyAlgorithm);
             }
             return result;
-        } catch (UnrecoverableKeyException | KeyPermanentlyInvalidatedException e) {
+        } catch (UnrecoverableKeyException e) {
             throw new ProviderException("Failed to load generated key pair from keystore", e);
         }
     }
@@ -541,7 +529,11 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
         args.addEnums(KeymasterDefs.KM_TAG_PADDING, mKeymasterSignaturePaddings);
         args.addEnums(KeymasterDefs.KM_TAG_DIGEST, mKeymasterDigests);
 
-        KeymasterUtils.addUserAuthArgs(args, mSpec);
+        KeymasterUtils.addUserAuthArgs(args,
+                mSpec.isUserAuthenticationRequired(),
+                mSpec.getUserAuthenticationValidityDurationSeconds(),
+                mSpec.isUserAuthenticationValidWhileOnBody(),
+                mSpec.isInvalidatedByBiometricEnrollment());
         args.addDateIfNotNull(KeymasterDefs.KM_TAG_ACTIVE_DATETIME, mSpec.getKeyValidityStart());
         args.addDateIfNotNull(KeymasterDefs.KM_TAG_ORIGINATION_EXPIRE_DATETIME,
                 mSpec.getKeyValidityForOriginationEnd());
@@ -724,18 +716,10 @@ public abstract class AndroidKeyStoreKeyPairGeneratorSpi extends KeyPairGenerato
         }
     }
 
-    private static void checkValidKeySize(
-            int keymasterAlgorithm,
-            int keySize,
-            boolean isStrongBoxBacked)
+    private static void checkValidKeySize(int keymasterAlgorithm, int keySize)
             throws InvalidAlgorithmParameterException {
         switch (keymasterAlgorithm) {
             case KeymasterDefs.KM_ALGORITHM_EC:
-                if (isStrongBoxBacked && keySize != 256) {
-                    throw new InvalidAlgorithmParameterException(
-                            "Unsupported StrongBox EC key size: "
-                            + keySize + " bits. Supported: 256");
-                }
                 if (!SUPPORTED_EC_NIST_CURVE_SIZES.contains(keySize)) {
                     throw new InvalidAlgorithmParameterException("Unsupported EC key size: "
                             + keySize + " bits. Supported: " + SUPPORTED_EC_NIST_CURVE_SIZES);

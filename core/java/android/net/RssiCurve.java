@@ -184,7 +184,7 @@ public class RssiCurve implements Parcelable {
 
     @Override
     public int hashCode() {
-        return Objects.hash(start, bucketWidth, activeNetworkRssiBoost) ^ Arrays.hashCode(rssiBuckets);
+        return Objects.hash(start, bucketWidth, rssiBuckets, activeNetworkRssiBoost);
     }
 
     @Override
@@ -209,7 +209,7 @@ public class RssiCurve implements Parcelable {
         return sb.toString();
     }
 
-    public static final @android.annotation.NonNull Creator<RssiCurve> CREATOR =
+    public static final Creator<RssiCurve> CREATOR =
             new Creator<RssiCurve>() {
                 @Override
                 public RssiCurve createFromParcel(Parcel in) {

@@ -16,16 +16,16 @@
 
 package android.widget.touchmode;
 
-import static android.util.TouchModeFlexibleAsserts.assertInTouchModeAfterClick;
+import android.widget.layout.linear.LLEditTextThenButton;
 import static android.util.TouchModeFlexibleAsserts.assertInTouchModeAfterTap;
+import static android.util.TouchModeFlexibleAsserts.assertInTouchModeAfterClick;
 
 import android.test.ActivityInstrumentationTestCase;
+import android.test.suitebuilder.annotation.LargeTest;
+import android.test.suitebuilder.annotation.MediumTest;
+import android.view.KeyEvent;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.layout.linear.LLEditTextThenButton;
-
-import androidx.test.filters.LargeTest;
-import androidx.test.filters.MediumTest;
 
 /**
  * Some views, like edit texts, can keep and gain focus even when in touch mode.
@@ -64,8 +64,7 @@ public class TouchModeFocusableTest extends ActivityInstrumentationTestCase<LLEd
     @LargeTest
     public void testClickEditTextGivesItFocus() {
         // go down to button
-        getActivity().runOnUiThread(() -> mButton.requestFocus());
-        getInstrumentation().waitForIdleSync();
+        sendKeys(KeyEvent.KEYCODE_DPAD_DOWN);
         assertTrue("button should have focus", mButton.isFocused());
 
         assertInTouchModeAfterClick(this, mEditText);
@@ -78,12 +77,11 @@ public class TouchModeFocusableTest extends ActivityInstrumentationTestCase<LLEd
     // isn't focusable in touch mode.
     @LargeTest
     public void testEnterTouchModeGivesFocusBackToFocusableInTouchMode() {
-        getActivity().runOnUiThread(() -> mButton.requestFocus());
-        getInstrumentation().waitForIdleSync();
+        sendKeys(KeyEvent.KEYCODE_DPAD_DOWN);
 
         assertTrue("button should have focus",
                 mButton.isFocused());
-
+        
         assertInTouchModeAfterClick(this, mButton);
         assertTrue("should be in touch mode", mButton.isInTouchMode());
         assertNull("nothing should have focus", getActivity().getCurrentFocus());

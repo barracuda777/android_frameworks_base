@@ -64,10 +64,10 @@ public class WifiKey implements Parcelable {
      * @throws IllegalArgumentException if either the SSID or BSSID is invalid.
      */
     public WifiKey(String ssid, String bssid) {
-        if (ssid == null || !SSID_PATTERN.matcher(ssid).matches()) {
+        if (!SSID_PATTERN.matcher(ssid).matches()) {
             throw new IllegalArgumentException("Invalid ssid: " + ssid);
         }
-        if (bssid == null || !BSSID_PATTERN.matcher(bssid).matches()) {
+        if (!BSSID_PATTERN.matcher(bssid).matches()) {
             throw new IllegalArgumentException("Invalid bssid: " + bssid);
         }
         this.ssid = ssid;
@@ -110,7 +110,7 @@ public class WifiKey implements Parcelable {
         return "WifiKey[SSID=" + ssid + ",BSSID=" + bssid + "]";
     }
 
-    public static final @android.annotation.NonNull Creator<WifiKey> CREATOR =
+    public static final Creator<WifiKey> CREATOR =
             new Creator<WifiKey>() {
                 @Override
                 public WifiKey createFromParcel(Parcel in) {

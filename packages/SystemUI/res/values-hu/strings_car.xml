@@ -19,10 +19,6 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="car_guest" msgid="3738772168718508650">"Vendég"</string>
-    <string name="start_guest_session" msgid="7055742120180595689">"Vendég"</string>
-    <string name="car_add_user" msgid="5245196248349230898">"Felhasználó hozzáadása"</string>
-    <string name="car_new_user" msgid="8142927244990323906">"Új felhasználó"</string>
-    <string name="user_add_user_message_setup" msgid="1791011504259527329">"Ha új felhasználót ad hozzá, az illetőnek be kell állítania saját felületét."</string>
-    <string name="user_add_user_message_update" msgid="3383320289232716179">"Bármely felhasználó frissítheti az alkalmazásokat az összes felhasználó számára."</string>
+    <string name="car_lockscreen_disclaimer_title" msgid="7997539137376896441">"Vezessen óvatosan"</string>
+    <string name="car_lockscreen_disclaimer_text" msgid="3061224684092952864">"Mindig legyen teljes mértékben tisztában a vezetési körülményekkel, és a vonatkozó törvényeket tartsa be! Az útvonaltervek pontatlanok, hiányosak, veszélyesek, nem megfelelők vagy tiltottak lehetnek, illetve a közforgalom számára nem használható utakat érinthetnek. Az üzleti információk is pontatlanok vagy hiányosak lehetnek. Az adatok nem valós idejűek, ezért nem garantálhatjuk a helyadatok pontosságát. Vezetés közben ne kezelje mobileszközét, illetve ne használjon olyan alkalmazásokat az Android Auto rendszerrel, amelyeket nem ahhoz terveztek."</string>
 </resources>

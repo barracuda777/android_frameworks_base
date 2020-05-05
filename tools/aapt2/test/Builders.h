@@ -17,306 +17,240 @@
 #ifndef AAPT_TEST_BUILDERS_H
 #define AAPT_TEST_BUILDERS_H
 
-#include <memory>
-
-#include "android-base/macros.h"
-#include "androidfw/ConfigDescription.h"
-
-#include "Resource.h"
 #include "ResourceTable.h"
 #include "ResourceValues.h"
-#include "configuration/ConfigurationParser.h"
-#include "configuration/ConfigurationParser.internal.h"
-#include "process/IResourceTableConsumer.h"
 #include "test/Common.h"
-#include "util/Maybe.h"
+#include "util/Util.h"
 #include "xml/XmlDom.h"
+
+#include <memory>
 
 namespace aapt {
 namespace test {
 
 class ResourceTableBuilder {
- public:
-  ResourceTableBuilder() = default;
+private:
+    DummyDiagnosticsImpl mDiagnostics;
+    std::unique_ptr<ResourceTable> mTable = util::make_unique<ResourceTable>();
 
-  ResourceTableBuilder& SetPackageId(const android::StringPiece& package_name, uint8_t id);
-  ResourceTableBuilder& AddSimple(const android::StringPiece& name, const ResourceId& id = {});
-  ResourceTableBuilder& AddSimple(const android::StringPiece& name,
-                                  const android::ConfigDescription& config,
-                                  const ResourceId& id = {});
-  ResourceTableBuilder& AddReference(const android::StringPiece& name,
-                                     const android::StringPiece& ref);
-  ResourceTableBuilder& AddReference(const android::StringPiece& name, const ResourceId& id,
-                                     const android::StringPiece& ref);
-  ResourceTableBuilder& AddString(const android::StringPiece& name,
-                                  const android::StringPiece& str);
-  ResourceTableBuilder& AddString(const android::StringPiece& name, const ResourceId& id,
-                                  const android::StringPiece& str);
-  ResourceTableBuilder& AddString(const android::StringPiece& name, const ResourceId& id,
-                                  const android::ConfigDescription& config,
-                                  const android::StringPiece& str);
-  ResourceTableBuilder& AddFileReference(const android::StringPiece& name,
-                                         const android::StringPiece& path,
-                                         io::IFile* file = nullptr);
-  ResourceTableBuilder& AddFileReference(const android::StringPiece& name, const ResourceId& id,
-                                         const android::StringPiece& path,
-                                         io::IFile* file = nullptr);
-  ResourceTableBuilder& AddFileReference(const android::StringPiece& name,
-                                         const android::StringPiece& path,
-                                         const android::ConfigDescription& config,
-                                         io::IFile* file = nullptr);
-  ResourceTableBuilder& AddValue(const android::StringPiece& name, std::unique_ptr<Value> value);
-  ResourceTableBuilder& AddValue(const android::StringPiece& name, const ResourceId& id,
-                                 std::unique_ptr<Value> value);
-  ResourceTableBuilder& AddValue(const android::StringPiece& name,
-                                 const android::ConfigDescription& config,
-                                 const ResourceId& id, std::unique_ptr<Value> value);
-  ResourceTableBuilder& SetSymbolState(const android::StringPiece& name, const ResourceId& id,
-                                       Visibility::Level level, bool allow_new = false);
-  ResourceTableBuilder& SetOverlayable(const android::StringPiece& name,
-                                       const OverlayableItem& overlayable);
+public:
+    ResourceTableBuilder() = default;
 
-  StringPool* string_pool();
-  std::unique_ptr<ResourceTable> Build();
+    StringPool* getStringPool() {
+        return &mTable->stringPool;
+    }
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(ResourceTableBuilder);
+    ResourceTableBuilder& setPackageId(const StringPiece16& packageName, uint8_t id) {
+        ResourceTablePackage* package = mTable->createPackage(packageName, id);
+        assert(package);
+        return *this;
+    }
 
-  std::unique_ptr<ResourceTable> table_ = util::make_unique<ResourceTable>();
+    ResourceTableBuilder& addSimple(const StringPiece16& name, const ResourceId id = {}) {
+        return addValue(name, id, util::make_unique<Id>());
+    }
+
+    ResourceTableBuilder& addReference(const StringPiece16& name, const StringPiece16& ref) {
+        return addReference(name, {}, ref);
+    }
+
+    ResourceTableBuilder& addReference(const StringPiece16& name, const ResourceId id,
+                                       const StringPiece16& ref) {
+        return addValue(name, id, util::make_unique<Reference>(parseNameOrDie(ref)));
+    }
+
+    ResourceTableBuilder& addString(const StringPiece16& name, const StringPiece16& str) {
+        return addString(name, {}, str);
+    }
+
+    ResourceTableBuilder& addString(const StringPiece16& name, const ResourceId id,
+                                    const StringPiece16& str) {
+        return addValue(name, id, util::make_unique<String>(mTable->stringPool.makeRef(str)));
+    }
+
+    ResourceTableBuilder& addString(const StringPiece16& name, const ResourceId id,
+                                    const ConfigDescription& config, const StringPiece16& str) {
+        return addValue(name, id, config,
+                        util::make_unique<String>(mTable->stringPool.makeRef(str)));
+    }
+
+    ResourceTableBuilder& addFileReference(const StringPiece16& name, const StringPiece16& path) {
+        return addFileReference(name, {}, path);
+    }
+
+    ResourceTableBuilder& addFileReference(const StringPiece16& name, const ResourceId id,
+                                           const StringPiece16& path) {
+        return addValue(name, id,
+                        util::make_unique<FileReference>(mTable->stringPool.makeRef(path)));
+    }
+
+    ResourceTableBuilder& addFileReference(const StringPiece16& name, const StringPiece16& path,
+                                           const ConfigDescription& config) {
+        return addValue(name, {}, config,
+                        util::make_unique<FileReference>(mTable->stringPool.makeRef(path)));
+    }
+
+    ResourceTableBuilder& addValue(const StringPiece16& name,
+                                   std::unique_ptr<Value> value) {
+        return addValue(name, {}, std::move(value));
+    }
+
+    ResourceTableBuilder& addValue(const StringPiece16& name, const ResourceId id,
+                                       std::unique_ptr<Value> value) {
+        return addValue(name, id, {}, std::move(value));
+    }
+
+    ResourceTableBuilder& addValue(const StringPiece16& name, const ResourceId id,
+                                   const ConfigDescription& config,
+                                   std::unique_ptr<Value> value) {
+        ResourceName resName = parseNameOrDie(name);
+        bool result = mTable->addResourceAllowMangled(resName, id, config, std::string(),
+                                                      std::move(value), &mDiagnostics);
+        assert(result);
+        return *this;
+    }
+
+    ResourceTableBuilder& setSymbolState(const StringPiece16& name, ResourceId id,
+                                         SymbolState state) {
+        ResourceName resName = parseNameOrDie(name);
+        Symbol symbol;
+        symbol.state = state;
+        bool result = mTable->setSymbolStateAllowMangled(resName, id, symbol, &mDiagnostics);
+        assert(result);
+        return *this;
+    }
+
+    std::unique_ptr<ResourceTable> build() {
+        return std::move(mTable);
+    }
 };
 
-std::unique_ptr<Reference> BuildReference(const android::StringPiece& ref,
-                                          const Maybe<ResourceId>& id = {});
-std::unique_ptr<BinaryPrimitive> BuildPrimitive(uint8_t type, uint32_t data);
+inline std::unique_ptr<Reference> buildReference(const StringPiece16& ref,
+                                                 Maybe<ResourceId> id = {}) {
+    std::unique_ptr<Reference> reference = util::make_unique<Reference>(parseNameOrDie(ref));
+    reference->id = id;
+    return reference;
+}
+
+inline std::unique_ptr<BinaryPrimitive> buildPrimitive(uint8_t type, uint32_t data) {
+    android::Res_value value = {};
+    value.size = sizeof(value);
+    value.dataType = type;
+    value.data = data;
+    return util::make_unique<BinaryPrimitive>(value);
+}
 
 template <typename T>
 class ValueBuilder {
- public:
-  template <typename... Args>
-  explicit ValueBuilder(Args&&... args) : value_(new T{std::forward<Args>(args)...}) {
-  }
+private:
+    std::unique_ptr<Value> mValue;
 
-  template <typename... Args>
-  ValueBuilder& SetSource(Args&&... args) {
-    value_->SetSource(Source{std::forward<Args>(args)...});
-    return *this;
-  }
+public:
+    template <typename... Args>
+    ValueBuilder(Args&&... args) : mValue(new T{ std::forward<Args>(args)... }) {
+    }
 
-  ValueBuilder& SetComment(const android::StringPiece& str) {
-    value_->SetComment(str);
-    return *this;
-  }
+    template <typename... Args>
+    ValueBuilder& setSource(Args&&... args) {
+        mValue->setSource(Source{ std::forward<Args>(args)... });
+        return *this;
+    }
 
-  std::unique_ptr<Value> Build() {
-    return std::move(value_);
-  }
+    ValueBuilder& setComment(const StringPiece16& str) {
+        mValue->setComment(str);
+        return *this;
+    }
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(ValueBuilder);
-
-  std::unique_ptr<Value> value_;
+    std::unique_ptr<Value> build() {
+        return std::move(mValue);
+    }
 };
 
 class AttributeBuilder {
- public:
-  AttributeBuilder();
-  AttributeBuilder& SetTypeMask(uint32_t typeMask);
-  AttributeBuilder& SetWeak(bool weak);
-  AttributeBuilder& AddItem(const android::StringPiece& name, uint32_t value);
-  std::unique_ptr<Attribute> Build();
+private:
+    std::unique_ptr<Attribute> mAttr;
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(AttributeBuilder);
+public:
+    AttributeBuilder(bool weak = false) : mAttr(util::make_unique<Attribute>(weak)) {
+        mAttr->typeMask = android::ResTable_map::TYPE_ANY;
+    }
 
-  std::unique_ptr<Attribute> attr_;
+    AttributeBuilder& setTypeMask(uint32_t typeMask) {
+        mAttr->typeMask = typeMask;
+        return *this;
+    }
+
+    AttributeBuilder& addItem(const StringPiece16& name, uint32_t value) {
+        mAttr->symbols.push_back(Attribute::Symbol{
+                Reference(ResourceName{ {}, ResourceType::kId, name.toString()}),
+                value});
+        return *this;
+    }
+
+    std::unique_ptr<Attribute> build() {
+        return std::move(mAttr);
+    }
 };
 
 class StyleBuilder {
- public:
-  StyleBuilder() = default;
-  StyleBuilder& SetParent(const android::StringPiece& str);
-  StyleBuilder& AddItem(const android::StringPiece& str, std::unique_ptr<Item> value);
-  StyleBuilder& AddItem(const android::StringPiece& str, const ResourceId& id,
-                        std::unique_ptr<Item> value);
-  std::unique_ptr<Style> Build();
+private:
+    std::unique_ptr<Style> mStyle = util::make_unique<Style>();
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(StyleBuilder);
+public:
+    StyleBuilder& setParent(const StringPiece16& str) {
+        mStyle->parent = Reference(parseNameOrDie(str));
+        return *this;
+    }
 
-  std::unique_ptr<Style> style_ = util::make_unique<Style>();
+    StyleBuilder& addItem(const StringPiece16& str, std::unique_ptr<Item> value) {
+        mStyle->entries.push_back(Style::Entry{ Reference(parseNameOrDie(str)), std::move(value) });
+        return *this;
+    }
+
+    StyleBuilder& addItem(const StringPiece16& str, ResourceId id, std::unique_ptr<Item> value) {
+        addItem(str, std::move(value));
+        mStyle->entries.back().key.id = id;
+        return *this;
+    }
+
+    std::unique_ptr<Style> build() {
+        return std::move(mStyle);
+    }
 };
 
 class StyleableBuilder {
- public:
-  StyleableBuilder() = default;
-  StyleableBuilder& AddItem(const android::StringPiece& str, const Maybe<ResourceId>& id = {});
-  std::unique_ptr<Styleable> Build();
+private:
+    std::unique_ptr<Styleable> mStyleable = util::make_unique<Styleable>();
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(StyleableBuilder);
+public:
+    StyleableBuilder& addItem(const StringPiece16& str, Maybe<ResourceId> id = {}) {
+        mStyleable->entries.push_back(Reference(parseNameOrDie(str)));
+        mStyleable->entries.back().id = id;
+        return *this;
+    }
 
-  std::unique_ptr<Styleable> styleable_ = util::make_unique<Styleable>();
+    std::unique_ptr<Styleable> build() {
+        return std::move(mStyleable);
+    }
 };
 
-std::unique_ptr<xml::XmlResource> BuildXmlDom(const android::StringPiece& str);
-std::unique_ptr<xml::XmlResource> BuildXmlDomForPackageName(IAaptContext* context,
-                                                            const android::StringPiece& str);
+inline std::unique_ptr<xml::XmlResource> buildXmlDom(const StringPiece& str) {
+    std::stringstream in;
+    in << "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" << str;
+    StdErrDiagnostics diag;
+    std::unique_ptr<xml::XmlResource> doc = xml::inflate(&in, &diag, Source("test.xml"));
+    assert(doc);
+    return doc;
+}
 
-class ArtifactBuilder {
- public:
-  ArtifactBuilder() = default;
+inline std::unique_ptr<xml::XmlResource> buildXmlDomForPackageName(IAaptContext* context,
+                                                                   const StringPiece& str) {
+    std::unique_ptr<xml::XmlResource> doc = buildXmlDom(str);
+    doc->file.name.package = context->getCompilationPackage();
+    return doc;
+}
 
-  ArtifactBuilder& SetName(const std::string& name);
-  ArtifactBuilder& SetVersion(int version);
-  ArtifactBuilder& AddAbi(configuration::Abi abi);
-  ArtifactBuilder& AddDensity(const android::ConfigDescription& density);
-  ArtifactBuilder& AddLocale(const android::ConfigDescription& locale);
-  ArtifactBuilder& SetAndroidSdk(int min_sdk);
-  configuration::OutputArtifact Build();
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(ArtifactBuilder);
-
-  configuration::OutputArtifact artifact_;
-};
-
-class PostProcessingConfigurationBuilder {
- public:
-  PostProcessingConfigurationBuilder() = default;
-
-  PostProcessingConfigurationBuilder& AddAbiGroup(const std::string& label,
-                                                  std::vector<configuration::Abi> abis = {});
-  PostProcessingConfigurationBuilder& AddDensityGroup(const std::string& label,
-                                                      std::vector<std::string> densities = {});
-  PostProcessingConfigurationBuilder& AddLocaleGroup(const std::string& label,
-                                                     std::vector<std::string> locales = {});
-  PostProcessingConfigurationBuilder& AddDeviceFeatureGroup(const std::string& label);
-  PostProcessingConfigurationBuilder& AddGlTextureGroup(const std::string& label);
-  PostProcessingConfigurationBuilder& AddAndroidSdk(std::string label, int min_sdk);
-  PostProcessingConfigurationBuilder& AddArtifact(configuration::ConfiguredArtifact artrifact);
-
-  configuration::PostProcessingConfiguration Build();
-
- private:
-  template <typename T>
-  inline PostProcessingConfigurationBuilder& AddGroup(const std::string& label,
-                                                      configuration::Group<T>* group,
-                                                      std::vector<T> to_add = {}) {
-    auto& values = GetOrCreateGroup(label, group);
-    values.insert(std::begin(values), std::begin(to_add), std::end(to_add));
-    return *this;
-  }
-
-  configuration::PostProcessingConfiguration config_;
-};
-
-class ConfigDescriptionBuilder {
- public:
-  ConfigDescriptionBuilder() = default;
-
-  ConfigDescriptionBuilder& setMcc(uint16_t mcc) {
-    config_.mcc = mcc;
-    return *this;
-  }
-  ConfigDescriptionBuilder& setMnc(uint16_t mnc) {
-    config_.mnc = mnc;
-    return *this;
-  }
-  ConfigDescriptionBuilder& setLanguage(uint16_t language) {
-    config_.language[0] = language >> 8;
-    config_.language[1] = language & 0xff;
-    return *this;
-  }
-  ConfigDescriptionBuilder& setCountry(uint16_t country) {
-    config_.country[0] = country >> 8;
-    config_.country[1] = country & 0xff;
-    return *this;
-  }
-  ConfigDescriptionBuilder& setOrientation(uint8_t orientation) {
-    config_.orientation = orientation;
-    return *this;
-  }
-  ConfigDescriptionBuilder& setTouchscreen(uint8_t touchscreen) {
-    config_.touchscreen = touchscreen;
-    return *this;
-  }
-  ConfigDescriptionBuilder& setDensity(uint16_t density) {
-    config_.density = density;
-    return *this;
-  }
-  ConfigDescriptionBuilder& setKeyboard(uint8_t keyboard) {
-    config_.keyboard = keyboard;
-    return *this;
-  }
-  ConfigDescriptionBuilder& setNavigation(uint8_t navigation) {
-    config_.navigation = navigation;
-    return *this;
-  }
-  ConfigDescriptionBuilder& setInputFlags(uint8_t inputFlags) {
-    config_.inputFlags = inputFlags;
-    return *this;
-  }
-  ConfigDescriptionBuilder& setInputPad0(uint8_t inputPad0) {
-    config_.inputPad0 = inputPad0;
-    return *this;
-  }
-  ConfigDescriptionBuilder& setScreenWidth(uint16_t screenWidth) {
-    config_.screenWidth = screenWidth;
-    return *this;
-  }
-  ConfigDescriptionBuilder& setScreenHeight(uint16_t screenHeight) {
-    config_.screenHeight = screenHeight;
-    return *this;
-  }
-  ConfigDescriptionBuilder& setSdkVersion(uint16_t sdkVersion) {
-    config_.sdkVersion = sdkVersion;
-    return *this;
-  }
-  ConfigDescriptionBuilder& setMinorVersion(uint16_t minorVersion) {
-    config_.minorVersion = minorVersion;
-    return *this;
-  }
-  ConfigDescriptionBuilder& setScreenLayout(uint8_t screenLayout) {
-    config_.screenLayout = screenLayout;
-    return *this;
-  }
-  ConfigDescriptionBuilder& setUiMode(uint8_t uiMode) {
-    config_.uiMode = uiMode;
-    return *this;
-  }
-  ConfigDescriptionBuilder& setSmallestScreenWidthDp(uint16_t smallestScreenWidthDp) {
-    config_.smallestScreenWidthDp = smallestScreenWidthDp;
-    return *this;
-  }
-  ConfigDescriptionBuilder& setScreenWidthDp(uint16_t screenWidthDp) {
-    config_.screenWidthDp = screenWidthDp;
-    return *this;
-  }
-  ConfigDescriptionBuilder& setScreenHeightDp(uint16_t screenHeightDp) {
-    config_.screenHeightDp = screenHeightDp;
-    return *this;
-  }
-  ConfigDescriptionBuilder& setScreenLayout2(uint8_t screenLayout2) {
-    config_.screenLayout2 = screenLayout2;
-    return *this;
-  }
-  ConfigDescriptionBuilder& setColorMode(uint8_t colorMode) {
-    config_.colorMode = colorMode;
-    return *this;
-  }
-  ConfigDescriptionBuilder& setScreenConfigPad2(uint16_t screenConfigPad2) {
-    config_.screenConfigPad2 = screenConfigPad2;
-    return *this;
-  }
-  android::ConfigDescription Build() {
-    return config_;
-  }
-
- private:
-  android::ConfigDescription config_;
-};
-
-}  // namespace test
-}  // namespace aapt
+} // namespace test
+} // namespace aapt
 
 #endif /* AAPT_TEST_BUILDERS_H */

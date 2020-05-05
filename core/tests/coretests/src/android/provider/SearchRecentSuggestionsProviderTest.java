@@ -21,9 +21,9 @@ import android.content.ContentResolver;
 import android.database.Cursor;
 import android.net.Uri;
 import android.test.ProviderTestCase2;
-
-import androidx.test.filters.MediumTest;
-import androidx.test.filters.Suppress;
+import android.test.suitebuilder.annotation.LargeTest;
+import android.test.suitebuilder.annotation.MediumTest;
+import android.test.suitebuilder.annotation.Suppress;
 
 /**
  * ProviderTestCase that performs unit tests of SearchRecentSuggestionsProvider.

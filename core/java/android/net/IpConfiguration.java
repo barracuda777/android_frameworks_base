@@ -16,7 +16,6 @@
 
 package android.net;
 
-import android.annotation.UnsupportedAppUsage;
 import android.net.StaticIpConfiguration;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -33,9 +32,8 @@ public class IpConfiguration implements Parcelable {
     public enum IpAssignment {
         /* Use statically configured IP settings. Configuration can be accessed
          * with staticIpConfiguration */
-        @UnsupportedAppUsage
         STATIC,
-        /* Use dynamically configured IP settings */
+        /* Use dynamically configured IP settigns */
         DHCP,
         /* no IP details are assigned, this is used to indicate
          * that any existing IP settings should be retained */
@@ -49,7 +47,6 @@ public class IpConfiguration implements Parcelable {
     public enum ProxySettings {
         /* No proxy is to be used. Any existing proxy settings
          * should be cleared. */
-        @UnsupportedAppUsage
         NONE,
         /* Use statically configured proxy. Configuration can be accessed
          * with httpProxy. */
@@ -64,7 +61,6 @@ public class IpConfiguration implements Parcelable {
 
     public ProxySettings proxySettings;
 
-    @UnsupportedAppUsage
     public ProxyInfo httpProxy;
 
     private void init(IpAssignment ipAssignment,
@@ -83,7 +79,6 @@ public class IpConfiguration implements Parcelable {
         init(IpAssignment.UNASSIGNED, ProxySettings.UNASSIGNED, null, null);
     }
 
-    @UnsupportedAppUsage
     public IpConfiguration(IpAssignment ipAssignment,
                            ProxySettings proxySettings,
                            StaticIpConfiguration staticIpConfiguration,
@@ -189,7 +184,7 @@ public class IpConfiguration implements Parcelable {
     }
 
     /** Implement the Parcelable interface */
-    public static final @android.annotation.NonNull Creator<IpConfiguration> CREATOR =
+    public static final Creator<IpConfiguration> CREATOR =
         new Creator<IpConfiguration>() {
             public IpConfiguration createFromParcel(Parcel in) {
                 IpConfiguration config = new IpConfiguration();

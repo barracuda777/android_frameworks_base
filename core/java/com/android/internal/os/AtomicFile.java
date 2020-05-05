@@ -16,8 +16,6 @@
 
 package com.android.internal.os;
 
-import android.annotation.UnsupportedAppUsage;
-import android.os.Build;
 import android.os.FileUtils;
 import android.util.Log;
 
@@ -46,18 +44,15 @@ public final class AtomicFile {
     private final File mBaseName;
     private final File mBackupName;
     
-    @UnsupportedAppUsage
     public AtomicFile(File baseName) {
         mBaseName = baseName;
         mBackupName = new File(baseName.getPath() + ".bak");
     }
     
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     public File getBaseFile() {
         return mBaseName;
     }
     
-    @UnsupportedAppUsage
     public FileOutputStream startWrite() throws IOException {
         // Rename the current file so it may be used as a backup during the next read
         if (mBaseName.exists()) {
@@ -91,7 +86,6 @@ public final class AtomicFile {
         return str;
     }
     
-    @UnsupportedAppUsage
     public void finishWrite(FileOutputStream str) {
         if (str != null) {
             FileUtils.sync(str);
@@ -104,7 +98,6 @@ public final class AtomicFile {
         }
     }
     
-    @UnsupportedAppUsage
     public void failWrite(FileOutputStream str) {
         if (str != null) {
             FileUtils.sync(str);
@@ -118,7 +111,6 @@ public final class AtomicFile {
         }
     }
     
-    @UnsupportedAppUsage
     public FileOutputStream openAppend() throws IOException {
         try {
             return new FileOutputStream(mBaseName, true);
@@ -127,7 +119,6 @@ public final class AtomicFile {
         }
     }
     
-    @UnsupportedAppUsage
     public void truncate() throws IOException {
         try {
             FileOutputStream fos = new FileOutputStream(mBaseName);
@@ -148,7 +139,6 @@ public final class AtomicFile {
         mBackupName.delete();
     }
 
-    @UnsupportedAppUsage
     public FileInputStream openRead() throws FileNotFoundException {
         if (mBackupName.exists()) {
             mBaseName.delete();
@@ -157,7 +147,6 @@ public final class AtomicFile {
         return new FileInputStream(mBaseName);
     }
     
-    @UnsupportedAppUsage
     public byte[] readFully() throws IOException {
         FileInputStream stream = openRead();
         try {

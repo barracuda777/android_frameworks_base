@@ -16,44 +16,34 @@
 
 package com.android.server.connectivity;
 
-import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
-import static android.net.NetworkCapabilities.TRANSPORT_CELLULAR;
-import static android.net.NetworkCapabilities.TRANSPORT_WIFI;
-
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
-import android.net.NetworkSpecifier;
-import android.net.StringNetworkSpecifier;
-import android.net.wifi.WifiInfo;
+import android.net.NetworkCapabilities;
 import android.os.UserHandle;
-import android.telephony.AccessNetworkConstants.TransportType;
-import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
-import android.text.TextUtils;
 import android.util.Slog;
 import android.util.SparseArray;
 import android.util.SparseIntArray;
 import android.widget.Toast;
-
 import com.android.internal.R;
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.messages.nano.SystemMessageProto.SystemMessage;
-import com.android.internal.notification.SystemNotificationChannels;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
+
+import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
+import static android.net.NetworkCapabilities.TRANSPORT_CELLULAR;
+import static android.net.NetworkCapabilities.TRANSPORT_WIFI;
 
 public class NetworkNotificationManager {
 
-
     public static enum NotificationType {
-        LOST_INTERNET(SystemMessage.NOTE_NETWORK_LOST_INTERNET),
-        NETWORK_SWITCH(SystemMessage.NOTE_NETWORK_SWITCH),
-        NO_INTERNET(SystemMessage.NOTE_NETWORK_NO_INTERNET),
-        LOGGED_IN(SystemMessage.NOTE_NETWORK_LOGGED_IN),
-        PARTIAL_CONNECTIVITY(SystemMessage.NOTE_NETWORK_PARTIAL_CONNECTIVITY),
-        SIGN_IN(SystemMessage.NOTE_NETWORK_SIGN_IN);
+        LOST_INTERNET(MetricsEvent.NOTIFICATION_NETWORK_LOST_INTERNET),
+        NETWORK_SWITCH(MetricsEvent.NOTIFICATION_NETWORK_SWITCH),
+        NO_INTERNET(MetricsEvent.NOTIFICATION_NETWORK_NO_INTERNET),
+        SIGN_IN(MetricsEvent.NOTIFICATION_NETWORK_SIGN_IN);
 
         public final int eventId;
 
@@ -96,7 +86,7 @@ public class NetworkNotificationManager {
         return -1;
     }
 
-    private static String getTransportName(@TransportType int transportType) {
+    private static String getTransportName(int transportType) {
         Resources r = Resources.getSystem();
         String[] networkTypes = r.getStringArray(R.array.network_switch_type_name);
         try {
@@ -106,14 +96,10 @@ public class NetworkNotificationManager {
         }
     }
 
-    private static int getIcon(int transportType, NotificationType notifyType) {
-        if (transportType != TRANSPORT_WIFI) {
-            return R.drawable.stat_notify_rssi_in_range;
-        }
-
-        return notifyType == NotificationType.LOGGED_IN
-            ? R.drawable.ic_wifi_signal_4
-            : R.drawable.stat_notify_wifi_in_range;  // TODO: Distinguish ! from ?.
+    private static int getIcon(int transportType) {
+        return (transportType == TRANSPORT_WIFI) ?
+                R.drawable.stat_notify_wifi_in_range :  // TODO: Distinguish ! from ?.
+                R.drawable.stat_notify_rssi_in_range;
     }
 
     /**
@@ -130,7 +116,6 @@ public class NetworkNotificationManager {
      * @param id an identifier that uniquely identifies this notification.  This must match
      *         between show and hide calls.  We use the NetID value but for legacy callers
      *         we concatenate the range of types with the range of NetIDs.
-     * @param notifyType the type of the notification.
      * @param nai the network with which the notification is associated. For a SIGN_IN, NO_INTERNET,
      *         or LOST_INTERNET notification, this is the network we're connecting to. For a
      *         NETWORK_SWITCH notification it's the network that we switched from. When this network
@@ -143,115 +128,66 @@ public class NetworkNotificationManager {
         final String tag = tagFor(id);
         final int eventId = notifyType.eventId;
         final int transportType;
-        final String name;
+        final String extraInfo;
         if (nai != null) {
             transportType = getFirstTransportType(nai);
-            final String extraInfo = nai.networkInfo.getExtraInfo();
-            name = TextUtils.isEmpty(extraInfo) ? nai.networkCapabilities.getSSID() : extraInfo;
+            extraInfo = nai.networkInfo.getExtraInfo();
             // Only notify for Internet-capable networks.
             if (!nai.networkCapabilities.hasCapability(NET_CAPABILITY_INTERNET)) return;
         } else {
             // Legacy notifications.
             transportType = TRANSPORT_CELLULAR;
-            name = null;
+            extraInfo = null;
         }
-
-        // Clear any previous notification with lower priority, otherwise return. http://b/63676954.
-        // A new SIGN_IN notification with a new intent should override any existing one.
-        final int previousEventId = mNotificationTypeMap.get(id);
-        final NotificationType previousNotifyType = NotificationType.getFromId(previousEventId);
-        if (priority(previousNotifyType) > priority(notifyType)) {
-            Slog.d(TAG, String.format(
-                    "ignoring notification %s for network %s with existing notification %s",
-                    notifyType, id, previousNotifyType));
-            return;
-        }
-        clearNotification(id);
 
         if (DBG) {
             Slog.d(TAG, String.format(
-                    "showNotification tag=%s event=%s transport=%s name=%s highPriority=%s",
-                    tag, nameOf(eventId), getTransportName(transportType), name, highPriority));
+                    "showNotification tag=%s event=%s transport=%s extraInfo=%s highPrioriy=%s",
+                    tag, nameOf(eventId), getTransportName(transportType), extraInfo,
+                    highPriority));
         }
 
         Resources r = Resources.getSystem();
         CharSequence title;
         CharSequence details;
-        int icon = getIcon(transportType, notifyType);
+        int icon = getIcon(transportType);
         if (notifyType == NotificationType.NO_INTERNET && transportType == TRANSPORT_WIFI) {
-            title = r.getString(R.string.wifi_no_internet,
-                    WifiInfo.removeDoubleQuotes(nai.networkCapabilities.getSSID()));
+            title = r.getString(R.string.wifi_no_internet, 0);
             details = r.getString(R.string.wifi_no_internet_detailed);
-        } else if (notifyType == NotificationType.PARTIAL_CONNECTIVITY
-                && transportType == TRANSPORT_WIFI) {
-            title = r.getString(R.string.network_partial_connectivity,
-                    WifiInfo.removeDoubleQuotes(nai.networkCapabilities.getSSID()));
-            details = r.getString(R.string.network_partial_connectivity_detailed);
         } else if (notifyType == NotificationType.LOST_INTERNET &&
                 transportType == TRANSPORT_WIFI) {
-            title = r.getString(R.string.wifi_no_internet,
-                    WifiInfo.removeDoubleQuotes(nai.networkCapabilities.getSSID()));
+            title = r.getString(R.string.wifi_no_internet, 0);
             details = r.getString(R.string.wifi_no_internet_detailed);
         } else if (notifyType == NotificationType.SIGN_IN) {
             switch (transportType) {
                 case TRANSPORT_WIFI:
                     title = r.getString(R.string.wifi_available_sign_in, 0);
-                    details = r.getString(R.string.network_available_sign_in_detailed,
-                            WifiInfo.removeDoubleQuotes(nai.networkCapabilities.getSSID()));
+                    details = r.getString(R.string.network_available_sign_in_detailed, extraInfo);
                     break;
                 case TRANSPORT_CELLULAR:
                     title = r.getString(R.string.network_available_sign_in, 0);
                     // TODO: Change this to pull from NetworkInfo once a printable
                     // name has been added to it
-                    NetworkSpecifier specifier = nai.networkCapabilities.getNetworkSpecifier();
-                    int subId = SubscriptionManager.DEFAULT_SUBSCRIPTION_ID;
-                    if (specifier instanceof StringNetworkSpecifier) {
-                        try {
-                            subId = Integer.parseInt(
-                                    ((StringNetworkSpecifier) specifier).specifier);
-                        } catch (NumberFormatException e) {
-                            Slog.e(TAG, "NumberFormatException on "
-                                    + ((StringNetworkSpecifier) specifier).specifier);
-                        }
-                    }
-
-                    details = mTelephonyManager.createForSubscriptionId(subId)
-                            .getNetworkOperatorName();
+                    details = mTelephonyManager.getNetworkOperatorName();
                     break;
                 default:
                     title = r.getString(R.string.network_available_sign_in, 0);
-                    details = r.getString(R.string.network_available_sign_in_detailed, name);
+                    details = r.getString(R.string.network_available_sign_in_detailed, extraInfo);
                     break;
             }
-        } else if (notifyType == NotificationType.LOGGED_IN) {
-            title = WifiInfo.removeDoubleQuotes(nai.networkCapabilities.getSSID());
-            details = r.getString(R.string.captive_portal_logged_in_detailed);
         } else if (notifyType == NotificationType.NETWORK_SWITCH) {
             String fromTransport = getTransportName(transportType);
             String toTransport = getTransportName(getFirstTransportType(switchToNai));
             title = r.getString(R.string.network_switch_metered, toTransport);
             details = r.getString(R.string.network_switch_metered_detail, toTransport,
                     fromTransport);
-        } else if (notifyType == NotificationType.NO_INTERNET
-                    || notifyType == NotificationType.PARTIAL_CONNECTIVITY) {
-            // NO_INTERNET and PARTIAL_CONNECTIVITY notification for non-WiFi networks
-            // are sent, but they are not implemented yet.
-            return;
         } else {
             Slog.wtf(TAG, "Unknown notification type " + notifyType + " on network transport "
                     + getTransportName(transportType));
             return;
         }
-        // When replacing an existing notification for a given network, don't alert, just silently
-        // update the existing notification. Note that setOnlyAlertOnce() will only work for the
-        // same id, and the id used here is the NotificationType which is different in every type of
-        // notification. This is required because the notification metrics only track the ID but not
-        // the tag.
-        final boolean hasPreviousNotification = previousNotifyType != null;
-        final String channelId = (highPriority && !hasPreviousNotification)
-                ? SystemNotificationChannels.NETWORK_ALERTS
-                : SystemNotificationChannels.NETWORK_STATUS;
-        Notification.Builder builder = new Notification.Builder(mContext, channelId)
+
+        Notification.Builder builder = new Notification.Builder(mContext)
                 .setWhen(System.currentTimeMillis())
                 .setShowWhen(notifyType == NotificationType.NETWORK_SWITCH)
                 .setSmallIcon(icon)
@@ -262,16 +198,16 @@ public class NetworkNotificationManager {
                 .setContentTitle(title)
                 .setContentIntent(intent)
                 .setLocalOnly(true)
+                .setPriority(highPriority ?
+                        Notification.PRIORITY_HIGH :
+                        Notification.PRIORITY_DEFAULT)
+                .setDefaults(highPriority ? Notification.DEFAULT_ALL : 0)
                 .setOnlyAlertOnce(true);
 
         if (notifyType == NotificationType.NETWORK_SWITCH) {
             builder.setStyle(new Notification.BigTextStyle().bigText(details));
         } else {
             builder.setContentText(details);
-        }
-
-        if (notifyType == NotificationType.SIGN_IN) {
-            builder.extend(new Notification.TvExtender().setChannelId(channelId));
         }
 
         Notification notification = builder.build();
@@ -282,18 +218,6 @@ public class NetworkNotificationManager {
         } catch (NullPointerException npe) {
             Slog.d(TAG, "setNotificationVisible: visible notificationManager error", npe);
         }
-    }
-
-    /**
-     * Clear the notification with the given id, only if it matches the given type.
-     */
-    public void clearNotification(int id, NotificationType notifyType) {
-        final int previousEventId = mNotificationTypeMap.get(id);
-        final NotificationType previousNotifyType = NotificationType.getFromId(previousEventId);
-        if (notifyType != previousNotifyType) {
-            return;
-        }
-        clearNotification(id);
     }
 
     public void clearNotification(int id) {
@@ -345,30 +269,5 @@ public class NetworkNotificationManager {
     static String nameOf(int eventId) {
         NotificationType t = NotificationType.getFromId(eventId);
         return (t != null) ? t.name() : "UNKNOWN";
-    }
-
-    /**
-     * A notification with a higher number will take priority over a notification with a lower
-     * number.
-     */
-    private static int priority(NotificationType t) {
-        if (t == null) {
-            return 0;
-        }
-        switch (t) {
-            case SIGN_IN:
-                return 5;
-            case PARTIAL_CONNECTIVITY:
-                return 4;
-            case NO_INTERNET:
-                return 3;
-            case NETWORK_SWITCH:
-                return 2;
-            case LOST_INTERNET:
-            case LOGGED_IN:
-                return 1;
-            default:
-                return 0;
-        }
     }
 }

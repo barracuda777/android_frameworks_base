@@ -1,4 +1,3 @@
-#!/system/bin/sh
 # Script to start "bu" on the device
 #
 base=/system

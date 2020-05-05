@@ -16,9 +16,7 @@
 
 package com.android.internal.os;
 
-import androidx.test.filters.Suppress;
-
-import junit.framework.TestCase;
+import android.test.suitebuilder.annotation.Suppress;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -26,6 +24,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+
+import junit.framework.TestCase;
 
 // this test causes a IllegalAccessError: superclass not accessible
 @Suppress

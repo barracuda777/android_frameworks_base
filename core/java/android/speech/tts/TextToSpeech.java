@@ -20,7 +20,6 @@ import android.annotation.Nullable;
 import android.annotation.RawRes;
 import android.annotation.SdkConstant;
 import android.annotation.SdkConstant.SdkConstantType;
-import android.annotation.UnsupportedAppUsage;
 import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -34,6 +33,7 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -80,15 +80,8 @@ public class TextToSpeech {
     public static final int STOPPED = -2;
 
     /** @hide */
-    @IntDef(prefix = { "ERROR_" }, value = {
-            ERROR_SYNTHESIS,
-            ERROR_SERVICE,
-            ERROR_OUTPUT,
-            ERROR_NETWORK,
-            ERROR_NETWORK_TIMEOUT,
-            ERROR_INVALID_REQUEST,
-            ERROR_NOT_INSTALLED_YET
-    })
+    @IntDef({ERROR_SYNTHESIS, ERROR_SERVICE, ERROR_OUTPUT, ERROR_NETWORK, ERROR_NETWORK_TIMEOUT,
+             ERROR_INVALID_REQUEST, ERROR_NOT_INSTALLED_YET})
     @Retention(RetentionPolicy.SOURCE)
     public @interface Error {}
 
@@ -198,7 +191,7 @@ public class TextToSpeech {
          *
          * @param status {@link TextToSpeech#SUCCESS} or {@link TextToSpeech#ERROR}.
          */
-        void onInit(int status);
+        public void onInit(int status);
     }
 
     /**
@@ -215,7 +208,7 @@ public class TextToSpeech {
          *
          * @param utteranceId the identifier of the utterance.
          */
-        void onUtteranceCompleted(String utteranceId);
+        public void onUtteranceCompleted(String utteranceId);
     }
 
     /**
@@ -487,9 +480,8 @@ public class TextToSpeech {
          * intent. The possible values for this extra are
          * {@link TextToSpeech#SUCCESS} and {@link TextToSpeech#ERROR}.
          *
-         * @deprecated No longer in use. If client is interested in information about what
-         * changed, it should use the ACTION_CHECK_TTS_DATA
-         * intent to discover available voices.
+         * @deprecated No longer in use. If client ise interested in information about what
+         * changed, is should send ACTION_CHECK_TTS_DATA intent to discover available voices.
          */
         @Deprecated
         public static final String EXTRA_TTS_DATA_INSTALLED = "dataInstalled";
@@ -536,7 +528,7 @@ public class TextToSpeech {
          * or playing back a file. The value should be one of the STREAM_ constants
          * defined in {@link AudioManager}.
          *
-         * @see TextToSpeech#speak(CharSequence, int, Bundle, String)
+         * @see TextToSpeech#speak(String, int, HashMap)
          * @see TextToSpeech#playEarcon(String, int, HashMap)
          */
         public static final String KEY_PARAM_STREAM = "streamType";
@@ -546,7 +538,7 @@ public class TextToSpeech {
          * speaking text or playing back a file. The value should be set
          * using {@link TextToSpeech#setAudioAttributes(AudioAttributes)}.
          *
-         * @see TextToSpeech#speak(CharSequence, int, Bundle, String)
+         * @see TextToSpeech#speak(String, int, HashMap)
          * @see TextToSpeech#playEarcon(String, int, HashMap)
          * @hide
          */
@@ -557,7 +549,7 @@ public class TextToSpeech {
          * {@link TextToSpeech.OnUtteranceCompletedListener} after text has been
          * spoken, a file has been played back or a silence duration has elapsed.
          *
-         * @see TextToSpeech#speak(CharSequence, int, Bundle, String)
+         * @see TextToSpeech#speak(String, int, HashMap)
          * @see TextToSpeech#playEarcon(String, int, HashMap)
          * @see TextToSpeech#synthesizeToFile(String, HashMap, String)
          */
@@ -568,7 +560,7 @@ public class TextToSpeech {
          * volume used when speaking text. Volume is specified as a float ranging from 0 to 1
          * where 0 is silence, and 1 is the maximum volume (the default behavior).
          *
-         * @see TextToSpeech#speak(CharSequence, int, Bundle, String)
+         * @see TextToSpeech#speak(String, int, HashMap)
          * @see TextToSpeech#playEarcon(String, int, HashMap)
          */
         public static final String KEY_PARAM_VOLUME = "volume";
@@ -578,7 +570,7 @@ public class TextToSpeech {
          * Pan is specified as a float ranging from -1 to +1 where -1 maps to a hard-left pan,
          * 0 to center (the default behavior), and +1 to hard-right.
          *
-         * @see TextToSpeech#speak(CharSequence, int, Bundle, String)
+         * @see TextToSpeech#speak(String, int, HashMap)
          * @see TextToSpeech#playEarcon(String, int, HashMap)
          */
         public static final String KEY_PARAM_PAN = "pan";
@@ -589,7 +581,7 @@ public class TextToSpeech {
          * as per {@link TextToSpeech#getFeatures(Locale)}, the engine must
          * use network based synthesis.
          *
-         * @see TextToSpeech#speak(CharSequence, int, Bundle, String)
+         * @see TextToSpeech#speak(String, int, java.util.HashMap)
          * @see TextToSpeech#synthesizeToFile(String, java.util.HashMap, String)
          * @see TextToSpeech#getFeatures(java.util.Locale)
          *
@@ -607,7 +599,7 @@ public class TextToSpeech {
          * as per {@link TextToSpeech#getFeatures(Locale)}, the engine must synthesize
          * text on-device (without making network requests).
          *
-         * @see TextToSpeech#speak(CharSequence, int, Bundle, String)
+         * @see TextToSpeech#speak(String, int, java.util.HashMap)
          * @see TextToSpeech#synthesizeToFile(String, java.util.HashMap, String)
          * @see TextToSpeech#getFeatures(java.util.Locale)
 
@@ -625,7 +617,7 @@ public class TextToSpeech {
          * output. It can be used to associate one of the {@link android.media.audiofx.AudioEffect}
          * objects with the synthesis (or earcon) output.
          *
-         * @see TextToSpeech#speak(CharSequence, int, Bundle, String)
+         * @see TextToSpeech#speak(String, int, HashMap)
          * @see TextToSpeech#playEarcon(String, int, HashMap)
          */
         public static final String KEY_PARAM_SESSION_ID = "sessionId";
@@ -669,10 +661,8 @@ public class TextToSpeech {
     }
 
     private final Context mContext;
-    @UnsupportedAppUsage
     private Connection mConnectingServiceConnection;
     private Connection mServiceConnection;
-    @UnsupportedAppUsage
     private OnInitListener mInitListener;
     // Written from an unspecified application thread, read from
     // a binder thread.
@@ -689,7 +679,6 @@ public class TextToSpeech {
     private final Map<CharSequence, Uri> mUtterances;
     private final Bundle mParams = new Bundle();
     private final TtsEngines mEnginesHelper;
-    @UnsupportedAppUsage
     private volatile String mCurrentEngine = null;
 
     /**
@@ -881,7 +870,7 @@ public class TextToSpeech {
     /**
      * Adds a mapping between a string of text and a sound resource in a
      * package. After a call to this method, subsequent calls to
-     * {@link #speak(CharSequence, int, Bundle, String)} will play the specified sound resource
+     * {@link #speak(String, int, HashMap)} will play the specified sound resource
      * if it is available, or synthesize the text it is missing.
      *
      * @param text
@@ -915,7 +904,7 @@ public class TextToSpeech {
     /**
      * Adds a mapping between a CharSequence (may be spanned with TtsSpans) of text
      * and a sound resource in a package. After a call to this method, subsequent calls to
-     * {@link #speak(CharSequence, int, Bundle, String)} will play the specified sound resource
+     * {@link #speak(String, int, HashMap)} will play the specified sound resource
      * if it is available, or synthesize the text it is missing.
      *
      * @param text
@@ -947,10 +936,11 @@ public class TextToSpeech {
     }
 
     /**
-     * Adds a mapping between a string of text and a sound file. Using this, it is possible to
-     * add custom pronounciations for a string of text. After a call to this method, subsequent
-     * calls to {@link #speak(CharSequence, int, Bundle, String)} will play the specified sound
-     * resource if it is available, or synthesize the text it is missing.
+     * Adds a mapping between a string of text and a sound file. Using this, it
+     * is possible to add custom pronounciations for a string of text.
+     * After a call to this method, subsequent calls to {@link #speak(String, int, HashMap)}
+     * will play the specified sound resource if it is available, or synthesize the text it is
+     * missing.
      *
      * @param text
      *            The string of text. Example: <code>"south_south_east"</code>
@@ -969,8 +959,8 @@ public class TextToSpeech {
 
     /**
      * Adds a mapping between a CharSequence (may be spanned with TtsSpans and a sound file.
-     * Using this, it is possible to add custom pronounciations for a string of text. After a call
-     * to this method, subsequent calls to {@link #speak(CharSequence, int, Bundle, String)}
+     * Using this, it is possible to add custom pronounciations for a string of text.
+     * After a call to this method, subsequent calls to {@link #speak(String, int, HashMap)}
      * will play the specified sound resource if it is available, or synthesize the text it is
      * missing.
      *
@@ -1428,7 +1418,6 @@ public class TextToSpeech {
      * @return the engine currently in use by this TextToSpeech instance.
      * @hide
      */
-    @UnsupportedAppUsage
     public String getCurrentEngine() {
         return mCurrentEngine;
     }
@@ -2114,69 +2103,55 @@ public class TextToSpeech {
 
         private boolean mEstablished;
 
-        private final ITextToSpeechCallback.Stub mCallback =
-                new ITextToSpeechCallback.Stub() {
-                    public void onStop(String utteranceId, boolean isStarted)
-                            throws RemoteException {
-                        UtteranceProgressListener listener = mUtteranceProgressListener;
-                        if (listener != null) {
-                            listener.onStop(utteranceId, isStarted);
-                        }
-                    };
+        private final ITextToSpeechCallback.Stub mCallback = new ITextToSpeechCallback.Stub() {
+            public void onStop(String utteranceId, boolean isStarted) throws RemoteException {
+                UtteranceProgressListener listener = mUtteranceProgressListener;
+                if (listener != null) {
+                    listener.onStop(utteranceId, isStarted);
+                }
+            };
 
-                    @Override
-                    public void onSuccess(String utteranceId) {
-                        UtteranceProgressListener listener = mUtteranceProgressListener;
-                        if (listener != null) {
-                            listener.onDone(utteranceId);
-                        }
-                    }
+            @Override
+            public void onSuccess(String utteranceId) {
+                UtteranceProgressListener listener = mUtteranceProgressListener;
+                if (listener != null) {
+                    listener.onDone(utteranceId);
+                }
+            }
 
-                    @Override
-                    public void onError(String utteranceId, int errorCode) {
-                        UtteranceProgressListener listener = mUtteranceProgressListener;
-                        if (listener != null) {
-                            listener.onError(utteranceId);
-                        }
-                    }
+            @Override
+            public void onError(String utteranceId, int errorCode) {
+                UtteranceProgressListener listener = mUtteranceProgressListener;
+                if (listener != null) {
+                    listener.onError(utteranceId);
+                }
+            }
 
-                    @Override
-                    public void onStart(String utteranceId) {
-                        UtteranceProgressListener listener = mUtteranceProgressListener;
-                        if (listener != null) {
-                            listener.onStart(utteranceId);
-                        }
-                    }
+            @Override
+            public void onStart(String utteranceId) {
+                UtteranceProgressListener listener = mUtteranceProgressListener;
+                if (listener != null) {
+                    listener.onStart(utteranceId);
+                }
+            }
 
-                    @Override
-                    public void onBeginSynthesis(
-                            String utteranceId,
-                            int sampleRateInHz,
-                            int audioFormat,
-                            int channelCount) {
-                        UtteranceProgressListener listener = mUtteranceProgressListener;
-                        if (listener != null) {
-                            listener.onBeginSynthesis(
-                                    utteranceId, sampleRateInHz, audioFormat, channelCount);
-                        }
-                    }
+            @Override
+            public void onBeginSynthesis(String utteranceId, int sampleRateInHz, int audioFormat,
+                                     int channelCount) {
+                UtteranceProgressListener listener = mUtteranceProgressListener;
+                if (listener != null) {
+                    listener.onBeginSynthesis(utteranceId, sampleRateInHz, audioFormat, channelCount);
+                }
+            }
 
-                    @Override
-                    public void onAudioAvailable(String utteranceId, byte[] audio) {
-                        UtteranceProgressListener listener = mUtteranceProgressListener;
-                        if (listener != null) {
-                            listener.onAudioAvailable(utteranceId, audio);
-                        }
-                    }
-
-                    @Override
-                    public void onRangeStart(String utteranceId, int start, int end, int frame) {
-                        UtteranceProgressListener listener = mUtteranceProgressListener;
-                        if (listener != null) {
-                            listener.onRangeStart(utteranceId, start, end, frame);
-                        }
-                    }
-                };
+            @Override
+            public void onAudioAvailable(String utteranceId, byte[] audio) {
+                UtteranceProgressListener listener = mUtteranceProgressListener;
+                if (listener != null) {
+                    listener.onAudioAvailable(utteranceId, audio);
+                }
+            }
+        };
 
         private class SetupConnectionAsyncTask extends AsyncTask<Void, Void, Integer> {
             private final ComponentName mName;

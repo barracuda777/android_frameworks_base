@@ -15,10 +15,9 @@
  */
 package android.hardware.fingerprint;
 
-import android.hardware.biometrics.IBiometricServiceReceiverInternal;
-import android.hardware.biometrics.IBiometricServiceLockoutResetCallback;
-import android.hardware.fingerprint.IFingerprintClientActiveCallback;
+import android.os.Bundle;
 import android.hardware.fingerprint.IFingerprintServiceReceiver;
+import android.hardware.fingerprint.IFingerprintServiceLockoutResetCallback;
 import android.hardware.fingerprint.Fingerprint;
 import java.util.List;
 
@@ -27,31 +26,12 @@ import java.util.List;
  * @hide
  */
 interface IFingerprintService {
-    // Authenticate the given sessionId with a fingerprint. This is protected by
-    // USE_FINGERPRINT/USE_BIOMETRIC permission. This is effectively deprecated, since it only comes
-    // through FingerprintManager now.
+    // Authenticate the given sessionId with a fingerprint
     void authenticate(IBinder token, long sessionId, int userId,
             IFingerprintServiceReceiver receiver, int flags, String opPackageName);
 
-    // This method prepares the service to start authenticating, but doesn't start authentication.
-    // This is protected by the MANAGE_BIOMETRIC signatuer permission. This method should only be
-    // called from BiometricService. The additional uid, pid, userId arguments should be determined
-    // by BiometricService. To start authentication after the clients are ready, use
-    // startPreparedClient().
-    void prepareForAuthentication(IBinder token, long sessionId, int userId,
-            IBiometricServiceReceiverInternal wrapperReceiver, String opPackageName, int cookie,
-            int callingUid, int callingPid, int callingUserId);
-
-    // Starts authentication with the previously prepared client.
-    void startPreparedClient(int cookie);
-
     // Cancel authentication for the given sessionId
     void cancelAuthentication(IBinder token, String opPackageName);
-
-    // Same as above, except this is protected by the MANAGE_BIOMETRIC signature permission. Takes
-    // an additional uid, pid, userid.
-    void cancelAuthenticationFromService(IBinder token, String opPackageName,
-            int callingUid, int callingPid, int callingUserId, boolean fromClient);
 
     // Start fingerprint enrollment
     void enroll(IBinder token, in byte [] cryptoToken, int groupId, IFingerprintServiceReceiver receiver,
@@ -95,20 +75,8 @@ interface IFingerprintService {
     void resetTimeout(in byte [] cryptoToken);
 
     // Add a callback which gets notified when the fingerprint lockout period expired.
-    void addLockoutResetCallback(IBiometricServiceLockoutResetCallback callback);
+    void addLockoutResetCallback(IFingerprintServiceLockoutResetCallback callback);
 
     // Explicitly set the active user (for enrolling work profile)
     void setActiveUser(int uid);
-
-    // Enumerate all fingerprints
-    void enumerate(IBinder token, int userId, IFingerprintServiceReceiver receiver);
-
-    // Check if a client request is currently being handled
-    boolean isClientActive();
-
-    // Add a callback which gets notified when the service starts and stops handling client requests
-    void addClientActiveCallback(IFingerprintClientActiveCallback callback);
-
-    // Removes a callback set by addClientActiveCallback
-    void removeClientActiveCallback(IFingerprintClientActiveCallback callback);
 }

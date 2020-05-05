@@ -24,7 +24,6 @@ import android.content.Context;
 import android.os.ParcelUuid;
 import android.util.Log;
 
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -35,11 +34,8 @@ import java.util.Set;
  * <p>Connection and bonding state changes affecting specific devices
  * are handled by {@link CachedBluetoothDeviceManager},
  * {@link BluetoothEventManager}, and {@link LocalBluetoothProfileManager}.
- *
- * @deprecated use {@link BluetoothAdapter} instead.
  */
-@Deprecated
-public class LocalBluetoothAdapter {
+public final class LocalBluetoothAdapter {
     private static final String TAG = "LocalBluetoothAdapter";
 
     /** This class does not allow direct access to the BluetoothAdapter. */
@@ -94,10 +90,6 @@ public class LocalBluetoothAdapter {
         return mAdapter.disable();
     }
 
-    public String getAddress() {
-        return mAdapter.getAddress();
-    }
-
     void getProfileProxy(Context context,
             BluetoothProfile.ServiceListener listener, int profile) {
         mAdapter.getProfileProxy(context, listener, profile);
@@ -141,10 +133,6 @@ public class LocalBluetoothAdapter {
 
     public void setDiscoverableTimeout(int timeout) {
         mAdapter.setDiscoverableTimeout(timeout);
-    }
-
-    public long getDiscoveryEndMillis() {
-        return mAdapter.getDiscoveryEndMillis();
     }
 
     public void setName(String name) {
@@ -200,7 +188,7 @@ public class LocalBluetoothAdapter {
 
     void setBluetoothStateInt(int state) {
         synchronized(this) {
-            if (mState == state) {
+            if(mState == state){
                 return;
             }
             mState = state;
@@ -235,7 +223,7 @@ public class LocalBluetoothAdapter {
                 ? BluetoothAdapter.STATE_TURNING_ON
                 : BluetoothAdapter.STATE_TURNING_OFF);
         } else {
-            if (BluetoothUtils.V) {
+            if (Utils.V) {
                 Log.v(TAG, "setBluetoothEnabled call, manager didn't return " +
                         "success for enabled: " + enabled);
             }
@@ -247,9 +235,5 @@ public class LocalBluetoothAdapter {
 
     public BluetoothDevice getRemoteDevice(String address) {
         return mAdapter.getRemoteDevice(address);
-    }
-
-    public List<Integer> getSupportedProfiles() {
-        return mAdapter.getSupportedProfiles();
     }
 }

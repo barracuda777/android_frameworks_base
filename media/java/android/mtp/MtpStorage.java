@@ -16,9 +16,8 @@
 
 package android.mtp;
 
-import android.annotation.UnsupportedAppUsage;
+import android.content.Context;
 import android.os.storage.StorageVolume;
-import android.provider.MediaStore;
 
 /**
  * This class represents a storage unit on an MTP device.
@@ -28,24 +27,21 @@ import android.provider.MediaStore;
  * @hide
  */
 public class MtpStorage {
+
     private final int mStorageId;
     private final String mPath;
     private final String mDescription;
+    private final long mReserveSpace;
     private final boolean mRemovable;
     private final long mMaxFileSize;
-    private final String mVolumeName;
 
-    public MtpStorage(StorageVolume volume, int storageId) {
-        mStorageId = storageId;
-        mPath = volume.getInternalPath();
-        mDescription = volume.getDescription(null);
+    public MtpStorage(StorageVolume volume, Context context) {
+        mStorageId = volume.getStorageId();
+        mPath = volume.getPath();
+        mDescription = volume.getDescription(context);
+        mReserveSpace = volume.getMtpReserveSpace() * 1024L * 1024L;
         mRemovable = volume.isRemovable();
         mMaxFileSize = volume.getMaxFileSize();
-        if (volume.isPrimary()) {
-            mVolumeName = MediaStore.VOLUME_EXTERNAL_PRIMARY;
-        } else {
-            mVolumeName = volume.getNormalizedUuid();
-        }
     }
 
     /**
@@ -53,7 +49,6 @@ public class MtpStorage {
      *
      * @return the storage ID
      */
-    @UnsupportedAppUsage
     public final int getStorageId() {
         return mStorageId;
     }
@@ -63,7 +58,6 @@ public class MtpStorage {
      *
      * @return the storage file path
      */
-    @UnsupportedAppUsage
     public final String getPath() {
         return mPath;
     }
@@ -75,6 +69,16 @@ public class MtpStorage {
      */
     public final String getDescription() {
         return mDescription;
+    }
+
+   /**
+     * Returns the amount of space to reserve on the storage file system.
+     * This can be set to a non-zero value to prevent MTP from filling up the entire storage.
+     *
+     * @return reserved space in bytes.
+     */
+    public final long getReserveSpace() {
+        return mReserveSpace;
     }
 
    /**
@@ -93,9 +97,5 @@ public class MtpStorage {
      */
     public long getMaxFileSize() {
         return mMaxFileSize;
-    }
-
-    public String getVolumeName() {
-        return mVolumeName;
     }
 }

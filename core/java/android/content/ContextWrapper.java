@@ -17,10 +17,6 @@
 package android.content;
 
 import android.annotation.SystemApi;
-import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
-import android.app.IApplicationThread;
-import android.app.IServiceConnection;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
@@ -39,7 +35,6 @@ import android.os.Looper;
 import android.os.UserHandle;
 import android.view.Display;
 import android.view.DisplayAdjustments;
-import android.view.autofill.AutofillManager.AutofillClient;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -47,7 +42,6 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.concurrent.Executor;
 
 /**
  * Proxying implementation of Context that simply delegates all of its calls to
@@ -55,7 +49,6 @@ import java.util.concurrent.Executor;
  * the original Context.
  */
 public class ContextWrapper extends Context {
-    @UnsupportedAppUsage
     Context mBase;
 
     public ContextWrapper(Context base) {
@@ -107,12 +100,7 @@ public class ContextWrapper extends Context {
     public Looper getMainLooper() {
         return mBase.getMainLooper();
     }
-
-    @Override
-    public Executor getMainExecutor() {
-        return mBase.getMainExecutor();
-    }
-
+    
     @Override
     public Context getApplicationContext() {
         return mBase.getApplicationContext();
@@ -125,7 +113,6 @@ public class ContextWrapper extends Context {
 
     /** @hide */
     @Override
-    @UnsupportedAppUsage
     public int getThemeResId() {
         return mBase.getThemeResId();
     }
@@ -147,7 +134,6 @@ public class ContextWrapper extends Context {
 
     /** @hide */
     @Override
-    @UnsupportedAppUsage
     public String getBasePackageName() {
         return mBase.getBasePackageName();
     }
@@ -182,12 +168,6 @@ public class ContextWrapper extends Context {
     @Override
     public SharedPreferences getSharedPreferences(File file, int mode) {
         return mBase.getSharedPreferences(file, mode);
-    }
-
-    /** @hide */
-    @Override
-    public void reloadSharedPreferences() {
-        mBase.reloadSharedPreferences();
     }
 
     @Override
@@ -296,13 +276,6 @@ public class ContextWrapper extends Context {
     @Override
     public File getDir(String name, int mode) {
         return mBase.getDir(name, mode);
-    }
-
-
-    /** @hide **/
-    @Override
-    public File getPreloadsFileCache() {
-        return mBase.getPreloadsFileCache();
     }
 
     @Override
@@ -423,8 +396,8 @@ public class ContextWrapper extends Context {
 
     /** @hide */
     @Override
-    public int startActivitiesAsUser(Intent[] intents, Bundle options, UserHandle userHandle) {
-        return mBase.startActivitiesAsUser(intents, options, userHandle);
+    public void startActivitiesAsUser(Intent[] intents, Bundle options, UserHandle userHandle) {
+        mBase.startActivitiesAsUser(intents, options, userHandle);
     }
 
     @Override
@@ -457,13 +430,6 @@ public class ContextWrapper extends Context {
     @Override
     public void sendBroadcastMultiplePermissions(Intent intent, String[] receiverPermissions) {
         mBase.sendBroadcastMultiplePermissions(intent, receiverPermissions);
-    }
-
-    /** @hide */
-    @Override
-    public void sendBroadcastAsUserMultiplePermissions(Intent intent, UserHandle user,
-            String[] receiverPermissions) {
-        mBase.sendBroadcastAsUserMultiplePermissions(intent, user, receiverPermissions);
     }
 
     /** @hide */
@@ -527,13 +493,6 @@ public class ContextWrapper extends Context {
     public void sendBroadcastAsUser(Intent intent, UserHandle user,
             String receiverPermission) {
         mBase.sendBroadcastAsUser(intent, user, receiverPermission);
-    }
-
-    /** @hide */
-    @Override
-    public void sendBroadcastAsUser(Intent intent, UserHandle user,
-            String receiverPermission, Bundle options) {
-        mBase.sendBroadcastAsUser(intent, user, receiverPermission, options);
     }
 
     /** @hide */
@@ -629,29 +588,14 @@ public class ContextWrapper extends Context {
 
     @Override
     public Intent registerReceiver(
-        BroadcastReceiver receiver, IntentFilter filter, int flags) {
-        return mBase.registerReceiver(receiver, filter, flags);
-    }
-
-    @Override
-    public Intent registerReceiver(
         BroadcastReceiver receiver, IntentFilter filter,
         String broadcastPermission, Handler scheduler) {
         return mBase.registerReceiver(receiver, filter, broadcastPermission,
                 scheduler);
     }
 
-    @Override
-    public Intent registerReceiver(
-        BroadcastReceiver receiver, IntentFilter filter,
-        String broadcastPermission, Handler scheduler, int flags) {
-        return mBase.registerReceiver(receiver, filter, broadcastPermission,
-                scheduler, flags);
-    }
-
     /** @hide */
     @Override
-    @UnsupportedAppUsage
     public Intent registerReceiverAsUser(
         BroadcastReceiver receiver, UserHandle user, IntentFilter filter,
         String broadcastPermission, Handler scheduler) {
@@ -670,27 +614,14 @@ public class ContextWrapper extends Context {
     }
 
     @Override
-    public ComponentName startForegroundService(Intent service) {
-        return mBase.startForegroundService(service);
-    }
-
-    @Override
     public boolean stopService(Intent name) {
         return mBase.stopService(name);
     }
 
     /** @hide */
     @Override
-    @UnsupportedAppUsage
     public ComponentName startServiceAsUser(Intent service, UserHandle user) {
         return mBase.startServiceAsUser(service, user);
-    }
-
-    /** @hide */
-    @Override
-    @UnsupportedAppUsage
-    public ComponentName startForegroundServiceAsUser(Intent service, UserHandle user) {
-        return mBase.startForegroundServiceAsUser(service, user);
     }
 
     /** @hide */
@@ -705,35 +636,11 @@ public class ContextWrapper extends Context {
         return mBase.bindService(service, conn, flags);
     }
 
-    @Override
-    public boolean bindService(Intent service, int flags, Executor executor,
-            ServiceConnection conn) {
-        return mBase.bindService(service, flags, executor, conn);
-    }
-
-    @Override
-    public boolean bindIsolatedService(Intent service, int flags, String instanceName,
-            Executor executor, ServiceConnection conn) {
-        return mBase.bindIsolatedService(service, flags, instanceName, executor, conn);
-    }
-
     /** @hide */
     @Override
     public boolean bindServiceAsUser(Intent service, ServiceConnection conn, int flags,
             UserHandle user) {
         return mBase.bindServiceAsUser(service, conn, flags, user);
-    }
-
-    /** @hide */
-    @Override
-    public boolean bindServiceAsUser(Intent service, ServiceConnection conn, int flags,
-            Handler handler, UserHandle user) {
-        return mBase.bindServiceAsUser(service, conn, flags, handler, user);
-    }
-
-    @Override
-    public void updateServiceGroup(ServiceConnection conn, int group, int importance) {
-        mBase.updateServiceGroup(conn, group, importance);
     }
 
     @Override
@@ -811,11 +718,6 @@ public class ContextWrapper extends Context {
     }
 
     @Override
-    public void revokeUriPermission(String targetPackage, Uri uri, int modeFlags) {
-        mBase.revokeUriPermission(targetPackage, uri, modeFlags);
-    }
-
-    @Override
     public int checkUriPermission(Uri uri, int pid, int uid, int modeFlags) {
         return mBase.checkUriPermission(uri, pid, uid, modeFlags);
     }
@@ -885,17 +787,9 @@ public class ContextWrapper extends Context {
 
     /** @hide */
     @Override
-    @UnsupportedAppUsage
     public Context createApplicationContext(ApplicationInfo application,
             int flags) throws PackageManager.NameNotFoundException {
         return mBase.createApplicationContext(application, flags);
-    }
-
-    /** @hide */
-    @Override
-    public Context createContextForSplit(String splitName)
-            throws PackageManager.NameNotFoundException {
-        return mBase.createContextForSplit(splitName);
     }
 
     /** @hide */
@@ -925,27 +819,12 @@ public class ContextWrapper extends Context {
         return mBase.getDisplayAdjustments(displayId);
     }
 
-    /** @hide */
-    @TestApi
+    /**
+     * @hide
+     */
     @Override
     public Display getDisplay() {
         return mBase.getDisplay();
-    }
-
-    /**
-     * @hide
-     */
-    @Override
-    public int getDisplayId() {
-        return mBase.getDisplayId();
-    }
-
-    /**
-     * @hide
-     */
-    @Override
-    public void updateDisplay(int displayId) {
-        mBase.updateDisplay(displayId);
     }
 
     @Override
@@ -970,101 +849,5 @@ public class ContextWrapper extends Context {
     @Override
     public boolean isCredentialProtectedStorage() {
         return mBase.isCredentialProtectedStorage();
-    }
-
-    /** {@hide} */
-    @Override
-    public boolean canLoadUnsafeResources() {
-        return mBase.canLoadUnsafeResources();
-    }
-
-    /**
-     * @hide
-     */
-    @Override
-    public IBinder getActivityToken() {
-        return mBase.getActivityToken();
-    }
-
-    /**
-     * @hide
-     */
-    @Override
-    public IServiceConnection getServiceDispatcher(ServiceConnection conn, Handler handler,
-            int flags) {
-        return mBase.getServiceDispatcher(conn, handler, flags);
-    }
-
-    /**
-     * @hide
-     */
-    @Override
-    public IApplicationThread getIApplicationThread() {
-        return mBase.getIApplicationThread();
-    }
-
-    /**
-     * @hide
-     */
-    @Override
-    public Handler getMainThreadHandler() {
-        return mBase.getMainThreadHandler();
-    }
-
-    /**
-     * @hide
-     */
-    @Override
-    public int getNextAutofillId() {
-        return mBase.getNextAutofillId();
-    }
-
-    /**
-     * @hide
-     */
-    @Override
-    public AutofillClient getAutofillClient() {
-        return mBase.getAutofillClient();
-    }
-
-    /**
-     * @hide
-     */
-    @Override
-    public void setAutofillClient(AutofillClient client) {
-        mBase.setAutofillClient(client);
-    }
-
-    /** @hide */
-    @Override
-    public AutofillOptions getAutofillOptions() {
-        return mBase == null ? null : mBase.getAutofillOptions();
-    }
-
-    /** @hide */
-    @Override
-    public void setAutofillOptions(AutofillOptions options) {
-        if (mBase != null) {
-            mBase.setAutofillOptions(options);
-        }
-    }
-
-    /**
-     * @hide
-     */
-    @Override
-    public ContentCaptureOptions getContentCaptureOptions() {
-        return mBase == null ? null : mBase.getContentCaptureOptions();
-    }
-
-    /**
-     * @hide
-     */
-    @TestApi
-    @Override
-    public void setContentCaptureOptions(ContentCaptureOptions options) {
-        if (mBase != null) {
-            mBase.setContentCaptureOptions(options);
-        }
     }
 }

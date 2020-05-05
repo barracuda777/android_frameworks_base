@@ -16,14 +16,16 @@
 
 package android.text.method;
 
-import android.annotation.UnsupportedAppUsage;
 import android.text.Editable;
 import android.text.NoCopySpan;
 import android.text.Spannable;
 import android.text.Spanned;
-import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.KeyCharacterMap;
+import android.os.IPowerManager;
+import android.os.RemoteException;
+import android.os.ServiceManager;
 
 /**
  * This base class encapsulates the behavior for tracking the state of
@@ -87,7 +89,7 @@ public abstract class MetaKeyKeyListener {
      * Value equals {@link KeyEvent#META_SYM_ON}.
      */
     public static final int META_SYM_ON = KeyEvent.META_SYM_ON;
-
+    
     /**
      * Flag that indicates that the SHIFT key is locked in CAPS mode.
      */
@@ -112,11 +114,11 @@ public abstract class MetaKeyKeyListener {
     private static final long META_CAP_USED = 1L << 32;
     private static final long META_ALT_USED = 1L << 33;
     private static final long META_SYM_USED = 1L << 34;
-
+    
     private static final long META_CAP_PRESSED = 1L << 40;
     private static final long META_ALT_PRESSED = 1L << 41;
     private static final long META_SYM_PRESSED = 1L << 42;
-
+    
     private static final long META_CAP_RELEASED = 1L << 48;
     private static final long META_ALT_RELEASED = 1L << 49;
     private static final long META_SYM_RELEASED = 1L << 50;
@@ -130,7 +132,7 @@ public abstract class MetaKeyKeyListener {
     private static final long META_SYM_MASK = META_SYM_ON
             | META_SYM_LOCKED | META_SYM_USED
             | META_SYM_PRESSED | META_SYM_RELEASED;
-
+    
     private static final Object CAP = new NoCopySpan.Concrete();
     private static final Object ALT = new NoCopySpan.Concrete();
     private static final Object SYM = new NoCopySpan.Concrete();
@@ -151,7 +153,7 @@ public abstract class MetaKeyKeyListener {
 
     /**
      * Gets the state of the meta keys.
-     *
+     * 
      * @param text the buffer in which the meta key would have been pressed.
      *
      * @return an integer in which each bit set to one represents a pressed
@@ -274,6 +276,14 @@ public abstract class MetaKeyKeyListener {
         adjust(content, CAP);
         adjust(content, ALT);
         adjust(content, SYM);
+        try {
+            IPowerManager power = IPowerManager.Stub.asInterface(
+                ServiceManager.getService("power"));
+            if (getMetaState(content, META_SHIFT_ON) <= 0)
+                power.setKeyboardLight(false, 1);
+            if (getMetaState(content, META_ALT_ON) <= 0)
+                power.setKeyboardLight(false, 2);
+        } catch (RemoteException doe) {}
     }
 
     /**
@@ -326,12 +336,32 @@ public abstract class MetaKeyKeyListener {
     public boolean onKeyDown(View view, Editable content, int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_SHIFT_LEFT || keyCode == KeyEvent.KEYCODE_SHIFT_RIGHT) {
             press(content, CAP);
+            try {
+                IPowerManager power = IPowerManager.Stub.asInterface(
+                    ServiceManager.getService("power"));
+                int state = content.getSpanFlags(CAP);
+                if (state == PRESSED || state == LOCKED) {
+                    power.setKeyboardLight(true, 1);
+                } else {
+                    power.setKeyboardLight(false, 1);
+                }
+            } catch (RemoteException doe) {}
             return true;
         }
 
         if (keyCode == KeyEvent.KEYCODE_ALT_LEFT || keyCode == KeyEvent.KEYCODE_ALT_RIGHT
                 || keyCode == KeyEvent.KEYCODE_NUM) {
             press(content, ALT);
+            try {
+                IPowerManager power = IPowerManager.Stub.asInterface(
+                    ServiceManager.getService("power"));
+                int state = content.getSpanFlags(ALT);
+                if (state == PRESSED || state == LOCKED) {
+                    power.setKeyboardLight(true, 2);
+                } else {
+                    power.setKeyboardLight(false, 2);
+                }
+            } catch (RemoteException doe) {}
             return true;
         }
 
@@ -362,7 +392,6 @@ public abstract class MetaKeyKeyListener {
      * Start selecting text.
      * @hide pending API review
      */
-    @UnsupportedAppUsage
     public static void startSelecting(View view, Spannable content) {
         content.setSpan(SELECTING, 0, 0, PRESSED);
     }
@@ -372,7 +401,6 @@ public abstract class MetaKeyKeyListener {
      * call {@link android.text.Selection#setSelection} too.
      * @hide pending API review
      */
-    @UnsupportedAppUsage
     public static void stopSelecting(View view, Spannable content) {
         content.removeSpan(SELECTING);
     }
@@ -451,7 +479,7 @@ public abstract class MetaKeyKeyListener {
 
     /**
      * Gets the state of the meta keys.
-     *
+     * 
      * @param state the current meta state bits.
      *
      * @return an integer in which each bit set to one represents a pressed
@@ -638,26 +666,26 @@ public abstract class MetaKeyKeyListener {
     /**
      * The meta key has been pressed but has not yet been used.
      */
-    private static final int PRESSED =
+    private static final int PRESSED = 
         Spannable.SPAN_MARK_MARK | (1 << Spannable.SPAN_USER_SHIFT);
 
     /**
      * The meta key has been pressed and released but has still
      * not yet been used.
      */
-    private static final int RELEASED =
+    private static final int RELEASED = 
         Spannable.SPAN_MARK_MARK | (2 << Spannable.SPAN_USER_SHIFT);
 
     /**
      * The meta key has been pressed and used but has not yet been released.
      */
-    private static final int USED =
+    private static final int USED = 
         Spannable.SPAN_MARK_MARK | (3 << Spannable.SPAN_USER_SHIFT);
 
     /**
      * The meta key has been pressed and released without use, and then
      * pressed again; it may also have been released again.
      */
-    private static final int LOCKED =
+    private static final int LOCKED = 
         Spannable.SPAN_MARK_MARK | (4 << Spannable.SPAN_USER_SHIFT);
 }

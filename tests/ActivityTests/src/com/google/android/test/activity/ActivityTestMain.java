@@ -16,21 +16,21 @@
 
 package com.google.android.test.activity;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.ActivityOptions;
 import android.app.AlarmManager;
 import android.app.AlertDialog;
 import android.app.PendingIntent;
+import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.ContentProviderClient;
-import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.content.pm.UserInfo;
-import android.content.res.Configuration;
-import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
@@ -42,18 +42,21 @@ import android.os.RemoteException;
 import android.os.SystemClock;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.graphics.Bitmap;
 import android.provider.Settings;
-import android.util.Log;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.widget.ScrollView;
+import android.widget.Toast;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
-import android.widget.TextView;
-import android.widget.Toast;
+import android.content.Context;
+import android.content.pm.UserInfo;
+import android.content.res.Configuration;
+import android.util.Log;
 
-import java.util.ArrayList;
-import java.util.List;
 
 public class ActivityTestMain extends Activity {
     static final String TAG = "ActivityTest";
@@ -70,14 +73,8 @@ public class ActivityTestMain extends Activity {
 
     ServiceConnection mIsolatedConnection;
 
-    static final String SLOW_RECEIVER_ACTION = "com.google.android.test.activity.SLOW_ACTION";
-    static final String SLOW_RECEIVER_EXTRA = "slow_ordinal";
-
     static final int MSG_SPAM = 1;
     static final int MSG_SPAM_ALARM = 2;
-    static final int MSG_SLOW_RECEIVER = 3;
-    static final int MSG_SLOW_ALARM_RECEIVER = 4;
-    static final int MSG_REPLACE_BROADCAST = 5;
 
     final Handler mHandler = new Handler() {
         @Override
@@ -103,69 +100,8 @@ public class ActivityTestMain extends Activity {
                     mAlarm.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME, when+(30*1000), pi);
                     scheduleSpamAlarm(30*1000);
                 } break;
-                case MSG_SLOW_RECEIVER: {
-                    // Several back to back, to illustrate dispatch policy
-                    Intent intent = new Intent(ActivityTestMain.this, SlowReceiver.class);
-                    intent.setAction(SLOW_RECEIVER_ACTION);
-                    intent.putExtra(SLOW_RECEIVER_EXTRA, 1);
-                    sendOrderedBroadcast(intent, null, mSlowReceiverCompletion, mHandler,
-                            Activity.RESULT_OK, null, null);
-                    intent.putExtra(SLOW_RECEIVER_EXTRA, 2);
-                    sendOrderedBroadcast(intent, null, mSlowReceiverCompletion, mHandler,
-                            Activity.RESULT_OK, null, null);
-                    intent.putExtra(SLOW_RECEIVER_EXTRA, 3);
-                    sendOrderedBroadcast(intent, null, mSlowReceiverCompletion, mHandler,
-                            Activity.RESULT_OK, null, null);
-                } break;
-                case MSG_SLOW_ALARM_RECEIVER: {
-                    // Several back to back, to illustrate dispatch policy
-                    Intent intent = new Intent(ActivityTestMain.this, SlowReceiver.class);
-                    intent.setAction(SLOW_RECEIVER_ACTION);
-                    intent.putExtra(SLOW_RECEIVER_EXTRA, 1);
-                    sendOrderedBroadcast(intent, null, mSlowReceiverCompletion, mHandler,
-                            Activity.RESULT_OK, null, null);
-                    intent.putExtra(SLOW_RECEIVER_EXTRA, 2);
-                    sendOrderedBroadcast(intent, null, mSlowReceiverCompletion, mHandler,
-                            Activity.RESULT_OK, null, null);
-                    intent.putExtra(SLOW_RECEIVER_EXTRA, 3);
-                    sendOrderedBroadcast(intent, null, mSlowReceiverCompletion, mHandler,
-                            Activity.RESULT_OK, null, null);
-
-                    // Also send a broadcast alarm to evaluate the alarm fast-forward policy
-                    intent.putExtra(SLOW_RECEIVER_EXTRA, 4);
-                    PendingIntent pi = PendingIntent.getBroadcast(ActivityTestMain.this, 1, intent, 0);
-                    AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-                    long now = SystemClock.elapsedRealtime();
-                    Log.i(TAG, "Setting alarm for now + 5 seconds");
-                    am.setExact(AlarmManager.ELAPSED_REALTIME, now + 5_000, pi);
-                } break;
-                case MSG_REPLACE_BROADCAST: {
-                    Intent intent = new Intent(ActivityTestMain.this, SlowReceiver.class);
-                    intent.setAction(SLOW_RECEIVER_ACTION);
-                    intent.putExtra(SLOW_RECEIVER_EXTRA, 1);
-                    sendOrderedBroadcast(intent, null, mSlowReceiverCompletion, mHandler,
-                            Activity.RESULT_OK, null, null);
-                    intent.putExtra(SLOW_RECEIVER_EXTRA, 2);
-                    sendOrderedBroadcast(intent, null, mSlowReceiverCompletion, mHandler,
-                            Activity.RESULT_OK, null, null);
-                    intent.putExtra(SLOW_RECEIVER_EXTRA, 5038);
-                    intent.addFlags(Intent.FLAG_RECEIVER_REPLACE_PENDING);
-                    sendOrderedBroadcast(intent, null, mSlowReceiverCompletion, mHandler,
-                            Activity.RESULT_OK, null, null);
-                } break;
             }
             super.handleMessage(msg);
-        }
-    };
-
-    final BroadcastReceiver mSlowReceiverCompletion = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            final int extra = intent.getIntExtra(SLOW_RECEIVER_EXTRA, -1);
-            final String msg = "Slow receiver " + extra + " completed";
-            Toast.makeText(ActivityTestMain.this, msg, Toast.LENGTH_LONG)
-                    .show();
-            Log.i(TAG, msg);
         }
     };
 
@@ -179,6 +115,46 @@ public class ActivityTestMain extends Activity {
                     + (user >= 0 ? Integer.toString(user) : "unknown"),
                     Toast.LENGTH_LONG).show();
         }
+    }
+
+    private void addThumbnail(LinearLayout container, Bitmap bm,
+            final ActivityManager.RecentTaskInfo task,
+            final ActivityManager.TaskThumbnail thumbs) {
+        ImageView iv = new ImageView(this);
+        if (bm != null) {
+            iv.setImageBitmap(bm);
+        }
+        iv.setBackgroundResource(android.R.drawable.gallery_thumb);
+        int w = getResources().getDimensionPixelSize(android.R.dimen.thumbnail_width);
+        int h = getResources().getDimensionPixelSize(android.R.dimen.thumbnail_height);
+        container.addView(iv, new LinearLayout.LayoutParams(w, h));
+
+        iv.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (task.id >= 0 && thumbs != null) {
+                    mAm.moveTaskToFront(task.id, ActivityManager.MOVE_TASK_WITH_HOME);
+                } else {
+                    try {
+                        startActivity(task.baseIntent);
+                    } catch (ActivityNotFoundException e) {
+                        Log.w("foo", "Unable to start task: " + e);
+                    }
+                }
+                buildUi();
+            }
+        });
+        iv.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View v) {
+                if (task.id >= 0 && thumbs != null) {
+                    mAm.removeTask(task.id);
+                    buildUi();
+                    return true;
+                }
+                return false;
+            }
+        });
     }
 
     @Override
@@ -433,20 +409,6 @@ public class ActivityTestMain extends Activity {
                 return true;
             }
         });
-        menu.add("Replace broadcast").setOnMenuItemClickListener(new MenuItem.OnMenuItemClickListener() {
-            @Override public boolean onMenuItemClick(MenuItem item) {
-                scheduleReplaceBroadcast();
-                return true;
-            }
-        });
-        menu.add("Require unknown permission").setOnMenuItemClickListener(new MenuItem.OnMenuItemClickListener() {
-            @Override public boolean onMenuItemClick(MenuItem item) {
-                final Intent intent = new Intent(SLOW_RECEIVER_ACTION);
-                intent.putExtra(SLOW_RECEIVER_EXTRA, 5038);
-                sendOrderedBroadcast(intent, "com.google.android.test.activity.permission.UNDEFINED");
-                return true;
-            }
-        });
         menu.add("Stack Doc").setOnMenuItemClickListener(new MenuItem.OnMenuItemClickListener() {
             @Override public boolean onMenuItemClick(MenuItem item) {
                 ActivityManager.AppTask task = findDocTask();
@@ -462,18 +424,6 @@ public class ActivityTestMain extends Activity {
                     }
                     task.startActivity(ActivityTestMain.this, intent, null);
                 }
-                return true;
-            }
-        });
-        menu.add("Slow receiver").setOnMenuItemClickListener(new MenuItem.OnMenuItemClickListener() {
-            @Override public boolean onMenuItemClick(MenuItem item) {
-                scheduleSlowReceiver();
-                return true;
-            }
-        });
-        menu.add("Slow alarm receiver").setOnMenuItemClickListener(new MenuItem.OnMenuItemClickListener() {
-            @Override public boolean onMenuItemClick(MenuItem item) {
-                scheduleSlowAlarmReceiver();
                 return true;
             }
         });
@@ -559,7 +509,6 @@ public class ActivityTestMain extends Activity {
     protected void onStop() {
         super.onStop();
         mHandler.removeMessages(MSG_SPAM_ALARM);
-        mHandler.removeMessages(MSG_SLOW_RECEIVER);
         for (ServiceConnection conn : mConnections) {
             unbindService(conn);
         }
@@ -635,21 +584,6 @@ public class ActivityTestMain extends Activity {
         mHandler.sendMessageDelayed(msg, delay);
     }
 
-    void scheduleSlowReceiver() {
-        mHandler.removeMessages(MSG_SLOW_RECEIVER);
-        mHandler.sendMessageDelayed(mHandler.obtainMessage(MSG_SLOW_RECEIVER), 500);
-    }
-
-    void scheduleSlowAlarmReceiver() {
-        mHandler.removeMessages(MSG_SLOW_ALARM_RECEIVER);
-        mHandler.sendMessageDelayed(mHandler.obtainMessage(MSG_SLOW_ALARM_RECEIVER), 500);
-    }
-
-    void scheduleReplaceBroadcast() {
-        mHandler.removeMessages(MSG_REPLACE_BROADCAST);
-        mHandler.sendMessageDelayed(mHandler.obtainMessage(MSG_REPLACE_BROADCAST), 500);
-    }
-
     private View scrollWrap(View view) {
         ScrollView scroller = new ScrollView(this);
         scroller.addView(view, new ScrollView.LayoutParams(ScrollView.LayoutParams.MATCH_PARENT,
@@ -666,6 +600,7 @@ public class ActivityTestMain extends Activity {
         if (recents != null) {
             for (int i=0; i<recents.size(); i++) {
                 ActivityManager.RecentTaskInfo r = recents.get(i);
+                ActivityManager.TaskThumbnail tt = mAm.getTaskThumbnail(r.persistentId);
                 TextView tv = new TextView(this);
                 tv.setText(r.baseIntent.getComponent().flattenToShortString());
                 top.addView(tv, new LinearLayout.LayoutParams(
@@ -673,6 +608,7 @@ public class ActivityTestMain extends Activity {
                         LinearLayout.LayoutParams.WRAP_CONTENT));
                 LinearLayout item = new LinearLayout(this);
                 item.setOrientation(LinearLayout.HORIZONTAL);
+                addThumbnail(item, tt != null ? tt.mainThumbnail : null, r, tt);
                 top.addView(item, new LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.WRAP_CONTENT,
                         LinearLayout.LayoutParams.WRAP_CONTENT));

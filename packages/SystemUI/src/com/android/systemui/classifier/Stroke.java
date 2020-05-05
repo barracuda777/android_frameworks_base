@@ -68,12 +68,4 @@ public class Stroke {
     public ArrayList<Point> getPoints() {
         return mPoints;
     }
-
-    public long getLastEventTimeNano() {
-        if (mPoints.isEmpty()) {
-            return mStartTimeNano;
-        }
-
-        return mPoints.get(mPoints.size() - 1).timeOffsetNano;
-    }
 }

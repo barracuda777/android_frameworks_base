@@ -16,8 +16,6 @@
 
 package android.renderscript;
 
-import android.annotation.UnsupportedAppUsage;
-
 
 /**
  * @hide
@@ -47,13 +45,11 @@ public class ProgramStore extends BaseObj {
         /**
         * Always drawn
         */
-        @UnsupportedAppUsage
         ALWAYS (0),
         /**
         * Drawn if the incoming depth value is less than that in the
         * depth buffer
         */
-        @UnsupportedAppUsage
         LESS (1),
         /**
         * Drawn if the incoming depth value is less or equal to that in
@@ -97,11 +93,9 @@ public class ProgramStore extends BaseObj {
     */
     public enum BlendSrcFunc {
         ZERO (0),
-        @UnsupportedAppUsage
         ONE (1),
         DST_COLOR (2),
         ONE_MINUS_DST_COLOR (3),
-        @UnsupportedAppUsage
         SRC_ALPHA (4),
         ONE_MINUS_SRC_ALPHA (5),
         DST_ALPHA (6),
@@ -124,14 +118,11 @@ public class ProgramStore extends BaseObj {
     *
     */
     public enum BlendDstFunc {
-        @UnsupportedAppUsage
         ZERO (0),
-        @UnsupportedAppUsage
         ONE (1),
         SRC_COLOR (2),
         ONE_MINUS_SRC_COLOR (3),
         SRC_ALPHA (4),
-        @UnsupportedAppUsage
         ONE_MINUS_SRC_ALPHA (5),
         DST_ALPHA (6),
         ONE_MINUS_DST_ALPHA (7);
@@ -308,7 +299,6 @@ public class ProgramStore extends BaseObj {
     *
     *  @param rs Context to which the program will belong.
     **/
-    @UnsupportedAppUsage
     public static ProgramStore BLEND_ALPHA_DEPTH_NONE(RenderScript rs) {
         if(rs.mProgramStore_BLEND_ALPHA_DEPTH_NO_DEPTH == null) {
             ProgramStore.Builder builder = new ProgramStore.Builder(rs);
@@ -338,7 +328,6 @@ public class ProgramStore extends BaseObj {
         BlendDstFunc mBlendDst;
         boolean mDither;
 
-        @UnsupportedAppUsage
         public Builder(RenderScript rs) {
             mRS = rs;
             mDepthFunc = DepthFunc.ALWAYS;
@@ -358,7 +347,6 @@ public class ProgramStore extends BaseObj {
         *
         * @return this
         */
-        @UnsupportedAppUsage
         public Builder setDepthFunc(DepthFunc func) {
             mDepthFunc = func;
             return this;
@@ -372,7 +360,6 @@ public class ProgramStore extends BaseObj {
         *
         * @return this
         */
-        @UnsupportedAppUsage
         public Builder setDepthMaskEnabled(boolean enable) {
             mDepthMask = enable;
             return this;
@@ -407,7 +394,6 @@ public class ProgramStore extends BaseObj {
         *
         * @return this
         */
-        @UnsupportedAppUsage
         public Builder setBlendFunc(BlendSrcFunc src, BlendDstFunc dst) {
             mBlendSrc = src;
             mBlendDst = dst;
@@ -422,7 +408,6 @@ public class ProgramStore extends BaseObj {
         *
         * @return this
         */
-        @UnsupportedAppUsage
         public Builder setDitherEnabled(boolean enable) {
             mDither = enable;
             return this;
@@ -431,7 +416,6 @@ public class ProgramStore extends BaseObj {
         /**
         * Creates a program store from the current state of the builder
         */
-        @UnsupportedAppUsage
         public ProgramStore create() {
             mRS.validate();
             long id = mRS.nProgramStoreCreate(mColorMaskR, mColorMaskG, mColorMaskB, mColorMaskA,

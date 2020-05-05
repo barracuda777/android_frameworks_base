@@ -16,8 +16,6 @@
 
 package android.app;
 
-import android.annotation.SystemService;
-import android.annotation.UnsupportedAppUsage;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.ContentResolver;
@@ -33,7 +31,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.RemoteException;
 import android.os.ServiceManager;
-import android.os.ServiceManager.ServiceNotFoundException;
+import android.os.UserHandle;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -47,9 +45,10 @@ import java.util.List;
  * services are provided through methods in {@link android.app.Activity Activity}
  * and the {@link android.content.Intent#ACTION_SEARCH ACTION_SEARCH}
  * {@link android.content.Intent Intent}.
- *
- * <p>
- * {@link Configuration#UI_MODE_TYPE_WATCH} does not support this system service.
+ * If you do require direct access to the SearchManager, do not instantiate
+ * this class directly. Instead, retrieve it through
+ * {@link android.content.Context#getSystemService
+ * context.getSystemService(Context.SEARCH_SERVICE)}.
  *
  * <div class="special reference">
  * <h3>Developer Guides</h3>
@@ -58,9 +57,9 @@ import java.util.List;
  * <a href="{@docRoot}guide/topics/search/index.html">Search</a> developer guide.</p>
  * </div>
  */
-@SystemService(Context.SEARCH_SERVICE)
 public class SearchManager
-        implements DialogInterface.OnDismissListener, DialogInterface.OnCancelListener {
+        implements DialogInterface.OnDismissListener, DialogInterface.OnCancelListener
+{
 
     private static final boolean DBG = false;
     private static final String TAG = "SearchManager";
@@ -169,7 +168,7 @@ public class SearchManager
      * Intent extra data key: Use this key with Intent.ACTION_SEARCH and
      * {@link android.content.Intent#getStringExtra content.Intent.getStringExtra()}
      * to obtain the action message that was defined for a particular search action key and/or
-     * suggestion.  It will be null if the search was launched by typing "enter", touching the
+     * suggestion.  It will be null if the search was launched by typing "enter", touched the the
      * "GO" button, or other means not involving any action key.
      */
     public final static String ACTION_MSG = "action_msg";
@@ -404,7 +403,7 @@ public class SearchManager
      * Column name for suggestions cursor. <i>Optional.</i>  If your content is rentable, you
      * should provide this column to specify the displayable string representation of the rental
      * price of your content including the currency and the amount. If it's free, you should
-     * provide localized string to specify that it's free. This column can be omitted if the
+     * provide localized string to specify that it's free. This column can be ommitted if the
      * content is not applicable to rent.
      */
     public final static String SUGGEST_COLUMN_RENTAL_PRICE = "suggest_rental_price";
@@ -531,14 +530,13 @@ public class SearchManager
      * current search engine does not support voice search.
      * @hide
      */
-    @UnsupportedAppUsage
     public final static String DISABLE_VOICE_SEARCH
             = "android.search.DISABLE_VOICE_SEARCH";
 
     /**
      * Reference to the shared system search service.
      */
-    private final ISearchManager mService;
+    private static ISearchManager mService;
 
     private final Context mContext;
 
@@ -547,15 +545,13 @@ public class SearchManager
     /* package */ OnDismissListener mDismissListener = null;
     /* package */ OnCancelListener mCancelListener = null;
 
-    @UnsupportedAppUsage
     private SearchDialog mSearchDialog;
 
-    @UnsupportedAppUsage
-    /*package*/ SearchManager(Context context, Handler handler) throws ServiceNotFoundException {
+    /*package*/ SearchManager(Context context, Handler handler)  {
         mContext = context;
         mHandler = handler;
         mService = ISearchManager.Stub.asInterface(
-                ServiceManager.getServiceOrThrow(Context.SEARCH_SERVICE));
+                ServiceManager.getService(Context.SEARCH_SERVICE));
     }
 
     /**
@@ -579,7 +575,7 @@ public class SearchManager
      *
      * @param initialQuery A search string can be pre-entered here, but this
      * is typically null or empty.
-     * @param selectInitialQuery If true, the initial query will be preselected, which means that
+     * @param selectInitialQuery If true, the intial query will be preselected, which means that
      * any further typing will replace it.  This is useful for cases where an entire pre-formed
      * query is being inserted.  If false, the selection point will be placed at the end of the
      * inserted query.  This is useful when the inserted query is text that the user entered,
@@ -613,7 +609,6 @@ public class SearchManager
      *
      * @hide
      */
-    @UnsupportedAppUsage
     public void startSearch(String initialQuery,
                             boolean selectInitialQuery,
                             ComponentName launchActivity,
@@ -625,7 +620,7 @@ public class SearchManager
             return;
         }
 
-        final UiModeManager uiModeManager = mContext.getSystemService(UiModeManager.class);
+        UiModeManager uiModeManager = new UiModeManager();
         // Don't show search dialog on televisions.
         if (uiModeManager.getCurrentModeType() != Configuration.UI_MODE_TYPE_TELEVISION) {
             ensureSearchDialog();
@@ -715,7 +710,6 @@ public class SearchManager
      *
      * @hide
      */
-    @UnsupportedAppUsage
     public ComponentName getWebSearchActivity() {
         try {
             return mService.getWebSearchActivity();
@@ -757,8 +751,6 @@ public class SearchManager
      *
      * <p>This function can be safely called at any time (even if no search is active.)
      *
-     * <p>{@link Configuration#UI_MODE_TYPE_TELEVISION} does not support this method.
-     *
      * @see #startSearch
      */
     public void stopSearch() {
@@ -776,7 +768,6 @@ public class SearchManager
      *
      * @hide
      */
-    @UnsupportedAppUsage
     public boolean isVisible() {
         return mSearchDialog == null? false : mSearchDialog.isShowing();
     }
@@ -810,8 +801,6 @@ public class SearchManager
     /**
      * Set or clear the callback that will be invoked whenever the search UI is dismissed.
      *
-     * <p>{@link Configuration#UI_MODE_TYPE_TELEVISION} does not support this method.
-     *
      * @param listener The {@link OnDismissListener} to use, or null.
      */
     public void setOnDismissListener(final OnDismissListener listener) {
@@ -820,8 +809,6 @@ public class SearchManager
 
     /**
      * Set or clear the callback that will be invoked whenever the search UI is canceled.
-     *
-     * <p>{@link Configuration#UI_MODE_TYPE_TELEVISION} does not support this method.
      *
      * @param listener The {@link OnCancelListener} to use, or null.
      */
@@ -873,7 +860,6 @@ public class SearchManager
      *
      * @hide because SearchableInfo is not part of the API.
      */
-    @UnsupportedAppUsage
     public Cursor getSuggestions(SearchableInfo searchable, String query) {
         return getSuggestions(searchable, query, -1);
     }
@@ -889,7 +875,6 @@ public class SearchManager
      *
      * @hide because SearchableInfo is not part of the API.
      */
-    @UnsupportedAppUsage
     public Cursor getSuggestions(SearchableInfo searchable, String query, int limit) {
         if (searchable == null) {
             return null;
@@ -960,7 +945,7 @@ public class SearchManager
         try {
             Intent intent = new Intent(Intent.ACTION_ASSIST);
             if (inclContext) {
-                IActivityTaskManager am = ActivityTaskManager.getService();
+                IActivityManager am = ActivityManagerNative.getDefault();
                 Bundle extras = am.getAssistContextExtras(ActivityManager.ASSIST_CONTEXT_BASIC);
                 if (extras != null) {
                     intent.replaceExtras(extras);
@@ -979,7 +964,6 @@ public class SearchManager
      *
      * @hide
      */
-    @UnsupportedAppUsage
     public void launchAssist(Bundle args) {
         try {
             if (mService == null) {

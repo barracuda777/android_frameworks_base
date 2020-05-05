@@ -24,10 +24,9 @@
 #include <private/media/VideoFrame.h>
 
 #include "jni.h"
-#include <nativehelper/JNIHelp.h>
+#include "JNIHelp.h"
 #include "android_runtime/AndroidRuntime.h"
 #include "android_runtime/Log.h"
-#include <android-base/macros.h>                // for FALLTHROUGH_INTENDED
 
 using namespace android;
 
@@ -93,7 +92,6 @@ static bool isValidUtf8(const char* bytes) {
                 return false;
             }
             // Fall through to take care of the final byte.
-            FALLTHROUGH_INTENDED;
         case 0x0c:
         case 0x0d:
             // Bit pattern 110x, so there is one additional byte.
@@ -266,7 +264,7 @@ android_media_MediaScanner_processDirectory(
     env->ReleaseStringUTFChars(path, pathStr);
 }
 
-static jboolean
+static void
 android_media_MediaScanner_processFile(
         JNIEnv *env, jobject thiz, jstring path,
         jstring mimeType, jobject client)
@@ -277,17 +275,17 @@ android_media_MediaScanner_processFile(
     MediaScanner *mp = getNativeScanner_l(env, thiz);
     if (mp == NULL) {
         jniThrowException(env, kRunTimeException, "No scanner available");
-        return false;
+        return;
     }
 
     if (path == NULL) {
         jniThrowException(env, kIllegalArgumentException, NULL);
-        return false;
+        return;
     }
 
     const char *pathStr = env->GetStringUTFChars(path, NULL);
     if (pathStr == NULL) {  // Out of memory
-        return false;
+        return;
     }
 
     const char *mimeTypeStr =
@@ -295,7 +293,7 @@ android_media_MediaScanner_processFile(
     if (mimeType && mimeTypeStr == NULL) {  // Out of memory
         // ReleaseStringUTFChars can be called with an exception pending.
         env->ReleaseStringUTFChars(path, pathStr);
-        return false;
+        return;
     }
 
     MyMediaScannerClient myClient(env, client);
@@ -307,7 +305,6 @@ android_media_MediaScanner_processFile(
     if (mimeType) {
         env->ReleaseStringUTFChars(mimeType, mimeTypeStr);
     }
-    return result != MEDIA_SCAN_RESULT_ERROR;
 }
 
 static void
@@ -424,7 +421,7 @@ static const JNINativeMethod gMethods[] = {
 
     {
         "processFile",
-        "(Ljava/lang/String;Ljava/lang/String;Landroid/media/MediaScannerClient;)Z",
+        "(Ljava/lang/String;Ljava/lang/String;Landroid/media/MediaScannerClient;)V",
         (void *)android_media_MediaScanner_processFile
     },
 

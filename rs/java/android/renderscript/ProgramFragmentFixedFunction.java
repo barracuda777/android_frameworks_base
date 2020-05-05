@@ -16,8 +16,6 @@
 
 package android.renderscript;
 
-import android.annotation.UnsupportedAppUsage;
-
 
 /**
  * @hide
@@ -104,12 +102,10 @@ public class ProgramFragmentFixedFunction extends ProgramFragment {
             /**
              * @deprecated in API 16
              **/
-            @UnsupportedAppUsage
             REPLACE (1),
             /**
              * @deprecated in API 16
              **/
-            @UnsupportedAppUsage
             MODULATE (2),
             /**
              * @deprecated in API 16
@@ -132,7 +128,6 @@ public class ProgramFragmentFixedFunction extends ProgramFragment {
             /**
              * @deprecated in API 16
              **/
-            @UnsupportedAppUsage
             ALPHA (1),
             /**
              * @deprecated in API 16
@@ -141,12 +136,10 @@ public class ProgramFragmentFixedFunction extends ProgramFragment {
             /**
              * @deprecated in API 16
              **/
-            @UnsupportedAppUsage
             RGB (3),
             /**
              * @deprecated in API 16
              **/
-            @UnsupportedAppUsage
             RGBA (4);
 
             int mID;
@@ -235,7 +228,6 @@ public class ProgramFragmentFixedFunction extends ProgramFragment {
          *
          * @param rs Context to which the program will belong.
          */
-        @UnsupportedAppUsage
         public Builder(RenderScript rs) {
             mRS = rs;
             mSlots = new Slot[MAX_TEXTURE];
@@ -256,7 +248,6 @@ public class ProgramFragmentFixedFunction extends ProgramFragment {
          *
          * @return this
          */
-        @UnsupportedAppUsage
         public Builder setTexture(EnvMode env, Format fmt, int slot)
             throws IllegalArgumentException {
             if((slot < 0) || (slot >= MAX_TEXTURE)) {
@@ -286,7 +277,6 @@ public class ProgramFragmentFixedFunction extends ProgramFragment {
          * fragment shader
          *
          **/
-        @UnsupportedAppUsage
         public Builder setVaryingColor(boolean enable) {
             mVaryingColorEnable = enable;
             return this;
@@ -298,7 +288,6 @@ public class ProgramFragmentFixedFunction extends ProgramFragment {
         * state of the builder.
         *
         */
-        @UnsupportedAppUsage
         public ProgramFragmentFixedFunction create() {
             InternalBuilder sb = new InternalBuilder(mRS);
             mNumTextures = 0;

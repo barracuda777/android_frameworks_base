@@ -17,30 +17,25 @@
 #ifndef AAPT_DEBUG_H
 #define AAPT_DEBUG_H
 
-// Include for printf-like debugging.
-#include <iostream>
-
 #include "Resource.h"
 #include "ResourceTable.h"
-#include "text/Printer.h"
-#include "xml/XmlDom.h"
+
+// Include for printf-like debugging.
+#include <iostream>
 
 namespace aapt {
 
 struct DebugPrintTableOptions {
-  bool show_sources = false;
-  bool show_values = true;
+    bool showSources = false;
 };
 
 struct Debug {
-  static void PrintTable(const ResourceTable& table, const DebugPrintTableOptions& options,
-                         text::Printer* printer);
-  static void PrintStyleGraph(ResourceTable* table, const ResourceName& target_style);
-  static void DumpHex(const void* data, size_t len);
-  static void DumpXml(const xml::XmlResource& doc, text::Printer* printer);
-  static void DumpResStringPool(const android::ResStringPool* pool, text::Printer* printer);
+    static void printTable(ResourceTable* table, const DebugPrintTableOptions& options = {});
+    static void printStyleGraph(ResourceTable* table,
+                                const ResourceName& targetStyle);
+    static void dumpHex(const void* data, size_t len);
 };
 
-}  // namespace aapt
+} // namespace aapt
 
-#endif  // AAPT_DEBUG_H
+#endif // AAPT_DEBUG_H

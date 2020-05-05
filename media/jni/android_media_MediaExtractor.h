@@ -18,9 +18,8 @@
 #define _ANDROID_MEDIA_MEDIAEXTRACTOR_H_
 
 #include <media/stagefright/foundation/ABase.h>
-#include <media/stagefright/foundation/AudioPresentationInfo.h>
-#include <media/MediaSource.h>
-#include <media/DataSource.h>
+#include <media/stagefright/MediaSource.h>
+#include <media/stagefright/DataSource.h>
 #include <utils/Errors.h>
 #include <utils/KeyedVector.h>
 #include <utils/RefBase.h>
@@ -45,8 +44,6 @@ struct JMediaExtractor : public RefBase {
     status_t setDataSource(int fd, off64_t offset, off64_t size);
     status_t setDataSource(const sp<DataSource> &source);
 
-    status_t setMediaCas(JNIEnv *env, jobject casBinderObj);
-
     size_t countTracks() const;
     status_t getTrackFormat(size_t index, jobject *format) const;
 
@@ -61,14 +58,10 @@ struct JMediaExtractor : public RefBase {
     status_t readSampleData(jobject byteBuf, size_t offset, size_t *sampleSize);
     status_t getSampleTrackIndex(size_t *trackIndex);
     status_t getSampleTime(int64_t *sampleTimeUs);
-    status_t getSampleSize(size_t *sampleSize);
     status_t getSampleFlags(uint32_t *sampleFlags);
     status_t getSampleMeta(sp<MetaData> *sampleMeta);
-    status_t getMetrics(Parcel *reply) const;
 
     bool getCachedDuration(int64_t *durationUs, bool *eos) const;
-    status_t getAudioPresentations(size_t trackIdx,
-            AudioPresentationCollection *presentations) const;
 
 protected:
     virtual ~JMediaExtractor();

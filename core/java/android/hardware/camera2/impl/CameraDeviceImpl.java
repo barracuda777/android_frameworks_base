@@ -16,28 +16,26 @@
 
 package android.hardware.camera2.impl;
 
-import static com.android.internal.util.function.pooled.PooledLambda.obtainRunnable;
+import static android.hardware.camera2.CameraAccessException.CAMERA_IN_USE;
 
-import android.annotation.NonNull;
-import android.hardware.ICameraService;
+import android.graphics.ImageFormat;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
-import android.hardware.camera2.CaptureFailure;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
+import android.hardware.camera2.CaptureFailure;
 import android.hardware.camera2.ICameraDeviceCallbacks;
 import android.hardware.camera2.ICameraDeviceUser;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.InputConfiguration;
 import android.hardware.camera2.params.OutputConfiguration;
-import android.hardware.camera2.params.SessionConfiguration;
+import android.hardware.camera2.params.ReprocessFormatsMap;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.hardware.camera2.utils.SubmitInfo;
 import android.hardware.camera2.utils.SurfaceUtils;
-import android.os.Binder;
-import android.os.Build;
+import android.hardware.ICameraService;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -49,21 +47,18 @@ import android.util.Size;
 import android.util.SparseArray;
 import android.view.Surface;
 
-import com.android.internal.util.Preconditions;
-
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Set;
+import java.util.LinkedList;
 import java.util.TreeMap;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.Executor;
-
 
 /**
  * HAL2.1+ implementation of CameraDevice. Use CameraManager#open to instantiate
@@ -84,7 +79,7 @@ public class CameraDeviceImpl extends CameraDevice
 
     private final StateCallback mDeviceCallback;
     private volatile StateCallbackKK mSessionStateCallback;
-    private final Executor mDeviceExecutor;
+    private final Handler mDeviceHandler;
 
     private final AtomicBoolean mClosing = new AtomicBoolean();
     private boolean mInError = false;
@@ -95,8 +90,6 @@ public class CameraDeviceImpl extends CameraDevice
             new SparseArray<CaptureCallbackHolder>();
 
     private int mRepeatingRequestId = REQUEST_ID_NONE;
-    // Latest repeating request list's types
-    private int[] mRepeatingRequestTypes;
     // Map stream IDs to input/output configurations
     private SimpleEntry<Integer, InputConfiguration> mConfiguredInput =
             new SimpleEntry<>(REQUEST_ID_NONE, null);
@@ -107,10 +100,8 @@ public class CameraDeviceImpl extends CameraDevice
     private final CameraCharacteristics mCharacteristics;
     private final int mTotalPartialCount;
 
-    private static final long NANO_PER_SECOND = 1000000000; //ns
-
     /**
-     * A list tracking request and its expected last regular/reprocess/zslStill frame
+     * A list tracking request and its expected last regular frame number and last reprocess frame
      * number. Updated when calling ICameraDeviceUser methods.
      */
     private final List<RequestLastFrameNumbersHolder> mRequestLastFrameNumbersList =
@@ -124,8 +115,6 @@ public class CameraDeviceImpl extends CameraDevice
 
     private CameraCaptureSessionCore mCurrentSession;
     private int mNextSessionId = 0;
-
-    private final int mAppTargetSdkVersion;
 
     // Runnables for all state transitions, except error, which needs the
     // error code argument
@@ -242,16 +231,15 @@ public class CameraDeviceImpl extends CameraDevice
         }
     };
 
-    public CameraDeviceImpl(String cameraId, StateCallback callback, Executor executor,
-                        CameraCharacteristics characteristics, int appTargetSdkVersion) {
-        if (cameraId == null || callback == null || executor == null || characteristics == null) {
+    public CameraDeviceImpl(String cameraId, StateCallback callback, Handler handler,
+                        CameraCharacteristics characteristics) {
+        if (cameraId == null || callback == null || handler == null || characteristics == null) {
             throw new IllegalArgumentException("Null argument given");
         }
         mCameraId = cameraId;
         mDeviceCallback = callback;
-        mDeviceExecutor = executor;
+        mDeviceHandler = handler;
         mCharacteristics = characteristics;
-        mAppTargetSdkVersion = appTargetSdkVersion;
 
         final int MAX_TAG_LEN = 23;
         String tag = String.format("CameraDevice-JV-%s", mCameraId);
@@ -296,15 +284,15 @@ public class CameraDeviceImpl extends CameraDevice
                 try {
                     remoteDeviceBinder.linkToDeath(this, /*flag*/ 0);
                 } catch (RemoteException e) {
-                    CameraDeviceImpl.this.mDeviceExecutor.execute(mCallOnDisconnected);
+                    CameraDeviceImpl.this.mDeviceHandler.post(mCallOnDisconnected);
 
                     throw new CameraAccessException(CameraAccessException.CAMERA_DISCONNECTED,
                             "The camera device has encountered a serious error");
                 }
             }
 
-            mDeviceExecutor.execute(mCallOnOpened);
-            mDeviceExecutor.execute(mCallOnUnconfigured);
+            mDeviceHandler.post(mCallOnOpened);
+            mDeviceHandler.post(mCallOnUnconfigured);
         }
     }
 
@@ -343,7 +331,7 @@ public class CameraDeviceImpl extends CameraDevice
         final boolean isError = failureIsError;
         synchronized(mInterfaceLock) {
             mInError = true;
-            mDeviceExecutor.execute(new Runnable() {
+            mDeviceHandler.post(new Runnable() {
                 @Override
                 public void run() {
                     if (isError) {
@@ -368,7 +356,7 @@ public class CameraDeviceImpl extends CameraDevice
             outputConfigs.add(new OutputConfiguration(s));
         }
         configureStreamsChecked(/*inputConfig*/null, outputConfigs,
-                /*operatingMode*/ICameraDeviceUser.NORMAL_MODE, /*sessionParams*/ null);
+                /*isConstrainedHighSpeed*/false);
 
     }
 
@@ -386,15 +374,13 @@ public class CameraDeviceImpl extends CameraDevice
      *
      * @param inputConfig input configuration or {@code null} for no input
      * @param outputs a list of one or more surfaces, or {@code null} to unconfigure
-     * @param operatingMode If the stream configuration is for a normal session,
-     *     a constrained high speed session, or something else.
-     * @param sessionParams Session parameters.
+     * @param isConstrainedHighSpeed If the streams configuration is for constrained high speed output.
      * @return whether or not the configuration was successful
      *
      * @throws CameraAccessException if there were any unexpected problems during configuration
      */
     public boolean configureStreamsChecked(InputConfiguration inputConfig,
-            List<OutputConfiguration> outputs, int operatingMode, CaptureRequest sessionParams)
+            List<OutputConfiguration> outputs, boolean isConstrainedHighSpeed)
                     throws CameraAccessException {
         // Treat a null input the same an empty list
         if (outputs == null) {
@@ -431,7 +417,7 @@ public class CameraDeviceImpl extends CameraDevice
                 }
             }
 
-            mDeviceExecutor.execute(mCallOnBusy);
+            mDeviceHandler.post(mCallOnBusy);
             stopRepeating();
 
             try {
@@ -470,11 +456,7 @@ public class CameraDeviceImpl extends CameraDevice
                     }
                 }
 
-                if (sessionParams != null) {
-                    mRemoteDevice.endConfigure(operatingMode, sessionParams.getNativeCopy());
-                } else {
-                    mRemoteDevice.endConfigure(operatingMode, null);
-                }
+                mRemoteDevice.endConfigure(isConstrainedHighSpeed);
 
                 success = true;
             } catch (IllegalArgumentException e) {
@@ -490,10 +472,10 @@ public class CameraDeviceImpl extends CameraDevice
                 throw e;
             } finally {
                 if (success && outputs.size() > 0) {
-                    mDeviceExecutor.execute(mCallOnIdle);
+                    mDeviceHandler.post(mCallOnIdle);
                 } else {
                     // Always return to the 'unconfigured' state if we didn't hit a fatal error
-                    mDeviceExecutor.execute(mCallOnUnconfigured);
+                    mDeviceHandler.post(mCallOnUnconfigured);
                 }
             }
         }
@@ -509,9 +491,8 @@ public class CameraDeviceImpl extends CameraDevice
         for (Surface surface : outputs) {
             outConfigurations.add(new OutputConfiguration(surface));
         }
-        createCaptureSessionInternal(null, outConfigurations, callback,
-                checkAndWrapHandler(handler), /*operatingMode*/ICameraDeviceUser.NORMAL_MODE,
-                /*sessionParams*/ null);
+        createCaptureSessionInternal(null, outConfigurations, callback, handler,
+                /*isConstrainedHighSpeed*/false);
     }
 
     @Override
@@ -520,14 +501,14 @@ public class CameraDeviceImpl extends CameraDevice
             CameraCaptureSession.StateCallback callback, Handler handler)
             throws CameraAccessException {
         if (DEBUG) {
-            Log.d(TAG, "createCaptureSessionByOutputConfigurations");
+            Log.d(TAG, "createCaptureSessionByOutputConfiguration");
         }
 
         // OutputConfiguration objects are immutable, but need to have our own array
         List<OutputConfiguration> currentOutputs = new ArrayList<>(outputConfigurations);
 
-        createCaptureSessionInternal(null, currentOutputs, callback, checkAndWrapHandler(handler),
-                /*operatingMode*/ICameraDeviceUser.NORMAL_MODE, /*sessionParams*/null);
+        createCaptureSessionInternal(null, currentOutputs, callback, handler,
+                /*isConstrainedHighSpeed*/false);
     }
 
     @Override
@@ -546,9 +527,8 @@ public class CameraDeviceImpl extends CameraDevice
         for (Surface surface : outputs) {
             outConfigurations.add(new OutputConfiguration(surface));
         }
-        createCaptureSessionInternal(inputConfig, outConfigurations, callback,
-                checkAndWrapHandler(handler), /*operatingMode*/ICameraDeviceUser.NORMAL_MODE,
-                /*sessionParams*/ null);
+        createCaptureSessionInternal(inputConfig, outConfigurations, callback, handler,
+                /*isConstrainedHighSpeed*/false);
     }
 
     @Override
@@ -576,8 +556,7 @@ public class CameraDeviceImpl extends CameraDevice
             currentOutputs.add(new OutputConfiguration(output));
         }
         createCaptureSessionInternal(inputConfig, currentOutputs,
-                callback, checkAndWrapHandler(handler),
-                /*operatingMode*/ICameraDeviceUser.NORMAL_MODE, /*sessionParams*/ null);
+                callback, handler, /*isConstrainedHighSpeed*/false);
     }
 
     @Override
@@ -588,53 +567,22 @@ public class CameraDeviceImpl extends CameraDevice
             throw new IllegalArgumentException(
                     "Output surface list must not be null and the size must be no more than 2");
         }
+        StreamConfigurationMap config =
+                getCharacteristics().get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+        SurfaceUtils.checkConstrainedHighSpeedSurfaces(outputs, /*fpsRange*/null, config);
+
         List<OutputConfiguration> outConfigurations = new ArrayList<>(outputs.size());
         for (Surface surface : outputs) {
             outConfigurations.add(new OutputConfiguration(surface));
         }
-        createCaptureSessionInternal(null, outConfigurations, callback,
-                checkAndWrapHandler(handler),
-                /*operatingMode*/ICameraDeviceUser.CONSTRAINED_HIGH_SPEED_MODE,
-                /*sessionParams*/ null);
-    }
-
-    @Override
-    public void createCustomCaptureSession(InputConfiguration inputConfig,
-            List<OutputConfiguration> outputs,
-            int operatingMode,
-            android.hardware.camera2.CameraCaptureSession.StateCallback callback,
-            Handler handler) throws CameraAccessException {
-        List<OutputConfiguration> currentOutputs = new ArrayList<OutputConfiguration>();
-        for (OutputConfiguration output : outputs) {
-            currentOutputs.add(new OutputConfiguration(output));
-        }
-        createCaptureSessionInternal(inputConfig, currentOutputs, callback,
-                checkAndWrapHandler(handler), operatingMode, /*sessionParams*/ null);
-    }
-
-    @Override
-    public void createCaptureSession(SessionConfiguration config)
-            throws CameraAccessException {
-        if (config == null) {
-            throw new IllegalArgumentException("Invalid session configuration");
-        }
-
-        List<OutputConfiguration> outputConfigs = config.getOutputConfigurations();
-        if (outputConfigs == null) {
-            throw new IllegalArgumentException("Invalid output configurations");
-        }
-        if (config.getExecutor() == null) {
-            throw new IllegalArgumentException("Invalid executor");
-        }
-        createCaptureSessionInternal(config.getInputConfiguration(), outputConfigs,
-                config.getStateCallback(), config.getExecutor(), config.getSessionType(),
-                config.getSessionParameters());
+        createCaptureSessionInternal(null, outConfigurations, callback, handler,
+                /*isConstrainedHighSpeed*/true);
     }
 
     private void createCaptureSessionInternal(InputConfiguration inputConfig,
             List<OutputConfiguration> outputConfigurations,
-            CameraCaptureSession.StateCallback callback, Executor executor,
-            int operatingMode, CaptureRequest sessionParams) throws CameraAccessException {
+            CameraCaptureSession.StateCallback callback, Handler handler,
+            boolean isConstrainedHighSpeed) throws CameraAccessException {
         synchronized(mInterfaceLock) {
             if (DEBUG) {
                 Log.d(TAG, "createCaptureSessionInternal");
@@ -642,8 +590,6 @@ public class CameraDeviceImpl extends CameraDevice
 
             checkIfCameraClosedOrInError();
 
-            boolean isConstrainedHighSpeed =
-                    (operatingMode == ICameraDeviceUser.CONSTRAINED_HIGH_SPEED_MODE);
             if (isConstrainedHighSpeed && inputConfig != null) {
                 throw new IllegalArgumentException("Constrained high speed session doesn't support"
                         + " input configuration yet.");
@@ -662,7 +608,7 @@ public class CameraDeviceImpl extends CameraDevice
             try {
                 // configure streams and then block until IDLE
                 configureSuccess = configureStreamsChecked(inputConfig, outputConfigurations,
-                        operatingMode, sessionParams);
+                        isConstrainedHighSpeed);
                 if (configureSuccess == true && inputConfig != null) {
                     input = mRemoteDevice.getInputSurface();
                 }
@@ -675,23 +621,20 @@ public class CameraDeviceImpl extends CameraDevice
                 }
             }
 
+            List<Surface> outSurfaces = new ArrayList<>(outputConfigurations.size());
+            for (OutputConfiguration config : outputConfigurations) {
+                outSurfaces.add(config.getSurface());
+            }
             // Fire onConfigured if configureOutputs succeeded, fire onConfigureFailed otherwise.
             CameraCaptureSessionCore newSession = null;
             if (isConstrainedHighSpeed) {
-                ArrayList<Surface> surfaces = new ArrayList<>(outputConfigurations.size());
-                for (OutputConfiguration outConfig : outputConfigurations) {
-                    surfaces.add(outConfig.getSurface());
-                }
-                StreamConfigurationMap config =
-                    getCharacteristics().get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-                SurfaceUtils.checkConstrainedHighSpeedSurfaces(surfaces, /*fpsRange*/null, config);
-
                 newSession = new CameraConstrainedHighSpeedCaptureSessionImpl(mNextSessionId++,
-                        callback, executor, this, mDeviceExecutor, configureSuccess,
+                        outSurfaces, callback, handler, this, mDeviceHandler, configureSuccess,
                         mCharacteristics);
             } else {
                 newSession = new CameraCaptureSessionImpl(mNextSessionId++, input,
-                        callback, executor, this, mDeviceExecutor, configureSuccess);
+                        outSurfaces, callback, handler, this, mDeviceHandler,
+                        configureSuccess);
             }
 
             // TODO: wait until current session closes, then create the new session
@@ -705,65 +648,12 @@ public class CameraDeviceImpl extends CameraDevice
         }
     }
 
-    @Override
-    public boolean isSessionConfigurationSupported(
-            @NonNull SessionConfiguration sessionConfig) throws CameraAccessException,
-            UnsupportedOperationException, IllegalArgumentException {
-        synchronized(mInterfaceLock) {
-            checkIfCameraClosedOrInError();
-
-            return mRemoteDevice.isSessionConfigurationSupported(sessionConfig);
-        }
-    }
-
     /**
      * For use by backwards-compatibility code only.
      */
     public void setSessionListener(StateCallbackKK sessionCallback) {
         synchronized(mInterfaceLock) {
             mSessionStateCallback = sessionCallback;
-        }
-    }
-
-    private void overrideEnableZsl(CameraMetadataNative request, boolean newValue) {
-        Boolean enableZsl = request.get(CaptureRequest.CONTROL_ENABLE_ZSL);
-        if (enableZsl == null) {
-            // If enableZsl is not available, don't override.
-            return;
-        }
-
-        request.set(CaptureRequest.CONTROL_ENABLE_ZSL, newValue);
-    }
-
-    @Override
-    public CaptureRequest.Builder createCaptureRequest(int templateType,
-            Set<String> physicalCameraIdSet)
-            throws CameraAccessException {
-        synchronized(mInterfaceLock) {
-            checkIfCameraClosedOrInError();
-
-            for (String physicalId : physicalCameraIdSet) {
-                if (physicalId == getId()) {
-                    throw new IllegalStateException("Physical id matches the logical id!");
-                }
-            }
-
-            CameraMetadataNative templatedRequest = null;
-
-            templatedRequest = mRemoteDevice.createDefaultRequest(templateType);
-
-            // If app target SDK is older than O, or it's not a still capture template, enableZsl
-            // must be false in the default request.
-            if (mAppTargetSdkVersion < Build.VERSION_CODES.O ||
-                    templateType != TEMPLATE_STILL_CAPTURE) {
-                overrideEnableZsl(templatedRequest, false);
-            }
-
-            CaptureRequest.Builder builder = new CaptureRequest.Builder(
-                    templatedRequest, /*reprocess*/false, CameraCaptureSession.SESSION_ID_NONE,
-                    getId(), physicalCameraIdSet);
-
-            return builder;
         }
     }
 
@@ -777,16 +667,8 @@ public class CameraDeviceImpl extends CameraDevice
 
             templatedRequest = mRemoteDevice.createDefaultRequest(templateType);
 
-            // If app target SDK is older than O, or it's not a still capture template, enableZsl
-            // must be false in the default request.
-            if (mAppTargetSdkVersion < Build.VERSION_CODES.O ||
-                    templateType != TEMPLATE_STILL_CAPTURE) {
-                overrideEnableZsl(templatedRequest, false);
-            }
-
             CaptureRequest.Builder builder = new CaptureRequest.Builder(
-                    templatedRequest, /*reprocess*/false, CameraCaptureSession.SESSION_ID_NONE,
-                    getId(), /*physicalCameraIdSet*/ null);
+                    templatedRequest, /*reprocess*/false, CameraCaptureSession.SESSION_ID_NONE);
 
             return builder;
         }
@@ -802,7 +684,7 @@ public class CameraDeviceImpl extends CameraDevice
                     CameraMetadataNative(inputResult.getNativeCopy());
 
             return new CaptureRequest.Builder(resultMetadata, /*reprocess*/true,
-                    inputResult.getSessionId(), getId(), /*physicalCameraIdSet*/ null);
+                    inputResult.getSessionId());
         }
     }
 
@@ -812,8 +694,7 @@ public class CameraDeviceImpl extends CameraDevice
         synchronized(mInterfaceLock) {
             int streamId = -1;
             for (int i = 0; i < mConfiguredOutputs.size(); i++) {
-                final List<Surface> surfaces = mConfiguredOutputs.valueAt(i).getSurfaces();
-                if (surfaces.contains(surface)) {
+                if (surface == mConfiguredOutputs.valueAt(i).getSurface()) {
                     streamId = mConfiguredOutputs.keyAt(i);
                     break;
                 }
@@ -847,25 +728,6 @@ public class CameraDeviceImpl extends CameraDevice
         }
     }
 
-    public void updateOutputConfiguration(OutputConfiguration config)
-            throws CameraAccessException {
-        synchronized(mInterfaceLock) {
-            int streamId = -1;
-            for (int i = 0; i < mConfiguredOutputs.size(); i++) {
-                if (config.getSurface() == mConfiguredOutputs.valueAt(i).getSurface()) {
-                    streamId = mConfiguredOutputs.keyAt(i);
-                    break;
-                }
-            }
-            if (streamId == -1) {
-                throw new IllegalArgumentException("Invalid output configuration");
-            }
-
-            mRemoteDevice.updateOutputConfiguration(streamId, config);
-            mConfiguredOutputs.put(streamId, config);
-        }
-    }
-
     public void tearDown(Surface surface) throws CameraAccessException {
         if (surface == null) throw new IllegalArgumentException("Surface is null");
 
@@ -885,14 +747,14 @@ public class CameraDeviceImpl extends CameraDevice
         }
     }
 
-    public void finalizeOutputConfigs(List<OutputConfiguration> outputConfigs)
+    public void finishDeferredConfig(List<OutputConfiguration> deferredConfigs)
             throws CameraAccessException {
-        if (outputConfigs == null || outputConfigs.size() == 0) {
+        if (deferredConfigs == null || deferredConfigs.size() == 0) {
             throw new IllegalArgumentException("deferred config is null or empty");
         }
 
         synchronized(mInterfaceLock) {
-            for (OutputConfiguration config : outputConfigs) {
+            for (OutputConfiguration config : deferredConfigs) {
                 int streamId = -1;
                 for (int i = 0; i < mConfiguredOutputs.size(); i++) {
                     // Have to use equal here, as createCaptureSessionByOutputConfigurations() and
@@ -907,32 +769,31 @@ public class CameraDeviceImpl extends CameraDevice
                             + "session");
                 }
 
-                if (config.getSurfaces().size() == 0) {
-                    throw new IllegalArgumentException("The final config for stream " + streamId
-                            + " must have at least 1 surface");
+                if (config.getSurface() == null) {
+                    throw new IllegalArgumentException("The deferred config for stream " + streamId
+                            + " must have a non-null surface");
                 }
-                mRemoteDevice.finalizeOutputConfigurations(streamId, config);
-                mConfiguredOutputs.put(streamId, config);
+                mRemoteDevice.setDeferredConfiguration(streamId, config);
             }
         }
     }
 
-    public int capture(CaptureRequest request, CaptureCallback callback, Executor executor)
+    public int capture(CaptureRequest request, CaptureCallback callback, Handler handler)
             throws CameraAccessException {
         if (DEBUG) {
             Log.d(TAG, "calling capture");
         }
         List<CaptureRequest> requestList = new ArrayList<CaptureRequest>();
         requestList.add(request);
-        return submitCaptureRequest(requestList, callback, executor, /*streaming*/false);
+        return submitCaptureRequest(requestList, callback, handler, /*streaming*/false);
     }
 
     public int captureBurst(List<CaptureRequest> requests, CaptureCallback callback,
-            Executor executor) throws CameraAccessException {
+            Handler handler) throws CameraAccessException {
         if (requests == null || requests.isEmpty()) {
             throw new IllegalArgumentException("At least one request must be given");
         }
-        return submitCaptureRequest(requests, callback, executor, /*streaming*/false);
+        return submitCaptureRequest(requests, callback, handler, /*streaming*/false);
     }
 
     /**
@@ -945,12 +806,11 @@ public class CameraDeviceImpl extends CameraDevice
      * regular frame number will be added to the list mRequestLastFrameNumbersList.</p>
      *
      * @param requestId the request ID of the current repeating request.
+     *
      * @param lastFrameNumber last frame number returned from binder.
-     * @param repeatingRequestTypes the repeating requests' types.
      */
     private void checkEarlyTriggerSequenceComplete(
-            final int requestId, final long lastFrameNumber,
-            final int[] repeatingRequestTypes) {
+            final int requestId, final long lastFrameNumber) {
         // lastFrameNumber being equal to NO_FRAMES_CAPTURED means that the request
         // was never sent to HAL. Should trigger onCaptureSequenceAborted immediately.
         if (lastFrameNumber == CaptureCallback.NO_FRAMES_CAPTURED) {
@@ -988,22 +848,17 @@ public class CameraDeviceImpl extends CameraDevice
                         }
                     }
                 };
-                final long ident = Binder.clearCallingIdentity();
-                try {
-                    holder.getExecutor().execute(resultDispatch);
-                } finally {
-                    Binder.restoreCallingIdentity(ident);
-                }
+                holder.getHandler().post(resultDispatch);
             } else {
                 Log.w(TAG, String.format(
                         "did not register callback to request %d",
                         requestId));
             }
         } else {
-            // This function is only called for regular/ZslStill request so lastFrameNumber is the
-            // last regular/ZslStill frame number.
+            // This function is only called for regular request so lastFrameNumber is the last
+            // regular frame number.
             mRequestLastFrameNumbersList.add(new RequestLastFrameNumbersHolder(requestId,
-                    lastFrameNumber, repeatingRequestTypes));
+                    lastFrameNumber));
 
             // It is possible that the last frame has already arrived, so we need to check
             // for sequence completion right away
@@ -1011,50 +866,29 @@ public class CameraDeviceImpl extends CameraDevice
         }
     }
 
-    private int[] getRequestTypes(final CaptureRequest[] requestArray) {
-        int[] requestTypes = new int[requestArray.length];
-        for (int i = 0; i < requestArray.length; i++) {
-            requestTypes[i] = requestArray[i].getRequestType();
-        }
-        return requestTypes;
-    }
-
     private int submitCaptureRequest(List<CaptureRequest> requestList, CaptureCallback callback,
-            Executor executor, boolean repeating) throws CameraAccessException {
+            Handler handler, boolean repeating) throws CameraAccessException {
 
-        // Need a valid executor, or current thread needs to have a looper, if
+        // Need a valid handler, or current thread needs to have a looper, if
         // callback is valid
-        executor = checkExecutor(executor, callback);
+        handler = checkHandler(handler, callback);
+
+        // Make sure that there all requests have at least 1 surface; all surfaces are non-null
+        for (CaptureRequest request : requestList) {
+            if (request.getTargets().isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Each request must have at least one Surface target");
+            }
+
+            for (Surface surface : request.getTargets()) {
+                if (surface == null) {
+                    throw new IllegalArgumentException("Null Surface targets are not allowed");
+                }
+            }
+        }
 
         synchronized(mInterfaceLock) {
             checkIfCameraClosedOrInError();
-
-            // Make sure that there all requests have at least 1 surface; all surfaces are non-null;
-            // the surface isn't a physical stream surface for reprocessing request
-            for (CaptureRequest request : requestList) {
-                if (request.getTargets().isEmpty()) {
-                    throw new IllegalArgumentException(
-                            "Each request must have at least one Surface target");
-                }
-
-                for (Surface surface : request.getTargets()) {
-                    if (surface == null) {
-                        throw new IllegalArgumentException("Null Surface targets are not allowed");
-                    }
-
-                    for (int i = 0; i < mConfiguredOutputs.size(); i++) {
-                        OutputConfiguration configuration = mConfiguredOutputs.valueAt(i);
-                        if (configuration.isForPhysicalCamera()
-                                && configuration.getSurfaces().contains(surface)) {
-                            if (request.isReprocess()) {
-                                throw new IllegalArgumentException(
-                                        "Reprocess request on physical stream is not allowed");
-                            }
-                        }
-                    }
-                }
-            }
-
             if (repeating) {
                 stopRepeating();
             }
@@ -1062,24 +896,15 @@ public class CameraDeviceImpl extends CameraDevice
             SubmitInfo requestInfo;
 
             CaptureRequest[] requestArray = requestList.toArray(new CaptureRequest[requestList.size()]);
-            // Convert Surface to streamIdx and surfaceIdx
-            for (CaptureRequest request : requestArray) {
-                request.convertSurfaceToStreamId(mConfiguredOutputs);
-            }
-
             requestInfo = mRemoteDevice.submitRequestList(requestArray, repeating);
             if (DEBUG) {
                 Log.v(TAG, "last frame number " + requestInfo.getLastFrameNumber());
             }
 
-            for (CaptureRequest request : requestArray) {
-                request.recoverStreamIdToSurface();
-            }
-
             if (callback != null) {
                 mCaptureCallbackMap.put(requestInfo.getRequestId(),
                         new CaptureCallbackHolder(
-                            callback, requestList, executor, repeating, mNextSessionId - 1));
+                            callback, requestList, handler, repeating, mNextSessionId - 1));
             } else {
                 if (DEBUG) {
                     Log.d(TAG, "Listen for request " + requestInfo.getRequestId() + " is null");
@@ -1089,18 +914,16 @@ public class CameraDeviceImpl extends CameraDevice
             if (repeating) {
                 if (mRepeatingRequestId != REQUEST_ID_NONE) {
                     checkEarlyTriggerSequenceComplete(mRepeatingRequestId,
-                            requestInfo.getLastFrameNumber(),
-                            mRepeatingRequestTypes);
+                            requestInfo.getLastFrameNumber());
                 }
                 mRepeatingRequestId = requestInfo.getRequestId();
-                mRepeatingRequestTypes = getRequestTypes(requestArray);
             } else {
                 mRequestLastFrameNumbersList.add(
                     new RequestLastFrameNumbersHolder(requestList, requestInfo));
             }
 
             if (mIdle) {
-                mDeviceExecutor.execute(mCallOnActive);
+                mDeviceHandler.post(mCallOnActive);
             }
             mIdle = false;
 
@@ -1109,18 +932,18 @@ public class CameraDeviceImpl extends CameraDevice
     }
 
     public int setRepeatingRequest(CaptureRequest request, CaptureCallback callback,
-            Executor executor) throws CameraAccessException {
+            Handler handler) throws CameraAccessException {
         List<CaptureRequest> requestList = new ArrayList<CaptureRequest>();
         requestList.add(request);
-        return submitCaptureRequest(requestList, callback, executor, /*streaming*/true);
+        return submitCaptureRequest(requestList, callback, handler, /*streaming*/true);
     }
 
     public int setRepeatingBurst(List<CaptureRequest> requests, CaptureCallback callback,
-            Executor executor) throws CameraAccessException {
+            Handler handler) throws CameraAccessException {
         if (requests == null || requests.isEmpty()) {
             throw new IllegalArgumentException("At least one request must be given");
         }
-        return submitCaptureRequest(requests, callback, executor, /*streaming*/true);
+        return submitCaptureRequest(requests, callback, handler, /*streaming*/true);
     }
 
     public void stopRepeating() throws CameraAccessException {
@@ -1131,8 +954,6 @@ public class CameraDeviceImpl extends CameraDevice
 
                 int requestId = mRepeatingRequestId;
                 mRepeatingRequestId = REQUEST_ID_NONE;
-                int[] requestTypes = mRepeatingRequestTypes;
-                mRepeatingRequestTypes = null;
 
                 long lastFrameNumber;
                 try {
@@ -1145,7 +966,7 @@ public class CameraDeviceImpl extends CameraDevice
                     return;
                 }
 
-                checkEarlyTriggerSequenceComplete(requestId, lastFrameNumber, requestTypes);
+                checkEarlyTriggerSequenceComplete(requestId, lastFrameNumber);
             }
         }
     }
@@ -1167,21 +988,19 @@ public class CameraDeviceImpl extends CameraDevice
         synchronized(mInterfaceLock) {
             checkIfCameraClosedOrInError();
 
-            mDeviceExecutor.execute(mCallOnBusy);
+            mDeviceHandler.post(mCallOnBusy);
 
             // If already idle, just do a busy->idle transition immediately, don't actually
             // flush.
             if (mIdle) {
-                mDeviceExecutor.execute(mCallOnIdle);
+                mDeviceHandler.post(mCallOnIdle);
                 return;
             }
 
             long lastFrameNumber = mRemoteDevice.flush();
             if (mRepeatingRequestId != REQUEST_ID_NONE) {
-                checkEarlyTriggerSequenceComplete(mRepeatingRequestId, lastFrameNumber,
-                        mRepeatingRequestTypes);
+                checkEarlyTriggerSequenceComplete(mRepeatingRequestId, lastFrameNumber);
                 mRepeatingRequestId = REQUEST_ID_NONE;
-                mRepeatingRequestTypes = null;
             }
         }
     }
@@ -1202,7 +1021,7 @@ public class CameraDeviceImpl extends CameraDevice
             // either a normal close where the remote device is valid
             // or a close after a startup error (no remote device but in error state)
             if (mRemoteDevice != null || mInError) {
-                mDeviceExecutor.execute(mCallOnClosed);
+                mDeviceHandler.post(mCallOnClosed);
             }
 
             mRemoteDevice = null;
@@ -1257,11 +1076,8 @@ public class CameraDeviceImpl extends CameraDevice
      * <p>A callback for tracking the progress of a {@link CaptureRequest}
      * submitted to the camera device.</p>
      *
-     * An interface instead of an abstract class because this is internal and
-     * we want to make sure we always implement all its callbacks until we reach
-     * the public layer.
      */
-    public interface CaptureCallback {
+    public static abstract class CaptureCallback {
 
         /**
          * This constant is used to indicate that no images were captured for
@@ -1278,7 +1094,9 @@ public class CameraDeviceImpl extends CameraDevice
          * @see android.media.MediaActionSound
          */
         public void onCaptureStarted(CameraDevice camera,
-                CaptureRequest request, long timestamp, long frameNumber);
+                CaptureRequest request, long timestamp, long frameNumber) {
+            // default empty implementation
+        }
 
         /**
          * This method is called when some results from an image capture are
@@ -1287,7 +1105,9 @@ public class CameraDeviceImpl extends CameraDevice
          * @hide
          */
         public void onCapturePartial(CameraDevice camera,
-                CaptureRequest request, CaptureResult result);
+                CaptureRequest request, CaptureResult result) {
+            // default empty implementation
+        }
 
         /**
          * This method is called when an image capture makes partial forward progress; some
@@ -1295,14 +1115,18 @@ public class CameraDeviceImpl extends CameraDevice
          *
          */
         public void onCaptureProgressed(CameraDevice camera,
-                CaptureRequest request, CaptureResult partialResult);
+                CaptureRequest request, CaptureResult partialResult) {
+            // default empty implementation
+        }
 
         /**
          * This method is called when an image capture has fully completed and all the
          * result metadata is available.
          */
         public void onCaptureCompleted(CameraDevice camera,
-                CaptureRequest request, TotalCaptureResult result);
+                CaptureRequest request, TotalCaptureResult result) {
+            // default empty implementation
+        }
 
         /**
          * This method is called instead of {@link #onCaptureCompleted} when the
@@ -1310,7 +1134,9 @@ public class CameraDeviceImpl extends CameraDevice
          * request.
          */
         public void onCaptureFailed(CameraDevice camera,
-                CaptureRequest request, CaptureFailure failure);
+                CaptureRequest request, CaptureFailure failure) {
+            // default empty implementation
+        }
 
         /**
          * This method is called independently of the others in CaptureCallback,
@@ -1318,7 +1144,9 @@ public class CameraDeviceImpl extends CameraDevice
          * or {@link CaptureFailure} for it have been returned via this callback.
          */
         public void onCaptureSequenceCompleted(CameraDevice camera,
-                int sequenceId, long frameNumber);
+                int sequenceId, long frameNumber) {
+            // default empty implementation
+        }
 
         /**
          * This method is called independently of the others in CaptureCallback,
@@ -1326,16 +1154,14 @@ public class CameraDeviceImpl extends CameraDevice
          * or {@link CaptureFailure} for it have been returned via this callback.
          */
         public void onCaptureSequenceAborted(CameraDevice camera,
-                int sequenceId);
+                int sequenceId) {
+            // default empty implementation
+        }
 
-        /**
-         * This method is called independently of the others in CaptureCallback, if an output buffer
-         * is dropped for a particular capture request.
-         *
-         * Loss of metadata is communicated via onCaptureFailed, independently of any buffer loss.
-         */
         public void onCaptureBufferLost(CameraDevice camera,
-                CaptureRequest request, Surface target, long frameNumber);
+                CaptureRequest request, Surface target, long frameNumber) {
+            // default empty implementation
+        }
     }
 
     /**
@@ -1378,14 +1204,6 @@ public class CameraDeviceImpl extends CameraDevice
         }
 
         /**
-         * This method is called when camera device's non-repeating request queue is empty,
-         * and is ready to start capturing next image.
-         */
-        public void onRequestQueueEmpty() {
-            // Default empty implementation
-        }
-
-        /**
          * The method called when the camera device has finished preparing
          * an output Surface
          */
@@ -1399,47 +1217,20 @@ public class CameraDeviceImpl extends CameraDevice
         private final boolean mRepeating;
         private final CaptureCallback mCallback;
         private final List<CaptureRequest> mRequestList;
-        private final Executor mExecutor;
+        private final Handler mHandler;
         private final int mSessionId;
-        /**
-         * <p>Determine if the callback holder is for a constrained high speed request list that
-         * expects batched capture results. Capture results will be batched if the request list
-         * is interleaved with preview and video requests. Capture results won't be batched if the
-         * request list only contains preview requests, or if the request doesn't belong to a
-         * constrained high speed list.
-         */
-        private final boolean mHasBatchedOutputs;
 
         CaptureCallbackHolder(CaptureCallback callback, List<CaptureRequest> requestList,
-                Executor executor, boolean repeating, int sessionId) {
-            if (callback == null || executor == null) {
+                Handler handler, boolean repeating, int sessionId) {
+            if (callback == null || handler == null) {
                 throw new UnsupportedOperationException(
                     "Must have a valid handler and a valid callback");
             }
             mRepeating = repeating;
-            mExecutor = executor;
+            mHandler = handler;
             mRequestList = new ArrayList<CaptureRequest>(requestList);
             mCallback = callback;
             mSessionId = sessionId;
-
-            // Check whether this callback holder is for batched outputs.
-            // The logic here should match createHighSpeedRequestList.
-            boolean hasBatchedOutputs = true;
-            for (int i = 0; i < requestList.size(); i++) {
-                CaptureRequest request = requestList.get(i);
-                if (!request.isPartOfCRequestList()) {
-                    hasBatchedOutputs = false;
-                    break;
-                }
-                if (i == 0) {
-                    Collection<Surface> targets = request.getTargets();
-                    if (targets.size() != 2) {
-                        hasBatchedOutputs = false;
-                        break;
-                    }
-                }
-            }
-            mHasBatchedOutputs = hasBatchedOutputs;
         }
 
         public boolean isRepeating() {
@@ -1470,25 +1261,17 @@ public class CameraDeviceImpl extends CameraDevice
             return getRequest(0);
         }
 
-        public Executor getExecutor() {
-            return mExecutor;
+        public Handler getHandler() {
+            return mHandler;
         }
 
         public int getSessionId() {
             return mSessionId;
         }
-
-        public int getRequestCount() {
-            return mRequestList.size();
-        }
-
-        public boolean hasBatchedOutputs() {
-            return mHasBatchedOutputs;
-        }
     }
 
     /**
-     * This class holds a capture ID and its expected last regular, zslStill, and reprocess
+     * This class holds a capture ID and its expected last regular frame number and last reprocess
      * frame number.
      */
     static class RequestLastFrameNumbersHolder {
@@ -1500,9 +1283,6 @@ public class CameraDeviceImpl extends CameraDevice
         // The last reprocess frame number for this request ID. It's
         // CaptureCallback.NO_FRAMES_CAPTURED if the request ID has no reprocess request.
         private final long mLastReprocessFrameNumber;
-        // The last ZSL still capture frame number for this request ID. It's
-        // CaptureCallback.NO_FRAMES_CAPTURED if the request ID has no zsl request.
-        private final long mLastZslStillFrameNumber;
 
         /**
          * Create a request-last-frame-numbers holder with a list of requests, request ID, and
@@ -1511,7 +1291,6 @@ public class CameraDeviceImpl extends CameraDevice
         public RequestLastFrameNumbersHolder(List<CaptureRequest> requestList, SubmitInfo requestInfo) {
             long lastRegularFrameNumber = CaptureCallback.NO_FRAMES_CAPTURED;
             long lastReprocessFrameNumber = CaptureCallback.NO_FRAMES_CAPTURED;
-            long lastZslStillFrameNumber = CaptureCallback.NO_FRAMES_CAPTURED;
             long frameNumber = requestInfo.getLastFrameNumber();
 
             if (requestInfo.getLastFrameNumber() < requestList.size() - 1) {
@@ -1521,24 +1300,19 @@ public class CameraDeviceImpl extends CameraDevice
                         " requests in the list: " + requestList.size());
             }
 
-            // find the last regular, zslStill, and reprocess frame number
+            // find the last regular frame number and the last reprocess frame number
             for (int i = requestList.size() - 1; i >= 0; i--) {
                 CaptureRequest request = requestList.get(i);
-                int requestType = request.getRequestType();
-                if (requestType == CaptureRequest.REQUEST_TYPE_REPROCESS
-                        && lastReprocessFrameNumber == CaptureCallback.NO_FRAMES_CAPTURED) {
+                if (request.isReprocess() && lastReprocessFrameNumber ==
+                        CaptureCallback.NO_FRAMES_CAPTURED) {
                     lastReprocessFrameNumber = frameNumber;
-                } else if (requestType == CaptureRequest.REQUEST_TYPE_ZSL_STILL
-                        && lastZslStillFrameNumber == CaptureCallback.NO_FRAMES_CAPTURED) {
-                    lastZslStillFrameNumber = frameNumber;
-                } else if (requestType == CaptureRequest.REQUEST_TYPE_REGULAR
-                        && lastRegularFrameNumber == CaptureCallback.NO_FRAMES_CAPTURED) {
+                } else if (!request.isReprocess() && lastRegularFrameNumber ==
+                        CaptureCallback.NO_FRAMES_CAPTURED) {
                     lastRegularFrameNumber = frameNumber;
                 }
 
-                if (lastReprocessFrameNumber != CaptureCallback.NO_FRAMES_CAPTURED
-                        && lastZslStillFrameNumber != CaptureCallback.NO_FRAMES_CAPTURED
-                        && lastRegularFrameNumber != CaptureCallback.NO_FRAMES_CAPTURED) {
+                if (lastReprocessFrameNumber != CaptureCallback.NO_FRAMES_CAPTURED &&
+                        lastRegularFrameNumber != CaptureCallback.NO_FRAMES_CAPTURED) {
                     break;
                 }
 
@@ -1547,51 +1321,15 @@ public class CameraDeviceImpl extends CameraDevice
 
             mLastRegularFrameNumber = lastRegularFrameNumber;
             mLastReprocessFrameNumber = lastReprocessFrameNumber;
-            mLastZslStillFrameNumber = lastZslStillFrameNumber;
             mRequestId = requestInfo.getRequestId();
         }
 
         /**
-         * Create a request-last-frame-numbers holder with a request ID and last regular/ZslStill
-         * frame number.
+         * Create a request-last-frame-numbers holder with a request ID and last regular frame
+         * number.
          */
-        RequestLastFrameNumbersHolder(int requestId, long lastFrameNumber,
-                int[] repeatingRequestTypes) {
-            long lastRegularFrameNumber = CaptureCallback.NO_FRAMES_CAPTURED;
-            long lastZslStillFrameNumber = CaptureCallback.NO_FRAMES_CAPTURED;
-
-            if (repeatingRequestTypes == null) {
-                throw new IllegalArgumentException(
-                        "repeatingRequest list must not be null");
-            }
-            if (lastFrameNumber < repeatingRequestTypes.length - 1) {
-                throw new IllegalArgumentException(
-                        "lastFrameNumber: " + lastFrameNumber + " should be at least "
-                        + (repeatingRequestTypes.length - 1)
-                        + " for the number of requests in the list: "
-                        + repeatingRequestTypes.length);
-            }
-
-            long frameNumber = lastFrameNumber;
-            for (int i = repeatingRequestTypes.length - 1; i >= 0; i--) {
-                if (repeatingRequestTypes[i] == CaptureRequest.REQUEST_TYPE_ZSL_STILL
-                        && lastZslStillFrameNumber == CaptureCallback.NO_FRAMES_CAPTURED) {
-                    lastZslStillFrameNumber = frameNumber;
-                } else if (repeatingRequestTypes[i] == CaptureRequest.REQUEST_TYPE_REGULAR
-                        && lastRegularFrameNumber == CaptureCallback.NO_FRAMES_CAPTURED) {
-                    lastRegularFrameNumber = frameNumber;
-                }
-
-                if (lastZslStillFrameNumber != CaptureCallback.NO_FRAMES_CAPTURED
-                        && lastRegularFrameNumber != CaptureCallback.NO_FRAMES_CAPTURED) {
-                    break;
-                }
-
-                frameNumber--;
-            }
-
+        public RequestLastFrameNumbersHolder(int requestId, long lastRegularFrameNumber) {
             mLastRegularFrameNumber = lastRegularFrameNumber;
-            mLastZslStillFrameNumber = lastZslStillFrameNumber;
             mLastReprocessFrameNumber = CaptureCallback.NO_FRAMES_CAPTURED;
             mRequestId = requestId;
         }
@@ -1613,19 +1351,10 @@ public class CameraDeviceImpl extends CameraDevice
         }
 
         /**
-         * Return the last ZslStill frame number. Return CaptureCallback.NO_FRAMES_CAPTURED if
-         * it contains no Zsl request.
-         */
-        public long getLastZslStillFrameNumber() {
-            return mLastZslStillFrameNumber;
-        }
-
-        /**
          * Return the last frame number overall.
          */
         public long getLastFrameNumber() {
-            return Math.max(mLastZslStillFrameNumber,
-                    Math.max(mLastRegularFrameNumber, mLastReprocessFrameNumber));
+            return Math.max(mLastRegularFrameNumber, mLastReprocessFrameNumber);
         }
 
         /**
@@ -1641,58 +1370,43 @@ public class CameraDeviceImpl extends CameraDevice
      */
     public class FrameNumberTracker {
 
-        /** the completed frame number for each type of capture results */
-        private long[] mCompletedFrameNumber = new long[CaptureRequest.REQUEST_TYPE_COUNT];
-
-        /** the skipped frame numbers that don't belong to each type of capture results */
-        private final LinkedList<Long>[] mSkippedOtherFrameNumbers =
-                new LinkedList[CaptureRequest.REQUEST_TYPE_COUNT];
-
-        /** the skipped frame numbers that belong to each type of capture results */
-        private final LinkedList<Long>[] mSkippedFrameNumbers =
-                new LinkedList[CaptureRequest.REQUEST_TYPE_COUNT];
-
-        /** frame number -> request type */
-        private final TreeMap<Long, Integer> mFutureErrorMap = new TreeMap<Long, Integer>();
+        private long mCompletedFrameNumber = CaptureCallback.NO_FRAMES_CAPTURED;
+        private long mCompletedReprocessFrameNumber = CaptureCallback.NO_FRAMES_CAPTURED;
+        /** the skipped frame numbers that belong to regular results */
+        private final LinkedList<Long> mSkippedRegularFrameNumbers = new LinkedList<Long>();
+        /** the skipped frame numbers that belong to reprocess results */
+        private final LinkedList<Long> mSkippedReprocessFrameNumbers = new LinkedList<Long>();
+        /** frame number -> is reprocess */
+        private final TreeMap<Long, Boolean> mFutureErrorMap = new TreeMap<Long, Boolean>();
         /** Map frame numbers to list of partial results */
         private final HashMap<Long, List<CaptureResult>> mPartialResults = new HashMap<>();
-
-        public FrameNumberTracker() {
-            for (int i = 0; i < CaptureRequest.REQUEST_TYPE_COUNT; i++) {
-                mCompletedFrameNumber[i] = CaptureCallback.NO_FRAMES_CAPTURED;
-                mSkippedOtherFrameNumbers[i] = new LinkedList<Long>();
-                mSkippedFrameNumbers[i] = new LinkedList<Long>();
-            }
-        }
 
         private void update() {
             Iterator iter = mFutureErrorMap.entrySet().iterator();
             while (iter.hasNext()) {
                 TreeMap.Entry pair = (TreeMap.Entry)iter.next();
                 Long errorFrameNumber = (Long)pair.getKey();
-                int requestType = (int) pair.getValue();
-                Boolean removeError = false;
-                if (errorFrameNumber == mCompletedFrameNumber[requestType] + 1) {
-                    mCompletedFrameNumber[requestType] = errorFrameNumber;
-                    removeError = true;
-                } else {
-                    if (!mSkippedFrameNumbers[requestType].isEmpty()) {
-                        if (errorFrameNumber == mSkippedFrameNumbers[requestType].element()) {
-                            mCompletedFrameNumber[requestType] = errorFrameNumber;
-                            mSkippedFrameNumbers[requestType].remove();
-                            removeError = true;
-                        }
+                Boolean reprocess = (Boolean)pair.getValue();
+                Boolean removeError = true;
+                if (reprocess) {
+                    if (errorFrameNumber == mCompletedReprocessFrameNumber + 1) {
+                        mCompletedReprocessFrameNumber = errorFrameNumber;
+                    } else if (mSkippedReprocessFrameNumbers.isEmpty() != true &&
+                            errorFrameNumber == mSkippedReprocessFrameNumbers.element()) {
+                        mCompletedReprocessFrameNumber = errorFrameNumber;
+                        mSkippedReprocessFrameNumbers.remove();
                     } else {
-                        for (int i = 1; i < CaptureRequest.REQUEST_TYPE_COUNT; i++) {
-                            int otherType = (requestType + i) % CaptureRequest.REQUEST_TYPE_COUNT;
-                            if (!mSkippedOtherFrameNumbers[otherType].isEmpty() && errorFrameNumber
-                                    == mSkippedOtherFrameNumbers[otherType].element()) {
-                                mCompletedFrameNumber[requestType] = errorFrameNumber;
-                                mSkippedOtherFrameNumbers[otherType].remove();
-                                removeError = true;
-                                break;
-                            }
-                        }
+                        removeError = false;
+                    }
+                } else {
+                    if (errorFrameNumber == mCompletedFrameNumber + 1) {
+                        mCompletedFrameNumber = errorFrameNumber;
+                    } else if (mSkippedRegularFrameNumbers.isEmpty() != true &&
+                            errorFrameNumber == mSkippedRegularFrameNumbers.element()) {
+                        mCompletedFrameNumber = errorFrameNumber;
+                        mSkippedRegularFrameNumbers.remove();
+                    } else {
+                        removeError = false;
                     }
                 }
                 if (removeError) {
@@ -1705,14 +1419,18 @@ public class CameraDeviceImpl extends CameraDevice
          * This function is called every time when a result or an error is received.
          * @param frameNumber the frame number corresponding to the result or error
          * @param isError true if it is an error, false if it is not an error
-         * @param requestType the type of capture request: Reprocess, ZslStill, or Regular.
+         * @param isReprocess true if it is a reprocess result, false if it is a regular result.
          */
-        public void updateTracker(long frameNumber, boolean isError, int requestType) {
+        public void updateTracker(long frameNumber, boolean isError, boolean isReprocess) {
             if (isError) {
-                mFutureErrorMap.put(frameNumber, requestType);
+                mFutureErrorMap.put(frameNumber, isReprocess);
             } else {
                 try {
-                    updateCompletedFrameNumber(frameNumber, requestType);
+                    if (isReprocess) {
+                        updateCompletedReprocessFrameNumber(frameNumber);
+                    } else {
+                        updateCompletedFrameNumber(frameNumber);
+                    }
                 } catch (IllegalArgumentException e) {
                     Log.e(TAG, e.getMessage());
                 }
@@ -1729,13 +1447,13 @@ public class CameraDeviceImpl extends CameraDevice
          * @param frameNumber the frame number corresponding to the result
          * @param result the total or partial result
          * @param partial {@true} if the result is partial, {@code false} if total
-         * @param requestType the type of capture request: Reprocess, ZslStill, or Regular.
+         * @param isReprocess true if it is a reprocess result, false if it is a regular result.
          */
         public void updateTracker(long frameNumber, CaptureResult result, boolean partial,
-                int requestType) {
+                boolean isReprocess) {
             if (!partial) {
                 // Update the total result's frame status as being successful
-                updateTracker(frameNumber, /*isError*/false, requestType);
+                updateTracker(frameNumber, /*isError*/false, isReprocess);
                 // Don't keep a list of total results, we don't need to track them
                 return;
             }
@@ -1771,105 +1489,92 @@ public class CameraDeviceImpl extends CameraDevice
         }
 
         public long getCompletedFrameNumber() {
-            return mCompletedFrameNumber[CaptureRequest.REQUEST_TYPE_REGULAR];
+            return mCompletedFrameNumber;
         }
 
         public long getCompletedReprocessFrameNumber() {
-            return mCompletedFrameNumber[CaptureRequest.REQUEST_TYPE_REPROCESS];
-        }
-
-        public long getCompletedZslStillFrameNumber() {
-            return mCompletedFrameNumber[CaptureRequest.REQUEST_TYPE_ZSL_STILL];
+            return mCompletedReprocessFrameNumber;
         }
 
         /**
-         * Update the completed frame number for results of 3 categories
-         * (Regular/Reprocess/ZslStill).
+         * Update the completed frame number for regular results.
          *
-         * It validates that all previous frames of the same category have arrived.
+         * It validates that all previous frames have arrived except for reprocess frames.
          *
-         * If there is a gap since previous frame number of the same category, assume the frames in
-         * the gap are other categories and store them in the skipped frame number queue to check
-         * against when frames of those categories arrive.
+         * If there is a gap since previous regular frame number, assume the frames in the gap are
+         * reprocess frames and store them in the skipped reprocess frame number queue to check
+         * against when reprocess frames arrive.
          */
-        private void updateCompletedFrameNumber(long frameNumber,
-                int requestType) throws IllegalArgumentException {
-            if (frameNumber <= mCompletedFrameNumber[requestType]) {
+        private void updateCompletedFrameNumber(long frameNumber) throws IllegalArgumentException {
+            if (frameNumber <= mCompletedFrameNumber) {
                 throw new IllegalArgumentException("frame number " + frameNumber + " is a repeat");
-            }
-
-            // Assume there are only 3 different types of capture requests.
-            int otherType1 = (requestType + 1) % CaptureRequest.REQUEST_TYPE_COUNT;
-            int otherType2 = (requestType + 2) % CaptureRequest.REQUEST_TYPE_COUNT;
-            long maxOtherFrameNumberSeen =
-                    Math.max(mCompletedFrameNumber[otherType1], mCompletedFrameNumber[otherType2]);
-            if (frameNumber < maxOtherFrameNumberSeen) {
-                // if frame number is smaller than completed frame numbers of other categories,
-                // it must be:
-                // - the head of mSkippedFrameNumbers for this category, or
-                // - in one of other mSkippedOtherFrameNumbers
-                if (!mSkippedFrameNumbers[requestType].isEmpty()) {
-                    // frame number must be head of current type of mSkippedFrameNumbers if
-                    // mSkippedFrameNumbers isn't empty.
-                    if (frameNumber < mSkippedFrameNumbers[requestType].element()) {
-                        throw new IllegalArgumentException("frame number " + frameNumber
-                                + " is a repeat");
-                    } else if (frameNumber > mSkippedFrameNumbers[requestType].element()) {
-                        throw new IllegalArgumentException("frame number " + frameNumber
-                                + " comes out of order. Expecting "
-                                + mSkippedFrameNumbers[requestType].element());
-                    }
-                    // frame number matches the head of the skipped frame number queue.
-                    mSkippedFrameNumbers[requestType].remove();
-                } else {
-                    // frame number must be in one of the other mSkippedOtherFrameNumbers.
-                    int index1 = mSkippedOtherFrameNumbers[otherType1].indexOf(frameNumber);
-                    int index2 = mSkippedOtherFrameNumbers[otherType2].indexOf(frameNumber);
-                    boolean inSkippedOther1 = index1 != -1;
-                    boolean inSkippedOther2 = index2 != -1;
-                    if (!(inSkippedOther1 ^ inSkippedOther2)) {
-                        throw new IllegalArgumentException("frame number " + frameNumber
-                                + " is a repeat or invalid");
-                    }
-
-                    // We know the category of frame numbers in skippedOtherFrameNumbers leading up
-                    // to the current frame number. Move them into the correct skippedFrameNumbers.
-                    LinkedList<Long> srcList, dstList;
-                    int index;
-                    if (inSkippedOther1) {
-                        srcList = mSkippedOtherFrameNumbers[otherType1];
-                        dstList = mSkippedFrameNumbers[otherType2];
-                        index = index1;
-                    } else {
-                        srcList = mSkippedOtherFrameNumbers[otherType2];
-                        dstList = mSkippedFrameNumbers[otherType1];
-                        index = index2;
-                    }
-                    for (int i = 0; i < index; i++) {
-                        dstList.add(srcList.removeFirst());
-                    }
-
-                    // Remove current frame number from skippedOtherFrameNumbers
-                    srcList.remove();
+            } else if (frameNumber <= mCompletedReprocessFrameNumber) {
+                // if frame number is smaller than completed reprocess frame number,
+                // it must be the head of mSkippedRegularFrameNumbers
+                if (mSkippedRegularFrameNumbers.isEmpty() == true ||
+                        frameNumber < mSkippedRegularFrameNumbers.element()) {
+                    throw new IllegalArgumentException("frame number " + frameNumber +
+                            " is a repeat");
+                } else if (frameNumber > mSkippedRegularFrameNumbers.element()) {
+                    throw new IllegalArgumentException("frame number " + frameNumber +
+                            " comes out of order. Expecting " +
+                            mSkippedRegularFrameNumbers.element());
                 }
+                // frame number matches the head of the skipped frame number queue.
+                mSkippedRegularFrameNumbers.remove();
             } else {
-                // there is a gap of unseen frame numbers which should belong to the other
-                // 2 categories. Put all the skipped frame numbers in the queue.
-                for (long i =
-                        Math.max(maxOtherFrameNumberSeen, mCompletedFrameNumber[requestType]) + 1;
+                // there is a gap of unseen frame numbers which should belong to reprocess result
+                // put all the skipped frame numbers in the queue
+                for (long i = Math.max(mCompletedFrameNumber, mCompletedReprocessFrameNumber) + 1;
                         i < frameNumber; i++) {
-                    mSkippedOtherFrameNumbers[requestType].add(i);
+                    mSkippedReprocessFrameNumbers.add(i);
                 }
             }
 
-            mCompletedFrameNumber[requestType] = frameNumber;
+            mCompletedFrameNumber = frameNumber;
+        }
+
+        /**
+         * Update the completed frame number for reprocess results.
+         *
+         * It validates that all previous frames have arrived except for regular frames.
+         *
+         * If there is a gap since previous reprocess frame number, assume the frames in the gap are
+         * regular frames and store them in the skipped regular frame number queue to check
+         * against when regular frames arrive.
+         */
+        private void updateCompletedReprocessFrameNumber(long frameNumber)
+                throws IllegalArgumentException {
+            if (frameNumber < mCompletedReprocessFrameNumber) {
+                throw new IllegalArgumentException("frame number " + frameNumber + " is a repeat");
+            } else if (frameNumber < mCompletedFrameNumber) {
+                // if reprocess frame number is smaller than completed regular frame number,
+                // it must be the head of the skipped reprocess frame number queue.
+                if (mSkippedReprocessFrameNumbers.isEmpty() == true ||
+                        frameNumber < mSkippedReprocessFrameNumbers.element()) {
+                    throw new IllegalArgumentException("frame number " + frameNumber +
+                            " is a repeat");
+                } else if (frameNumber > mSkippedReprocessFrameNumbers.element()) {
+                    throw new IllegalArgumentException("frame number " + frameNumber +
+                            " comes out of order. Expecting " +
+                            mSkippedReprocessFrameNumbers.element());
+                }
+                // frame number matches the head of the skipped frame number queue.
+                mSkippedReprocessFrameNumbers.remove();
+            } else {
+                // put all the skipped frame numbers in the queue
+                for (long i = Math.max(mCompletedFrameNumber, mCompletedReprocessFrameNumber) + 1;
+                        i < frameNumber; i++) {
+                    mSkippedRegularFrameNumbers.add(i);
+                }
+            }
+            mCompletedReprocessFrameNumber = frameNumber;
         }
     }
 
     private void checkAndFireSequenceComplete() {
         long completedFrameNumber = mFrameNumberTracker.getCompletedFrameNumber();
         long completedReprocessFrameNumber = mFrameNumberTracker.getCompletedReprocessFrameNumber();
-        long completedZslStillFrameNumber = mFrameNumberTracker.getCompletedZslStillFrameNumber();
         boolean isReprocess = false;
         Iterator<RequestLastFrameNumbersHolder> iter = mRequestLastFrameNumbersList.iterator();
         while (iter.hasNext()) {
@@ -1891,22 +1596,18 @@ public class CameraDeviceImpl extends CameraDevice
                             requestLastFrameNumbers.getLastRegularFrameNumber();
                     long lastReprocessFrameNumber =
                             requestLastFrameNumbers.getLastReprocessFrameNumber();
-                    long lastZslStillFrameNumber =
-                            requestLastFrameNumbers.getLastZslStillFrameNumber();
+
                     // check if it's okay to remove request from mCaptureCallbackMap
-                    if (lastRegularFrameNumber <= completedFrameNumber
-                            && lastReprocessFrameNumber <= completedReprocessFrameNumber
-                            && lastZslStillFrameNumber <= completedZslStillFrameNumber) {
+                    if (lastRegularFrameNumber <= completedFrameNumber &&
+                            lastReprocessFrameNumber <= completedReprocessFrameNumber) {
                         sequenceCompleted = true;
                         mCaptureCallbackMap.removeAt(index);
                         if (DEBUG) {
                             Log.v(TAG, String.format(
-                                    "Remove holder for requestId %d, because lastRegularFrame %d "
-                                    + "is <= %d, lastReprocessFrame %d is <= %d, "
-                                    + "lastZslStillFrame %d is <= %d", requestId,
+                                    "Remove holder for requestId %d, because lastRegularFrame %d " +
+                                    "is <= %d and lastReprocessFrame %d is <= %d", requestId,
                                     lastRegularFrameNumber, completedFrameNumber,
-                                    lastReprocessFrameNumber, completedReprocessFrameNumber,
-                                    lastZslStillFrameNumber, completedZslStillFrameNumber));
+                                    lastReprocessFrameNumber, completedReprocessFrameNumber));
                         }
                     }
                 }
@@ -1937,12 +1638,7 @@ public class CameraDeviceImpl extends CameraDevice
                         }
                     }
                 };
-                final long ident = Binder.clearCallingIdentity();
-                try {
-                    holder.getExecutor().execute(resultDispatch);
-                } finally {
-                    Binder.restoreCallingIdentity(ident);
-                }
+                holder.getHandler().post(resultDispatch);
             }
         }
     }
@@ -1970,50 +1666,38 @@ public class CameraDeviceImpl extends CameraDevice
 
                 switch (errorCode) {
                     case ERROR_CAMERA_DISCONNECTED:
-                        final long ident = Binder.clearCallingIdentity();
-                        try {
-                            CameraDeviceImpl.this.mDeviceExecutor.execute(mCallOnDisconnected);
-                        } finally {
-                            Binder.restoreCallingIdentity(ident);
-                        }
+                        CameraDeviceImpl.this.mDeviceHandler.post(mCallOnDisconnected);
+                        break;
+                    default:
+                        Log.e(TAG, "Unknown error from camera device: " + errorCode);
+                        // no break
+                    case ERROR_CAMERA_DEVICE:
+                    case ERROR_CAMERA_SERVICE:
+                        mInError = true;
+                        final int publicErrorCode = (errorCode == ERROR_CAMERA_DEVICE) ?
+                                StateCallback.ERROR_CAMERA_DEVICE :
+                                StateCallback.ERROR_CAMERA_SERVICE;
+                        Runnable r = new Runnable() {
+                            @Override
+                            public void run() {
+                                if (!CameraDeviceImpl.this.isClosed()) {
+                                    mDeviceCallback.onError(CameraDeviceImpl.this, publicErrorCode);
+                                }
+                            }
+                        };
+                        CameraDeviceImpl.this.mDeviceHandler.post(r);
                         break;
                     case ERROR_CAMERA_REQUEST:
                     case ERROR_CAMERA_RESULT:
                     case ERROR_CAMERA_BUFFER:
                         onCaptureErrorLocked(errorCode, resultExtras);
                         break;
-                    case ERROR_CAMERA_DEVICE:
-                        scheduleNotifyError(StateCallback.ERROR_CAMERA_DEVICE);
-                        break;
-                    case ERROR_CAMERA_DISABLED:
-                        scheduleNotifyError(StateCallback.ERROR_CAMERA_DISABLED);
-                        break;
-                    default:
-                        Log.e(TAG, "Unknown error from camera device: " + errorCode);
-                        scheduleNotifyError(StateCallback.ERROR_CAMERA_SERVICE);
                 }
             }
         }
 
-        private void scheduleNotifyError(int code) {
-            mInError = true;
-            final long ident = Binder.clearCallingIdentity();
-            try {
-                CameraDeviceImpl.this.mDeviceExecutor.execute(obtainRunnable(
-                            CameraDeviceCallbacks::notifyError, this, code).recycleOnUse());
-            } finally {
-                Binder.restoreCallingIdentity(ident);
-            }
-        }
-
-        private void notifyError(int code) {
-            if (!CameraDeviceImpl.this.isClosed()) {
-                mDeviceCallback.onError(CameraDeviceImpl.this, code);
-            }
-        }
-
         @Override
-        public void onRepeatingRequestError(long lastFrameNumber, int repeatingRequestId) {
+        public void onRepeatingRequestError(long lastFrameNumber) {
             if (DEBUG) {
                 Log.d(TAG, "Repeating request error received. Last frame number is " +
                         lastFrameNumber);
@@ -2025,13 +1709,8 @@ public class CameraDeviceImpl extends CameraDevice
                     return; // Camera already closed
                 }
 
-                checkEarlyTriggerSequenceComplete(mRepeatingRequestId, lastFrameNumber,
-                        mRepeatingRequestTypes);
-                // Check if there is already a new repeating request
-                if (mRepeatingRequestId == repeatingRequestId) {
-                    mRepeatingRequestId = REQUEST_ID_NONE;
-                    mRepeatingRequestTypes = null;
-                }
+                checkEarlyTriggerSequenceComplete(mRepeatingRequestId, lastFrameNumber);
+                mRepeatingRequestId = REQUEST_ID_NONE;
             }
         }
 
@@ -2044,12 +1723,7 @@ public class CameraDeviceImpl extends CameraDevice
                 if (mRemoteDevice == null) return; // Camera already closed
 
                 if (!CameraDeviceImpl.this.mIdle) {
-                    final long ident = Binder.clearCallingIdentity();
-                    try {
-                        CameraDeviceImpl.this.mDeviceExecutor.execute(mCallOnIdle);
-                    } finally {
-                        Binder.restoreCallingIdentity(ident);
-                    }
+                    CameraDeviceImpl.this.mDeviceHandler.post(mCallOnIdle);
                 }
                 CameraDeviceImpl.this.mIdle = true;
             }
@@ -2078,48 +1752,25 @@ public class CameraDeviceImpl extends CameraDevice
                 if (isClosed()) return;
 
                 // Dispatch capture start notice
-                final long ident = Binder.clearCallingIdentity();
-                try {
-                    holder.getExecutor().execute(
-                        new Runnable() {
-                            @Override
-                            public void run() {
-                                if (!CameraDeviceImpl.this.isClosed()) {
-                                    final int subsequenceId = resultExtras.getSubsequenceId();
-                                    final CaptureRequest request = holder.getRequest(subsequenceId);
-
-                                    if (holder.hasBatchedOutputs()) {
-                                        // Send derived onCaptureStarted for requests within the
-                                        // batch
-                                        final Range<Integer> fpsRange =
-                                            request.get(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE);
-                                        for (int i = 0; i < holder.getRequestCount(); i++) {
-                                            holder.getCallback().onCaptureStarted(
-                                                CameraDeviceImpl.this,
-                                                holder.getRequest(i),
-                                                timestamp - (subsequenceId - i) *
-                                                NANO_PER_SECOND/fpsRange.getUpper(),
-                                                frameNumber - (subsequenceId - i));
-                                        }
-                                    } else {
-                                        holder.getCallback().onCaptureStarted(
-                                            CameraDeviceImpl.this,
-                                            holder.getRequest(resultExtras.getSubsequenceId()),
-                                            timestamp, frameNumber);
-                                    }
-                                }
+                holder.getHandler().post(
+                    new Runnable() {
+                        @Override
+                        public void run() {
+                            if (!CameraDeviceImpl.this.isClosed()) {
+                                holder.getCallback().onCaptureStarted(
+                                    CameraDeviceImpl.this,
+                                    holder.getRequest(resultExtras.getSubsequenceId()),
+                                    timestamp, frameNumber);
                             }
-                        });
-                } finally {
-                    Binder.restoreCallingIdentity(ident);
-                }
+                        }
+                    });
+
             }
         }
 
         @Override
         public void onResultReceived(CameraMetadataNative result,
-                CaptureResultExtras resultExtras, PhysicalCaptureResultInfo physicalResults[])
-                throws RemoteException {
+                CaptureResultExtras resultExtras) throws RemoteException {
 
             int requestId = resultExtras.getRequestId();
             long frameNumber = resultExtras.getFrameNumber();
@@ -2142,7 +1793,7 @@ public class CameraDeviceImpl extends CameraDevice
 
                 boolean isPartialResult =
                         (resultExtras.getPartialResultCount() < mTotalPartialCount);
-                int requestType = request.getRequestType();
+                boolean isReprocess = request.isReprocess();
 
                 // Check if we have a callback for this
                 if (holder == null) {
@@ -2153,7 +1804,7 @@ public class CameraDeviceImpl extends CameraDevice
                     }
 
                     mFrameNumberTracker.updateTracker(frameNumber, /*result*/null, isPartialResult,
-                            requestType);
+                            isReprocess);
 
                     return;
                 }
@@ -2166,7 +1817,7 @@ public class CameraDeviceImpl extends CameraDevice
                     }
 
                     mFrameNumberTracker.updateTracker(frameNumber, /*result*/null, isPartialResult,
-                            requestType);
+                            isReprocess);
                     return;
                 }
 
@@ -2174,107 +1825,54 @@ public class CameraDeviceImpl extends CameraDevice
                 Runnable resultDispatch = null;
 
                 CaptureResult finalResult;
-                // Make a copy of the native metadata before it gets moved to a CaptureResult
-                // object.
-                final CameraMetadataNative resultCopy;
-                if (holder.hasBatchedOutputs()) {
-                    resultCopy = new CameraMetadataNative(result);
-                } else {
-                    resultCopy = null;
-                }
 
                 // Either send a partial result or the final capture completed result
                 if (isPartialResult) {
                     final CaptureResult resultAsCapture =
                             new CaptureResult(result, request, resultExtras);
+
                     // Partial result
                     resultDispatch = new Runnable() {
                         @Override
                         public void run() {
-                            if (!CameraDeviceImpl.this.isClosed()) {
-                                if (holder.hasBatchedOutputs()) {
-                                    // Send derived onCaptureProgressed for requests within
-                                    // the batch.
-                                    for (int i = 0; i < holder.getRequestCount(); i++) {
-                                        CameraMetadataNative resultLocal =
-                                                new CameraMetadataNative(resultCopy);
-                                        CaptureResult resultInBatch = new CaptureResult(
-                                                resultLocal, holder.getRequest(i), resultExtras);
-
-                                        holder.getCallback().onCaptureProgressed(
-                                            CameraDeviceImpl.this,
-                                            holder.getRequest(i),
-                                            resultInBatch);
-                                    }
-                                } else {
-                                    holder.getCallback().onCaptureProgressed(
-                                        CameraDeviceImpl.this,
-                                        request,
-                                        resultAsCapture);
-                                }
+                            if (!CameraDeviceImpl.this.isClosed()){
+                                holder.getCallback().onCaptureProgressed(
+                                    CameraDeviceImpl.this,
+                                    request,
+                                    resultAsCapture);
                             }
                         }
                     };
+
                     finalResult = resultAsCapture;
                 } else {
                     List<CaptureResult> partialResults =
                             mFrameNumberTracker.popPartialResults(frameNumber);
 
-                    final long sensorTimestamp =
-                            result.get(CaptureResult.SENSOR_TIMESTAMP);
-                    final Range<Integer> fpsRange =
-                            request.get(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE);
-                    final int subsequenceId = resultExtras.getSubsequenceId();
                     final TotalCaptureResult resultAsCapture = new TotalCaptureResult(result,
-                            request, resultExtras, partialResults, holder.getSessionId(),
-                            physicalResults);
+                            request, resultExtras, partialResults, holder.getSessionId());
+
                     // Final capture result
                     resultDispatch = new Runnable() {
                         @Override
                         public void run() {
                             if (!CameraDeviceImpl.this.isClosed()){
-                                if (holder.hasBatchedOutputs()) {
-                                    // Send derived onCaptureCompleted for requests within
-                                    // the batch.
-                                    for (int i = 0; i < holder.getRequestCount(); i++) {
-                                        resultCopy.set(CaptureResult.SENSOR_TIMESTAMP,
-                                                sensorTimestamp - (subsequenceId - i) *
-                                                NANO_PER_SECOND/fpsRange.getUpper());
-                                        CameraMetadataNative resultLocal =
-                                                new CameraMetadataNative(resultCopy);
-                                        // No logical multi-camera support for batched output mode.
-                                        TotalCaptureResult resultInBatch = new TotalCaptureResult(
-                                            resultLocal, holder.getRequest(i), resultExtras,
-                                            partialResults, holder.getSessionId(),
-                                            new PhysicalCaptureResultInfo[0]);
-
-                                        holder.getCallback().onCaptureCompleted(
-                                            CameraDeviceImpl.this,
-                                            holder.getRequest(i),
-                                            resultInBatch);
-                                    }
-                                } else {
-                                    holder.getCallback().onCaptureCompleted(
-                                        CameraDeviceImpl.this,
-                                        request,
-                                        resultAsCapture);
-                                }
+                                holder.getCallback().onCaptureCompleted(
+                                    CameraDeviceImpl.this,
+                                    request,
+                                    resultAsCapture);
                             }
                         }
                     };
+
                     finalResult = resultAsCapture;
                 }
 
-                final long ident = Binder.clearCallingIdentity();
-                try {
-                    holder.getExecutor().execute(resultDispatch);
-                } finally {
-                    Binder.restoreCallingIdentity(ident);
-                }
+                holder.getHandler().post(resultDispatch);
 
                 // Collect the partials for a total result; or mark the frame as totally completed
                 mFrameNumberTracker.updateTracker(frameNumber, finalResult, isPartialResult,
-                        requestType);
+                        isReprocess);
 
                 // Fire onCaptureSequenceCompleted
                 if (!isPartialResult) {
@@ -2303,27 +1901,9 @@ public class CameraDeviceImpl extends CameraDevice
                 Log.w(TAG, "onPrepared invoked for unknown output Surface");
                 return;
             }
-            final List<Surface> surfaces = output.getSurfaces();
-            for (Surface surface : surfaces) {
-                sessionCallback.onSurfacePrepared(surface);
-            }
-        }
+            final Surface surface = output.getSurface();
 
-        @Override
-        public void onRequestQueueEmpty() {
-            final StateCallbackKK sessionCallback;
-
-            if (DEBUG) {
-                Log.v(TAG, "Request queue becomes empty");
-            }
-
-            synchronized(mInterfaceLock) {
-                sessionCallback = mSessionStateCallback;
-            }
-
-            if (sessionCallback == null) return;
-
-            sessionCallback.onRequestQueueEmpty();
+            sessionCallback.onSurfacePrepared(surface);
         }
 
         /**
@@ -2334,59 +1914,31 @@ public class CameraDeviceImpl extends CameraDevice
             final int requestId = resultExtras.getRequestId();
             final int subsequenceId = resultExtras.getSubsequenceId();
             final long frameNumber = resultExtras.getFrameNumber();
-            final String errorPhysicalCameraId = resultExtras.getErrorPhysicalCameraId();
             final CaptureCallbackHolder holder =
                     CameraDeviceImpl.this.mCaptureCallbackMap.get(requestId);
-
-            if (holder == null) {
-                Log.e(TAG, String.format("Receive capture error on unknown request ID %d",
-                        requestId));
-                return;
-            }
 
             final CaptureRequest request = holder.getRequest(subsequenceId);
 
             Runnable failureDispatch = null;
             if (errorCode == ERROR_CAMERA_BUFFER) {
-                // Because 1 stream id could map to multiple surfaces, we need to specify both
-                // streamId and surfaceId.
-                OutputConfiguration config = mConfiguredOutputs.get(
-                        resultExtras.getErrorStreamId());
-                if (config == null) {
-                    Log.v(TAG, String.format(
-                            "Stream %d has been removed. Skipping buffer lost callback",
-                            resultExtras.getErrorStreamId()));
-                    return;
+                final Surface outputSurface =
+                        mConfiguredOutputs.get(resultExtras.getErrorStreamId()).getSurface();
+                if (DEBUG) {
+                    Log.v(TAG, String.format("Lost output buffer reported for frame %d, target %s",
+                            frameNumber, outputSurface));
                 }
-                for (Surface surface : config.getSurfaces()) {
-                    if (!request.containsTarget(surface)) {
-                        continue;
-                    }
-                    if (DEBUG) {
-                        Log.v(TAG, String.format(
-                                "Lost output buffer reported for frame %d, target %s",
-                                frameNumber, surface));
-                    }
-                    failureDispatch = new Runnable() {
-                        @Override
-                        public void run() {
-                            if (!CameraDeviceImpl.this.isClosed()){
-                                holder.getCallback().onCaptureBufferLost(
-                                    CameraDeviceImpl.this,
-                                    request,
-                                    surface,
-                                    frameNumber);
-                            }
+                failureDispatch = new Runnable() {
+                    @Override
+                    public void run() {
+                        if (!CameraDeviceImpl.this.isClosed()){
+                            holder.getCallback().onCaptureBufferLost(
+                                CameraDeviceImpl.this,
+                                request,
+                                outputSurface,
+                                frameNumber);
                         }
-                    };
-                    // Dispatch the failure callback
-                    final long ident = Binder.clearCallingIdentity();
-                    try {
-                        holder.getExecutor().execute(failureDispatch);
-                    } finally {
-                        Binder.restoreCallingIdentity(ident);
                     }
-                }
+                };
             } else {
                 boolean mayHaveBuffers = (errorCode == ERROR_CAMERA_RESULT);
 
@@ -2403,8 +1955,7 @@ public class CameraDeviceImpl extends CameraDevice
                     reason,
                     /*dropped*/ mayHaveBuffers,
                     requestId,
-                    frameNumber,
-                    errorPhysicalCameraId);
+                    frameNumber);
 
                 failureDispatch = new Runnable() {
                     @Override
@@ -2422,78 +1973,15 @@ public class CameraDeviceImpl extends CameraDevice
                 if (DEBUG) {
                     Log.v(TAG, String.format("got error frame %d", frameNumber));
                 }
-                mFrameNumberTracker.updateTracker(frameNumber,
-                        /*error*/true, request.getRequestType());
+                mFrameNumberTracker.updateTracker(frameNumber, /*error*/true, request.isReprocess());
                 checkAndFireSequenceComplete();
-
-                // Dispatch the failure callback
-                final long ident = Binder.clearCallingIdentity();
-                try {
-                    holder.getExecutor().execute(failureDispatch);
-                } finally {
-                    Binder.restoreCallingIdentity(ident);
-                }
             }
 
+            // Dispatch the failure callback
+            holder.getHandler().post(failureDispatch);
         }
 
     } // public class CameraDeviceCallbacks
-
-    /**
-     * A camera specific adapter {@link Executor} that posts all executed tasks onto the given
-     * {@link Handler}.
-     *
-     * @hide
-     */
-    private static class CameraHandlerExecutor implements Executor {
-        private final Handler mHandler;
-
-        public CameraHandlerExecutor(@NonNull Handler handler) {
-            mHandler = Preconditions.checkNotNull(handler);
-        }
-
-        @Override
-        public void execute(Runnable command) {
-            // Return value of 'post()' will be ignored in order to keep the
-            // same camera behavior. For further details see b/74605221 .
-            mHandler.post(command);
-        }
-    }
-
-    /**
-     * Default executor management.
-     *
-     * <p>
-     * If executor is null, get the current thread's
-     * Looper to create a Executor with. If no looper exists, throw
-     * {@code IllegalArgumentException}.
-     * </p>
-     */
-    static Executor checkExecutor(Executor executor) {
-        return (executor == null) ? checkAndWrapHandler(null) : executor;
-    }
-
-    /**
-     * Default executor management.
-     *
-     * <p>If the callback isn't null, check the executor, otherwise pass it through.</p>
-     */
-    public static <T> Executor checkExecutor(Executor executor, T callback) {
-        return (callback != null) ? checkExecutor(executor) : executor;
-    }
-
-    /**
-     * Wrap Handler in Executor.
-     *
-     * <p>
-     * If handler is null, get the current thread's
-     * Looper to create a Executor with. If no looper exists, throw
-     * {@code IllegalArgumentException}.
-     * </p>
-     */
-    public static Executor checkAndWrapHandler(Handler handler) {
-        return new CameraHandlerExecutor(checkHandler(handler));
-    }
 
     /**
      * Default handler management.
@@ -2569,11 +2057,6 @@ public class CameraDeviceImpl extends CameraDevice
                 }
             }
         };
-        final long ident = Binder.clearCallingIdentity();
-        try {
-            CameraDeviceImpl.this.mDeviceExecutor.execute(r);
-        } finally {
-            Binder.restoreCallingIdentity(ident);
-        }
+        CameraDeviceImpl.this.mDeviceHandler.post(r);
     }
 }

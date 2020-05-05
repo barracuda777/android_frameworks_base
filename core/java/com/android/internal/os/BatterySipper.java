@@ -15,62 +15,20 @@
  */
 package com.android.internal.os;
 
-import android.annotation.UnsupportedAppUsage;
 import android.os.BatteryStats.Uid;
-
-import java.util.List;
 
 /**
  * Contains power usage of an application, system service, or hardware type.
  */
 public class BatterySipper implements Comparable<BatterySipper> {
-    @UnsupportedAppUsage
     public int userId;
-    @UnsupportedAppUsage
     public Uid uidObj;
-    @UnsupportedAppUsage
-    public DrainType drainType;
-
-    /**
-     * Smeared power from screen usage.
-     * We split the screen usage power and smear them among apps, based on activity time.
-     */
-    public double screenPowerMah;
-
-    /**
-     * Smeared power using proportional method.
-     *
-     * we smear power usage from hidden sippers to all apps proportionally.(except for screen usage)
-     *
-     * @see BatteryStatsHelper#shouldHideSipper(BatterySipper)
-     * @see BatteryStatsHelper#removeHiddenBatterySippers(List)
-     */
-    public double proportionalSmearMah;
-
-    /**
-     * Total power that adding the smeared power.
-     *
-     * @see #sumPower()
-     */
-    public double totalSmearedPowerMah;
-
-    /**
-     * Total power before smearing
-     */
-    @UnsupportedAppUsage
     public double totalPowerMah;
-
-    /**
-     * Whether we should hide this sipper
-     *
-     * @see BatteryStatsHelper#shouldHideSipper(BatterySipper)
-     */
-    public boolean shouldHide;
+    public DrainType drainType;
 
     /**
      * Generic usage time in milliseconds.
      */
-    @UnsupportedAppUsage
     public long usageTimeMs;
 
     /**
@@ -79,21 +37,14 @@ public class BatterySipper implements Comparable<BatterySipper> {
     public double usagePowerMah;
 
     // Subsystem usage times.
-    public long audioTimeMs;
-    public long bluetoothRunningTimeMs;
-    public long cameraTimeMs;
-    @UnsupportedAppUsage
-    public long cpuFgTimeMs;
-    @UnsupportedAppUsage
     public long cpuTimeMs;
-    public long flashlightTimeMs;
-    @UnsupportedAppUsage
     public long gpsTimeMs;
-    public long videoTimeMs;
-    @UnsupportedAppUsage
-    public long wakeLockTimeMs;
-    @UnsupportedAppUsage
     public long wifiRunningTimeMs;
+    public long cpuFgTimeMs;
+    public long wakeLockTimeMs;
+    public long cameraTimeMs;
+    public long flashlightTimeMs;
+    public long bluetoothRunningTimeMs;
 
     public long mobileRxPackets;
     public long mobileTxPackets;
@@ -110,49 +61,36 @@ public class BatterySipper implements Comparable<BatterySipper> {
     public long btTxBytes;
     public double percent;
     public double noCoveragePercent;
-    @UnsupportedAppUsage
     public String[] mPackages;
-    @UnsupportedAppUsage
     public String packageWithHighestDrain;
 
     // Measured in mAh (milli-ampere per hour).
     // These are included when summed.
-    public double audioPowerMah;
-    public double bluetoothPowerMah;
-    public double cameraPowerMah;
-    @UnsupportedAppUsage
-    public double cpuPowerMah;
-    public double flashlightPowerMah;
-    public double gpsPowerMah;
-    public double mobileRadioPowerMah;
-    public double sensorPowerMah;
-    public double videoPowerMah;
-    public double wakeLockPowerMah;
     public double wifiPowerMah;
+    public double cpuPowerMah;
+    public double wakeLockPowerMah;
+    public double mobileRadioPowerMah;
+    public double gpsPowerMah;
+    public double sensorPowerMah;
+    public double cameraPowerMah;
+    public double flashlightPowerMah;
+    public double bluetoothPowerMah;
 
-    //                           ****************
-    // This list must be kept current with atoms.proto (frameworks/base/cmds/statsd/src/atoms.proto)
-    // so the ordinal values (and therefore the order) must never change.
-    //                           ****************
     public enum DrainType {
-        AMBIENT_DISPLAY,
-        @UnsupportedAppUsage
-        APP,
-        BLUETOOTH,
-        CAMERA,
-        CELL,
-        FLASHLIGHT,
         IDLE,
-        MEMORY,
-        OVERCOUNTED,
+        CELL,
         PHONE,
-        SCREEN,
-        UNACCOUNTED,
-        USER,
         WIFI,
+        BLUETOOTH,
+        FLASHLIGHT,
+        SCREEN,
+        APP,
+        USER,
+        UNACCOUNTED,
+        OVERCOUNTED,
+        CAMERA
     }
 
-    @UnsupportedAppUsage
     public BatterySipper(DrainType drainType, Uid uid, double value) {
         this.totalPowerMah = value;
         this.drainType = drainType;
@@ -160,8 +98,8 @@ public class BatterySipper implements Comparable<BatterySipper> {
     }
 
     public void computeMobilemspp() {
-        long packets = mobileRxPackets + mobileTxPackets;
-        mobilemspp = packets > 0 ? (mobileActive / (double) packets) : 0;
+        long packets = mobileRxPackets+mobileTxPackets;
+        mobilemspp = packets > 0 ? (mobileActive / (double)packets) : 0;
     }
 
     @Override
@@ -182,12 +120,10 @@ public class BatterySipper implements Comparable<BatterySipper> {
     /**
      * Gets a list of packages associated with the current user
      */
-    @UnsupportedAppUsage
     public String[] getPackages() {
         return mPackages;
     }
 
-    @UnsupportedAppUsage
     public int getUid() {
         // Bail out if the current sipper is not an App sipper.
         if (uidObj == null) {
@@ -199,17 +135,14 @@ public class BatterySipper implements Comparable<BatterySipper> {
     /**
      * Add stats from other to this BatterySipper.
      */
-    @UnsupportedAppUsage
     public void add(BatterySipper other) {
         totalPowerMah += other.totalPowerMah;
         usageTimeMs += other.usageTimeMs;
         usagePowerMah += other.usagePowerMah;
-        audioTimeMs += other.audioTimeMs;
         cpuTimeMs += other.cpuTimeMs;
         gpsTimeMs += other.gpsTimeMs;
         wifiRunningTimeMs += other.wifiRunningTimeMs;
         cpuFgTimeMs += other.cpuFgTimeMs;
-        videoTimeMs += other.videoTimeMs;
         wakeLockTimeMs += other.wakeLockTimeMs;
         cameraTimeMs += other.cameraTimeMs;
         flashlightTimeMs += other.flashlightTimeMs;
@@ -226,7 +159,6 @@ public class BatterySipper implements Comparable<BatterySipper> {
         wifiTxBytes += other.wifiTxBytes;
         btRxBytes += other.btRxBytes;
         btTxBytes += other.btTxBytes;
-        audioPowerMah += other.audioPowerMah;
         wifiPowerMah += other.wifiPowerMah;
         gpsPowerMah += other.gpsPowerMah;
         cpuPowerMah += other.cpuPowerMah;
@@ -236,24 +168,15 @@ public class BatterySipper implements Comparable<BatterySipper> {
         cameraPowerMah += other.cameraPowerMah;
         flashlightPowerMah += other.flashlightPowerMah;
         bluetoothPowerMah += other.bluetoothPowerMah;
-        screenPowerMah += other.screenPowerMah;
-        videoPowerMah += other.videoPowerMah;
-        proportionalSmearMah += other.proportionalSmearMah;
-        totalSmearedPowerMah += other.totalSmearedPowerMah;
     }
 
     /**
      * Sum all the powers and store the value into `value`.
-     * Also sum the {@code smearedTotalPowerMah} by adding smeared powerMah.
-     *
      * @return the sum of all the power in this BatterySipper.
      */
     public double sumPower() {
-        totalPowerMah = usagePowerMah + wifiPowerMah + gpsPowerMah + cpuPowerMah +
+        return totalPowerMah = usagePowerMah + wifiPowerMah + gpsPowerMah + cpuPowerMah +
                 sensorPowerMah + mobileRadioPowerMah + wakeLockPowerMah + cameraPowerMah +
-                flashlightPowerMah + bluetoothPowerMah + audioPowerMah + videoPowerMah;
-        totalSmearedPowerMah = totalPowerMah + screenPowerMah + proportionalSmearMah;
-
-        return totalPowerMah;
+                flashlightPowerMah + bluetoothPowerMah;
     }
 }

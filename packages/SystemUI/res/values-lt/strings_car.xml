@@ -19,10 +19,6 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="car_guest" msgid="3738772168718508650">"Svečias"</string>
-    <string name="start_guest_session" msgid="7055742120180595689">"Svečias"</string>
-    <string name="car_add_user" msgid="5245196248349230898">"Pridėti naudotoją"</string>
-    <string name="car_new_user" msgid="8142927244990323906">"Naujas naudotojas"</string>
-    <string name="user_add_user_message_setup" msgid="1791011504259527329">"Kai pridedate naują naudotoją, šis asmuo turi nustatyti savo vietą."</string>
-    <string name="user_add_user_message_update" msgid="3383320289232716179">"Bet kuris naudotojas gali atnaujinti visų kitų naudotojų programas."</string>
+    <string name="car_lockscreen_disclaimer_title" msgid="7997539137376896441">"Vairuokite saugiai"</string>
+    <string name="car_lockscreen_disclaimer_text" msgid="3061224684092952864">"Visada atsižvelkite į vairavimo sąlygas ir laikykitės galiojančių įstatymų. Nuorodos gali būti netikslios, neužbaigtos, pavojingos, netinkamos, draudžiamos ar nukreipiančios per administracines sritis. Įmonių informacija taip pat gali būti netiksli ar neužbaigta. Duomenys nėra teikiami realiuoju laiku ir vietovių tikslumo negalima garantuoti. Vairuodami nenaudokite mobiliojo įrenginio ar programų, kurios nėra skirtos „Android Auto“."</string>
 </resources>

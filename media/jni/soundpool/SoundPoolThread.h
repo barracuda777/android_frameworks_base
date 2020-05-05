@@ -40,7 +40,7 @@ public:
  */
 class SoundPoolThread {
 public:
-    explicit SoundPoolThread(SoundPool* SoundPool);
+    SoundPoolThread(SoundPool* SoundPool);
     ~SoundPoolThread();
     void loadSample(int sampleID);
     void quit();

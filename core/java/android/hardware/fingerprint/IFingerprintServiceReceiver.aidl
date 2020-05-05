@@ -16,6 +16,8 @@
 package android.hardware.fingerprint;
 
 import android.hardware.fingerprint.Fingerprint;
+import android.os.Bundle;
+import android.os.UserHandle;
 
 /**
  * Communication channel from the FingerprintService back to FingerprintManager.
@@ -23,10 +25,9 @@ import android.hardware.fingerprint.Fingerprint;
  */
 oneway interface IFingerprintServiceReceiver {
     void onEnrollResult(long deviceId, int fingerId, int groupId, int remaining);
-    void onAcquired(long deviceId, int acquiredInfo, int vendorCode);
+    void onAcquired(long deviceId, int acquiredInfo);
     void onAuthenticationSucceeded(long deviceId, in Fingerprint fp, int userId);
     void onAuthenticationFailed(long deviceId);
-    void onError(long deviceId, int error, int vendorCode);
-    void onRemoved(long deviceId, int fingerId, int groupId, int remaining);
-    void onEnumerated(long deviceId, int fingerId, int groupId, int remaining);
+    void onError(long deviceId, int error);
+    void onRemoved(long deviceId, int fingerId, int groupId);
 }

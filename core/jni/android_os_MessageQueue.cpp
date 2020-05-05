@@ -16,7 +16,7 @@
 
 #define LOG_TAG "MessageQueue-JNI"
 
-#include <nativehelper/JNIHelp.h>
+#include "JNIHelp.h"
 #include <android_runtime/AndroidRuntime.h>
 
 #include <utils/Looper.h>

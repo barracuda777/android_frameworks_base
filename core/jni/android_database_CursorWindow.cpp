@@ -20,7 +20,7 @@
 
 #include <inttypes.h>
 #include <jni.h>
-#include <nativehelper/JNIHelp.h>
+#include <JNIHelp.h>
 #include <android_runtime/AndroidRuntime.h>
 
 #include <utils/Log.h>
@@ -92,9 +92,7 @@ static jlong nativeCreate(JNIEnv* env, jclass clazz, jstring nameObj, jint curso
     CursorWindow* window;
     status_t status = CursorWindow::create(name, cursorWindowSize, &window);
     if (status || !window) {
-        jniThrowExceptionFmt(env,
-                "android/database/CursorWindowAllocationException",
-                "Could not allocate CursorWindow '%s' of size %d due to error %d.",
+        ALOGE("Could not allocate CursorWindow '%s' of size %d due to error %d.",
                 name.string(), cursorWindowSize, status);
         return 0;
     }
@@ -109,9 +107,7 @@ static jlong nativeCreateFromParcel(JNIEnv* env, jclass clazz, jobject parcelObj
     CursorWindow* window;
     status_t status = CursorWindow::createFromParcel(parcel, &window);
     if (status || !window) {
-        jniThrowExceptionFmt(env,
-                "android/database/CursorWindowAllocationException",
-                "Could not create CursorWindow from Parcel due to error %d, process fd count=%d",
+        ALOGE("Could not create CursorWindow from Parcel due to error %d, process fd count=%d",
                 status, getFdCount());
         return 0;
     }
@@ -315,7 +311,7 @@ static void fillCharArrayBufferUTF(JNIEnv* env, jobject bufferObj,
         if (size) {
             jchar* data = static_cast<jchar*>(env->GetPrimitiveArrayCritical(dataObj, NULL));
             utf8_to_utf16_no_null_terminator(reinterpret_cast<const uint8_t*>(str), len,
-                    reinterpret_cast<char16_t*>(data), (size_t) size);
+                    reinterpret_cast<char16_t*>(data));
             env->ReleasePrimitiveArrayCritical(dataObj, data, 0);
         }
         env->SetIntField(bufferObj, gCharArrayBufferClassInfo.sizeCopied, size);
@@ -523,21 +519,8 @@ static const JNINativeMethod sMethods[] =
             (void*)nativeDispose },
     { "nativeWriteToParcel", "(JLandroid/os/Parcel;)V",
             (void*)nativeWriteToParcel },
-
     { "nativeGetName", "(J)Ljava/lang/String;",
             (void*)nativeGetName },
-    { "nativeGetBlob", "(JII)[B",
-            (void*)nativeGetBlob },
-    { "nativeGetString", "(JII)Ljava/lang/String;",
-            (void*)nativeGetString },
-    { "nativeCopyStringToBuffer", "(JIILandroid/database/CharArrayBuffer;)V",
-            (void*)nativeCopyStringToBuffer },
-    { "nativePutBlob", "(J[BII)Z",
-            (void*)nativePutBlob },
-    { "nativePutString", "(JLjava/lang/String;II)Z",
-            (void*)nativePutString },
-
-    // ------- @FastNative below here ----------------------
     { "nativeClear", "(J)V",
             (void*)nativeClear },
     { "nativeGetNumRows", "(J)I",
@@ -550,11 +533,20 @@ static const JNINativeMethod sMethods[] =
             (void*)nativeFreeLastRow },
     { "nativeGetType", "(JII)I",
             (void*)nativeGetType },
+    { "nativeGetBlob", "(JII)[B",
+            (void*)nativeGetBlob },
+    { "nativeGetString", "(JII)Ljava/lang/String;",
+            (void*)nativeGetString },
     { "nativeGetLong", "(JII)J",
             (void*)nativeGetLong },
     { "nativeGetDouble", "(JII)D",
             (void*)nativeGetDouble },
-
+    { "nativeCopyStringToBuffer", "(JIILandroid/database/CharArrayBuffer;)V",
+            (void*)nativeCopyStringToBuffer },
+    { "nativePutBlob", "(J[BII)Z",
+            (void*)nativePutBlob },
+    { "nativePutString", "(JLjava/lang/String;II)Z",
+            (void*)nativePutString },
     { "nativePutLong", "(JJII)Z",
             (void*)nativePutLong },
     { "nativePutDouble", "(JDII)Z",

@@ -19,8 +19,6 @@ package android.content.pm;
 import android.os.Parcel;
 import android.os.Parcelable;
 
-import com.android.internal.annotations.VisibleForTesting;
-
 import java.io.UnsupportedEncodingException;
 import java.security.SecureRandom;
 import java.util.Random;
@@ -88,7 +86,6 @@ public class VerifierDeviceIdentity implements Parcelable {
      * @return verifier device identity based on the input from the provided
      *         random number generator
      */
-    @VisibleForTesting
     static VerifierDeviceIdentity generate(Random rng) {
         long identity = rng.nextLong();
         return new VerifierDeviceIdentity(identity);
@@ -230,7 +227,7 @@ public class VerifierDeviceIdentity implements Parcelable {
         dest.writeLong(mIdentity);
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<VerifierDeviceIdentity> CREATOR
+    public static final Parcelable.Creator<VerifierDeviceIdentity> CREATOR
             = new Parcelable.Creator<VerifierDeviceIdentity>() {
         public VerifierDeviceIdentity createFromParcel(Parcel source) {
             return new VerifierDeviceIdentity(source);

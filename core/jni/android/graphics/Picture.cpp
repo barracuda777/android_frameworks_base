@@ -27,20 +27,15 @@ Picture::Picture(const Picture* src) {
         mWidth = src->width();
         mHeight = src->height();
         if (NULL != src->mPicture.get()) {
-            mPicture = src->mPicture;
+            mPicture.reset(SkRef(src->mPicture.get()));
         } else if (NULL != src->mRecorder.get()) {
-            mPicture = src->makePartialCopy();
+            mPicture.reset(src->makePartialCopy());
         }
+        validate();
     } else {
         mWidth = 0;
         mHeight = 0;
     }
-}
-
-Picture::Picture(sk_sp<SkPicture>&& src) {
-    mPicture = std::move(src);
-    mWidth = 0;
-    mHeight = 0;
 }
 
 Canvas* Picture::beginRecording(int width, int height) {
@@ -48,31 +43,34 @@ Canvas* Picture::beginRecording(int width, int height) {
     mRecorder.reset(new SkPictureRecorder);
     mWidth = width;
     mHeight = height;
-    SkCanvas* canvas = mRecorder->beginRecording(SkIntToScalar(width), SkIntToScalar(height));
+    SkCanvas* canvas = mRecorder->beginRecording(width, height, NULL, 0);
     return Canvas::create_canvas(canvas);
 }
 
 void Picture::endRecording() {
     if (NULL != mRecorder.get()) {
-        mPicture = mRecorder->finishRecordingAsPicture();
+        mPicture.reset(mRecorder->endRecording());
+        validate();
         mRecorder.reset(NULL);
     }
 }
 
 int Picture::width() const {
+    validate();
     return mWidth;
 }
 
 int Picture::height() const {
+    validate();
     return mHeight;
 }
 
 Picture* Picture::CreateFromStream(SkStream* stream) {
     Picture* newPict = new Picture;
 
-    sk_sp<SkPicture> skPicture = SkPicture::MakeFromStream(stream);
+    SkPicture* skPicture = SkPicture::CreateFromStream(stream);
     if (NULL != skPicture) {
-        newPict->mPicture = skPicture;
+        newPict->mPicture.reset(skPicture);
 
         const SkIRect cullRect = skPicture->cullRect().roundOut();
         newPict->mWidth = cullRect.width();
@@ -84,14 +82,16 @@ Picture* Picture::CreateFromStream(SkStream* stream) {
 
 void Picture::serialize(SkWStream* stream) const {
     if (NULL != mRecorder.get()) {
-        this->makePartialCopy()->serialize(stream);
+        std::unique_ptr<SkPicture> tempPict(this->makePartialCopy());
+        tempPict->serialize(stream);
     } else if (NULL != mPicture.get()) {
+        validate();
         mPicture->serialize(stream);
     } else {
-        // serialize "empty" picture
         SkPictureRecorder recorder;
         recorder.beginRecording(0, 0);
-        recorder.finishRecordingAsPicture()->serialize(stream);
+        std::unique_ptr<SkPicture> empty(recorder.endRecording());
+        empty->serialize(stream);
     }
 }
 
@@ -100,19 +100,30 @@ void Picture::draw(Canvas* canvas) {
         this->endRecording();
         SkASSERT(NULL != mPicture.get());
     }
+    validate();
     if (NULL != mPicture.get()) {
-        mPicture->playback(canvas->asSkCanvas());
+        mPicture.get()->playback(canvas->asSkCanvas());
     }
 }
 
-sk_sp<SkPicture> Picture::makePartialCopy() const {
+SkPicture* Picture::makePartialCopy() const {
     SkASSERT(NULL != mRecorder.get());
 
     SkPictureRecorder reRecorder;
 
     SkCanvas* canvas = reRecorder.beginRecording(mWidth, mHeight, NULL, 0);
     mRecorder->partialReplay(canvas);
-    return reRecorder.finishRecordingAsPicture();
+    return reRecorder.endRecording();
+}
+
+void Picture::validate() const {
+#ifdef SK_DEBUG
+    if (NULL != mPicture.get()) {
+        SkRect cullRect = mPicture->cullRect();
+        SkRect myRect = SkRect::MakeWH(SkIntToScalar(mWidth), SkIntToScalar(mHeight));
+        SkASSERT(cullRect == myRect);
+    }
+#endif
 }
 
 }; // namespace android

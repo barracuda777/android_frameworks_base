@@ -15,9 +15,10 @@
  */
 
 #include "utils/StringUtils.h"
+#include "Texture.h"
 
-#include <GpuMemoryTracker.h>
 #include <cutils/compiler.h>
+#include <GpuMemoryTracker.h>
 #include <utils/Trace.h>
 #include <array>
 #include <sstream>
@@ -32,7 +33,9 @@ pthread_t gGpuThread = 0;
 #define NUM_TYPES static_cast<int>(GpuObjectType::TypeCount)
 
 const char* TYPE_NAMES[] = {
-        "Texture", "OffscreenBuffer", "Layer",
+        "Texture",
+        "OffscreenBuffer",
+        "Layer",
 };
 
 struct TypeStats {
@@ -52,26 +55,25 @@ void GpuMemoryTracker::notifySizeChanged(int newSize) {
 void GpuMemoryTracker::startTrackingObject() {
     auto result = gObjectSet.insert(this);
     LOG_ALWAYS_FATAL_IF(!result.second,
-                        "startTrackingObject() on %p failed, already being tracked!", this);
+            "startTrackingObject() on %p failed, already being tracked!", this);
     gObjectStats[static_cast<int>(mType)].count++;
 }
 
 void GpuMemoryTracker::stopTrackingObject() {
     size_t removed = gObjectSet.erase(this);
-    LOG_ALWAYS_FATAL_IF(removed != 1, "stopTrackingObject removed %zd, is %p not being tracked?",
-                        removed, this);
+    LOG_ALWAYS_FATAL_IF(removed != 1,
+            "stopTrackingObject removed %zd, is %p not being tracked?",
+            removed, this);
     gObjectStats[static_cast<int>(mType)].count--;
 }
 
-void GpuMemoryTracker::onGpuContextCreated() {
-    LOG_ALWAYS_FATAL_IF(gGpuThread != 0,
-                        "We already have a gpu thread? "
-                        "current = %lu, gpu thread = %lu",
-                        pthread_self(), gGpuThread);
+void GpuMemoryTracker::onGLContextCreated() {
+    LOG_ALWAYS_FATAL_IF(gGpuThread != 0, "We already have a GL thread? "
+            "current = %lu, gl thread = %lu", pthread_self(), gGpuThread);
     gGpuThread = pthread_self();
 }
 
-void GpuMemoryTracker::onGpuContextDestroyed() {
+void GpuMemoryTracker::onGLContextDestroyed() {
     gGpuThread = 0;
     if (CC_UNLIKELY(gObjectSet.size() > 0)) {
         std::stringstream os;
@@ -116,7 +118,23 @@ void GpuMemoryTracker::onFrameCompleted() {
             ATRACE_INT(buf, stats.count);
         }
     }
+
+    std::vector<const Texture*> freeList;
+    for (const auto& obj : gObjectSet) {
+        if (obj->objectType() == GpuObjectType::Texture) {
+            const Texture* texture = static_cast<Texture*>(obj);
+            if (texture->cleanup) {
+                ALOGE("Leaked texture marked for cleanup! id=%u, size %ux%u",
+                        texture->id(), texture->width(), texture->height());
+                freeList.push_back(texture);
+            }
+        }
+    }
+    for (auto& texture : freeList) {
+        const_cast<Texture*>(texture)->deleteTexture();
+        delete texture;
+    }
 }
 
-}  // namespace uirenderer
-}  // namespace android;
+} // namespace uirenderer
+} // namespace android;

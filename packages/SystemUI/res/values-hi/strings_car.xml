@@ -19,10 +19,6 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="car_guest" msgid="3738772168718508650">"मेहमान"</string>
-    <string name="start_guest_session" msgid="7055742120180595689">"मेहमान मोड"</string>
-    <string name="car_add_user" msgid="5245196248349230898">"उपयोगकर्ता जोड़ें"</string>
-    <string name="car_new_user" msgid="8142927244990323906">"नया उपयोगकर्ता"</string>
-    <string name="user_add_user_message_setup" msgid="1791011504259527329">"जब आप कोई नया उपयोगकर्ता जोड़ते हैं तो, उस व्यक्ति को अपनी जगह सेट करनी होती है."</string>
-    <string name="user_add_user_message_update" msgid="3383320289232716179">"कोई भी उपयोगकर्ता, बाकी सभी उपयोगकर्ताओं के लिए ऐप्लिकेशन अपडेट कर सकते हैं."</string>
+    <string name="car_lockscreen_disclaimer_title" msgid="7997539137376896441">"सुरक्षित ढंग से गाड़ी चलाएं"</string>
+    <string name="car_lockscreen_disclaimer_text" msgid="3061224684092952864">"गाड़ी चलाने की स्थितियों के प्रति पूरी तरह से सतर्क रहें और हमेशा लागू कानूनों का पालन करें. दिशाएं गलत, अपूर्ण, खतरनाक, निषिद्ध हो सकती हैं या उनमें प्रशासनिक क्षेत्रों को पार करना शामिल हो सकता है. व्यावसायिक जानकारी भी गलत या अपूर्ण हो सकती है. डेटा रीयल-टाइम नहीं है और स्थान सटीकता की गारंटी नहीं दी जा सकती. गाड़ी चलाते समय अपने मोबाइल डिवाइस या फ़ोन या Android Auto के लिए अभिप्रेत न किए गए ऐप्स का उपयोग ना करें."</string>
 </resources>

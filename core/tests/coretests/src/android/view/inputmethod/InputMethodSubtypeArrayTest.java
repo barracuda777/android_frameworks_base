@@ -16,25 +16,16 @@
 
 package android.view.inputmethod;
 
-import static org.junit.Assert.assertEquals;
-
 import android.os.Parcel;
+import android.test.InstrumentationTestCase;
+import android.test.suitebuilder.annotation.SmallTest;
 import android.view.inputmethod.InputMethodSubtype.InputMethodSubtypeBuilder;
-
-import androidx.test.filters.SmallTest;
-import androidx.test.runner.AndroidJUnit4;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
 
-@SmallTest
-@RunWith(AndroidJUnit4.class)
-public class InputMethodSubtypeArrayTest {
-
-    @Test
-    public void testInstantiate() throws Exception {
+public class InputMethodSubtypeArrayTest extends InstrumentationTestCase {
+    @SmallTest
+    public void testInstanciate() throws Exception {
         final ArrayList<InputMethodSubtype> subtypes = new ArrayList<InputMethodSubtype>();
         subtypes.add(createDummySubtype(0, "en_US"));
         subtypes.add(createDummySubtype(1, "en_US"));

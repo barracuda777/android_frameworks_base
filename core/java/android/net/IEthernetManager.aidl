@@ -26,10 +26,9 @@ import android.net.IEthernetServiceListener;
 /** {@hide} */
 interface IEthernetManager
 {
-    String[] getAvailableInterfaces();
-    IpConfiguration getConfiguration(String iface);
-    void setConfiguration(String iface, in IpConfiguration config);
-    boolean isAvailable(String iface);
+    IpConfiguration getConfiguration();
+    void setConfiguration(in IpConfiguration config);
+    boolean isAvailable();
     void addListener(in IEthernetServiceListener listener);
     void removeListener(in IEthernetServiceListener listener);
 }

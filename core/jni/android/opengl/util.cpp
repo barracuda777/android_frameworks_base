@@ -15,7 +15,7 @@
  */
 
 #include "jni.h"
-#include <nativehelper/JNIHelp.h>
+#include "JNIHelp.h"
 #include "GraphicsJNI.h"
 
 #include <math.h>
@@ -25,9 +25,7 @@
 #include <assert.h>
 #include <dlfcn.h>
 
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
-#include <GLES3/gl3.h>
+#include <GLES/gl.h>
 #include <ETC1/etc1.h>
 
 #include <SkBitmap.h>
@@ -51,6 +49,27 @@ void mx4transform(float x, float y, float z, float w, const float* pM, float* pD
     pDest[3] = pM[3 + 4 * 0] * x + pM[3 + 4 * 1] * y + pM[3 + 4 * 2] * z + pM[3 + 4 * 3] * w;
 }
 
+class MallocHelper {
+public:
+    MallocHelper() {
+        mData = 0;
+    }
+
+    ~MallocHelper() {
+        if (mData != 0) {
+            free(mData);
+        }
+    }
+
+    void* alloc(size_t size) {
+        mData = malloc(size);
+        return mData;
+    }
+
+private:
+    void* mData;
+};
+
 #if 0
 static
 void
@@ -66,7 +85,10 @@ print_poly(const char* label, Poly* pPoly) {
 static
 int visibilityTest(float* pWS, float* pPositions, int positionsLength,
         unsigned short* pIndices, int indexCount) {
+    MallocHelper mallocHelper;
     int result = POLY_CLIP_OUT;
+    float* pTransformed = 0;
+    int transformedIndexCount = 0;
 
     if ( indexCount < 3 ) {
         return POLY_CLIP_OUT;
@@ -94,9 +116,8 @@ int visibilityTest(float* pWS, float* pPositions, int positionsLength,
         return -1;
     }
 
-    int transformedIndexCount = maxIndex - minIndex + 1;
-    std::unique_ptr<float[]> holder{new float[transformedIndexCount * 4]};
-    float* pTransformed = holder.get();
+    transformedIndexCount = maxIndex - minIndex + 1;
+    pTransformed = (float*) mallocHelper.alloc(transformedIndexCount * 4 * sizeof(float));
 
     if (pTransformed == 0 ) {
         return -2;
@@ -622,48 +643,32 @@ void util_multiplyMV(JNIEnv *env, jclass clazz,
 
 // ---------------------------------------------------------------------------
 
-// The internal format is no longer the same as pixel format, per Table 2 in
-// https://www.khronos.org/registry/OpenGL-Refpages/es3.1/html/glTexImage2D.xhtml
-static int checkInternalFormat(SkColorType colorType, int internalformat,
-    int type)
+static int checkFormat(SkColorType colorType, int format, int type)
 {
     switch(colorType) {
+        case kIndex_8_SkColorType:
+            if (format == GL_PALETTE8_RGBA8_OES)
+                return 0;
         case kN32_SkColorType:
-            return (type == GL_UNSIGNED_BYTE &&
-                    internalformat == GL_RGBA) ||
-                (type == GL_UNSIGNED_BYTE &&
-                 internalformat == GL_SRGB8_ALPHA8) ? 0 : -1;
         case kAlpha_8_SkColorType:
-            return (type == GL_UNSIGNED_BYTE &&
-                internalformat == GL_ALPHA) ? 0 : -1;
+            if (type == GL_UNSIGNED_BYTE)
+                return 0;
         case kARGB_4444_SkColorType:
-            return (type == GL_UNSIGNED_SHORT_4_4_4_4 &&
-                internalformat == GL_RGBA) ? 0 : -1;
         case kRGB_565_SkColorType:
-            return (type == GL_UNSIGNED_SHORT_5_6_5 &&
-                internalformat == GL_RGB) ? 0 : -1;
-        case kRGBA_F16_SkColorType:
-            return (type == GL_HALF_FLOAT &&
-                internalformat == GL_RGBA16F) ? 0 : -1;
+            switch (type) {
+                case GL_UNSIGNED_SHORT_4_4_4_4:
+                case GL_UNSIGNED_SHORT_5_6_5:
+                case GL_UNSIGNED_SHORT_5_5_5_1:
+                    return 0;
+                case GL_UNSIGNED_BYTE:
+                    if (format == GL_LUMINANCE_ALPHA)
+                        return 0;
+            }
+            break;
         default:
             break;
     }
     return -1;
-}
-
-// The internal format is no longer the same as pixel format, per Table 2 in
-// https://www.khronos.org/registry/OpenGL-Refpages/es3.1/html/glTexImage2D.xhtml
-static int getPixelFormatFromInternalFormat(uint32_t internalFormat) {
-    switch (internalFormat) {
-        // For sized internal format.
-        case GL_RGBA16F:
-        case GL_SRGB8_ALPHA8:
-            return GL_RGBA;
-        // Base internal formats and pixel formats are still the same, see Table 1 in
-        // https://www.khronos.org/registry/OpenGL-Refpages/es3.1/html/glTexImage2D.xhtml
-        default:
-            return internalFormat;
-    }
 }
 
 static int getInternalFormat(SkColorType colorType)
@@ -675,10 +680,10 @@ static int getInternalFormat(SkColorType colorType)
             return GL_RGBA;
         case kN32_SkColorType:
             return GL_RGBA;
+        case kIndex_8_SkColorType:
+            return GL_PALETTE8_RGBA8_OES;
         case kRGB_565_SkColorType:
             return GL_RGB;
-        case kRGBA_F16_SkColorType:
-            return GL_RGBA16F;
         default:
             return -1;
     }
@@ -693,37 +698,37 @@ static int getType(SkColorType colorType)
             return GL_UNSIGNED_SHORT_4_4_4_4;
         case kN32_SkColorType:
             return GL_UNSIGNED_BYTE;
+        case kIndex_8_SkColorType:
+            return -1; // No type for compressed data.
         case kRGB_565_SkColorType:
             return GL_UNSIGNED_SHORT_5_6_5;
-        case kRGBA_F16_SkColorType:
-            return GL_HALF_FLOAT;
         default:
             return -1;
     }
 }
 
 static jint util_getInternalFormat(JNIEnv *env, jclass clazz,
-        jlong bitmapPtr)
+        jobject jbitmap)
 {
     SkBitmap nativeBitmap;
-    bitmap::toBitmap(bitmapPtr).getSkBitmap(&nativeBitmap);
+    GraphicsJNI::getSkBitmap(env, jbitmap, &nativeBitmap);
     return getInternalFormat(nativeBitmap.colorType());
 }
 
 static jint util_getType(JNIEnv *env, jclass clazz,
-        jlong bitmapPtr)
+        jobject jbitmap)
 {
     SkBitmap nativeBitmap;
-    bitmap::toBitmap(bitmapPtr).getSkBitmap(&nativeBitmap);
+    GraphicsJNI::getSkBitmap(env, jbitmap, &nativeBitmap);
     return getType(nativeBitmap.colorType());
 }
 
 static jint util_texImage2D(JNIEnv *env, jclass clazz,
         jint target, jint level, jint internalformat,
-        jlong bitmapPtr, jint type, jint border)
+        jobject jbitmap, jint type, jint border)
 {
     SkBitmap bitmap;
-    bitmap::toBitmap(bitmapPtr).getSkBitmap(&bitmap);
+    GraphicsJNI::getSkBitmap(env, jbitmap, &bitmap);
     SkColorType colorType = bitmap.colorType();
     if (internalformat < 0) {
         internalformat = getInternalFormat(colorType);
@@ -731,41 +736,61 @@ static jint util_texImage2D(JNIEnv *env, jclass clazz,
     if (type < 0) {
         type = getType(colorType);
     }
-    int err = checkInternalFormat(colorType, internalformat, type);
+    int err = checkFormat(colorType, internalformat, type);
     if (err)
         return err;
+    bitmap.lockPixels();
     const int w = bitmap.width();
     const int h = bitmap.height();
     const void* p = bitmap.getPixels();
     if (internalformat == GL_PALETTE8_RGBA8_OES) {
-        err = -1;
+        if (sizeof(SkPMColor) != sizeof(uint32_t)) {
+            err = -1;
+            goto error;
+        }
+        const size_t size = bitmap.getSize();
+        const size_t palette_size = 256*sizeof(SkPMColor);
+        const size_t imageSize = size + palette_size;
+        void* const data = malloc(imageSize);
+        if (data) {
+            void* const pixels = (char*)data + palette_size;
+            SkColorTable* ctable = bitmap.getColorTable();
+            memcpy(data, ctable->readColors(), ctable->count() * sizeof(SkPMColor));
+            memcpy(pixels, p, size);
+            glCompressedTexImage2D(target, level, internalformat, w, h, border, imageSize, data);
+            free(data);
+        } else {
+            err = -1;
+        }
     } else {
-        glTexImage2D(target, level, internalformat, w, h, border,
-                     getPixelFormatFromInternalFormat(internalformat), type, p);
+        glTexImage2D(target, level, internalformat, w, h, border, internalformat, type, p);
     }
+error:
+    bitmap.unlockPixels();
     return err;
 }
 
 static jint util_texSubImage2D(JNIEnv *env, jclass clazz,
         jint target, jint level, jint xoffset, jint yoffset,
-        jlong bitmapPtr, jint format, jint type)
+        jobject jbitmap, jint format, jint type)
 {
     SkBitmap bitmap;
-    bitmap::toBitmap(bitmapPtr).getSkBitmap(&bitmap);
+    GraphicsJNI::getSkBitmap(env, jbitmap, &bitmap);
     SkColorType colorType = bitmap.colorType();
-    int internalFormat = getInternalFormat(colorType);
     if (format < 0) {
-        format = getPixelFormatFromInternalFormat(internalFormat);
+        format = getInternalFormat(colorType);
         if (format == GL_PALETTE8_RGBA8_OES)
             return -1; // glCompressedTexSubImage2D() not supported
     }
-    int err = checkInternalFormat(colorType, internalFormat, type);
+    int err = checkFormat(colorType, format, type);
     if (err)
         return err;
+    bitmap.lockPixels();
     const int w = bitmap.width();
     const int h = bitmap.height();
     const void* p = bitmap.getPixels();
     glTexSubImage2D(target, level, xoffset, yoffset, w, h, format, type, p);
+    bitmap.unlockPixels();
     return 0;
 }
 
@@ -773,18 +798,54 @@ static jint util_texSubImage2D(JNIEnv *env, jclass clazz,
  * ETC1 methods.
  */
 
+static jclass nioAccessClass;
+static jclass bufferClass;
+static jmethodID getBasePointerID;
+static jmethodID getBaseArrayID;
+static jmethodID getBaseArrayOffsetID;
+static jfieldID positionID;
+static jfieldID limitID;
+static jfieldID elementSizeShiftID;
+
+/* Cache method IDs each time the class is loaded. */
+
+static void
+nativeClassInitBuffer(JNIEnv *env)
+{
+    jclass nioAccessClassLocal = FindClassOrDie(env, "java/nio/NIOAccess");
+    nioAccessClass = MakeGlobalRefOrDie(env, nioAccessClassLocal);
+    getBasePointerID = GetStaticMethodIDOrDie(env, nioAccessClass,
+            "getBasePointer", "(Ljava/nio/Buffer;)J");
+    getBaseArrayID = GetStaticMethodIDOrDie(env, nioAccessClass,
+            "getBaseArray", "(Ljava/nio/Buffer;)Ljava/lang/Object;");
+    getBaseArrayOffsetID = GetStaticMethodIDOrDie(env, nioAccessClass,
+            "getBaseArrayOffset", "(Ljava/nio/Buffer;)I");
+
+    jclass bufferClassLocal = FindClassOrDie(env, "java/nio/Buffer");
+    bufferClass = MakeGlobalRefOrDie(env, bufferClassLocal);
+    positionID = GetFieldIDOrDie(env, bufferClass, "position", "I");
+    limitID = GetFieldIDOrDie(env, bufferClass, "limit", "I");
+    elementSizeShiftID = GetFieldIDOrDie(env, bufferClass, "_elementSizeShift", "I");
+}
+
 static void *
 getPointer(JNIEnv *_env, jobject buffer, jint *remaining)
 {
     jint position;
     jint limit;
     jint elementSizeShift;
-    jlong pointer = jniGetNioBufferFields(_env, buffer, &position, &limit, &elementSizeShift);
-    if (pointer != 0L) {
-        pointer += position << elementSizeShift;
-    }
+    jlong pointer;
+
+    position = _env->GetIntField(buffer, positionID);
+    limit = _env->GetIntField(buffer, limitID);
+    elementSizeShift = _env->GetIntField(buffer, elementSizeShiftID);
     *remaining = (limit - position) << elementSizeShift;
-    return reinterpret_cast<void*>(pointer);
+    pointer = _env->CallStaticLongMethod(nioAccessClass,
+            getBasePointerID, buffer);
+    if (pointer != 0L) {
+        return reinterpret_cast<void *>(pointer);
+    }
+    return NULL;
 }
 
 class BufferHelper {
@@ -1032,10 +1093,10 @@ static const JNINativeMethod gVisibilityMethods[] = {
 };
 
 static const JNINativeMethod gUtilsMethods[] = {
-    { "native_getInternalFormat", "(J)I", (void*) util_getInternalFormat },
-    { "native_getType", "(J)I", (void*) util_getType },
-    { "native_texImage2D", "(IIIJII)I", (void*)util_texImage2D },
-    { "native_texSubImage2D", "(IIIIJII)I", (void*)util_texSubImage2D },
+    { "native_getInternalFormat", "(Landroid/graphics/Bitmap;)I", (void*) util_getInternalFormat },
+    { "native_getType", "(Landroid/graphics/Bitmap;)I", (void*) util_getType },
+    { "native_texImage2D", "(IIILandroid/graphics/Bitmap;II)I", (void*)util_texImage2D },
+    { "native_texSubImage2D", "(IIIILandroid/graphics/Bitmap;II)I", (void*)util_texSubImage2D },
 };
 
 static const JNINativeMethod gEtc1Methods[] = {
@@ -1065,6 +1126,7 @@ static const ClassRegistrationInfo gClasses[] = {
 
 int register_android_opengl_classes(JNIEnv* env)
 {
+    nativeClassInitBuffer(env);
     int result = 0;
     for (int i = 0; i < NELEM(gClasses); i++) {
         const ClassRegistrationInfo* cri = &gClasses[i];

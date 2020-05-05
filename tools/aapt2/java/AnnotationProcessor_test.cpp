@@ -15,76 +15,38 @@
  */
 
 #include "java/AnnotationProcessor.h"
-
-#include "io/StringStream.h"
 #include "test/Test.h"
-#include "text/Printer.h"
-
-using ::aapt::io::StringOutputStream;
-using ::aapt::text::Printer;
-using ::testing::Eq;
-using ::testing::HasSubstr;
-using ::testing::Not;
 
 namespace aapt {
 
 TEST(AnnotationProcessorTest, EmitsDeprecated) {
-  const char* comment =
-      "Some comment, and it should contain a marker word, "
-      "something that marks this resource as nor needed. "
-      "{@deprecated That's the marker! }";
+    const char* comment = "Some comment, and it should contain a marker word, "
+                          "something that marks this resource as nor needed. "
+                          "{@deprecated That's the marker! }";
 
-  AnnotationProcessor processor;
-  processor.AppendComment(comment);
+    AnnotationProcessor processor;
+    processor.appendComment(comment);
 
-  std::string annotations;
-  StringOutputStream out(&annotations);
-  Printer printer(&out);
-  processor.Print(&printer);
-  out.Flush();
+    std::stringstream result;
+    processor.writeToStream(&result, "");
+    std::string annotations = result.str();
 
-  EXPECT_THAT(annotations, HasSubstr("@Deprecated"));
+    EXPECT_NE(std::string::npos, annotations.find("@Deprecated"));
 }
 
 TEST(AnnotationProcessorTest, EmitsSystemApiAnnotationAndRemovesFromComment) {
-  AnnotationProcessor processor;
-  processor.AppendComment("@SystemApi This is a system API");
+    AnnotationProcessor processor;
+    processor.appendComment("@SystemApi This is a system API");
 
-  std::string annotations;
-  StringOutputStream out(&annotations);
-  Printer printer(&out);
-  processor.Print(&printer);
-  out.Flush();
+    std::stringstream result;
+    processor.writeToStream(&result, "");
+    std::string annotations = result.str();
 
-  EXPECT_THAT(annotations, HasSubstr("@android.annotation.SystemApi"));
-  EXPECT_THAT(annotations, Not(HasSubstr("@SystemApi")));
-  EXPECT_THAT(annotations, HasSubstr("This is a system API"));
+    EXPECT_NE(std::string::npos, annotations.find("@android.annotation.SystemApi"));
+    EXPECT_EQ(std::string::npos, annotations.find("@SystemApi"));
+    EXPECT_NE(std::string::npos, annotations.find("This is a system API"));
 }
 
-TEST(AnnotationProcessorTest, EmitsTestApiAnnotationAndRemovesFromComment) {
-  AnnotationProcessor processor;
-  processor.AppendComment("@TestApi This is a test API");
+} // namespace aapt
 
-  std::string annotations;
-  StringOutputStream out(&annotations);
-  Printer printer(&out);
-  processor.Print(&printer);
-  out.Flush();
 
-  EXPECT_THAT(annotations, HasSubstr("@android.annotation.TestApi"));
-  EXPECT_THAT(annotations, Not(HasSubstr("@TestApi")));
-  EXPECT_THAT(annotations, HasSubstr("This is a test API"));
-}
-
-TEST(AnnotationProcessor, ExtractsFirstSentence) {
-  EXPECT_THAT(AnnotationProcessor::ExtractFirstSentence("This is the only sentence"),
-              Eq("This is the only sentence"));
-  EXPECT_THAT(AnnotationProcessor::ExtractFirstSentence(
-                  "This is the\n  first sentence.  This is the rest of the paragraph."),
-              Eq("This is the\n  first sentence."));
-  EXPECT_THAT(AnnotationProcessor::ExtractFirstSentence(
-                  "This is the first sentence with a {@link android.R.styleable.Theme}."),
-              Eq("This is the first sentence with a {@link android.R.styleable.Theme}."));
-}
-
-}  // namespace aapt

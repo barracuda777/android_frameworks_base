@@ -19,7 +19,8 @@ package android.test;
 import android.test.mock.MockContext;
 import android.test.suitebuilder.annotation.SmallTest;
 
-import java.util.ArrayList;
+import com.google.android.collect.Lists;
+
 import junit.framework.TestCase;
 import junit.framework.AssertionFailedError;
 import junit.framework.Test;
@@ -139,7 +140,7 @@ public class AndroidTestRunnerTest extends TestCase {
     public void testSetTestClassWithTestSuiteProvider() throws Exception {
         mAndroidTestRunner.setTestClassName(SampleTestSuiteProvider.class.getName(), null);
         List<TestCase> testCases = mAndroidTestRunner.getTestCases();
-        List<String> testNames = new ArrayList<>();
+        List<String> testNames = Lists.newArrayList();
         for (TestCase testCase : testCases) {
             testNames.add(testCase.getName());
         }
@@ -151,7 +152,7 @@ public class AndroidTestRunnerTest extends TestCase {
     public void testSetTestClassWithTestSuite() throws Exception {
         mAndroidTestRunner.setTestClassName(SampleTestSuite.class.getName(), null);
         List<TestCase> testCases = mAndroidTestRunner.getTestCases();
-        List<String> testNames = new ArrayList<>();
+        List<String> testNames = Lists.newArrayList();
         for (TestCase testCase : testCases) {
             testNames.add(testCase.getName());
         }
@@ -162,7 +163,7 @@ public class AndroidTestRunnerTest extends TestCase {
         String testMethodName = "testTwo";
         mAndroidTestRunner.setTestClassName(TwoTestTestCase.class.getName(), testMethodName);
         List<TestCase> testCases = mAndroidTestRunner.getTestCases();
-        List<String> testNames = new ArrayList<>();
+        List<String> testNames = Lists.newArrayList();
         for (TestCase testCase : testCases) {
             testNames.add(testCase.getName());
         }
@@ -254,7 +255,7 @@ public class AndroidTestRunnerTest extends TestCase {
     }
 
     private static class TestListenerStub implements TestListener {
-        List<String> testNames = new ArrayList<>();
+        List<String> testNames = Lists.newArrayList();
 
         public void addError(Test test, Throwable t) {
         }

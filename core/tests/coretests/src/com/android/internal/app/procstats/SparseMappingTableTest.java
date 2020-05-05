@@ -16,13 +16,19 @@
 
 package com.android.internal.app.procstats;
 
-import android.os.Parcel;
-import android.util.Log;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.ArrayList;
 
-import androidx.test.filters.SmallTest;
+import android.os.BatteryStats;
+import android.os.Parcel;
+import android.test.suitebuilder.annotation.SmallTest;
+import android.util.Log;
 
 import junit.framework.Assert;
 import junit.framework.TestCase;
+
+import org.mockito.Mockito;
 
 /**
  * Provides test cases for SparseMappingTable.
@@ -174,9 +180,7 @@ public class SparseMappingTableTest extends TestCase {
 
         try {
             table.getValue(key);
-            // Turn off this assertion because the check in SparseMappingTable.assertConsistency
-            // is also turned off.
-            //throw new Exception("Exception not thrown after mismatched reset calls.");
+            throw new Exception("Exception not thrown after mismatched reset calls.");
         } catch (RuntimeException ex) {
             // Good
         }

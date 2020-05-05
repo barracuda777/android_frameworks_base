@@ -21,21 +21,18 @@ import android.annotation.DrawableRes;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.StyleRes;
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
-import android.graphics.BlendMode;
 import android.graphics.Canvas;
 import android.graphics.Insets;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
-import android.graphics.Region.Op;
 import android.graphics.Typeface;
+import android.graphics.Region.Op;
 import android.graphics.drawable.Drawable;
-import android.os.Build.VERSION_CODES;
 import android.text.Layout;
 import android.text.StaticLayout;
 import android.text.TextPaint;
@@ -49,11 +46,10 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.SoundEffectConstants;
 import android.view.VelocityTracker;
-import android.view.ViewConfiguration;
 import android.view.ViewStructure;
+import android.view.ViewConfiguration;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
-import android.view.inspector.InspectableProperty;
 
 import com.android.internal.R;
 
@@ -96,29 +92,25 @@ public class Switch extends CompoundButton {
     private static final int SERIF = 2;
     private static final int MONOSPACE = 3;
 
-    @UnsupportedAppUsage
     private Drawable mThumbDrawable;
     private ColorStateList mThumbTintList = null;
-    private BlendMode mThumbBlendMode = null;
+    private PorterDuff.Mode mThumbTintMode = null;
     private boolean mHasThumbTint = false;
     private boolean mHasThumbTintMode = false;
 
-    @UnsupportedAppUsage
     private Drawable mTrackDrawable;
     private ColorStateList mTrackTintList = null;
-    private BlendMode mTrackBlendMode = null;
+    private PorterDuff.Mode mTrackTintMode = null;
     private boolean mHasTrackTint = false;
     private boolean mHasTrackTintMode = false;
 
     private int mThumbTextPadding;
-    @UnsupportedAppUsage
     private int mSwitchMinWidth;
     private int mSwitchPadding;
     private boolean mSplitTrack;
     private CharSequence mTextOn;
     private CharSequence mTextOff;
     private boolean mShowText;
-    private boolean mUseFallbackLineSpacing;
 
     private int mTouchMode;
     private int mTouchSlop;
@@ -133,21 +125,18 @@ public class Switch extends CompoundButton {
      * Width required to draw the switch track and thumb. Includes padding and
      * optical bounds for both the track and thumb.
      */
-    @UnsupportedAppUsage
     private int mSwitchWidth;
 
     /**
      * Height required to draw the switch track and thumb. Includes padding and
      * optical bounds for both the track and thumb.
      */
-    @UnsupportedAppUsage
     private int mSwitchHeight;
 
     /**
      * Width of the thumb's content region. Does not include padding or
      * optical bounds.
      */
-    @UnsupportedAppUsage
     private int mThumbWidth;
 
     /** Left bound for drawing the switch track and thumb. */
@@ -164,9 +153,7 @@ public class Switch extends CompoundButton {
 
     private TextPaint mTextPaint;
     private ColorStateList mTextColors;
-    @UnsupportedAppUsage
     private Layout mOnLayout;
-    @UnsupportedAppUsage
     private Layout mOffLayout;
     private TransformationMethod2 mSwitchTransformationMethod;
     private ObjectAnimator mPositionAnimator;
@@ -240,8 +227,6 @@ public class Switch extends CompoundButton {
 
         final TypedArray a = context.obtainStyledAttributes(
                 attrs, com.android.internal.R.styleable.Switch, defStyleAttr, defStyleRes);
-        saveAttributeDataForStyleable(context, com.android.internal.R.styleable.Switch,
-                attrs, a, defStyleAttr, defStyleRes);
         mThumbDrawable = a.getDrawable(com.android.internal.R.styleable.Switch_thumb);
         if (mThumbDrawable != null) {
             mThumbDrawable.setCallback(this);
@@ -261,19 +246,16 @@ public class Switch extends CompoundButton {
                 com.android.internal.R.styleable.Switch_switchPadding, 0);
         mSplitTrack = a.getBoolean(com.android.internal.R.styleable.Switch_splitTrack, false);
 
-        mUseFallbackLineSpacing = context.getApplicationInfo().targetSdkVersion >= VERSION_CODES.P;
-
         ColorStateList thumbTintList = a.getColorStateList(
                 com.android.internal.R.styleable.Switch_thumbTint);
         if (thumbTintList != null) {
             mThumbTintList = thumbTintList;
             mHasThumbTint = true;
         }
-        BlendMode thumbTintMode = Drawable.parseBlendMode(
-                a.getInt(com.android.internal.R.styleable.Switch_thumbTintMode, -1),
-                null);
-        if (mThumbBlendMode != thumbTintMode) {
-            mThumbBlendMode = thumbTintMode;
+        PorterDuff.Mode thumbTintMode = Drawable.parseTintMode(
+                a.getInt(com.android.internal.R.styleable.Switch_thumbTintMode, -1), null);
+        if (mThumbTintMode != thumbTintMode) {
+            mThumbTintMode = thumbTintMode;
             mHasThumbTintMode = true;
         }
         if (mHasThumbTint || mHasThumbTintMode) {
@@ -286,11 +268,10 @@ public class Switch extends CompoundButton {
             mTrackTintList = trackTintList;
             mHasTrackTint = true;
         }
-        BlendMode trackTintMode = Drawable.parseBlendMode(
-                a.getInt(com.android.internal.R.styleable.Switch_trackTintMode, -1),
-                null);
-        if (mTrackBlendMode != trackTintMode) {
-            mTrackBlendMode = trackTintMode;
+        PorterDuff.Mode trackTintMode = Drawable.parseTintMode(
+                a.getInt(com.android.internal.R.styleable.Switch_trackTintMode, -1), null);
+        if (mTrackTintMode != trackTintMode) {
+            mTrackTintMode = trackTintMode;
             mHasTrackTintMode = true;
         }
         if (mHasTrackTint || mHasTrackTintMode) {
@@ -450,7 +431,6 @@ public class Switch extends CompoundButton {
      *
      * @attr ref android.R.styleable#Switch_switchPadding
      */
-    @InspectableProperty
     public int getSwitchPadding() {
         return mSwitchPadding;
     }
@@ -476,7 +456,6 @@ public class Switch extends CompoundButton {
      *
      * @attr ref android.R.styleable#Switch_switchMinWidth
      */
-    @InspectableProperty
     public int getSwitchMinWidth() {
         return mSwitchMinWidth;
     }
@@ -500,7 +479,6 @@ public class Switch extends CompoundButton {
      *
      * @attr ref android.R.styleable#Switch_thumbTextPadding
      */
-    @InspectableProperty
     public int getThumbTextPadding() {
         return mThumbTextPadding;
     }
@@ -541,7 +519,6 @@ public class Switch extends CompoundButton {
      *
      * @attr ref android.R.styleable#Switch_track
      */
-    @InspectableProperty(name = "track")
     public Drawable getTrackDrawable() {
         return mTrackDrawable;
     }
@@ -572,7 +549,6 @@ public class Switch extends CompoundButton {
      * @attr ref android.R.styleable#Switch_trackTint
      * @see #setTrackTintList(ColorStateList)
      */
-    @InspectableProperty(name = "trackTint")
     @Nullable
     public ColorStateList getTrackTintList() {
         return mTrackTintList;
@@ -590,22 +566,7 @@ public class Switch extends CompoundButton {
      * @see Drawable#setTintMode(PorterDuff.Mode)
      */
     public void setTrackTintMode(@Nullable PorterDuff.Mode tintMode) {
-        setTrackTintBlendMode(tintMode != null ? BlendMode.fromValue(tintMode.nativeInt) : null);
-    }
-
-    /**
-     * Specifies the blending mode used to apply the tint specified by
-     * {@link #setTrackTintList(ColorStateList)}} to the track drawable.
-     * The default mode is {@link BlendMode#SRC_IN}.
-     *
-     * @param blendMode the blending mode used to apply the tint, may be
-     *                 {@code null} to clear tint
-     * @attr ref android.R.styleable#Switch_trackTintMode
-     * @see #getTrackTintMode()
-     * @see Drawable#setTintBlendMode(BlendMode)
-     */
-    public void setTrackTintBlendMode(@Nullable BlendMode blendMode) {
-        mTrackBlendMode = blendMode;
+        mTrackTintMode = tintMode;
         mHasTrackTintMode = true;
 
         applyTrackTint();
@@ -617,23 +578,9 @@ public class Switch extends CompoundButton {
      * @attr ref android.R.styleable#Switch_trackTintMode
      * @see #setTrackTintMode(PorterDuff.Mode)
      */
-    @InspectableProperty
     @Nullable
     public PorterDuff.Mode getTrackTintMode() {
-        BlendMode mode = getTrackTintBlendMode();
-        return mode != null ? BlendMode.blendModeToPorterDuffMode(mode) : null;
-    }
-
-    /**
-     * @return the blending mode used to apply the tint to the track
-     *         drawable
-     * @attr ref android.R.styleable#Switch_trackTintMode
-     * @see #setTrackTintBlendMode(BlendMode)
-     */
-    @InspectableProperty(attributeId = com.android.internal.R.styleable.Switch_trackTintMode)
-    @Nullable
-    public BlendMode getTrackTintBlendMode() {
-        return mTrackBlendMode;
+        return mTrackTintMode;
     }
 
     private void applyTrackTint() {
@@ -645,7 +592,7 @@ public class Switch extends CompoundButton {
             }
 
             if (mHasTrackTintMode) {
-                mTrackDrawable.setTintBlendMode(mTrackBlendMode);
+                mTrackDrawable.setTintMode(mTrackTintMode);
             }
 
             // The drawable (or one of its children) may not have been
@@ -695,7 +642,6 @@ public class Switch extends CompoundButton {
      *
      * @attr ref android.R.styleable#Switch_thumb
      */
-    @InspectableProperty(name = "thumb")
     public Drawable getThumbDrawable() {
         return mThumbDrawable;
     }
@@ -726,7 +672,6 @@ public class Switch extends CompoundButton {
      * @attr ref android.R.styleable#Switch_thumbTint
      * @see #setThumbTintList(ColorStateList)
      */
-    @InspectableProperty(name = "thumbTint")
     @Nullable
     public ColorStateList getThumbTintList() {
         return mThumbTintList;
@@ -744,22 +689,7 @@ public class Switch extends CompoundButton {
      * @see Drawable#setTintMode(PorterDuff.Mode)
      */
     public void setThumbTintMode(@Nullable PorterDuff.Mode tintMode) {
-        setThumbTintBlendMode(tintMode != null ? BlendMode.fromValue(tintMode.nativeInt) : null);
-    }
-
-    /**
-     * Specifies the blending mode used to apply the tint specified by
-     * {@link #setThumbTintList(ColorStateList)}} to the thumb drawable.
-     * The default mode is {@link PorterDuff.Mode#SRC_IN}.
-     *
-     * @param blendMode the blending mode used to apply the tint, may be
-     *                 {@code null} to clear tint
-     * @attr ref android.R.styleable#Switch_thumbTintMode
-     * @see #getThumbTintMode()
-     * @see Drawable#setTintBlendMode(BlendMode)
-     */
-    public void setThumbTintBlendMode(@Nullable BlendMode blendMode) {
-        mThumbBlendMode = blendMode;
+        mThumbTintMode = tintMode;
         mHasThumbTintMode = true;
 
         applyThumbTint();
@@ -771,23 +701,9 @@ public class Switch extends CompoundButton {
      * @attr ref android.R.styleable#Switch_thumbTintMode
      * @see #setThumbTintMode(PorterDuff.Mode)
      */
-    @InspectableProperty
     @Nullable
     public PorterDuff.Mode getThumbTintMode() {
-        BlendMode mode = getThumbTintBlendMode();
-        return mode != null ? BlendMode.blendModeToPorterDuffMode(mode) : null;
-    }
-
-    /**
-     * @return the blending mode used to apply the tint to the thumb
-     *         drawable
-     * @attr ref android.R.styleable#Switch_thumbTintMode
-     * @see #setThumbTintBlendMode(BlendMode)
-     */
-    @InspectableProperty(attributeId = com.android.internal.R.styleable.Switch_thumbTintMode)
-    @Nullable
-    public BlendMode getThumbTintBlendMode() {
-        return mThumbBlendMode;
+        return mThumbTintMode;
     }
 
     private void applyThumbTint() {
@@ -799,7 +715,7 @@ public class Switch extends CompoundButton {
             }
 
             if (mHasThumbTintMode) {
-                mThumbDrawable.setTintBlendMode(mThumbBlendMode);
+                mThumbDrawable.setTintMode(mThumbTintMode);
             }
 
             // The drawable (or one of its children) may not have been
@@ -829,7 +745,6 @@ public class Switch extends CompoundButton {
      *
      * @attr ref android.R.styleable#Switch_splitTrack
      */
-    @InspectableProperty
     public boolean getSplitTrack() {
         return mSplitTrack;
     }
@@ -839,7 +754,6 @@ public class Switch extends CompoundButton {
      *
      * @attr ref android.R.styleable#Switch_textOn
      */
-    @InspectableProperty
     public CharSequence getTextOn() {
         return mTextOn;
     }
@@ -859,7 +773,6 @@ public class Switch extends CompoundButton {
      *
      * @attr ref android.R.styleable#Switch_textOff
      */
-    @InspectableProperty
     public CharSequence getTextOff() {
         return mTextOff;
     }
@@ -891,7 +804,6 @@ public class Switch extends CompoundButton {
      * @return whether the on/off text should be displayed
      * @attr ref android.R.styleable#Switch_showText
      */
-    @InspectableProperty
     public boolean getShowText() {
         return mShowText;
     }
@@ -980,11 +892,9 @@ public class Switch extends CompoundButton {
                     ? mSwitchTransformationMethod.getTransformation(text, this)
                     : text;
 
-        int width = (int) Math.ceil(Layout.getDesiredWidth(transformed, 0,
-                transformed.length(), mTextPaint, getTextDirectionHeuristic()));
-        return StaticLayout.Builder.obtain(transformed, 0, transformed.length(), mTextPaint, width)
-                .setUseLineSpacingFromFallbacks(mUseFallbackLineSpacing)
-                .build();
+        return new StaticLayout(transformed, mTextPaint,
+                (int) Math.ceil(Layout.getDesiredWidth(transformed, mTextPaint)),
+                Layout.Alignment.ALIGN_NORMAL, 1.f, 0, true);
     }
 
     /**
@@ -1134,7 +1044,6 @@ public class Switch extends CompoundButton {
         mPositionAnimator.start();
     }
 
-    @UnsupportedAppUsage
     private void cancelPositionAnimator() {
         if (mPositionAnimator != null) {
             mPositionAnimator.cancel();
@@ -1150,7 +1059,6 @@ public class Switch extends CompoundButton {
      *
      * @param position new position between [0,1]
      */
-    @UnsupportedAppUsage
     private void setThumbPosition(float position) {
         mThumbPosition = position;
         invalidate();
@@ -1494,10 +1402,9 @@ public class Switch extends CompoundButton {
         return Switch.class.getName();
     }
 
-    /** @hide */
     @Override
-    protected void onProvideStructure(@NonNull ViewStructure structure,
-            @ViewStructureType int viewFor, int flags) {
+    public void onProvideStructure(ViewStructure structure) {
+        super.onProvideStructure(structure);
         CharSequence switchText = isChecked() ? mTextOn : mTextOff;
         if (!TextUtils.isEmpty(switchText)) {
             CharSequence oldText = structure.getText();

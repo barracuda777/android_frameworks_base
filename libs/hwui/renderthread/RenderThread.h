@@ -20,45 +20,46 @@
 #include "RenderTask.h"
 
 #include "../JankTracker.h"
-#include "CacheManager.h"
 #include "TimeLord.h"
-#include "WebViewFunctorManager.h"
-#include "thread/ThreadBase.h"
-#include "utils/TimeUtils.h"
 
-#include <GrContext.h>
-#include <SkBitmap.h>
 #include <cutils/compiler.h>
 #include <ui/DisplayInfo.h>
 #include <utils/Looper.h>
 #include <utils/Thread.h>
 
-#include <thread/ThreadBase.h>
 #include <memory>
-#include <mutex>
 #include <set>
 
 namespace android {
 
-class Bitmap;
-class AutoBackendTextureRelease;
+class DisplayEventReceiver;
 
 namespace uirenderer {
 
-class Readback;
 class RenderState;
 class TestUtils;
-
-namespace skiapipeline {
-class VkFunctorDrawHandler;
-}
 
 namespace renderthread {
 
 class CanvasContext;
+class DispatchFrameCallbacks;
 class EglManager;
 class RenderProxy;
-class VulkanManager;
+
+class TaskQueue {
+public:
+    TaskQueue();
+
+    RenderTask* next();
+    void queue(RenderTask* task);
+    void queueAtFront(RenderTask* task);
+    RenderTask* peek();
+    void remove(RenderTask* task);
+
+private:
+    RenderTask* mHead;
+    RenderTask* mTail;
+};
 
 // Mimics android.view.Choreographer.FrameCallback
 class IFrameCallback {
@@ -66,28 +67,18 @@ public:
     virtual void doFrame() = 0;
 
 protected:
-    virtual ~IFrameCallback() {}
+    ~IFrameCallback() {}
 };
 
-struct VsyncSource {
-    virtual void requestNextVsync() = 0;
-    virtual nsecs_t latestVsyncEvent() = 0;
-    virtual ~VsyncSource() {}
-};
-
-class DummyVsyncSource;
-
-typedef void (*JVMAttachHook)(const char* name);
-
-class RenderThread : private ThreadBase {
-    PREVENT_COPY_AND_ASSIGN(RenderThread);
-
+class ANDROID_API RenderThread : public Thread {
 public:
-    // Sets a callback that fires before any RenderThread setup has occurred.
-    ANDROID_API static void setOnStartHook(JVMAttachHook onStartHook);
-    static JVMAttachHook getOnStartHook();
-
-    WorkQueue& queue() { return ThreadBase::queue(); }
+    // RenderThread takes complete ownership of tasks that are queued
+    // and will delete them after they are run
+    ANDROID_API void queue(RenderTask* task);
+    ANDROID_API void queueAndWait(RenderTask* task);
+    ANDROID_API void queueAtFront(RenderTask* task);
+    void queueAt(RenderTask* task, nsecs_t runAtNs);
+    void remove(RenderTask* task);
 
     // Mimics android.view.Choreographer
     void postFrameCallback(IFrameCallback* callback);
@@ -97,35 +88,11 @@ public:
     void pushBackFrameCallback(IFrameCallback* callback);
 
     TimeLord& timeLord() { return mTimeLord; }
-    RenderState& renderState() const { return *mRenderState; }
-    EglManager& eglManager() const { return *mEglManager; }
-    ProfileDataContainer& globalProfileData() { return mGlobalProfileData; }
-    Readback& readback();
+    RenderState& renderState() { return *mRenderState; }
+    EglManager& eglManager() { return *mEglManager; }
+    JankTracker& jankTracker() { return *mJankTracker; }
 
-    GrContext* getGrContext() const { return mGrContext.get(); }
-    void setGrContext(sk_sp<GrContext> cxt);
-
-    CacheManager& cacheManager() { return *mCacheManager; }
-    VulkanManager& vulkanManager() { return *mVkManager; }
-
-    sk_sp<Bitmap> allocateHardwareBitmap(SkBitmap& skBitmap);
-    void dumpGraphicsMemory(int fd);
-
-    void requireGlContext();
-    void requireVkContext();
-    void destroyRenderingContext();
-
-    void preload();
-
-    /**
-     * isCurrent provides a way to query, if the caller is running on
-     * the render thread.
-     *
-     * @return true only if isCurrent is invoked from the render thread.
-     */
-    static bool isCurrent();
-
-    static void initGrContextOptions(GrContextOptions& options);
+    const DisplayInfo& mainDisplayInfo() { return mDisplayInfo; }
 
 protected:
     virtual bool threadLoop() override;
@@ -133,11 +100,7 @@ protected:
 private:
     friend class DispatchFrameCallbacks;
     friend class RenderProxy;
-    friend class DummyVsyncSource;
-    friend class android::AutoBackendTextureRelease;
     friend class android::uirenderer::TestUtils;
-    friend class android::uirenderer::WebViewFunctor;
-    friend class android::uirenderer::skiapipeline::VkFunctorDrawHandler;
 
     RenderThread();
     virtual ~RenderThread();
@@ -147,13 +110,25 @@ private:
 
     void initThreadLocals();
     void initializeDisplayEventReceiver();
-    void setupFrameInterval();
     static int displayEventReceiverCallback(int fd, int events, void* data);
     void drainDisplayEventQueue();
     void dispatchFrameCallbacks();
     void requestVsync();
 
-    VsyncSource* mVsyncSource;
+    // Returns the next task to be run. If this returns NULL nextWakeup is set
+    // to the time to requery for the nextTask to run. mNextWakeup is also
+    // set to this time
+    RenderTask* nextTask(nsecs_t* nextWakeup);
+
+    sp<Looper> mLooper;
+    Mutex mLock;
+
+    nsecs_t mNextWakeup;
+    TaskQueue mQueue;
+
+    DisplayInfo mDisplayInfo;
+
+    DisplayEventReceiver* mDisplayEventReceiver;
     bool mVsyncRequested;
     std::set<IFrameCallback*> mFrameCallbacks;
     // We defer the actual registration of these callbacks until
@@ -162,19 +137,13 @@ private:
     // the previous one
     std::set<IFrameCallback*> mPendingRegistrationFrameCallbacks;
     bool mFrameCallbackTaskPending;
+    DispatchFrameCallbacks* mFrameCallbackTask;
 
     TimeLord mTimeLord;
-    nsecs_t mDispatchFrameDelay = 4_ms;
     RenderState* mRenderState;
     EglManager* mEglManager;
-    WebViewFunctorManager& mFunctorManager;
 
-    ProfileDataContainer mGlobalProfileData;
-    Readback* mReadback = nullptr;
-
-    sk_sp<GrContext> mGrContext;
-    CacheManager* mCacheManager;
-    VulkanManager* mVkManager;
+    JankTracker* mJankTracker = nullptr;
 };
 
 } /* namespace renderthread */

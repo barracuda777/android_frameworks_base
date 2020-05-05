@@ -16,7 +16,6 @@
 
 package android.os;
 
-import android.annotation.UnsupportedAppUsage;
 import android.os.Message;
 
 /** @hide */
@@ -26,17 +25,13 @@ public class AsyncResult
     /*************************** Instance Variables **************************/
 
     // Expect either exception or result to be null
-    @UnsupportedAppUsage
     public Object userObj;
-    @UnsupportedAppUsage
     public Throwable exception;
-    @UnsupportedAppUsage
     public Object result;
 
     /***************************** Class Methods *****************************/
 
     /** Saves and sets m.obj */
-    @UnsupportedAppUsage
     public static AsyncResult 
     forMessage(Message m, Object r, Throwable ex)
     {
@@ -50,7 +45,6 @@ public class AsyncResult
     }
 
     /** Saves and sets m.obj */
-    @UnsupportedAppUsage
     public static AsyncResult 
     forMessage(Message m)
     {
@@ -64,7 +58,6 @@ public class AsyncResult
     }
 
     /** please note, this sets m.obj to be this */
-    @UnsupportedAppUsage
     public 
     AsyncResult (Object uo, Object r, Throwable ex)
     {

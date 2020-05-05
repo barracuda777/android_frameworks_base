@@ -20,25 +20,24 @@ import android.accessibilityservice.GestureDescription.MotionEventGenerator;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.RequiresPermission;
-import android.annotation.UnsupportedAppUsage;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ParceledListSlice;
 import android.graphics.Region;
-import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.os.RemoteException;
+import android.provider.Settings;
 import android.util.ArrayMap;
 import android.util.Log;
+import android.util.Pair;
 import android.util.Slog;
 import android.util.SparseArray;
-import android.view.Display;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.WindowManager;
 import android.view.WindowManagerImpl;
 import android.view.accessibility.AccessibilityEvent;
@@ -75,7 +74,7 @@ import java.util.List;
  * follows the established service life cycle. Starting an accessibility service is triggered
  * exclusively by the user explicitly turning the service on in device settings. After the system
  * binds to a service, it calls {@link AccessibilityService#onServiceConnected()}. This method can
- * be overridden by clients that want to perform post binding setup.
+ * be overriden by clients that want to perform post binding setup.
  * </p>
  * <p>
  * An accessibility service stops either when the user turns it off in device settings or when
@@ -309,7 +308,7 @@ public abstract class AccessibilityService extends Service {
      * Name under which an AccessibilityService component publishes information
      * about itself. This meta-data must reference an XML resource containing an
      * <code>&lt;{@link android.R.styleable#AccessibilityService accessibility-service}&gt;</code>
-     * tag. This is a sample XML file configuring an accessibility service:
+     * tag. This is a a sample XML file configuring an accessibility service:
      * <pre> &lt;accessibility-service
      *     android:accessibilityEventTypes="typeViewClicked|typeViewFocused"
      *     android:packageNames="foo.bar, foo.baz"
@@ -360,38 +359,22 @@ public abstract class AccessibilityService extends Service {
      */
     public static final int GLOBAL_ACTION_TOGGLE_SPLIT_SCREEN = 7;
 
-    /**
-     * Action to lock the screen
-     */
-    public static final int GLOBAL_ACTION_LOCK_SCREEN = 8;
-
-    /**
-     * Action to take a screenshot
-     */
-    public static final int GLOBAL_ACTION_TAKE_SCREENSHOT = 9;
-
     private static final String LOG_TAG = "AccessibilityService";
 
     /**
-     * Interface used by IAccessibilityServiceWrapper to call the service from its main thread.
      * @hide
      */
     public interface Callbacks {
-        void onAccessibilityEvent(AccessibilityEvent event);
-        void onInterrupt();
-        void onServiceConnected();
-        void init(int connectionId, IBinder windowToken);
-        boolean onGesture(int gestureId);
-        boolean onKeyEvent(KeyEvent event);
-        /** Magnification changed callbacks for different displays */
-        void onMagnificationChanged(int displayId, @NonNull Region region,
+        public void onAccessibilityEvent(AccessibilityEvent event);
+        public void onInterrupt();
+        public void onServiceConnected();
+        public void init(int connectionId, IBinder windowToken);
+        public boolean onGesture(int gestureId);
+        public boolean onKeyEvent(KeyEvent event);
+        public void onMagnificationChanged(@NonNull Region region,
                 float scale, float centerX, float centerY);
-        void onSoftKeyboardShowModeChanged(int showMode);
-        void onPerformGestureResult(int sequence, boolean completedSuccessfully);
-        void onFingerprintCapturingGesturesChanged(boolean active);
-        void onFingerprintGesture(int gesture);
-        void onAccessibilityButtonClicked();
-        void onAccessibilityButtonAvailabilityChanged(boolean available);
+        public void onSoftKeyboardShowModeChanged(int showMode);
+        public void onPerformGestureResult(int sequence, boolean completedSuccessfully);
     }
 
     /**
@@ -399,74 +382,27 @@ public abstract class AccessibilityService extends Service {
      * @hide
      */
     @Retention(RetentionPolicy.SOURCE)
-    @IntDef(prefix = { "SHOW_MODE_" }, value = {
-            SHOW_MODE_AUTO,
-            SHOW_MODE_HIDDEN,
-            SHOW_MODE_IGNORE_HARD_KEYBOARD
-    })
-    public @interface SoftKeyboardShowMode {}
-
-    /**
-     * Allow the system to control when the soft keyboard is shown.
-     * @see SoftKeyboardController
-     */
+    @IntDef({SHOW_MODE_AUTO, SHOW_MODE_HIDDEN})
+    public @interface SoftKeyboardShowMode {};
     public static final int SHOW_MODE_AUTO = 0;
-
-    /**
-     * Never show the soft keyboard.
-     * @see SoftKeyboardController
-     */
     public static final int SHOW_MODE_HIDDEN = 1;
 
-    /**
-     * Allow the soft keyboard to be shown, even if a hard keyboard is connected
-     * @see SoftKeyboardController
-     */
-    public static final int SHOW_MODE_IGNORE_HARD_KEYBOARD = 2;
+    private int mConnectionId;
 
-    /**
-     * Mask used to cover the show modes supported in public API
-     * @hide
-     */
-    public static final int SHOW_MODE_MASK = 0x03;
-
-    /**
-     * Bit used to hold the old value of the hard IME setting to restore when a service is shut
-     * down.
-     * @hide
-     */
-    public static final int SHOW_MODE_HARD_KEYBOARD_ORIGINAL_VALUE = 0x20000000;
-
-    /**
-     * Bit for show mode setting to indicate that the user has overridden the hard keyboard
-     * behavior.
-     * @hide
-     */
-    public static final int SHOW_MODE_HARD_KEYBOARD_OVERRIDDEN = 0x40000000;
-
-    private int mConnectionId = AccessibilityInteractionClient.NO_ID;
-
-    @UnsupportedAppUsage
     private AccessibilityServiceInfo mInfo;
 
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     private IBinder mWindowToken;
 
     private WindowManager mWindowManager;
 
-    /** List of magnification controllers, mapping from displayId -> MagnificationController. */
-    private final SparseArray<MagnificationController> mMagnificationControllers =
-            new SparseArray<>(0);
+    private MagnificationController mMagnificationController;
     private SoftKeyboardController mSoftKeyboardController;
-    private AccessibilityButtonController mAccessibilityButtonController;
 
     private int mGestureStatusCallbackSequence;
 
     private SparseArray<GestureResultCallbackInfo> mGestureStatusCallbackInfos;
 
     private final Object mLock = new Object();
-
-    private FingerprintGestureController mFingerprintGestureController;
 
     /**
      * Callback for {@link android.view.accessibility.AccessibilityEvent}s.
@@ -487,13 +423,8 @@ public abstract class AccessibilityService extends Service {
      * client code.
      */
     private void dispatchServiceConnected() {
-        synchronized (mLock) {
-            for (int i = 0; i < mMagnificationControllers.size(); i++) {
-                mMagnificationControllers.valueAt(i).onServiceConnectedLocked();
-            }
-        }
-        if (mSoftKeyboardController != null) {
-            mSoftKeyboardController.onServiceConnected();
+        if (mMagnificationController != null) {
+            mMagnificationController.onServiceConnected();
         }
 
         // The client gets to handle service connection last, after we've set
@@ -582,7 +513,7 @@ public abstract class AccessibilityService extends Service {
      * anything behind it, then only the modal window will be reported
      * (assuming it is the top one). For convenience the returned windows
      * are ordered in a descending layer order, which is the windows that
-     * are on top are reported first. Since the user can always
+     * are higher in the Z-order are reported first. Since the user can always
      * interact with the window that has input focus by typing, the focused
      * window is always returned (even if covered by a modal window).
      * <p>
@@ -658,52 +589,12 @@ public abstract class AccessibilityService extends Service {
      */
     @NonNull
     public final MagnificationController getMagnificationController() {
-        return getMagnificationController(Display.DEFAULT_DISPLAY);
-    }
-
-    /**
-     * Returns the magnification controller of specified logical display, which may be used to
-     * query and modify the state of display magnification.
-     * <p>
-     * <strong>Note:</strong> In order to control magnification, your service
-     * must declare the capability by setting the
-     * {@link android.R.styleable#AccessibilityService_canControlMagnification}
-     * property in its meta-data. For more information, see
-     * {@link #SERVICE_META_DATA}.
-     *
-     * @param displayId The logic display id, use {@link Display#DEFAULT_DISPLAY} for
-     *                  default display.
-     * @return the magnification controller
-     *
-     * @hide
-     */
-    @NonNull
-    public final MagnificationController getMagnificationController(int displayId) {
         synchronized (mLock) {
-            MagnificationController controller = mMagnificationControllers.get(displayId);
-            if (controller == null) {
-                controller = new MagnificationController(this, mLock, displayId);
-                mMagnificationControllers.put(displayId, controller);
+            if (mMagnificationController == null) {
+                mMagnificationController = new MagnificationController(this, mLock);
             }
-            return controller;
+            return mMagnificationController;
         }
-    }
-
-    /**
-     * Get the controller for fingerprint gestures. This feature requires {@link
-     * AccessibilityServiceInfo#CAPABILITY_CAN_REQUEST_FINGERPRINT_GESTURES}.
-     *
-     *<strong>Note: </strong> The service must be connected before this method is called.
-     *
-     * @return The controller for fingerprint gestures, or {@code null} if gestures are unavailable.
-     */
-    @RequiresPermission(android.Manifest.permission.USE_FINGERPRINT)
-    public final @NonNull FingerprintGestureController getFingerprintGestureController() {
-        if (mFingerprintGestureController == null) {
-            mFingerprintGestureController = new FingerprintGestureController(
-                    AccessibilityInteractionClient.getInstance().getConnection(mConnectionId));
-        }
-        return mFingerprintGestureController;
     }
 
     /**
@@ -794,31 +685,12 @@ public abstract class AccessibilityService extends Service {
         }
     }
 
-    private void onMagnificationChanged(int displayId, @NonNull Region region, float scale,
+    private void onMagnificationChanged(@NonNull Region region, float scale,
             float centerX, float centerY) {
-        MagnificationController controller;
-        synchronized (mLock) {
-            controller = mMagnificationControllers.get(displayId);
+        if (mMagnificationController != null) {
+            mMagnificationController.dispatchMagnificationChanged(
+                    region, scale, centerX, centerY);
         }
-        if (controller != null) {
-            controller.dispatchMagnificationChanged(region, scale, centerX, centerY);
-        }
-    }
-
-    /**
-     * Callback for fingerprint gesture handling
-     * @param active If gesture detection is active
-     */
-    private void onFingerprintCapturingGesturesChanged(boolean active) {
-        getFingerprintGestureController().onGestureDetectionActiveChanged(active);
-    }
-
-    /**
-     * Callback for fingerprint gesture handling
-     * @param gesture The identifier for the gesture performed
-     */
-    private void onFingerprintGesture(int gesture) {
-        getFingerprintGestureController().onGesture(gesture);
     }
 
     /**
@@ -826,7 +698,6 @@ public abstract class AccessibilityService extends Service {
      */
     public static final class MagnificationController {
         private final AccessibilityService mService;
-        private final int mDisplayId;
 
         /**
          * Map of listeners to their handlers. Lazily created when adding the
@@ -835,19 +706,19 @@ public abstract class AccessibilityService extends Service {
         private ArrayMap<OnMagnificationChangedListener, Handler> mListeners;
         private final Object mLock;
 
-        MagnificationController(@NonNull AccessibilityService service, @NonNull Object lock,
-                int displayId) {
+        MagnificationController(@NonNull AccessibilityService service, @NonNull Object lock) {
             mService = service;
             mLock = lock;
-            mDisplayId = displayId;
         }
 
         /**
          * Called when the service is connected.
          */
-        void onServiceConnectedLocked() {
-            if (mListeners != null && !mListeners.isEmpty()) {
-                setMagnificationCallbackEnabled(true);
+        void onServiceConnected() {
+            synchronized (mLock) {
+                if (mListeners != null && !mListeners.isEmpty()) {
+                    setMagnificationCallbackEnabled(true);
+                }
             }
         }
 
@@ -891,10 +762,12 @@ public abstract class AccessibilityService extends Service {
         }
 
         /**
-         * Removes the specified change listener from the list of magnification change listeners.
+         * Removes all instances of the specified change listener from the list
+         * of magnification change listeners.
          *
          * @param listener the listener to remove, must be non-null
-         * @return {@code true} if the listener was removed, {@code false} otherwise
+         * @return {@code true} if at least one instance of the listener was
+         *         removed
          */
         public boolean removeListener(@NonNull OnMagnificationChangedListener listener) {
             if (mListeners == null) {
@@ -924,7 +797,7 @@ public abstract class AccessibilityService extends Service {
                             mService.mConnectionId);
             if (connection != null) {
                 try {
-                    connection.setMagnificationCallbackEnabled(mDisplayId, enabled);
+                    connection.setMagnificationCallbackEnabled(enabled);
                 } catch (RemoteException re) {
                     throw new RuntimeException(re);
                 }
@@ -985,7 +858,7 @@ public abstract class AccessibilityService extends Service {
                             mService.mConnectionId);
             if (connection != null) {
                 try {
-                    return connection.getMagnificationScale(mDisplayId);
+                    return connection.getMagnificationScale();
                 } catch (RemoteException re) {
                     Log.w(LOG_TAG, "Failed to obtain scale", re);
                     re.rethrowFromSystemServer();
@@ -1014,7 +887,7 @@ public abstract class AccessibilityService extends Service {
                             mService.mConnectionId);
             if (connection != null) {
                 try {
-                    return connection.getMagnificationCenterX(mDisplayId);
+                    return connection.getMagnificationCenterX();
                 } catch (RemoteException re) {
                     Log.w(LOG_TAG, "Failed to obtain center X", re);
                     re.rethrowFromSystemServer();
@@ -1043,7 +916,7 @@ public abstract class AccessibilityService extends Service {
                             mService.mConnectionId);
             if (connection != null) {
                 try {
-                    return connection.getMagnificationCenterY(mDisplayId);
+                    return connection.getMagnificationCenterY();
                 } catch (RemoteException re) {
                     Log.w(LOG_TAG, "Failed to obtain center Y", re);
                     re.rethrowFromSystemServer();
@@ -1077,7 +950,7 @@ public abstract class AccessibilityService extends Service {
                             mService.mConnectionId);
             if (connection != null) {
                 try {
-                    return connection.getMagnificationRegion(mDisplayId);
+                    return connection.getMagnificationRegion();
                 } catch (RemoteException re) {
                     Log.w(LOG_TAG, "Failed to obtain magnified region", re);
                     re.rethrowFromSystemServer();
@@ -1106,7 +979,7 @@ public abstract class AccessibilityService extends Service {
                             mService.mConnectionId);
             if (connection != null) {
                 try {
-                    return connection.resetMagnification(mDisplayId, animate);
+                    return connection.resetMagnification(animate);
                 } catch (RemoteException re) {
                     Log.w(LOG_TAG, "Failed to reset", re);
                     re.rethrowFromSystemServer();
@@ -1123,7 +996,7 @@ public abstract class AccessibilityService extends Service {
          * called) or the service has been disconnected, this method will have
          * no effect and return {@code false}.
          *
-         * @param scale the magnification scale to set, must be >= 1 and <= 8
+         * @param scale the magnification scale to set, must be >= 1 and <= 5
          * @param animate {@code true} to animate from the current scale or
          *                {@code false} to set the scale immediately
          * @return {@code true} on success, {@code false} on failure
@@ -1134,7 +1007,7 @@ public abstract class AccessibilityService extends Service {
                             mService.mConnectionId);
             if (connection != null) {
                 try {
-                    return connection.setMagnificationScaleAndCenter(mDisplayId,
+                    return connection.setMagnificationScaleAndCenter(
                             scale, Float.NaN, Float.NaN, animate);
                 } catch (RemoteException re) {
                     Log.w(LOG_TAG, "Failed to set scale", re);
@@ -1166,7 +1039,7 @@ public abstract class AccessibilityService extends Service {
                             mService.mConnectionId);
             if (connection != null) {
                 try {
-                    return connection.setMagnificationScaleAndCenter(mDisplayId,
+                    return connection.setMagnificationScaleAndCenter(
                             Float.NaN, centerX, centerY, animate);
                 } catch (RemoteException re) {
                     Log.w(LOG_TAG, "Failed to set center", re);
@@ -1219,27 +1092,7 @@ public abstract class AccessibilityService extends Service {
     }
 
     /**
-     * Used to control, query, and listen for changes to the soft keyboard show mode.
-     * <p>
-     * Accessibility services may request to override the decisions normally made about whether or
-     * not the soft keyboard is shown.
-     * <p>
-     * If multiple services make conflicting requests, the last request is honored. A service may
-     * register a listener to find out if the mode has changed under it.
-     * <p>
-     * If the user takes action to override the behavior behavior requested by an accessibility
-     * service, the user's request takes precendence, the show mode will be reset to
-     * {@link AccessibilityService#SHOW_MODE_AUTO}, and services will no longer be able to control
-     * that aspect of the soft keyboard's behavior.
-     * <p>
-     * Note: Because soft keyboards are independent apps, the framework does not have total control
-     * over their behavior. They may choose to show themselves, or not, without regard to requests
-     * made here. So the framework will make a best effort to deliver the behavior requested, but
-     * cannot guarantee success.
-     *
-     * @see AccessibilityService#SHOW_MODE_AUTO
-     * @see AccessibilityService#SHOW_MODE_HIDDEN
-     * @see AccessibilityService#SHOW_MODE_IGNORE_HARD_KEYBOARD
+     * Used to control and query the soft keyboard show mode.
      */
     public static final class SoftKeyboardController {
         private final AccessibilityService mService;
@@ -1303,14 +1156,13 @@ public abstract class AccessibilityService extends Service {
         }
 
         /**
-         * Removes the specified change listener from the list of keyboard show mode change
-         * listeners.
+         * Removes all instances of the specified change listener from the list of magnification
+         * change listeners.
          *
          * @param listener the listener to remove, must be non-null
-         * @return {@code true} if the listener was removed, {@code false} otherwise
+         * @return {@code true} if at least one instance of the listener was removed
          */
-        public boolean removeOnShowModeChangedListener(
-                @NonNull OnShowModeChangedListener listener) {
+        public boolean removeOnShowModeChangedListener(@NonNull OnShowModeChangedListener listener) {
             if (mListeners == null) {
                 return false;
             }
@@ -1353,7 +1205,7 @@ public abstract class AccessibilityService extends Service {
             final ArrayMap<OnShowModeChangedListener, Handler> entries;
             synchronized (mLock) {
                 if (mListeners == null || mListeners.isEmpty()) {
-                    Slog.w(LOG_TAG, "Received soft keyboard show mode changed callback"
+                    Slog.d(LOG_TAG, "Received soft keyboard show mode changed callback"
                             + " with no listeners registered!");
                     setSoftKeyboardCallbackEnabled(false);
                     return;
@@ -1382,43 +1234,39 @@ public abstract class AccessibilityService extends Service {
         }
 
         /**
-         * Returns the show mode of the soft keyboard.
+         * Returns the show mode of the soft keyboard. The default show mode is
+         * {@code SHOW_MODE_AUTO}, where the soft keyboard is shown when a text input field is
+         * focused. An AccessibilityService can also request the show mode
+         * {@code SHOW_MODE_HIDDEN}, where the soft keyboard is never shown.
          *
          * @return the current soft keyboard show mode
-         *
-         * @see AccessibilityService#SHOW_MODE_AUTO
-         * @see AccessibilityService#SHOW_MODE_HIDDEN
-         * @see AccessibilityService#SHOW_MODE_IGNORE_HARD_KEYBOARD
          */
         @SoftKeyboardShowMode
         public int getShowMode() {
-            final IAccessibilityServiceConnection connection =
-                    AccessibilityInteractionClient.getInstance().getConnection(
-                            mService.mConnectionId);
-            if (connection != null) {
-                try {
-                    return connection.getSoftKeyboardShowMode();
-                } catch (RemoteException re) {
-                    Log.w(LOG_TAG, "Failed to set soft keyboard behavior", re);
-                    re.rethrowFromSystemServer();
-                }
-            }
-            return SHOW_MODE_AUTO;
+           try {
+               return Settings.Secure.getInt(mService.getContentResolver(),
+                       Settings.Secure.ACCESSIBILITY_SOFT_KEYBOARD_MODE);
+           } catch (Settings.SettingNotFoundException e) {
+               Log.v(LOG_TAG, "Failed to obtain the soft keyboard mode", e);
+               // The settings hasn't been changed yet, so it's value is null. Return the default.
+               return 0;
+           }
         }
 
         /**
-         * Sets the soft keyboard show mode.
+         * Sets the soft keyboard show mode. The default show mode is
+         * {@code SHOW_MODE_AUTO}, where the soft keyboard is shown when a text input field is
+         * focused. An AccessibilityService can also request the show mode
+         * {@code SHOW_MODE_HIDDEN}, where the soft keyboard is never shown. The
+         * The lastto this method will be honored, regardless of any previous calls (including those
+         * made by other AccessibilityServices).
          * <p>
-         * <strong>Note:</strong> If the service is not yet connected (e.g.
+         * <strong>Note:</strong> If the service is not yet conected (e.g.
          * {@link AccessibilityService#onServiceConnected()} has not yet been called) or the
-         * service has been disconnected, this method will have no effect and return {@code false}.
+         * service has been disconnected, this method will hav no effect and return {@code false}.
          *
          * @param showMode the new show mode for the soft keyboard
          * @return {@code true} on success
-         *
-         * @see AccessibilityService#SHOW_MODE_AUTO
-         * @see AccessibilityService#SHOW_MODE_HIDDEN
-         * @see AccessibilityService#SHOW_MODE_IGNORE_HARD_KEYBOARD
          */
         public boolean setShowMode(@SoftKeyboardShowMode int showMode) {
            final IAccessibilityServiceConnection connection =
@@ -1451,39 +1299,6 @@ public abstract class AccessibilityService extends Service {
             void onShowModeChanged(@NonNull SoftKeyboardController controller,
                     @SoftKeyboardShowMode int showMode);
         }
-    }
-
-    /**
-     * Returns the controller for the accessibility button within the system's navigation area.
-     * This instance may be used to query the accessibility button's state and register listeners
-     * for interactions with and state changes for the accessibility button when
-     * {@link AccessibilityServiceInfo#FLAG_REQUEST_ACCESSIBILITY_BUTTON} is set.
-     * <p>
-     * <strong>Note:</strong> Not all devices are capable of displaying the accessibility button
-     * within a navigation area, and as such, use of this class should be considered only as an
-     * optional feature or shortcut on supported device implementations.
-     * </p>
-     *
-     * @return the accessibility button controller for this {@link AccessibilityService}
-     */
-    @NonNull
-    public final AccessibilityButtonController getAccessibilityButtonController() {
-        synchronized (mLock) {
-            if (mAccessibilityButtonController == null) {
-                mAccessibilityButtonController = new AccessibilityButtonController(
-                        AccessibilityInteractionClient.getInstance().getConnection(mConnectionId));
-            }
-            return mAccessibilityButtonController;
-        }
-    }
-
-    private void onAccessibilityButtonClicked() {
-        getAccessibilityButtonController().dispatchAccessibilityButtonClicked();
-    }
-
-    private void onAccessibilityButtonAvailabilityChanged(boolean available) {
-        getAccessibilityButtonController().dispatchAccessibilityButtonAvailabilityChanged(
-                available);
     }
 
     /**
@@ -1536,7 +1351,7 @@ public abstract class AccessibilityService extends Service {
      */
     public AccessibilityNodeInfo findFocus(int focus) {
         return AccessibilityInteractionClient.getInstance().findFocus(mConnectionId,
-                AccessibilityWindowInfo.ANY_WINDOW_ID, AccessibilityNodeInfo.ROOT_NODE_ID, focus);
+                AccessibilityNodeInfo.ANY_WINDOW_ID, AccessibilityNodeInfo.ROOT_NODE_ID, focus);
     }
 
     /**
@@ -1657,10 +1472,9 @@ public abstract class AccessibilityService extends Service {
             }
 
             @Override
-            public void onMagnificationChanged(int displayId, @NonNull Region region,
+            public void onMagnificationChanged(@NonNull Region region,
                     float scale, float centerX, float centerY) {
-                AccessibilityService.this.onMagnificationChanged(displayId, region, scale,
-                        centerX, centerY);
+                AccessibilityService.this.onMagnificationChanged(region, scale, centerX, centerY);
             }
 
             @Override
@@ -1671,26 +1485,6 @@ public abstract class AccessibilityService extends Service {
             @Override
             public void onPerformGestureResult(int sequence, boolean completedSuccessfully) {
                 AccessibilityService.this.onPerformGestureResult(sequence, completedSuccessfully);
-            }
-
-            @Override
-            public void onFingerprintCapturingGesturesChanged(boolean active) {
-                AccessibilityService.this.onFingerprintCapturingGesturesChanged(active);
-            }
-
-            @Override
-            public void onFingerprintGesture(int gesture) {
-                AccessibilityService.this.onFingerprintGesture(gesture);
-            }
-
-            @Override
-            public void onAccessibilityButtonClicked() {
-                AccessibilityService.this.onAccessibilityButtonClicked();
-            }
-
-            @Override
-            public void onAccessibilityButtonAvailabilityChanged(boolean available) {
-                AccessibilityService.this.onAccessibilityButtonAvailabilityChanged(available);
             }
         });
     }
@@ -1712,16 +1506,12 @@ public abstract class AccessibilityService extends Service {
         private static final int DO_ON_MAGNIFICATION_CHANGED = 7;
         private static final int DO_ON_SOFT_KEYBOARD_SHOW_MODE_CHANGED = 8;
         private static final int DO_GESTURE_COMPLETE = 9;
-        private static final int DO_ON_FINGERPRINT_ACTIVE_CHANGED = 10;
-        private static final int DO_ON_FINGERPRINT_GESTURE = 11;
-        private static final int DO_ACCESSIBILITY_BUTTON_CLICKED = 12;
-        private static final int DO_ACCESSIBILITY_BUTTON_AVAILABILITY_CHANGED = 13;
 
         private final HandlerCaller mCaller;
 
         private final Callbacks mCallback;
 
-        private int mConnectionId = AccessibilityInteractionClient.NO_ID;
+        private int mConnectionId;
 
         public IAccessibilityServiceClientWrapper(Context context, Looper looper,
                 Callbacks callback) {
@@ -1741,9 +1531,8 @@ public abstract class AccessibilityService extends Service {
             mCaller.sendMessage(message);
         }
 
-        public void onAccessibilityEvent(AccessibilityEvent event, boolean serviceWantsEvent) {
-            Message message = mCaller.obtainMessageBO(
-                    DO_ON_ACCESSIBILITY_EVENT, serviceWantsEvent, event);
+        public void onAccessibilityEvent(AccessibilityEvent event) {
+            Message message = mCaller.obtainMessageO(DO_ON_ACCESSIBILITY_EVENT, event);
             mCaller.sendMessage(message);
         }
 
@@ -1763,15 +1552,13 @@ public abstract class AccessibilityService extends Service {
             mCaller.sendMessage(message);
         }
 
-        /** Magnification changed callbacks for different displays */
-        public void onMagnificationChanged(int displayId, @NonNull Region region,
+        public void onMagnificationChanged(@NonNull Region region,
                 float scale, float centerX, float centerY) {
             final SomeArgs args = SomeArgs.obtain();
             args.arg1 = region;
             args.arg2 = scale;
             args.arg3 = centerX;
             args.arg4 = centerY;
-            args.argi1 = displayId;
 
             final Message message = mCaller.obtainMessageO(DO_ON_MAGNIFICATION_CHANGED, args);
             mCaller.sendMessage(message);
@@ -1789,40 +1576,14 @@ public abstract class AccessibilityService extends Service {
             mCaller.sendMessage(message);
         }
 
-        public void onFingerprintCapturingGesturesChanged(boolean active) {
-            mCaller.sendMessage(mCaller.obtainMessageI(
-                    DO_ON_FINGERPRINT_ACTIVE_CHANGED, active ? 1 : 0));
-        }
-
-        public void onFingerprintGesture(int gesture) {
-            mCaller.sendMessage(mCaller.obtainMessageI(DO_ON_FINGERPRINT_GESTURE, gesture));
-        }
-
-        public void onAccessibilityButtonClicked() {
-            final Message message = mCaller.obtainMessage(DO_ACCESSIBILITY_BUTTON_CLICKED);
-            mCaller.sendMessage(message);
-        }
-
-        public void onAccessibilityButtonAvailabilityChanged(boolean available) {
-            final Message message = mCaller.obtainMessageI(
-                    DO_ACCESSIBILITY_BUTTON_AVAILABILITY_CHANGED, (available ? 1 : 0));
-            mCaller.sendMessage(message);
-        }
-
         @Override
         public void executeMessage(Message message) {
             switch (message.what) {
                 case DO_ON_ACCESSIBILITY_EVENT: {
                     AccessibilityEvent event = (AccessibilityEvent) message.obj;
-                    boolean serviceWantsEvent = message.arg1 != 0;
                     if (event != null) {
-                        // Send the event to AccessibilityCache via AccessibilityInteractionClient
                         AccessibilityInteractionClient.getInstance().onAccessibilityEvent(event);
-                        if (serviceWantsEvent
-                                && (mConnectionId != AccessibilityInteractionClient.NO_ID)) {
-                            // Send the event to AccessibilityService
-                            mCallback.onAccessibilityEvent(event);
-                        }
+                        mCallback.onAccessibilityEvent(event);
                         // Make sure the event is recycled.
                         try {
                             event.recycle();
@@ -1833,9 +1594,7 @@ public abstract class AccessibilityService extends Service {
                 } return;
 
                 case DO_ON_INTERRUPT: {
-                    if (mConnectionId != AccessibilityInteractionClient.NO_ID) {
-                        mCallback.onInterrupt();
-                    }
+                    mCallback.onInterrupt();
                 } return;
 
                 case DO_INIT: {
@@ -1860,10 +1619,8 @@ public abstract class AccessibilityService extends Service {
                 } return;
 
                 case DO_ON_GESTURE: {
-                    if (mConnectionId != AccessibilityInteractionClient.NO_ID) {
-                        final int gestureId = message.arg1;
-                        mCallback.onGesture(gestureId);
-                    }
+                    final int gestureId = message.arg1;
+                    mCallback.onGesture(gestureId);
                 } return;
 
                 case DO_CLEAR_ACCESSIBILITY_CACHE: {
@@ -1895,54 +1652,22 @@ public abstract class AccessibilityService extends Service {
                 } return;
 
                 case DO_ON_MAGNIFICATION_CHANGED: {
-                    if (mConnectionId != AccessibilityInteractionClient.NO_ID) {
-                        final SomeArgs args = (SomeArgs) message.obj;
-                        final Region region = (Region) args.arg1;
-                        final float scale = (float) args.arg2;
-                        final float centerX = (float) args.arg3;
-                        final float centerY = (float) args.arg4;
-                        final int displayId = args.argi1;
-                        args.recycle();
-                        mCallback.onMagnificationChanged(displayId, region, scale,
-                                centerX, centerY);
-                    }
+                    final SomeArgs args = (SomeArgs) message.obj;
+                    final Region region = (Region) args.arg1;
+                    final float scale = (float) args.arg2;
+                    final float centerX = (float) args.arg3;
+                    final float centerY = (float) args.arg4;
+                    mCallback.onMagnificationChanged(region, scale, centerX, centerY);
                 } return;
 
                 case DO_ON_SOFT_KEYBOARD_SHOW_MODE_CHANGED: {
-                    if (mConnectionId != AccessibilityInteractionClient.NO_ID) {
-                        final int showMode = (int) message.arg1;
-                        mCallback.onSoftKeyboardShowModeChanged(showMode);
-                    }
+                    final int showMode = (int) message.arg1;
+                    mCallback.onSoftKeyboardShowModeChanged(showMode);
                 } return;
 
                 case DO_GESTURE_COMPLETE: {
-                    if (mConnectionId != AccessibilityInteractionClient.NO_ID) {
-                        final boolean successfully = message.arg2 == 1;
-                        mCallback.onPerformGestureResult(message.arg1, successfully);
-                    }
-                } return;
-                case DO_ON_FINGERPRINT_ACTIVE_CHANGED: {
-                    if (mConnectionId != AccessibilityInteractionClient.NO_ID) {
-                        mCallback.onFingerprintCapturingGesturesChanged(message.arg1 == 1);
-                    }
-                } return;
-                case DO_ON_FINGERPRINT_GESTURE: {
-                    if (mConnectionId != AccessibilityInteractionClient.NO_ID) {
-                        mCallback.onFingerprintGesture(message.arg1);
-                    }
-                } return;
-
-                case (DO_ACCESSIBILITY_BUTTON_CLICKED): {
-                    if (mConnectionId != AccessibilityInteractionClient.NO_ID) {
-                        mCallback.onAccessibilityButtonClicked();
-                    }
-                } return;
-
-                case (DO_ACCESSIBILITY_BUTTON_AVAILABILITY_CHANGED): {
-                    if (mConnectionId != AccessibilityInteractionClient.NO_ID) {
-                        final boolean available = (message.arg1 != 0);
-                        mCallback.onAccessibilityButtonAvailabilityChanged(available);
-                    }
+                    final boolean successfully = message.arg2 == 1;
+                    mCallback.onPerformGestureResult(message.arg1, successfully);
                 } return;
 
                 default :

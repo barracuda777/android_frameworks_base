@@ -19,25 +19,20 @@ import android.Manifest;
 import android.annotation.SdkConstant;
 import android.annotation.SdkConstant.SdkConstantType;
 import android.annotation.SystemApi;
-import android.annotation.TestApi;
 import android.app.Dialog;
 import android.app.Service;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.res.Resources;
 import android.graphics.drawable.Icon;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.os.RemoteException;
-import android.util.Log;
 import android.view.View;
 import android.view.View.OnAttachStateChangeListener;
 import android.view.WindowManager;
-
-import com.android.internal.R;
 
 /**
  * A TileService provides the user a tile that can be added to Quick Settings.
@@ -80,21 +75,9 @@ import com.android.internal.R;
  */
 public class TileService extends Service {
 
-    private static final String TAG = "TileService";
-    private static final boolean DEBUG = false;
-
     /**
-     * An activity that provides a user interface for adjusting TileService
-     * preferences. Optional but recommended for apps that implement a
-     * TileService.
-     * <p>
-     * This intent may also define a {@link Intent#EXTRA_COMPONENT_NAME} value
-     * to indicate the {@link ComponentName} that caused the preferences to be
-     * opened.
-     * <p>
-     * To ensure that the activity can only be launched through quick settings
-     * UI provided by this service, apps can protect it with the
-     * BIND_QUICK_SETTINGS_TILE permission.
+     * An activity that provides a user interface for adjusting TileService preferences.
+     * Optional but recommended for apps that implement a TileService.
      */
     @SdkConstant(SdkConstantType.INTENT_CATEGORY)
     public static final String ACTION_QS_TILE_PREFERENCES
@@ -141,6 +124,11 @@ public class TileService extends Service {
      * @hide
      */
     public static final String EXTRA_TOKEN = "token";
+
+    /**
+     * @hide
+     */
+    public static final String EXTRA_COMPONENT = "android.service.quicksettings.extra.COMPONENT";
 
     /**
      * @hide
@@ -385,26 +373,18 @@ public class TileService extends Service {
         private static final int MSG_TILE_CLICKED = 5;
         private static final int MSG_UNLOCK_COMPLETE = 6;
         private static final int MSG_START_SUCCESS = 7;
-        private final String mTileServiceName;
 
         public H(Looper looper) {
             super(looper);
-            mTileServiceName = TileService.this.getClass().getSimpleName();
-        }
-
-        private void logMessage(String message) {
-            Log.d(TAG, mTileServiceName + " Handler - " + message);
         }
 
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case MSG_TILE_ADDED:
-                    if (DEBUG) logMessage("MSG_TILE_ADDED");
                     TileService.this.onTileAdded();
                     break;
                 case MSG_TILE_REMOVED:
-                    if (DEBUG) logMessage("MSG_TILE_REMOVED");
                     if (mListening) {
                         mListening = false;
                         TileService.this.onStopListening();
@@ -412,32 +392,27 @@ public class TileService extends Service {
                     TileService.this.onTileRemoved();
                     break;
                 case MSG_STOP_LISTENING:
-                    if (DEBUG) logMessage("MSG_STOP_LISTENING");
                     if (mListening) {
                         mListening = false;
                         TileService.this.onStopListening();
                     }
                     break;
                 case MSG_START_LISTENING:
-                    if (DEBUG) logMessage("MSG_START_LISTENING");
                     if (!mListening) {
                         mListening = true;
                         TileService.this.onStartListening();
                     }
                     break;
                 case MSG_TILE_CLICKED:
-                    if (DEBUG) logMessage("MSG_TILE_CLICKED");
                     mToken = (IBinder) msg.obj;
                     TileService.this.onClick();
                     break;
                 case MSG_UNLOCK_COMPLETE:
-                    if (DEBUG) logMessage("MSG_UNLOCK_COMPLETE");
                     if (mUnlockRunnable != null) {
                         mUnlockRunnable.run();
                     }
                     break;
                 case MSG_START_SUCCESS:
-                    if (DEBUG) logMessage("MSG_START_SUCCESS");
                     try {
                         mService.onStartSuccessful(mTileToken);
                     } catch (RemoteException e) {
@@ -448,15 +423,6 @@ public class TileService extends Service {
     }
 
     /**
-     * @return True if the device supports quick settings and its assocated APIs.
-     * @hide
-     */
-    @TestApi
-    public static boolean isQuickSettingsSupported() {
-        return Resources.getSystem().getBoolean(R.bool.config_quickSettingsSupported);
-    }
-
-    /**
      * Requests that a tile be put in the listening state so it can send an update.
      *
      * This method is only applicable to tiles that have {@link #META_DATA_ACTIVE_TILE} defined
@@ -464,8 +430,7 @@ public class TileService extends Service {
      */
     public static final void requestListeningState(Context context, ComponentName component) {
         Intent intent = new Intent(ACTION_REQUEST_LISTENING);
-        intent.putExtra(Intent.EXTRA_COMPONENT_NAME, component);
-        intent.setPackage("com.android.systemui");
+        intent.putExtra(EXTRA_COMPONENT, component);
         context.sendBroadcast(intent, Manifest.permission.BIND_QUICK_SETTINGS_TILE);
     }
 }

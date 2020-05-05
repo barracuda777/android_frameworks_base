@@ -17,7 +17,6 @@
 package android.app.backup;
 
 import android.annotation.SystemApi;
-import android.annotation.UnsupportedAppUsage;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
@@ -68,9 +67,7 @@ public class BackupDataInput {
     private boolean mHeaderReady;
 
     private static class EntityHeader {
-        @UnsupportedAppUsage
         String key;
-        @UnsupportedAppUsage
         int dataSize;
     }
 

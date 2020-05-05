@@ -16,7 +16,6 @@
 
 package com.android.internal.util;
 
-import android.annotation.UnsupportedAppUsage;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.util.Arrays;
@@ -48,7 +47,6 @@ public class IndentingPrintWriter extends PrintWriter {
 
     private char[] mSingleChar = new char[1];
 
-    @UnsupportedAppUsage
     public IndentingPrintWriter(Writer writer, String singleIndent) {
         this(writer, singleIndent, -1);
     }
@@ -59,48 +57,26 @@ public class IndentingPrintWriter extends PrintWriter {
         mWrapLength = wrapLength;
     }
 
-    public IndentingPrintWriter setIndent(String indent) {
-        mIndentBuilder.setLength(0);
-        mIndentBuilder.append(indent);
-        mCurrentIndent = null;
-        return this;
-    }
-
-    public IndentingPrintWriter setIndent(int indent) {
-        mIndentBuilder.setLength(0);
-        for (int i = 0; i < indent; i++) {
-            increaseIndent();
-        }
-        return this;
-    }
-
-    @UnsupportedAppUsage
-    public IndentingPrintWriter increaseIndent() {
+    public void increaseIndent() {
         mIndentBuilder.append(mSingleIndent);
         mCurrentIndent = null;
-        return this;
     }
 
-    @UnsupportedAppUsage
-    public IndentingPrintWriter decreaseIndent() {
+    public void decreaseIndent() {
         mIndentBuilder.delete(0, mSingleIndent.length());
         mCurrentIndent = null;
-        return this;
     }
 
-    public IndentingPrintWriter printPair(String key, Object value) {
+    public void printPair(String key, Object value) {
         print(key + "=" + String.valueOf(value) + " ");
-        return this;
     }
 
-    public IndentingPrintWriter printPair(String key, Object[] value) {
+    public void printPair(String key, Object[] value) {
         print(key + "=" + Arrays.toString(value) + " ");
-        return this;
     }
 
-    public IndentingPrintWriter printHexPair(String key, int value) {
+    public void printHexPair(String key, int value) {
         print(key + "=0x" + Integer.toHexString(value) + " ");
-        return this;
     }
 
     @Override

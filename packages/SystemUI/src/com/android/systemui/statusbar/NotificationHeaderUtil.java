@@ -17,7 +17,6 @@
 package com.android.systemui.statusbar;
 
 import android.app.Notification;
-import android.content.res.Configuration;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Icon;
 import android.text.TextUtils;
@@ -25,10 +24,6 @@ import android.view.NotificationHeaderView;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
-
-import com.android.internal.util.ContrastColorUtil;
-import com.android.systemui.statusbar.notification.row.ExpandableNotificationRow;
-import com.android.systemui.statusbar.notification.row.NotificationContentView;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -79,11 +74,8 @@ public class NotificationHeaderUtil {
                 imageView.getDrawable().mutate();
                 if (shouldApply) {
                     // lets gray it out
-                    Configuration config = view.getContext().getResources().getConfiguration();
-                    boolean inNightMode = (config.uiMode & Configuration.UI_MODE_NIGHT_MASK)
-                            == Configuration.UI_MODE_NIGHT_YES;
-                    int grey = ContrastColorUtil.resolveColor(view.getContext(),
-                            Notification.COLOR_DEFAULT, inNightMode);
+                    int grey = view.getContext().getColor(
+                            com.android.internal.R.color.notification_icon_default_color);
                     imageView.getDrawable().setColorFilter(grey, PorterDuff.Mode.SRC_ATOP);
                 } else {
                     // lets reset it
@@ -136,7 +128,6 @@ public class NotificationHeaderUtil {
         mComparators.add(HeaderProcessor.forTextView(mRow,
                 com.android.internal.R.id.header_text));
         mDividers.add(com.android.internal.R.id.header_text_divider);
-        mDividers.add(com.android.internal.R.id.header_text_secondary_divider);
         mDividers.add(com.android.internal.R.id.time_divider);
     }
 
@@ -276,10 +267,9 @@ public class NotificationHeaderUtil {
             if (!mApply) {
                 return;
             }
-            NotificationHeaderView header = row.getContractedNotificationHeader();
+            NotificationHeaderView header = row.getNotificationHeader();
             if (header == null) {
-                // No header found. We still consider this to be the same to avoid weird flickering
-                // when for example showing an undo notification
+                mApply = false;
                 return;
             }
             Object childData = mExtractor == null ? null : mExtractor.extractData(row);

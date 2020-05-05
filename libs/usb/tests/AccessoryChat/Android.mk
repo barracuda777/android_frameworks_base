@@ -23,6 +23,4 @@ LOCAL_SRC_FILES := $(call all-subdir-java-files)
 
 LOCAL_PACKAGE_NAME := AccessoryChat
 
-LOCAL_PRIVATE_PLATFORM_APIS := true
-
 include $(BUILD_PACKAGE)

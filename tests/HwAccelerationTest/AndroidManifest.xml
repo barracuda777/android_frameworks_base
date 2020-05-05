@@ -113,15 +113,6 @@
         </activity>
 
         <activity
-            android:name="DrawIntoHwBitmapActivity"
-            android:label="Bitmaps/DrawIntoHwBitmap">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="com.android.test.hwui.TEST" />
-            </intent-filter>
-        </activity>
-
-        <activity
                 android:name="PathOffsetActivity"
                 android:label="Path/Offset">
             <intent-filter>
@@ -282,16 +273,6 @@
                 <category android:name="com.android.test.hwui.TEST" />
             </intent-filter>
         </activity>
-
-        <activity
-            android:name="ColoredShadowsActivity"
-            android:label="View/ColoredShadows"
-            android:theme="@style/ThemeColoredShadows">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="com.android.test.hwui.TEST" />
-            </intent-filter>
-        </activity>
         
         <activity
                 android:name="OpaqueActivity"
@@ -305,15 +286,6 @@
         <activity
                 android:name="GetBitmapActivity"
                 android:label="TextureView/Get Bitmap">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="com.android.test.hwui.TEST" />
-            </intent-filter>
-        </activity>
-
-        <activity
-            android:name="PictureCaptureDemo"
-            android:label="Debug/Picture Capture">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="com.android.test.hwui.TEST" />
@@ -1011,46 +983,6 @@
         <activity
                 android:name="MultiProducerActivity"
                 android:label="Threads/Multiple Producers">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="com.android.test.hwui.TEST" />
-            </intent-filter>
-        </activity>
-
-        <activity
-                android:name="PixelCopyWindow"
-                android:label="Readback/Window"
-                android:screenOrientation="fullSensor">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="com.android.test.hwui.TEST" />
-            </intent-filter>
-        </activity>
-
-        <activity
-                android:name="PositionListenerActivity"
-                android:label="RenderNode/PositionListener"
-                android:screenOrientation="fullSensor">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="com.android.test.hwui.TEST" />
-            </intent-filter>
-        </activity>
-
-        <activity
-            android:name="CustomRenderer"
-            android:label="HardwareRenderer/HelloTakeSurface"
-            android:screenOrientation="fullSensor">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="com.android.test.hwui.TEST" />
-            </intent-filter>
-        </activity>
-
-        <activity
-            android:name="MyLittleTextureView"
-            android:label="HardwareRenderer/MyLittleTextureView"
-            android:screenOrientation="fullSensor">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="com.android.test.hwui.TEST" />

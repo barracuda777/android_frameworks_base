@@ -15,21 +15,20 @@
  */
 #pragma once
 
+#include <cutils/log.h>
 #include <pthread.h>
 #include <ostream>
-
-#include <log/log.h>
 
 namespace android {
 namespace uirenderer {
 
 extern pthread_t gGpuThread;
 
-#define ASSERT_GPU_THREAD()                                                                    \
-    LOG_ALWAYS_FATAL_IF(!pthread_equal(gGpuThread, pthread_self()),                            \
-                        "Error, %p of type %d (size=%d) used on wrong thread! cur thread %lu " \
-                        "!= gpu thread %lu",                                                   \
-                        this, static_cast<int>(mType), mSize, pthread_self(), gGpuThread)
+#define ASSERT_GPU_THREAD() LOG_ALWAYS_FATAL_IF( \
+        !pthread_equal(gGpuThread, pthread_self()), \
+        "Error, %p of type %d (size=%d) used on wrong thread! cur thread %lu " \
+        "!= gpu thread %lu", this, static_cast<int>(mType), mSize, \
+        pthread_self(), gGpuThread)
 
 enum class GpuObjectType {
     Texture = 0,
@@ -44,8 +43,8 @@ public:
     GpuObjectType objectType() { return mType; }
     int objectSize() { return mSize; }
 
-    static void onGpuContextCreated();
-    static void onGpuContextDestroyed();
+    static void onGLContextCreated();
+    static void onGLContextDestroyed();
     static void dump();
     static void dump(std::ostream& stream);
     static int getInstanceCount(GpuObjectType type);
@@ -53,7 +52,7 @@ public:
     static void onFrameCompleted();
 
 protected:
-    explicit GpuMemoryTracker(GpuObjectType type) : mType(type) {
+    GpuMemoryTracker(GpuObjectType type) : mType(type) {
         ASSERT_GPU_THREAD();
         startTrackingObject();
     }
@@ -73,5 +72,5 @@ private:
     GpuObjectType mType;
 };
 
-}  // namespace uirenderer
-}  // namespace android;
+} // namespace uirenderer
+} // namespace android;

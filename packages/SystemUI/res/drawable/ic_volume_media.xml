@@ -1,5 +1,5 @@
 <!--
-     Copyright (C) 2017 The Android Open Source Project
+     Copyright (C) 2015 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -17,11 +17,10 @@
     android:height="24.0dp"
     android:viewportHeight="24.0"
     android:viewportWidth="24.0"
-    android:width="24.0dp"
-    android:tint="?android:attr/colorControlNormal" >
+    android:width="24.0dp" >
 
     <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M12 3l0.01 10.55c-0.59-0.34-1.27-0.55-2-0.55C7.79 13 6 14.79 6 17s1.79 4 4.01 4S14 19.21 14 17V7h4V3h-6z" />
+        android:fillColor="@color/volume_icon_color"
+        android:pathData="M12.0,3.0l0.0,9.28c-0.47,-0.17 -0.97,-0.28 -1.5,-0.28C8.01,12.0 6.0,14.01 6.0,16.5S8.01,21.0 10.5,21.0c2.31,0.0 4.2,-1.75 4.45,-4.0L15.0,17.0L15.0,6.0l4.0,0.0L19.0,3.0l-7.0,0.0z" />
 
 </vector>

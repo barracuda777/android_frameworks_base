@@ -17,9 +17,8 @@
 package android.widget.gridview;
 
 import android.test.ActivityInstrumentationTestCase2;
+import android.test.suitebuilder.annotation.MediumTest;
 import android.widget.GridView;
-
-import androidx.test.filters.MediumTest;
 
 public class GridPaddingTest extends ActivityInstrumentationTestCase2<GridPadding> {
     private GridView mGridView;

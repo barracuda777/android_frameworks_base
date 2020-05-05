@@ -20,18 +20,20 @@
 
 #include <utils/Log.h>
 
-#include <SkRect.h>
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
 #include <ostream>
+#include <SkRect.h>
 
 namespace android {
 namespace uirenderer {
 
 #define RECT_STRING "%5.2f %5.2f %5.2f %5.2f"
-#define RECT_ARGS(r) (r).left, (r).top, (r).right, (r).bottom
-#define SK_RECT_ARGS(r) (r).left(), (r).top(), (r).right(), (r).bottom()
+#define RECT_ARGS(r) \
+    (r).left, (r).top, (r).right, (r).bottom
+#define SK_RECT_ARGS(r) \
+    (r).left(), (r).top(), (r).right(), (r).bottom()
 
 ///////////////////////////////////////////////////////////////////////////////
 // Structs
@@ -50,32 +52,52 @@ public:
     // we don't provide copy-ctor and operator= on purpose
     // because we want the compiler generated versions
 
-    inline Rect() : left(0), top(0), right(0), bottom(0) {}
+    inline Rect():
+            left(0),
+            top(0),
+            right(0),
+            bottom(0) {
+    }
 
-    inline Rect(float left, float top, float right, float bottom)
-            : left(left), top(top), right(right), bottom(bottom) {}
+    inline Rect(float left, float top, float right, float bottom):
+            left(left),
+            top(top),
+            right(right),
+            bottom(bottom) {
+    }
 
-    inline Rect(float width, float height) : left(0.0f), top(0.0f), right(width), bottom(height) {}
+    inline Rect(float width, float height):
+            left(0.0f),
+            top(0.0f),
+            right(width),
+            bottom(height) {
+    }
 
-    inline Rect(const SkIRect& rect) // NOLINT(google-explicit-constructor)
-            :
-            left(rect.fLeft)
-            , top(rect.fTop)
-            , right(rect.fRight)
-            , bottom(rect.fBottom) {}
+    inline Rect(const SkIRect& rect):
+            left(rect.fLeft),
+            top(rect.fTop),
+            right(rect.fRight),
+            bottom(rect.fBottom) {
+    }
 
-    inline Rect(const SkRect& rect) // NOLINT(google-explicit-constructor)
-            :
-            left(rect.fLeft)
-            , top(rect.fTop)
-            , right(rect.fRight)
-            , bottom(rect.fBottom) {}
+    inline Rect(const SkRect& rect):
+            left(rect.fLeft),
+            top(rect.fTop),
+            right(rect.fRight),
+            bottom(rect.fBottom) {
+    }
 
-    friend int operator==(const Rect& a, const Rect& b) { return !memcmp(&a, &b, sizeof(a)); }
+    friend int operator==(const Rect& a, const Rect& b) {
+        return !memcmp(&a, &b, sizeof(a));
+    }
 
-    friend int operator!=(const Rect& a, const Rect& b) { return memcmp(&a, &b, sizeof(a)); }
+    friend int operator!=(const Rect& a, const Rect& b) {
+        return memcmp(&a, &b, sizeof(a));
+    }
 
-    inline void clear() { left = top = right = bottom = 0.0f; }
+    inline void clear() {
+        left = top = right = bottom = 0.0f;
+    }
 
     inline bool isEmpty() const {
         // this is written in such way this it'll handle NANs to return
@@ -83,7 +105,9 @@ public:
         return !((left < right) && (top < bottom));
     }
 
-    inline void setEmpty() { left = top = right = bottom = 0.0f; }
+    inline void setEmpty() {
+        left = top = right = bottom = 0.0f;
+    }
 
     inline void set(float left, float top, float right, float bottom) {
         this->left = left;
@@ -92,13 +116,21 @@ public:
         this->bottom = bottom;
     }
 
-    inline void set(const Rect& r) { set(r.left, r.top, r.right, r.bottom); }
+    inline void set(const Rect& r) {
+        set(r.left, r.top, r.right, r.bottom);
+    }
 
-    inline void set(const SkIRect& r) { set(r.left(), r.top(), r.right(), r.bottom()); }
+    inline void set(const SkIRect& r) {
+        set(r.left(), r.top(), r.right(), r.bottom());
+    }
 
-    inline float getWidth() const { return right - left; }
+    inline float getWidth() const {
+        return right - left;
+    }
 
-    inline float getHeight() const { return bottom - top; }
+    inline float getHeight() const {
+        return bottom - top;
+    }
 
     bool intersects(float l, float t, float r, float b) const {
         float tempLeft = std::max(left, l);
@@ -106,10 +138,12 @@ public:
         float tempRight = std::min(right, r);
         float tempBottom = std::min(bottom, b);
 
-        return ((tempLeft < tempRight) && (tempTop < tempBottom));  // !isEmpty
+        return ((tempLeft < tempRight) && (tempTop < tempBottom)); // !isEmpty
     }
 
-    bool intersects(const Rect& r) const { return intersects(r.left, r.top, r.right, r.bottom); }
+    bool intersects(const Rect& r) const {
+        return intersects(r.left, r.top, r.right, r.bottom);
+    }
 
     /**
      * This method is named 'doIntersect' instead of 'intersect' so as not to be confused with
@@ -123,13 +157,17 @@ public:
         bottom = std::min(bottom, b);
     }
 
-    void doIntersect(const Rect& r) { doIntersect(r.left, r.top, r.right, r.bottom); }
+    void doIntersect(const Rect& r) {
+        doIntersect(r.left, r.top, r.right, r.bottom);
+    }
 
     inline bool contains(float l, float t, float r, float b) const {
         return l >= left && t >= top && r <= right && b <= bottom;
     }
 
-    inline bool contains(const Rect& r) const { return contains(r.left, r.top, r.right, r.bottom); }
+    inline bool contains(const Rect& r) const {
+        return contains(r.left, r.top, r.right, r.bottom);
+    }
 
     bool unionWith(const Rect& r) {
         if (r.left < r.right && r.top < r.bottom) {
@@ -157,7 +195,9 @@ public:
         bottom += dy;
     }
 
-    void inset(float delta) { outset(-delta); }
+    void inset(float delta) {
+        outset(-delta);
+    }
 
     void outset(float delta) {
         left -= delta;
@@ -239,9 +279,13 @@ public:
         bottom = std::max(bottom, y);
     }
 
-    SkRect toSkRect() const { return SkRect::MakeLTRB(left, top, right, bottom); }
+    SkRect toSkRect() const {
+        return SkRect::MakeLTRB(left, top, right, bottom);
+    }
 
-    SkIRect toSkIRect() const { return SkIRect::MakeLTRB(left, top, right, bottom); }
+    SkIRect toSkIRect() const {
+        return SkIRect::MakeLTRB(left, top, right, bottom);
+    }
 
     void dump(const char* label = nullptr) const {
         ALOGD("%s[l=%.2f t=%.2f r=%.2f b=%.2f]", label ? label : "Rect", left, top, right, bottom);
@@ -257,10 +301,13 @@ public:
             return os << "[" << rect.right << " x " << rect.bottom << "]";
         }
 
-        return os << "[" << rect.left << " " << rect.top << " " << rect.right << " " << rect.bottom
-                  << "]";
+        return os << "[" << rect.left
+                << " " << rect.top
+                << " " << rect.right
+                << " " << rect.bottom << "]";
     }
-};  // class Rect
+}; // class Rect
 
-}  // namespace uirenderer
-}  // namespace android
+}; // namespace uirenderer
+}; // namespace android
+

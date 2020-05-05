@@ -262,10 +262,7 @@ public class DrmManagerClient implements AutoCloseable {
     @Override
     protected void finalize() throws Throwable {
         try {
-            if (mCloseGuard != null) {
-                mCloseGuard.warnIfOpen();
-            }
-
+            mCloseGuard.warnIfOpen();
             close();
         } finally {
             super.finalize();
@@ -278,10 +275,6 @@ public class DrmManagerClient implements AutoCloseable {
      * the {@link DrmManagerClient} object is no longer needed in your
      * application. After this method is called, {@link DrmManagerClient} is no
      * longer usable since it has lost all of its required resource.
-     *
-     * This method was added in API 24. In API versions 16 through 23, release()
-     * should be called instead. There is no need to do anything for API
-     * versions prior to 16.
      */
     @Override
     public void close() {
@@ -831,7 +824,6 @@ public class DrmManagerClient implements AutoCloseable {
      *     content://media/<table_name>/<row_index> (or)
      *     file://sdcard/test.mp4
      *     http://test.com/test.mp4
-     *     https://test.com/test.mp4
      *
      * Here <table_name> shall be "video" or "audio" or "images"
      * <row_index> the index of the content in given table
@@ -844,7 +836,7 @@ public class DrmManagerClient implements AutoCloseable {
                     scheme.equals(ContentResolver.SCHEME_FILE)) {
                 path = uri.getPath();
 
-            } else if (scheme.equals("http") || scheme.equals("https")) {
+            } else if (scheme.equals("http")) {
                 path = uri.toString();
 
             } else if (scheme.equals(ContentResolver.SCHEME_CONTENT)) {

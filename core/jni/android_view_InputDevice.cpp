@@ -17,10 +17,10 @@
 #include <input/Input.h>
 
 #include <android_runtime/AndroidRuntime.h>
-#include <jni.h>
+#include <nativehelper/jni.h>
 #include <nativehelper/JNIHelp.h>
 
-#include <nativehelper/ScopedLocalRef.h>
+#include <ScopedLocalRef.h>
 
 #include "android_view_InputDevice.h"
 #include "android_view_KeyCharacterMap.h"
@@ -37,13 +37,13 @@ static struct {
 } gInputDeviceClassInfo;
 
 jobject android_view_InputDevice_create(JNIEnv* env, const InputDeviceInfo& deviceInfo) {
-    ScopedLocalRef<jstring> nameObj(env, env->NewStringUTF(deviceInfo.getDisplayName().c_str()));
+    ScopedLocalRef<jstring> nameObj(env, env->NewStringUTF(deviceInfo.getDisplayName().string()));
     if (!nameObj.get()) {
         return NULL;
     }
 
     ScopedLocalRef<jstring> descriptorObj(env,
-            env->NewStringUTF(deviceInfo.getIdentifier().descriptor.c_str()));
+            env->NewStringUTF(deviceInfo.getIdentifier().descriptor.string()));
     if (!descriptorObj.get()) {
         return NULL;
     }
@@ -68,8 +68,9 @@ jobject android_view_InputDevice_create(JNIEnv* env, const InputDeviceInfo& devi
                 deviceInfo.getKeyboardType(), kcmObj.get(), deviceInfo.hasVibrator(),
                 hasMic, deviceInfo.hasButtonUnderPad()));
 
-    const std::vector<InputDeviceInfo::MotionRange>& ranges = deviceInfo.getMotionRanges();
-    for (const InputDeviceInfo::MotionRange& range: ranges) {
+    const Vector<InputDeviceInfo::MotionRange>& ranges = deviceInfo.getMotionRanges();
+    for (size_t i = 0; i < ranges.size(); i++) {
+        const InputDeviceInfo::MotionRange& range = ranges.itemAt(i);
         env->CallVoidMethod(inputDeviceObj.get(), gInputDeviceClassInfo.addMotionRange, range.axis,
                 range.source, range.min, range.max, range.flat, range.fuzz, range.resolution);
         if (env->ExceptionCheck()) {

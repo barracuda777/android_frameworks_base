@@ -16,7 +16,6 @@
 
 package android.database.sqlite;
 
-import android.annotation.UnsupportedAppUsage;
 import android.database.CursorWindow;
 import android.database.DatabaseUtils;
 import android.os.CancellationSignal;
@@ -292,7 +291,6 @@ public final class SQLiteSession {
      * @see #yieldTransaction
      * @see #endTransaction
      */
-    @UnsupportedAppUsage
     public void beginTransaction(int transactionMode,
             SQLiteTransactionListener transactionListener, int connectionFlags,
             CancellationSignal cancellationSignal) {

@@ -13,15 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#define LOG_TAG "time_util"
 
 #include "time_util.h"
 #include "utilities.h"
 
+#include <cutils/log.h>
 #include <sys/time.h>
 #include <map>
-
-#include <log/log.h>
 
 namespace android {
 namespace filterfw {

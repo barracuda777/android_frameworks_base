@@ -15,9 +15,7 @@
 package com.android.systemui.tuner;
 
 import android.os.Bundle;
-
-import androidx.preference.PreferenceFragment;
-
+import android.support.v14.preference.PreferenceFragment;
 import com.android.systemui.R;
 
 public class OtherPrefs extends PreferenceFragment {

@@ -26,7 +26,6 @@ import android.content.Context;
 import android.content.SyncAdapterType;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
-import android.os.UserHandle;
 import android.util.Log;
 
 import org.json.JSONArray;
@@ -49,7 +48,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Helper for backing up account sync settings (whether or not a service should be synced). The
@@ -78,17 +76,15 @@ public class AccountSyncSettingsBackupHelper implements BackupHelper {
     private static final String KEY_AUTHORITY_NAME = "name";
     private static final String KEY_AUTHORITY_SYNC_STATE = "syncState";
     private static final String KEY_AUTHORITY_SYNC_ENABLED = "syncEnabled";
-    private static final String STASH_FILE = "/backup/unadded_account_syncsettings.json";
+    private static final String STASH_FILE = Environment.getDataDirectory()
+            + "/backup/unadded_account_syncsettings.json";
 
     private Context mContext;
     private AccountManager mAccountManager;
-    private final int mUserId;
 
-    public AccountSyncSettingsBackupHelper(Context context, int userId) {
+    public AccountSyncSettingsBackupHelper(Context context) {
         mContext = context;
         mAccountManager = AccountManager.get(mContext);
-
-        mUserId = userId;
     }
 
     /**
@@ -98,7 +94,7 @@ public class AccountSyncSettingsBackupHelper implements BackupHelper {
     public void performBackup(ParcelFileDescriptor oldState, BackupDataOutput output,
             ParcelFileDescriptor newState) {
         try {
-            JSONObject dataJSON = serializeAccountSyncSettingsToJSON(mUserId);
+            JSONObject dataJSON = serializeAccountSyncSettingsToJSON();
 
             if (DEBUG) {
                 Log.d(TAG, "Account sync settings JSON: " + dataJSON);
@@ -127,9 +123,10 @@ public class AccountSyncSettingsBackupHelper implements BackupHelper {
     /**
      * Fetch and serialize Account and authority information as a JSON Array.
      */
-    private JSONObject serializeAccountSyncSettingsToJSON(int userId) throws JSONException {
-        Account[] accounts = mAccountManager.getAccountsAsUser(userId);
-        SyncAdapterType[] syncAdapters = ContentResolver.getSyncAdapterTypesAsUser(userId);
+    private JSONObject serializeAccountSyncSettingsToJSON() throws JSONException {
+        Account[] accounts = mAccountManager.getAccounts();
+        SyncAdapterType[] syncAdapters = ContentResolver.getSyncAdapterTypesAsUser(
+                mContext.getUserId());
 
         // Create a map of Account types to authorities. Later this will make it easier for us to
         // generate our JSON.
@@ -149,8 +146,7 @@ public class AccountSyncSettingsBackupHelper implements BackupHelper {
         // Generate JSON.
         JSONObject backupJSON = new JSONObject();
         backupJSON.put(KEY_VERSION, JSON_FORMAT_VERSION);
-        backupJSON.put(KEY_MASTER_SYNC_ENABLED, ContentResolver.getMasterSyncAutomaticallyAsUser(
-                userId));
+        backupJSON.put(KEY_MASTER_SYNC_ENABLED, ContentResolver.getMasterSyncAutomatically());
 
         JSONArray accountJSONArray = new JSONArray();
         for (Account account : accounts) {
@@ -169,9 +165,8 @@ public class AccountSyncSettingsBackupHelper implements BackupHelper {
             // Add authorities for this Account type and check whether or not sync is enabled.
             JSONArray authoritiesJSONArray = new JSONArray();
             for (String authority : authorities) {
-                int syncState = ContentResolver.getIsSyncableAsUser(account, authority, userId);
-                boolean syncEnabled = ContentResolver.getSyncAutomaticallyAsUser(account, authority,
-                        userId);
+                int syncState = ContentResolver.getIsSyncable(account, authority);
+                boolean syncEnabled = ContentResolver.getSyncAutomatically(account, authority);
 
                 JSONObject authorityJSON = new JSONObject();
                 authorityJSON.put(KEY_AUTHORITY_NAME, authority);
@@ -259,18 +254,17 @@ public class AccountSyncSettingsBackupHelper implements BackupHelper {
             boolean masterSyncEnabled = dataJSON.getBoolean(KEY_MASTER_SYNC_ENABLED);
             JSONArray accountJSONArray = dataJSON.getJSONArray(KEY_ACCOUNTS);
 
-            boolean currentMasterSyncEnabled = ContentResolver.getMasterSyncAutomaticallyAsUser(
-                    mUserId);
+            boolean currentMasterSyncEnabled = ContentResolver.getMasterSyncAutomatically();
             if (currentMasterSyncEnabled) {
                 // Disable master sync to prevent any syncs from running.
-                ContentResolver.setMasterSyncAutomaticallyAsUser(false, mUserId);
+                ContentResolver.setMasterSyncAutomatically(false);
             }
 
             try {
-                restoreFromJsonArray(accountJSONArray, mUserId);
+                restoreFromJsonArray(accountJSONArray);
             } finally {
                 // Set the master sync preference to the value from the backup set.
-                ContentResolver.setMasterSyncAutomaticallyAsUser(masterSyncEnabled, mUserId);
+                ContentResolver.setMasterSyncAutomatically(masterSyncEnabled);
             }
             Log.i(TAG, "Restore successful.");
         } catch (IOException | JSONException e) {
@@ -278,9 +272,9 @@ public class AccountSyncSettingsBackupHelper implements BackupHelper {
         }
     }
 
-    private void restoreFromJsonArray(JSONArray accountJSONArray, int userId)
+    private void restoreFromJsonArray(JSONArray accountJSONArray)
             throws JSONException {
-        Set<Account> currentAccounts = getAccounts(userId);
+        HashSet<Account> currentAccounts = getAccounts();
         JSONArray unaddedAccountsJSONArray = new JSONArray();
         for (int i = 0; i < accountJSONArray.length(); i++) {
             JSONObject accountJSON = (JSONObject) accountJSONArray.get(i);
@@ -298,14 +292,14 @@ public class AccountSyncSettingsBackupHelper implements BackupHelper {
             // yet won't be restored.
             if (currentAccounts.contains(account)) {
                 if (DEBUG) Log.i(TAG, "Restoring Sync Settings for" + accountName);
-                restoreExistingAccountSyncSettingsFromJSON(accountJSON, userId);
+                restoreExistingAccountSyncSettingsFromJSON(accountJSON);
             } else {
                 unaddedAccountsJSONArray.put(accountJSON);
             }
         }
 
         if (unaddedAccountsJSONArray.length() > 0) {
-            try (FileOutputStream fOutput = new FileOutputStream(getStashFile(userId))) {
+            try (FileOutputStream fOutput = new FileOutputStream(STASH_FILE)) {
                 String jsonString = unaddedAccountsJSONArray.toString();
                 DataOutputStream out = new DataOutputStream(fOutput);
                 out.writeUTF(jsonString);
@@ -314,20 +308,18 @@ public class AccountSyncSettingsBackupHelper implements BackupHelper {
                 Log.e(TAG, "unable to write the sync settings to the stash file", ioe);
             }
         } else {
-            File stashFile = getStashFile(userId);
-            if (stashFile.exists()) {
-                stashFile.delete();
-            }
+            File stashFile = new File(STASH_FILE);
+            if (stashFile.exists()) stashFile.delete();
         }
     }
 
     /**
      * Restore SyncSettings for all existing accounts from a stashed backup-set
      */
-    private void accountAddedInternal(int userId) {
+    private void accountAddedInternal() {
         String jsonString;
 
-        try (FileInputStream fIn = new FileInputStream(getStashFile(userId))) {
+        try (FileInputStream fIn = new FileInputStream(new File(STASH_FILE))) {
             DataInputStream in = new DataInputStream(fIn);
             jsonString = in.readUTF();
         } catch (FileNotFoundException fnfe) {
@@ -341,7 +333,7 @@ public class AccountSyncSettingsBackupHelper implements BackupHelper {
 
         try {
             JSONArray unaddedAccountsJSONArray = new JSONArray(jsonString);
-            restoreFromJsonArray(unaddedAccountsJSONArray, userId);
+            restoreFromJsonArray(unaddedAccountsJSONArray);
         } catch (JSONException jse) {
             // Malformed jsonString
             Log.e(TAG, "there was an error with the stashed sync settings", jse);
@@ -351,10 +343,9 @@ public class AccountSyncSettingsBackupHelper implements BackupHelper {
     /**
      * Restore SyncSettings for all existing accounts from a stashed backup-set
      */
-    public static void accountAdded(Context context, int userId) {
-        AccountSyncSettingsBackupHelper helper = new AccountSyncSettingsBackupHelper(context,
-                userId);
-        helper.accountAddedInternal(userId);
+    public static void accountAdded(Context context) {
+        AccountSyncSettingsBackupHelper helper = new AccountSyncSettingsBackupHelper(context);
+        helper.accountAddedInternal();
     }
 
     /**
@@ -362,9 +353,9 @@ public class AccountSyncSettingsBackupHelper implements BackupHelper {
      *
      * @return Accounts in a HashSet.
      */
-    private Set<Account> getAccounts(int userId) {
-        Account[] accounts = mAccountManager.getAccountsAsUser(userId);
-        Set<Account> accountHashSet = new HashSet<Account>();
+    private HashSet<Account> getAccounts() {
+        Account[] accounts = mAccountManager.getAccounts();
+        HashSet<Account> accountHashSet = new HashSet<Account>();
         for (Account account : accounts) {
             accountHashSet.add(account);
         }
@@ -400,7 +391,7 @@ public class AccountSyncSettingsBackupHelper implements BackupHelper {
      * initialization sync, while an adapter that the user had off will be off until the user
      * enables it on this device at which point it will get an initialization sync.
      */
-    private void restoreExistingAccountSyncSettingsFromJSON(JSONObject accountJSON, int userId)
+    private void restoreExistingAccountSyncSettingsFromJSON(JSONObject accountJSON)
             throws JSONException {
         // Restore authorities.
         JSONArray authorities = accountJSON.getJSONArray(KEY_ACCOUNT_AUTHORITIES);
@@ -415,15 +406,14 @@ public class AccountSyncSettingsBackupHelper implements BackupHelper {
             int wasSyncable = authority.getInt(KEY_AUTHORITY_SYNC_STATE);
 
             ContentResolver.setSyncAutomaticallyAsUser(
-                    account, authorityName, wasSyncEnabled, userId);
+                    account, authorityName, wasSyncEnabled, 0 /* user Id */);
 
             if (!wasSyncEnabled) {
-                ContentResolver.setIsSyncableAsUser(
+                ContentResolver.setIsSyncable(
                         account,
                         authorityName,
                         wasSyncable == 0 ?
-                                0 /* not syncable */ : 2 /* syncable but needs initialization */,
-                        userId);
+                                0 /* not syncable */ : 2 /* syncable but needs initialization */);
             }
         }
     }
@@ -431,11 +421,5 @@ public class AccountSyncSettingsBackupHelper implements BackupHelper {
     @Override
     public void writeNewStateDescription(ParcelFileDescriptor newState) {
 
-    }
-
-    private static File getStashFile(int userId) {
-        File baseDir = userId == UserHandle.USER_SYSTEM ? Environment.getDataDirectory()
-                : Environment.getDataSystemCeDirectory(userId);
-        return new File(baseDir, STASH_FILE);
     }
 }

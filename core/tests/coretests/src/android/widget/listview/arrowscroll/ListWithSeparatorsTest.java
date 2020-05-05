@@ -17,11 +17,10 @@
 package android.widget.listview.arrowscroll;
 
 import android.test.ActivityInstrumentationTestCase;
-import android.view.KeyEvent;
+import android.test.suitebuilder.annotation.MediumTest;
 import android.widget.ListView;
+import android.view.KeyEvent;
 import android.widget.listview.ListWithSeparators;
-
-import androidx.test.filters.MediumTest;
 
 public class ListWithSeparatorsTest extends ActivityInstrumentationTestCase<ListWithSeparators> {
     private ListWithSeparators mActivity;

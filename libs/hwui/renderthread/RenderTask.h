@@ -53,7 +53,7 @@ public:
     ANDROID_API virtual void run() = 0;
 
     RenderTask* mNext;
-    nsecs_t mRunAt;  // nano-seconds on the SYSTEM_TIME_MONOTONIC clock
+    nsecs_t mRunAt; // nano-seconds on the SYSTEM_TIME_MONOTONIC clock
 };
 
 class SignalingRenderTask : public RenderTask {
@@ -75,7 +75,8 @@ typedef void* (*RunnableMethod)(void* data);
 
 class MethodInvokeRenderTask : public RenderTask {
 public:
-    explicit MethodInvokeRenderTask(RunnableMethod method) : mMethod(method), mReturnPtr(nullptr) {}
+    MethodInvokeRenderTask(RunnableMethod method)
+        : mMethod(method), mReturnPtr(nullptr) {}
 
     void* payload() { return mData; }
     void setReturnPtr(void** retptr) { mReturnPtr = retptr; }
@@ -88,7 +89,6 @@ public:
         // Commit suicide
         delete this;
     }
-
 private:
     RunnableMethod mMethod;
     char mData[METHOD_INVOKE_PAYLOAD_SIZE];

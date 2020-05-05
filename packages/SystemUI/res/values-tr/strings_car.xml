@@ -19,10 +19,6 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="car_guest" msgid="3738772168718508650">"Misafir"</string>
-    <string name="start_guest_session" msgid="7055742120180595689">"Misafir"</string>
-    <string name="car_add_user" msgid="5245196248349230898">"Kullanıcı Ekle"</string>
-    <string name="car_new_user" msgid="8142927244990323906">"Yeni Kullanıcı"</string>
-    <string name="user_add_user_message_setup" msgid="1791011504259527329">"Yeni kullanıcı eklediğinizde, bu kişinin kendi alanını ayarlaması gerekir."</string>
-    <string name="user_add_user_message_update" msgid="3383320289232716179">"Herhangi bir kullanıcı, diğer tüm kullanıcılar için uygulamaları güncelleyebilir."</string>
+    <string name="car_lockscreen_disclaimer_title" msgid="7997539137376896441">"Güvenli bir şekilde sürün"</string>
+    <string name="car_lockscreen_disclaimer_text" msgid="3061224684092952864">"Sürüş koşullarına karşı dikkatli olun ve geçerli yasalara her zaman uyun. Yol tarifi yanlış, eksik, tehlikeli, uygunsuz, yasak olabilir veya idari bölgelerden geçişleri içerebilir. İşletme bilgileri de yanlış veya eksik olabilir. Veriler gerçek zamanlı değildir ve konum doğruluğu garanti edilemez. Sürüş sırasında mobil cihazınızı veya Android Auto için geliştirilmemiş uygulamaları kullanmayın."</string>
 </resources>

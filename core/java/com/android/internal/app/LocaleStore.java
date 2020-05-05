@@ -16,13 +16,10 @@
 
 package com.android.internal.app;
 
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
-import android.os.LocaleList;
 import android.provider.Settings;
 import android.telephony.TelephonyManager;
 
-import java.io.Serializable;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IllformedLocaleException;
@@ -33,7 +30,7 @@ public class LocaleStore {
     private static final HashMap<String, LocaleInfo> sLocaleCache = new HashMap<>();
     private static boolean sFullyInitialized = false;
 
-    public static class LocaleInfo implements Serializable {
+    public static class LocaleInfo {
         private static final int SUGGESTION_TYPE_NONE = 0;
         private static final int SUGGESTION_TYPE_SIM = 1 << 0;
         private static final int SUGGESTION_TYPE_CFG = 1 << 1;
@@ -71,9 +68,7 @@ public class LocaleStore {
                 return null;
             }
             return new Locale.Builder()
-                    .setLocale(locale)
-                    .setRegion("")
-                    .setExtension(Locale.UNICODE_LOCALE_EXTENSION, "")
+                    .setLocale(locale).setRegion("")
                     .build();
         }
 
@@ -82,17 +77,14 @@ public class LocaleStore {
             return mId;
         }
 
-        @UnsupportedAppUsage
         public Locale getLocale() {
             return mLocale;
         }
 
-        @UnsupportedAppUsage
         public Locale getParent() {
             return mParent;
         }
 
-        @UnsupportedAppUsage
         public String getId() {
             return mId;
         }
@@ -119,7 +111,6 @@ public class LocaleStore {
             return (mSuggestionFlags & suggestionMask) == suggestionMask;
         }
 
-        @UnsupportedAppUsage
         public String getFullNameNative() {
             if (mFullNameNative == null) {
                 mFullNameNative =
@@ -145,7 +136,6 @@ public class LocaleStore {
          * For instance German will show as "Deutsch" in the list, but we will also search for
          * "allemand" if the system UI is in French.
          */
-        @UnsupportedAppUsage
         public String getFullNameInUiLanguage() {
             // We don't cache the UI name because the default locale keeps changing
             return LocaleHelper.getDisplayName(mLocale, true /* sentence case */);
@@ -153,11 +143,7 @@ public class LocaleStore {
 
         private String getLangScriptKey() {
             if (mLangScriptKey == null) {
-                Locale baseLocale = new Locale.Builder()
-                    .setLocale(mLocale)
-                    .setExtension(Locale.UNICODE_LOCALE_EXTENSION, "")
-                    .build();
-                Locale parentWithScript = getParent(LocaleHelper.addLikelySubtags(baseLocale));
+                Locale parentWithScript = getParent(LocaleHelper.addLikelySubtags(mLocale));
                 mLangScriptKey =
                         (parentWithScript == null)
                         ? mLocale.toLanguageTag()
@@ -260,7 +246,6 @@ public class LocaleStore {
         }
     }
 
-    @UnsupportedAppUsage
     public static void fillCache(Context context) {
         if (sFullyInitialized) {
             return;
@@ -268,25 +253,11 @@ public class LocaleStore {
 
         Set<String> simCountries = getSimCountries(context);
 
-        final boolean isInDeveloperMode = Settings.Global.getInt(context.getContentResolver(),
-                Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) != 0;
         for (String localeId : LocalePicker.getSupportedLocales(context)) {
             if (localeId.isEmpty()) {
                 throw new IllformedLocaleException("Bad locale entry in locale_config.xml");
             }
             LocaleInfo li = new LocaleInfo(localeId);
-
-            if (LocaleList.isPseudoLocale(li.getLocale())) {
-                if (isInDeveloperMode) {
-                    li.setTranslated(true);
-                    li.mIsPseudo = true;
-                    li.mSuggestionFlags |= LocaleInfo.SUGGESTION_TYPE_SIM;
-                } else {
-                    // Do not display pseudolocales unless in development mode.
-                    continue;
-                }
-            }
-
             if (simCountries.contains(li.getLocale().getCountry())) {
                 li.mSuggestionFlags |= LocaleInfo.SUGGESTION_TYPE_SIM;
             }
@@ -297,6 +268,19 @@ public class LocaleStore {
                 if (!sLocaleCache.containsKey(parentId)) {
                     sLocaleCache.put(parentId, new LocaleInfo(parent));
                 }
+            }
+        }
+
+        boolean isInDeveloperMode = Settings.Global.getInt(context.getContentResolver(),
+                Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) != 0;
+        for (String localeId : LocalePicker.getPseudoLocales()) {
+            LocaleInfo li = getLocaleInfo(Locale.forLanguageTag(localeId));
+            if (isInDeveloperMode) {
+                li.setTranslated(true);
+                li.mIsPseudo = true;
+                li.mSuggestionFlags |= LocaleInfo.SUGGESTION_TYPE_SIM;
+            } else {
+                sLocaleCache.remove(li.getId());
             }
         }
 
@@ -323,6 +307,9 @@ public class LocaleStore {
             localizedLocales.add(li.getLangScriptKey());
         }
 
+        // Serbian in Latin script is only partially localized in N.
+        localizedLocales.remove("sr-Latn");
+
         for (LocaleInfo li : sLocaleCache.values()) {
             li.setTranslated(localizedLocales.contains(li.getLangScriptKey()));
         }
@@ -347,7 +334,6 @@ public class LocaleStore {
      * Example: if the parent is "ar", then the region list will contain all Arabic locales.
      * (this is not language based, but language-script, so that it works for zh-Hant and so on.
      */
-    @UnsupportedAppUsage
     public static Set<LocaleInfo> getLevelLocales(Context context, Set<String> ignorables,
             LocaleInfo parent, boolean translatedOnly) {
         fillCache(context);
@@ -373,7 +359,6 @@ public class LocaleStore {
         return result;
     }
 
-    @UnsupportedAppUsage
     public static LocaleInfo getLocaleInfo(Locale locale) {
         String id = locale.toLanguageTag();
         LocaleInfo result;

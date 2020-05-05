@@ -16,16 +16,12 @@
 
 package android.app;
 
-import android.annotation.UnsupportedAppUsage;
-import android.app.ActivityThread.ActivityClientRecord;
-import android.app.servertransaction.PendingTransactionActions;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.os.Binder;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Window;
-
 import com.android.internal.content.ReferrerIntent;
 
 import java.util.ArrayList;
@@ -74,23 +70,18 @@ public class LocalActivityManager {
     /** Thread our activities are running in. */
     private final ActivityThread mActivityThread;
     /** The containing activity that owns the activities we create. */
-    @UnsupportedAppUsage
     private final Activity mParent;
 
     /** The activity that is currently resumed. */
-    @UnsupportedAppUsage
     private LocalActivityRecord mResumed;
     /** id -> record of all known activities. */
-    @UnsupportedAppUsage
     private final Map<String, LocalActivityRecord> mActivities
             = new HashMap<String, LocalActivityRecord>();
     /** array of all known activities for easy iterating. */
-    @UnsupportedAppUsage
     private final ArrayList<LocalActivityRecord> mActivityArray
             = new ArrayList<LocalActivityRecord>();
 
     /** True if only one activity can be resumed at a time */
-    @UnsupportedAppUsage
     private boolean mSingleMode;
     
     /** Set to true once we find out the container is finishing. */
@@ -117,7 +108,6 @@ public class LocalActivityManager {
         mSingleMode = singleMode;
     }
 
-    @UnsupportedAppUsage
     private void moveToState(LocalActivityRecord r, int desiredState) {
         if (r.curState == RESTORED || r.curState == DESTROYED) {
             // startActivity() has not yet been called, so nothing to do.
@@ -144,27 +134,12 @@ public class LocalActivityManager {
                 r.activityInfo = mActivityThread.resolveActivityInfo(r.intent);
             }
             r.activity = mActivityThread.startActivityNow(
-                    mParent, r.id, r.intent, r.activityInfo, r, r.instanceState, instance, r);
+                    mParent, r.id, r.intent, r.activityInfo, r, r.instanceState, instance);
             if (r.activity == null) {
                 return;
             }
             r.window = r.activity.getWindow();
             r.instanceState = null;
-
-            final ActivityClientRecord clientRecord = mActivityThread.getActivityClient(r);
-            final PendingTransactionActions pendingActions;
-
-            if (!r.activity.mFinished) {
-                // This matches pending actions set in ActivityThread#handleLaunchActivity
-                pendingActions = new PendingTransactionActions();
-                pendingActions.setOldState(clientRecord.state);
-                pendingActions.setRestoreInstanceState(true);
-                pendingActions.setCallOnPostCreate(true);
-            } else {
-                pendingActions = null;
-            }
-
-            mActivityThread.handleStartActivity(clientRecord, pendingActions);
             r.curState = STARTED;
             
             if (desiredState == RESUMED) {
@@ -186,12 +161,12 @@ public class LocalActivityManager {
             case CREATED:
                 if (desiredState == STARTED) {
                     if (localLOGV) Log.v(TAG, r.id + ": restarting");
-                    mActivityThread.performRestartActivity(r, true /* start */);
+                    mActivityThread.performRestartActivity(r);
                     r.curState = STARTED;
                 }
                 if (desiredState == RESUMED) {
                     if (localLOGV) Log.v(TAG, r.id + ": restarting and resuming");
-                    mActivityThread.performRestartActivity(r, true /* start */);
+                    mActivityThread.performRestartActivity(r);
                     mActivityThread.performResumeActivity(r, true, "moveToState-CREATED");
                     r.curState = RESUMED;
                 }
@@ -231,8 +206,8 @@ public class LocalActivityManager {
     
     private void performPause(LocalActivityRecord r, boolean finishing) {
         final boolean needState = r.instanceState == null;
-        final Bundle instanceState = mActivityThread.performPauseActivity(r, finishing,
-                "performPause", null /* pendingActions */);
+        final Bundle instanceState = mActivityThread.performPauseActivity(
+                r, finishing, needState, "performPause");
         if (needState) {
             r.instanceState = instanceState;
         }
@@ -339,7 +314,7 @@ public class LocalActivityManager {
                     ArrayList<ReferrerIntent> intents = new ArrayList<>(1);
                     intents.add(new ReferrerIntent(intent, mParent.getPackageName()));
                     if (localLOGV) Log.v(TAG, r.id + ": new intent");
-                    mActivityThread.handleNewIntent(r, intents);
+                    mActivityThread.performNewIntents(r, intents, false /* andPause */);
                     r.intent = intent;
                     moveToState(r, mCurState);
                     if (mSingleMode) {
@@ -386,8 +361,7 @@ public class LocalActivityManager {
             performPause(r, finish);
         }
         if (localLOGV) Log.v(TAG, r.id + ": destroying");
-        mActivityThread.performDestroyActivity(r, finish, 0 /* configChanges */,
-                false /* getNonConfigInstance */, "LocalActivityManager::performDestroy");
+        mActivityThread.performDestroyActivity(r, finish);
         r.activity = null;
         r.window = null;
         if (finish) {
@@ -651,8 +625,7 @@ public class LocalActivityManager {
         for (int i=0; i<N; i++) {
             LocalActivityRecord r = mActivityArray.get(i);
             if (localLOGV) Log.v(TAG, r.id + ": destroying");
-            mActivityThread.performDestroyActivity(r, finishing, 0 /* configChanges */,
-                    false /* getNonConfigInstance */, "LocalActivityManager::dispatchDestroy");
+            mActivityThread.performDestroyActivity(r, finishing);
         }
         mActivities.clear();
         mActivityArray.clear();

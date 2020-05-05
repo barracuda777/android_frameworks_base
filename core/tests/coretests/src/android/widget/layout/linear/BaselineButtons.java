@@ -16,10 +16,11 @@
 
 package android.widget.layout.linear;
 
+import com.android.frameworks.coretests.R;
+
 import android.app.Activity;
 import android.os.Bundle;
-
-import com.android.frameworks.coretests.R;
+import android.view.View;
 
 public class BaselineButtons extends Activity {
     @Override

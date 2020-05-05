@@ -16,7 +16,6 @@
 
 package android.view.animation;
 
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.util.AttributeSet;
@@ -35,17 +34,13 @@ public class TranslateAnimation extends Animation {
     private int mToYType = ABSOLUTE;
 
     /** @hide */
-    @UnsupportedAppUsage
     protected float mFromXValue = 0.0f;
     /** @hide */
-    @UnsupportedAppUsage
     protected float mToXValue = 0.0f;
 
     /** @hide */
-    @UnsupportedAppUsage
     protected float mFromYValue = 0.0f;
     /** @hide */
-    @UnsupportedAppUsage
     protected float mToYValue = 0.0f;
 
     /** @hide */

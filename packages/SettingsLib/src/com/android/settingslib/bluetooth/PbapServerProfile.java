@@ -25,20 +25,19 @@ import android.content.Context;
 import android.os.ParcelUuid;
 import android.util.Log;
 
-import com.android.internal.annotations.VisibleForTesting;
 import com.android.settingslib.R;
 
 /**
  * PBAPServer Profile
  */
-public class PbapServerProfile implements LocalBluetoothProfile {
+public final class PbapServerProfile implements LocalBluetoothProfile {
     private static final String TAG = "PbapServerProfile";
+    private static boolean V = true;
 
     private BluetoothPbap mService;
     private boolean mIsProfileReady;
 
-    @VisibleForTesting
-    public static final String NAME = "PBAP Server";
+    static final String NAME = "PBAP Server";
 
     // Order of this profile in device profiles list
     private static final int ORDINAL = 6;
@@ -55,11 +54,13 @@ public class PbapServerProfile implements LocalBluetoothProfile {
             implements BluetoothPbap.ServiceListener {
 
         public void onServiceConnected(BluetoothPbap proxy) {
+            if (V) Log.d(TAG,"Bluetooth service connected");
             mService = (BluetoothPbap) proxy;
             mIsProfileReady=true;
         }
 
         public void onServiceDisconnected() {
+            if (V) Log.d(TAG,"Bluetooth service disconnected");
             mIsProfileReady=false;
         }
     }
@@ -68,16 +69,11 @@ public class PbapServerProfile implements LocalBluetoothProfile {
         return mIsProfileReady;
     }
 
-    @Override
-    public int getProfileId() {
-        return BluetoothProfile.PBAP;
-    }
-
     PbapServerProfile(Context context) {
         BluetoothPbap pbap = new BluetoothPbap(context, new PbapServiceListener());
     }
 
-    public boolean accessProfileEnabled() {
+    public boolean isConnectable() {
         return true;
     }
 
@@ -92,8 +88,13 @@ public class PbapServerProfile implements LocalBluetoothProfile {
     }
 
     public boolean disconnect(BluetoothDevice device) {
-        if (mService == null) return false;
-        return mService.disconnect(device);
+        if (mService == null || device == null) return false;
+
+        if (getConnectionStatus(device) == BluetoothProfile.STATE_CONNECTED)
+            return mService.disconnect();
+
+        Log.d(TAG, "pbap server not connected to "  + device.getAddress());
+        return false;
     }
 
     public int getConnectionStatus(BluetoothDevice device) {
@@ -135,11 +136,11 @@ public class PbapServerProfile implements LocalBluetoothProfile {
     }
 
     public int getDrawableResource(BluetoothClass btClass) {
-        return com.android.internal.R.drawable.ic_phone;
+        return R.drawable.ic_bt_cellphone;
     }
 
     protected void finalize() {
-        Log.d(TAG, "finalize()");
+        if (V) Log.d(TAG, "finalize()");
         if (mService != null) {
             try {
                 mService.close();

@@ -16,9 +16,6 @@
 
 package com.android.systemui.stackdivider;
 
-import static com.android.systemui.stackdivider.ForcedResizableInfoActivity
-        .EXTRA_FORCED_RESIZEABLE_REASON;
-
 import android.app.ActivityOptions;
 import android.content.Context;
 import android.content.Intent;
@@ -28,8 +25,13 @@ import android.util.ArraySet;
 import android.widget.Toast;
 
 import com.android.systemui.R;
-import com.android.systemui.shared.system.ActivityManagerWrapper;
-import com.android.systemui.shared.system.TaskStackChangeListener;
+import com.android.systemui.recents.events.EventBus;
+import com.android.systemui.recents.events.activity.AppTransitionFinishedEvent;
+import com.android.systemui.recents.events.component.ShowUserToastEvent;
+import com.android.systemui.recents.misc.SystemServicesProxy;
+import com.android.systemui.recents.misc.SystemServicesProxy.TaskStackListener;
+import com.android.systemui.stackdivider.events.StartedDragingEvent;
+import com.android.systemui.stackdivider.events.StoppedDragingEvent;
 
 /**
  * Controller that decides when to show the {@link ForcedResizableInfoActivity}.
@@ -41,9 +43,9 @@ public class ForcedResizableInfoActivityController {
     private static final int TIMEOUT = 1000;
     private final Context mContext;
     private final Handler mHandler = new Handler();
-    private final ArraySet<PendingTaskRecord> mPendingTasks = new ArraySet<>();
+    private final ArraySet<Integer> mPendingTaskIds = new ArraySet<>();
     private final ArraySet<String> mPackagesShownInSession = new ArraySet<>();
-    private boolean mDividerDragging;
+    private boolean mDividerDraging;
 
     private final Runnable mTimeoutRunnable = new Runnable() {
         @Override
@@ -52,39 +54,19 @@ public class ForcedResizableInfoActivityController {
         }
     };
 
-    /** Record of force resized task that's pending to be handled. */
-    private class PendingTaskRecord {
-        int taskId;
-        /**
-         * {@link android.app.ITaskStackListener#FORCED_RESIZEABLE_REASON_SPLIT_SCREEN} or
-         * {@link android.app.ITaskStackListener#FORCED_RESIZEABLE_REASON_SECONDARY_DISPLAY}
-         */
-        int reason;
-
-        PendingTaskRecord(int taskId, int reason) {
-            this.taskId = taskId;
-            this.reason = reason;
-        }
-    }
-
     public ForcedResizableInfoActivityController(Context context) {
         mContext = context;
-        ActivityManagerWrapper.getInstance().registerTaskStackListener(
-                new TaskStackChangeListener() {
+        EventBus.getDefault().register(this);
+        SystemServicesProxy.getInstance(context).registerTaskStackListener(
+                new TaskStackListener() {
                     @Override
-                    public void onActivityForcedResizable(String packageName, int taskId,
-                            int reason) {
-                        activityForcedResizable(packageName, taskId, reason);
+                    public void onActivityForcedResizable(String packageName, int taskId) {
+                        activityForcedResizable(packageName, taskId);
                     }
 
                     @Override
                     public void onActivityDismissingDockedStack() {
                         activityDismissingDockedStack();
-                    }
-
-                    @Override
-                    public void onActivityLaunchOnSecondaryDisplayFailed() {
-                        activityLaunchOnSecondaryDisplayFailed();
                     }
                 });
     }
@@ -95,54 +77,45 @@ public class ForcedResizableInfoActivityController {
         }
     }
 
-    public void onAppTransitionFinished() {
-        if (!mDividerDragging) {
+    public final void onBusEvent(AppTransitionFinishedEvent event) {
+        if (!mDividerDraging) {
             showPending();
         }
     }
 
-    void onDraggingStart() {
-        mDividerDragging = true;
+    public final void onBusEvent(StartedDragingEvent event) {
+        mDividerDraging = true;
         mHandler.removeCallbacks(mTimeoutRunnable);
     }
 
-    void onDraggingEnd() {
-        mDividerDragging = false;
+    public final void onBusEvent(StoppedDragingEvent event) {
+        mDividerDraging = false;
         showPending();
     }
 
-    private void activityForcedResizable(String packageName, int taskId, int reason) {
+    private void activityForcedResizable(String packageName, int taskId) {
         if (debounce(packageName)) {
             return;
         }
-        mPendingTasks.add(new PendingTaskRecord(taskId, reason));
+        mPendingTaskIds.add(taskId);
         postTimeout();
     }
 
     private void activityDismissingDockedStack() {
-        Toast.makeText(mContext, R.string.dock_non_resizeble_failed_to_dock_text,
-                Toast.LENGTH_SHORT).show();
-    }
-
-    private void activityLaunchOnSecondaryDisplayFailed() {
-        Toast.makeText(mContext, R.string.activity_launch_on_secondary_display_failed_text,
-                Toast.LENGTH_SHORT).show();
+        EventBus.getDefault().send(new ShowUserToastEvent(
+                R.string.dock_non_resizeble_failed_to_dock_text, Toast.LENGTH_SHORT));
     }
 
     private void showPending() {
         mHandler.removeCallbacks(mTimeoutRunnable);
-        for (int i = mPendingTasks.size() - 1; i >= 0; i--) {
-            PendingTaskRecord pendingRecord = mPendingTasks.valueAt(i);
+        for (int i = mPendingTaskIds.size() - 1; i >= 0; i--) {
             Intent intent = new Intent(mContext, ForcedResizableInfoActivity.class);
             ActivityOptions options = ActivityOptions.makeBasic();
-            options.setLaunchTaskId(pendingRecord.taskId);
-            // Set as task overlay and allow to resume, so that when an app enters split-screen and
-            // becomes paused, the overlay will still be shown.
-            options.setTaskOverlay(true, true /* canResume */);
-            intent.putExtra(EXTRA_FORCED_RESIZEABLE_REASON, pendingRecord.reason);
+            options.setLaunchTaskId(mPendingTaskIds.valueAt(i));
+            options.setTaskOverlay(true);
             mContext.startActivityAsUser(intent, options.toBundle(), UserHandle.CURRENT);
         }
-        mPendingTasks.clear();
+        mPendingTaskIds.clear();
     }
 
     private void postTimeout() {

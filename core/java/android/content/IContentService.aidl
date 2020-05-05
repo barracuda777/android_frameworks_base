@@ -42,7 +42,7 @@ interface IContentService {
      *     USER_CURRENT are properly handled.
      */
     void registerContentObserver(in Uri uri, boolean notifyForDescendants,
-            IContentObserver observer, int userHandle, int targetSdkVersion);
+            IContentObserver observer, int userHandle);
 
     /**
      * Notify observers of a particular user's view of the provider.
@@ -53,15 +53,14 @@ interface IContentService {
      */
     void notifyChange(in Uri uri, IContentObserver observer,
             boolean observerWantsSelfNotifications, int flags,
-            int userHandle, int targetSdkVersion, String callingPackage);
+            int userHandle);
 
-    void requestSync(in Account account, String authority, in Bundle extras, String callingPackage);
+    void requestSync(in Account account, String authority, in Bundle extras);
     /**
      * Start a sync given a request.
      */
-    void sync(in SyncRequest request, String callingPackage);
-    void syncAsUser(in SyncRequest request, int userId, String callingPackage);
-    @UnsupportedAppUsage
+    void sync(in SyncRequest request);
+    void syncAsUser(in SyncRequest request, int userId);
     void cancelSync(in Account account, String authority, in ComponentName cname);
     void cancelSyncAsUser(in Account account, String authority, in ComponentName cname, int userId);
 
@@ -119,7 +118,6 @@ interface IContentService {
      * Check if this account/provider is syncable.
      * @return >0 if it is syncable, 0 if not, and <0 if the state isn't known yet.
      */
-    @UnsupportedAppUsage
     int getIsSyncable(in Account account, String providerName);
     int getIsSyncableAsUser(in Account account, String providerName, int userId);
 
@@ -128,13 +126,10 @@ interface IContentService {
      * @param syncable, >0 denotes syncable, 0 means not syncable, <0 means unknown
      */
     void setIsSyncable(in Account account, String providerName, int syncable);
-    void setIsSyncableAsUser(in Account account, String providerName, int syncable, int userId);
 
-    @UnsupportedAppUsage
     void setMasterSyncAutomatically(boolean flag);
     void setMasterSyncAutomaticallyAsUser(boolean flag, int userId);
 
-    @UnsupportedAppUsage
     boolean getMasterSyncAutomatically();
     boolean getMasterSyncAutomaticallyAsUser(int userId);
 
@@ -145,7 +140,6 @@ interface IContentService {
      * Returns the types of the SyncAdapters that are registered with the system.
      * @return Returns the types of the SyncAdapters that are registered with the system.
      */
-    @UnsupportedAppUsage
     SyncAdapterType[] getSyncAdapterTypes();
     SyncAdapterType[] getSyncAdapterTypesAsUser(int userId);
 
@@ -159,7 +153,6 @@ interface IContentService {
      * @param cname component to identify sync service, must be null if account/providerName are
      * non-null.
      */
-    @UnsupportedAppUsage
     boolean isSyncActive(in Account account, String authority, in ComponentName cname);
 
     /**
@@ -190,8 +183,4 @@ interface IContentService {
 
     void putCache(in String packageName, in Uri key, in Bundle value, int userId);
     Bundle getCache(in String packageName, in Uri key, int userId);
-
-    void resetTodayStats();
-
-    void onDbCorruption(String tag, String message, String stacktrace);
 }

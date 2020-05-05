@@ -16,7 +16,6 @@
 
 package com.android.settingslib.dream;
 
-import android.annotation.IntDef;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -40,8 +39,6 @@ import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -71,15 +68,6 @@ public class DreamBackend {
         }
     }
 
-    @Retention(RetentionPolicy.SOURCE)
-    @IntDef({WHILE_CHARGING, WHILE_DOCKED, EITHER, NEVER})
-    public @interface WhenToDream{}
-
-    public static final int WHILE_CHARGING = 0;
-    public static final int WHILE_DOCKED = 1;
-    public static final int EITHER = 2;
-    public static final int NEVER = 3;
-
     private final Context mContext;
     private final IDreamManager mDreamManager;
     private final DreamInfoComparator mComparator;
@@ -87,25 +75,16 @@ public class DreamBackend {
     private final boolean mDreamsActivatedOnSleepByDefault;
     private final boolean mDreamsActivatedOnDockByDefault;
 
-    private static DreamBackend sInstance;
-
-    public static DreamBackend getInstance(Context context) {
-        if (sInstance == null) {
-            sInstance = new DreamBackend(context);
-        }
-        return sInstance;
-    }
-
     public DreamBackend(Context context) {
-        mContext = context.getApplicationContext();
+        mContext = context;
         mDreamManager = IDreamManager.Stub.asInterface(
                 ServiceManager.getService(DreamService.DREAM_SERVICE));
         mComparator = new DreamInfoComparator(getDefaultDream());
-        mDreamsEnabledByDefault = mContext.getResources()
+        mDreamsEnabledByDefault = context.getResources()
                 .getBoolean(com.android.internal.R.bool.config_dreamsEnabledByDefault);
-        mDreamsActivatedOnSleepByDefault = mContext.getResources()
+        mDreamsActivatedOnSleepByDefault = context.getResources()
                 .getBoolean(com.android.internal.R.bool.config_dreamsActivatedOnSleepByDefault);
-        mDreamsActivatedOnDockByDefault = mContext.getResources()
+        mDreamsActivatedOnDockByDefault = context.getResources()
                 .getBoolean(com.android.internal.R.bool.config_dreamsActivatedOnDockByDefault);
     }
 
@@ -157,42 +136,6 @@ public class DreamBackend {
             }
         }
         return null;
-    }
-
-    public @WhenToDream int getWhenToDreamSetting() {
-        if (!isEnabled()) {
-            return NEVER;
-        }
-        return isActivatedOnDock() && isActivatedOnSleep() ? EITHER
-                : isActivatedOnDock() ? WHILE_DOCKED
-                : isActivatedOnSleep() ? WHILE_CHARGING
-                : NEVER;
-    }
-
-    public void setWhenToDream(@WhenToDream int whenToDream) {
-        setEnabled(whenToDream != NEVER);
-
-        switch (whenToDream) {
-            case WHILE_CHARGING:
-                setActivatedOnDock(false);
-                setActivatedOnSleep(true);
-                break;
-
-            case WHILE_DOCKED:
-                setActivatedOnDock(true);
-                setActivatedOnSleep(false);
-                break;
-
-            case EITHER:
-                setActivatedOnDock(true);
-                setActivatedOnSleep(true);
-                break;
-
-            case NEVER:
-            default:
-                break;
-        }
-
     }
 
     public boolean isEnabled() {
@@ -256,12 +199,11 @@ public class DreamBackend {
         }
     }
 
-    public void launchSettings(Context uiContext, DreamInfo dreamInfo) {
+    public void launchSettings(DreamInfo dreamInfo) {
         logd("launchSettings(%s)", dreamInfo);
-        if (dreamInfo == null || dreamInfo.settingsComponentName == null) {
+        if (dreamInfo == null || dreamInfo.settingsComponentName == null)
             return;
-        }
-        uiContext.startActivity(new Intent().setComponent(dreamInfo.settingsComponentName));
+        mContext.startActivity(new Intent().setComponent(dreamInfo.settingsComponentName));
     }
 
     public void preview(DreamInfo dreamInfo) {

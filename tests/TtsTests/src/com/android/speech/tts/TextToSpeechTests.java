@@ -22,13 +22,9 @@ import android.speech.tts.TextToSpeech;
 import android.test.InstrumentationTestCase;
 
 import com.android.speech.tts.MockableTextToSpeechService.IDelegate;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
-import org.mockito.internal.stubbing.StubberImpl;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
-import org.mockito.stubbing.Stubber;
-import org.mockito.quality.Strictness;
+import com.google.testing.littlemock.ArgumentCaptor;
+import com.google.testing.littlemock.Behaviour;
+import com.google.testing.littlemock.LittleMock;
 import junit.framework.Assert;
 
 import java.util.Locale;
@@ -44,16 +40,16 @@ public class TextToSpeechTests extends InstrumentationTestCase {
 
     @Override
     public void setUp() throws Exception {
-        IDelegate passThrough = Mockito.mock(IDelegate.class);
+        IDelegate passThrough = LittleMock.mock(IDelegate.class);
         MockableTextToSpeechService.setMocker(passThrough);
 
         // For the default voice selection
-        Mockito.doReturn(TextToSpeech.LANG_COUNTRY_AVAILABLE).when(passThrough)
+        LittleMock.doReturn(TextToSpeech.LANG_COUNTRY_AVAILABLE).when(passThrough)
             .onIsLanguageAvailable(
-                    Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
-        Mockito.doReturn(TextToSpeech.LANG_COUNTRY_AVAILABLE).when(passThrough)
+                    LittleMock.anyString(), LittleMock.anyString(), LittleMock.anyString());
+        LittleMock.doReturn(TextToSpeech.LANG_COUNTRY_AVAILABLE).when(passThrough)
             .onLoadLanguage(
-                    Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+                    LittleMock.anyString(), LittleMock.anyString(), LittleMock.anyString());
 
         blockingInitAndVerify(MOCK_ENGINE, TextToSpeech.SUCCESS);
         assertEquals(MOCK_ENGINE, mTts.getCurrentEngine());
@@ -75,42 +71,42 @@ public class TextToSpeechTests extends InstrumentationTestCase {
     }
 
     public void testSetLanguage_delegation() {
-        IDelegate delegate = Mockito.mock(IDelegate.class);
+        IDelegate delegate = LittleMock.mock(IDelegate.class);
         MockableTextToSpeechService.setMocker(delegate);
 
-        Mockito.doReturn(TextToSpeech.LANG_COUNTRY_VAR_AVAILABLE).when(delegate).onIsLanguageAvailable(
+        LittleMock.doReturn(TextToSpeech.LANG_COUNTRY_VAR_AVAILABLE).when(delegate).onIsLanguageAvailable(
                 "eng", "USA", "variant");
-        Mockito.doReturn(TextToSpeech.LANG_COUNTRY_VAR_AVAILABLE).when(delegate).onLoadLanguage(
+        LittleMock.doReturn(TextToSpeech.LANG_COUNTRY_VAR_AVAILABLE).when(delegate).onLoadLanguage(
                 "eng", "USA", "variant");
 
         // Test 1 :Tests that calls to onLoadLanguage( ) are delegated through to the
         // service without any caching or intermediate steps.
         assertEquals(TextToSpeech.LANG_COUNTRY_VAR_AVAILABLE, mTts.setLanguage(new Locale("eng", "USA", "variant")));
-        Mockito.verify(delegate, Mockito.atLeast(0)).onIsLanguageAvailable(
+        LittleMock.verify(delegate, LittleMock.anyTimes()).onIsLanguageAvailable(
             "eng", "USA", "variant");
-        Mockito.verify(delegate, Mockito.atLeast(0)).onLoadLanguage(
+        LittleMock.verify(delegate, LittleMock.anyTimes()).onLoadLanguage(
             "eng", "USA", "variant");
     }
 
     public void testSetLanguage_availableLanguage() throws Exception {
-        IDelegate delegate = Mockito.mock(IDelegate.class);
+        IDelegate delegate = LittleMock.mock(IDelegate.class);
         MockableTextToSpeechService.setMocker(delegate);
 
         // ---------------------------------------------------------
         // Test 2 : Tests that when the language is successfully set
         // like above (returns LANG_COUNTRY_AVAILABLE). That the
         // request language changes from that point on.
-        Mockito.doReturn(TextToSpeech.LANG_COUNTRY_AVAILABLE).when(delegate).onIsLanguageAvailable(
+        LittleMock.doReturn(TextToSpeech.LANG_COUNTRY_AVAILABLE).when(delegate).onIsLanguageAvailable(
                 "eng", "USA", "variant");
-        Mockito.doReturn(TextToSpeech.LANG_COUNTRY_AVAILABLE).when(delegate).onIsLanguageAvailable(
+        LittleMock.doReturn(TextToSpeech.LANG_COUNTRY_AVAILABLE).when(delegate).onIsLanguageAvailable(
                 "eng", "USA", "");
-        Mockito.doReturn(TextToSpeech.LANG_COUNTRY_AVAILABLE).when(delegate).onLoadLanguage(
+        LittleMock.doReturn(TextToSpeech.LANG_COUNTRY_AVAILABLE).when(delegate).onLoadLanguage(
                 "eng", "USA", "");
         mTts.setLanguage(new Locale("eng", "USA", "variant"));
         blockingCallSpeak("foo bar", delegate);
-        ArgumentCaptor<SynthesisRequest> req = ArgumentCaptor.forClass(SynthesisRequest.class);
-        Mockito.verify(delegate, Mockito.times(1)).onSynthesizeText(req.capture(),
-                Mockito.<SynthesisCallback>anyObject());
+        ArgumentCaptor<SynthesisRequest> req = LittleMock.createCaptor();
+        LittleMock.verify(delegate, LittleMock.times(1)).onSynthesizeText(req.capture(),
+                LittleMock.<SynthesisCallback>anyObject());
 
         assertEquals("eng", req.getValue().getLanguage());
         assertEquals("USA", req.getValue().getCountry());
@@ -119,21 +115,21 @@ public class TextToSpeechTests extends InstrumentationTestCase {
     }
 
     public void testSetLanguage_unavailableLanguage() throws Exception {
-        IDelegate delegate = Mockito.mock(IDelegate.class);
+        IDelegate delegate = LittleMock.mock(IDelegate.class);
         MockableTextToSpeechService.setMocker(delegate);
 
         // ---------------------------------------------------------
         // TEST 3 : Tests that the language that is set does not change when the
         // engine reports it could not load the specified language.
-        Mockito.doReturn(TextToSpeech.LANG_NOT_SUPPORTED).when(
+        LittleMock.doReturn(TextToSpeech.LANG_NOT_SUPPORTED).when(
                 delegate).onIsLanguageAvailable("fra", "FRA", "");
-        Mockito.doReturn(TextToSpeech.LANG_NOT_SUPPORTED).when(
+        LittleMock.doReturn(TextToSpeech.LANG_NOT_SUPPORTED).when(
                 delegate).onLoadLanguage("fra", "FRA", "");
         mTts.setLanguage(Locale.FRANCE);
         blockingCallSpeak("le fou barre", delegate);
-        ArgumentCaptor<SynthesisRequest> req2 = ArgumentCaptor.forClass(SynthesisRequest.class);
-        Mockito.verify(delegate, Mockito.times(1)).onSynthesizeText(req2.capture(),
-                        Mockito.<SynthesisCallback>anyObject());
+        ArgumentCaptor<SynthesisRequest> req2 = LittleMock.createCaptor();
+        LittleMock.verify(delegate, LittleMock.times(1)).onSynthesizeText(req2.capture(),
+                        LittleMock.<SynthesisCallback>anyObject());
 
         // The params are basically unchanged.
         assertEquals("eng", req2.getValue().getLanguage());
@@ -143,41 +139,41 @@ public class TextToSpeechTests extends InstrumentationTestCase {
     }
 
     public void testIsLanguageAvailable() {
-        IDelegate delegate = Mockito.mock(IDelegate.class);
+        IDelegate delegate = LittleMock.mock(IDelegate.class);
         MockableTextToSpeechService.setMocker(delegate);
 
         // Test1: Simple end to end test.
-        Mockito.doReturn(TextToSpeech.LANG_COUNTRY_AVAILABLE).when(
+        LittleMock.doReturn(TextToSpeech.LANG_COUNTRY_AVAILABLE).when(
                 delegate).onIsLanguageAvailable("eng", "USA", "");
 
         assertEquals(TextToSpeech.LANG_COUNTRY_AVAILABLE, mTts.isLanguageAvailable(Locale.US));
-        Mockito.verify(delegate, Mockito.times(1)).onIsLanguageAvailable(
+        LittleMock.verify(delegate, LittleMock.times(1)).onIsLanguageAvailable(
                 "eng", "USA", "");
     }
 
     public void testDefaultLanguage_setsVoiceName() throws Exception {
-        IDelegate delegate = Mockito.mock(IDelegate.class);
+        IDelegate delegate = LittleMock.mock(IDelegate.class);
         MockableTextToSpeechService.setMocker(delegate);
         Locale defaultLocale = Locale.getDefault();
 
         // ---------------------------------------------------------
         // Test that default language also sets the default voice
         // name
-        Mockito.doReturn(TextToSpeech.LANG_COUNTRY_AVAILABLE).
+        LittleMock.doReturn(TextToSpeech.LANG_COUNTRY_AVAILABLE).
             when(delegate).onIsLanguageAvailable(
                 defaultLocale.getISO3Language(),
                 defaultLocale.getISO3Country().toUpperCase(),
                 defaultLocale.getVariant());
-        Mockito.doReturn(TextToSpeech.LANG_COUNTRY_AVAILABLE).
+        LittleMock.doReturn(TextToSpeech.LANG_COUNTRY_AVAILABLE).
             when(delegate).onLoadLanguage(
                 defaultLocale.getISO3Language(),
                 defaultLocale.getISO3Country(),
                 defaultLocale.getVariant());
 
         blockingCallSpeak("foo bar", delegate);
-        ArgumentCaptor<SynthesisRequest> req = ArgumentCaptor.forClass(SynthesisRequest.class);
-        Mockito.verify(delegate, Mockito.times(1)).onSynthesizeText(req.capture(),
-                Mockito.<SynthesisCallback>anyObject());
+        ArgumentCaptor<SynthesisRequest> req = LittleMock.createCaptor();
+        LittleMock.verify(delegate, LittleMock.times(1)).onSynthesizeText(req.capture(),
+                LittleMock.<SynthesisCallback>anyObject());
 
         assertEquals(defaultLocale.getISO3Language(), req.getValue().getLanguage());
         assertEquals(defaultLocale.getISO3Country(), req.getValue().getCountry());
@@ -189,8 +185,8 @@ public class TextToSpeechTests extends InstrumentationTestCase {
     private void blockingCallSpeak(String speech, IDelegate mock) throws
             InterruptedException {
         final CountDownLatch latch = new CountDownLatch(1);
-        doCountDown(latch).when(mock).onSynthesizeText(Mockito.<SynthesisRequest>anyObject(),
-                Mockito.<SynthesisCallback>anyObject());
+        doCountDown(latch).when(mock).onSynthesizeText(LittleMock.<SynthesisRequest>anyObject(),
+                LittleMock.<SynthesisCallback>anyObject());
         mTts.speak(speech, TextToSpeech.QUEUE_ADD, null);
 
         awaitCountDown(latch, 5, TimeUnit.SECONDS);
@@ -198,7 +194,7 @@ public class TextToSpeechTests extends InstrumentationTestCase {
 
     private void blockingInitAndVerify(final String engine, int errorCode) throws
             InterruptedException {
-        TextToSpeech.OnInitListener listener = Mockito.mock(
+        TextToSpeech.OnInitListener listener = LittleMock.mock(
                 TextToSpeech.OnInitListener.class);
 
         final CountDownLatch latch = new CountDownLatch(1);
@@ -210,22 +206,18 @@ public class TextToSpeechTests extends InstrumentationTestCase {
         awaitCountDown(latch, 5, TimeUnit.SECONDS);
     }
 
-    public static abstract class CountDownBehaviour extends StubberImpl {
-        public CountDownBehaviour(Strictness strictness) {
-            super(strictness);
-        }
-
+    public interface CountDownBehaviour extends Behaviour {
         /** Used to mock methods that return a result. */
-        public abstract Stubber andReturn(Object result);
+        Behaviour andReturn(Object result);
     }
 
     public static CountDownBehaviour doCountDown(final CountDownLatch latch) {
-        return new CountDownBehaviour(Strictness.WARN) {
+        return new CountDownBehaviour() {
             @Override
             public <T> T when(T mock) {
-                return Mockito.doAnswer(new Answer<Void>() {
+                return LittleMock.doAnswer(new Callable<Void>() {
                     @Override
-                    public Void answer(InvocationOnMock invocation) throws Exception {
+                    public Void call() throws Exception {
                         latch.countDown();
                         return null;
                     }
@@ -233,13 +225,13 @@ public class TextToSpeechTests extends InstrumentationTestCase {
             }
 
             @Override
-            public Stubber andReturn(final Object result) {
-                return new StubberImpl(Strictness.WARN) {
+            public Behaviour andReturn(final Object result) {
+                return new Behaviour() {
                     @Override
                     public <T> T when(T mock) {
-                        return Mockito.doAnswer(new Answer<Object>() {
+                        return LittleMock.doAnswer(new Callable<Object>() {
                             @Override
-                            public Object answer(InvocationOnMock invocation) throws Exception {
+                            public Object call() throws Exception {
                                 latch.countDown();
                                 return result;
                             }

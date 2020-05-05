@@ -16,13 +16,13 @@
 
 package android.app.backup;
 
-import android.app.backup.FullBackup.BackupScheme.PathWithRequiredFlags;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import android.content.Context;
 import android.test.AndroidTestCase;
 import android.util.ArrayMap;
 import android.util.ArraySet;
-
-import androidx.test.filters.LargeTest;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -36,14 +36,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-@LargeTest
 public class FullBackupTest extends AndroidTestCase {
     private XmlPullParserFactory mFactory;
     private XmlPullParser mXpp;
     private Context mContext;
 
-    Map<String, Set<PathWithRequiredFlags>> includeMap;
-    Set<PathWithRequiredFlags> excludesSet;
+    Map<String, Set<String>> includeMap;
+    Set<String> excludesSet;
 
     @Override
     public void setUp() throws Exception {
@@ -51,8 +50,8 @@ public class FullBackupTest extends AndroidTestCase {
         mXpp = mFactory.newPullParser();
         mContext = getContext();
 
-        includeMap = new ArrayMap<>();
-        excludesSet = new ArraySet<>();
+        includeMap = new ArrayMap();
+        excludesSet = new ArraySet();
     }
 
     public void testparseBackupSchemeFromXml_onlyInclude() throws Exception {
@@ -67,149 +66,11 @@ public class FullBackupTest extends AndroidTestCase {
         assertEquals("Excluding files when there was no <exclude/> tag.", 0, excludesSet.size());
         assertEquals("Unexpected number of <include/>s", 1, includeMap.size());
 
-        Set<PathWithRequiredFlags> fileDomainIncludes = includeMap.get(FullBackup.FILES_TREE_TOKEN);
+        Set<String> fileDomainIncludes = includeMap.get(FullBackup.FILES_TREE_TOKEN);
         assertEquals("Didn't find expected file domain include.", 1, fileDomainIncludes.size());
-        PathWithRequiredFlags include = fileDomainIncludes.iterator().next();
         assertEquals("Invalid path parsed for <include/>",
                 new File(mContext.getFilesDir(), "onlyInclude.txt").getCanonicalPath(),
-                include.getPath());
-        assertEquals("Invalid requireFlags parsed for <include/>", 0, include.getRequiredFlags());
-    }
-
-    public void testparseBackupSchemeFromXml_onlyIncludeRequireEncryptionFlag() throws Exception {
-        mXpp.setInput(new StringReader(
-                "<full-backup-content>" +
-                        "<include path=\"onlyInclude.txt\" domain=\"file\""
-                        + " requireFlags=\"clientSideEncryption\"/>" +
-                "</full-backup-content>"));
-
-        FullBackup.BackupScheme bs = FullBackup.getBackupSchemeForTest(mContext);
-        bs.parseBackupSchemeFromXmlLocked(mXpp, excludesSet, includeMap);
-
-        assertEquals("Excluding files when there was no <exclude/> tag.", 0, excludesSet.size());
-        assertEquals("Unexpected number of <include/>s", 1, includeMap.size());
-
-        Set<PathWithRequiredFlags> fileDomainIncludes = includeMap.get(FullBackup.FILES_TREE_TOKEN);
-        assertEquals("Didn't find expected file domain include.", 1, fileDomainIncludes.size());
-        PathWithRequiredFlags include = fileDomainIncludes.iterator().next();
-        assertEquals("Invalid path parsed for <include/>",
-                new File(mContext.getFilesDir(), "onlyInclude.txt").getCanonicalPath(),
-                include.getPath());
-        assertEquals("Invalid requireFlags parsed for <include/>",
-                BackupAgent.FLAG_CLIENT_SIDE_ENCRYPTION_ENABLED,
-                include.getRequiredFlags());
-    }
-
-    public void testParseBackupSchemeFromXml_onlyIncludeRequireFakeEncryptionFlag()
-            throws Exception {
-        mXpp.setInput(new StringReader(
-                "<full-backup-content>"
-                        + "<include path=\"onlyInclude.txt\" domain=\"file\""
-                        + " requireFlags=\"fakeClientSideEncryption\"/>"
-                        + "</full-backup-content>"));
-
-        FullBackup.BackupScheme bs = FullBackup.getBackupSchemeForTest(mContext);
-        bs.parseBackupSchemeFromXmlLocked(mXpp, excludesSet, includeMap);
-
-        Set<PathWithRequiredFlags> fileDomainIncludes = includeMap.get(FullBackup.FILES_TREE_TOKEN);
-        assertEquals("Didn't find expected file domain include.", 1, fileDomainIncludes.size());
-        PathWithRequiredFlags include = fileDomainIncludes.iterator().next();
-        assertEquals("Invalid path parsed for <include/>",
-                new File(mContext.getFilesDir(), "onlyInclude.txt").getCanonicalPath(),
-                include.getPath());
-        assertEquals("Invalid requireFlags parsed for <include/>",
-                BackupAgent.FLAG_FAKE_CLIENT_SIDE_ENCRYPTION_ENABLED,
-                include.getRequiredFlags());
-    }
-
-    public void testparseBackupSchemeFromXml_onlyIncludeRequireD2DFlag() throws Exception {
-        mXpp.setInput(new StringReader(
-                "<full-backup-content>" +
-                        "<include path=\"onlyInclude.txt\" domain=\"file\""
-                        + " requireFlags=\"deviceToDeviceTransfer\"/>" +
-                "</full-backup-content>"));
-
-        FullBackup.BackupScheme bs = FullBackup.getBackupSchemeForTest(mContext);
-        bs.parseBackupSchemeFromXmlLocked(mXpp, excludesSet, includeMap);
-
-        assertEquals("Excluding files when there was no <exclude/> tag.", 0, excludesSet.size());
-        assertEquals("Unexpected number of <include/>s", 1, includeMap.size());
-
-        Set<PathWithRequiredFlags> fileDomainIncludes = includeMap.get(FullBackup.FILES_TREE_TOKEN);
-        assertEquals("Didn't find expected file domain include.", 1, fileDomainIncludes.size());
-        PathWithRequiredFlags include = fileDomainIncludes.iterator().next();
-        assertEquals("Invalid path parsed for <include/>",
-                new File(mContext.getFilesDir(), "onlyInclude.txt").getCanonicalPath(),
-                include.getPath());
-        assertEquals("Invalid requireFlags parsed for <include/>",
-                BackupAgent.FLAG_DEVICE_TO_DEVICE_TRANSFER,
-                include.getRequiredFlags());
-    }
-
-    public void testparseBackupSchemeFromXml_onlyIncludeRequireEncryptionAndD2DFlags()
-            throws Exception {
-        mXpp.setInput(new StringReader(
-                "<full-backup-content>" +
-                        "<include path=\"onlyInclude.txt\" domain=\"file\""
-                        + " requireFlags=\"clientSideEncryption|deviceToDeviceTransfer\"/>" +
-                "</full-backup-content>"));
-
-        FullBackup.BackupScheme bs = FullBackup.getBackupSchemeForTest(mContext);
-        bs.parseBackupSchemeFromXmlLocked(mXpp, excludesSet, includeMap);
-
-        assertEquals("Excluding files when there was no <exclude/> tag.", 0, excludesSet.size());
-        assertEquals("Unexpected number of <include/>s", 1, includeMap.size());
-
-        Set<PathWithRequiredFlags> fileDomainIncludes = includeMap.get(FullBackup.FILES_TREE_TOKEN);
-        assertEquals("Didn't find expected file domain include.", 1, fileDomainIncludes.size());
-        PathWithRequiredFlags include = fileDomainIncludes.iterator().next();
-        assertEquals("Invalid path parsed for <include/>",
-                new File(mContext.getFilesDir(), "onlyInclude.txt").getCanonicalPath(),
-                include.getPath());
-        assertEquals("Invalid requireFlags parsed for <include/>",
-                BackupAgent.FLAG_CLIENT_SIDE_ENCRYPTION_ENABLED
-                        | BackupAgent.FLAG_DEVICE_TO_DEVICE_TRANSFER,
-                include.getRequiredFlags());
-    }
-
-    public void testparseBackupSchemeFromXml_onlyIncludeRequireD2DFlagAndIngoreGarbage()
-            throws Exception {
-        mXpp.setInput(new StringReader(
-                "<full-backup-content>" +
-                        "<include path=\"onlyInclude.txt\" domain=\"file\""
-                        + " requireFlags=\"deviceToDeviceTransfer|garbageFlag\"/>" +
-                "</full-backup-content>"));
-
-        FullBackup.BackupScheme bs = FullBackup.getBackupSchemeForTest(mContext);
-        bs.parseBackupSchemeFromXmlLocked(mXpp, excludesSet, includeMap);
-
-        assertEquals("Excluding files when there was no <exclude/> tag.", 0, excludesSet.size());
-        assertEquals("Unexpected number of <include/>s", 1, includeMap.size());
-
-        Set<PathWithRequiredFlags> fileDomainIncludes = includeMap.get(FullBackup.FILES_TREE_TOKEN);
-        assertEquals("Didn't find expected file domain include.", 1, fileDomainIncludes.size());
-        PathWithRequiredFlags include = fileDomainIncludes.iterator().next();
-        assertEquals("Invalid path parsed for <include/>",
-                new File(mContext.getFilesDir(), "onlyInclude.txt").getCanonicalPath(),
-                include.getPath());
-        assertEquals("Invalid requireFlags parsed for <include/>",
-                BackupAgent.FLAG_DEVICE_TO_DEVICE_TRANSFER,
-                include.getRequiredFlags());
-    }
-
-    public void testparseBackupSchemeFromXml_onlyExcludeRequireFlagsNotSupported()
-            throws Exception {
-        mXpp.setInput(new StringReader(
-                "<full-backup-content>" +
-                        "<exclude path=\"onlyExclude.txt\" domain=\"file\""
-                        + " requireFlags=\"deviceToDeviceTransfer\"/>" +
-                "</full-backup-content>"));
-
-        try {
-            FullBackup.BackupScheme bs = FullBackup.getBackupSchemeForTest(mContext);
-            bs.parseBackupSchemeFromXmlLocked(mXpp, excludesSet, includeMap);
-            fail("Having more than 3 attributes in exclude should throw an XmlPullParserException");
-        } catch (XmlPullParserException expected) {}
+                fileDomainIncludes.iterator().next());
     }
 
     public void testparseBackupSchemeFromXml_onlyExclude() throws Exception {
@@ -225,7 +86,7 @@ public class FullBackupTest extends AndroidTestCase {
         assertEquals("Unexpected number of <exclude/>s", 1, excludesSet.size());
         assertEquals("Invalid path parsed for <exclude/>",
                 new File(mContext.getFilesDir(), "onlyExclude.txt").getCanonicalPath(),
-                excludesSet.iterator().next().getPath());
+                excludesSet.iterator().next());
     }
 
     public void testparseBackupSchemeFromXml_includeAndExclude() throws Exception {
@@ -238,16 +99,16 @@ public class FullBackupTest extends AndroidTestCase {
         FullBackup.BackupScheme bs = FullBackup.getBackupSchemeForTest(mContext);
         bs.parseBackupSchemeFromXmlLocked(mXpp, excludesSet, includeMap);
 
-        Set<PathWithRequiredFlags> fileDomainIncludes = includeMap.get(FullBackup.FILES_TREE_TOKEN);
+        Set<String> fileDomainIncludes = includeMap.get(FullBackup.FILES_TREE_TOKEN);
         assertEquals("Didn't find expected file domain include.", 1, fileDomainIncludes.size());
         assertEquals("Invalid path parsed for <include/>",
                 new File(mContext.getFilesDir(), "include.txt").getCanonicalPath(),
-                fileDomainIncludes.iterator().next().getPath());
+                fileDomainIncludes.iterator().next());
 
         assertEquals("Unexpected number of <exclude/>s", 1, excludesSet.size());
         assertEquals("Invalid path parsed for <exclude/>",
                 new File(mContext.getFilesDir(), "exclude.txt").getCanonicalPath(),
-                excludesSet.iterator().next().getPath());
+                excludesSet.iterator().next());
     }
 
     public void testparseBackupSchemeFromXml_lotsOfIncludesAndExcludes() throws Exception {
@@ -263,74 +124,61 @@ public class FullBackupTest extends AndroidTestCase {
                         "<include path=\"include4.xml\" domain=\"sharedpref\"/>" +
                 "</full-backup-content>"));
 
+
         FullBackup.BackupScheme bs = FullBackup.getBackupSchemeForTest(mContext);
         bs.parseBackupSchemeFromXmlLocked(mXpp, excludesSet, includeMap);
 
-        Set<PathWithRequiredFlags> fileDomainIncludes = includeMap.get(FullBackup.FILES_TREE_TOKEN);
+        Set<String> fileDomainIncludes = includeMap.get(FullBackup.FILES_TREE_TOKEN);
         assertEquals("Didn't find expected file domain include.", 1, fileDomainIncludes.size());
         assertEquals("Invalid path parsed for <include/>",
                 new File(mContext.getFilesDir(), "include1.txt").getCanonicalPath(),
-                fileDomainIncludes.iterator().next().getPath());
+                fileDomainIncludes.iterator().next());
 
-        Set<PathWithRequiredFlags> databaseDomainIncludes =
-                includeMap.get(FullBackup.DATABASE_TREE_TOKEN);
-        Set<String> databaseDomainIncludesPaths = new ArraySet<>();
-        for (PathWithRequiredFlags databaseInclude : databaseDomainIncludes) {
-            databaseDomainIncludesPaths.add(databaseInclude.getPath());
-        }
+        Set<String> databaseDomainIncludes = includeMap.get(FullBackup.DATABASE_TREE_TOKEN);
         // Three expected here because of "-journal" and "-wal" files
         assertEquals("Didn't find expected database domain include.",
                 3, databaseDomainIncludes.size());
         assertTrue("Invalid path parsed for <include/>",
-                databaseDomainIncludesPaths.contains(
+                databaseDomainIncludes.contains(
                         new File(mContext.getDatabasePath("foo").getParentFile(), "include2.txt")
                                 .getCanonicalPath()));
         assertTrue("Invalid path parsed for <include/>",
-                databaseDomainIncludesPaths.contains(
+                databaseDomainIncludes.contains(
                         new File(
                                 mContext.getDatabasePath("foo").getParentFile(),
                                 "include2.txt-journal")
                                 .getCanonicalPath()));
         assertTrue("Invalid path parsed for <include/>",
-                databaseDomainIncludesPaths.contains(
+                databaseDomainIncludes.contains(
                         new File(
                                 mContext.getDatabasePath("foo").getParentFile(),
                                 "include2.txt-wal")
                                 .getCanonicalPath()));
 
-        List<PathWithRequiredFlags> sharedPrefDomainIncludes = new ArrayList<PathWithRequiredFlags>(
+        List<String> sharedPrefDomainIncludes = new ArrayList<String>(
                 includeMap.get(FullBackup.SHAREDPREFS_TREE_TOKEN));
-        ArrayList<String> sharedPrefDomainIncludesPaths = new ArrayList<>();
-        for (PathWithRequiredFlags sharedPrefInclude : sharedPrefDomainIncludes) {
-            sharedPrefDomainIncludesPaths.add(sharedPrefInclude.getPath());
-        }
-        // Sets are annoying to iterate over b/c order isn't enforced - convert to an array and
-        // sort lexicographically.
-        Collections.sort(sharedPrefDomainIncludesPaths);
+        Collections.sort(sharedPrefDomainIncludes);
 
         assertEquals("Didn't find expected sharedpref domain include.",
                 3, sharedPrefDomainIncludes.size());
         assertEquals("Invalid path parsed for <include/>",
                 new File(mContext.getSharedPrefsFile("foo").getParentFile(), "include3")
                         .getCanonicalPath(),
-                sharedPrefDomainIncludesPaths.get(0));
+                sharedPrefDomainIncludes.get(0));
         assertEquals("Invalid path parsed for <include/>",
                 new File(mContext.getSharedPrefsFile("foo").getParentFile(), "include3.xml")
                         .getCanonicalPath(),
-                sharedPrefDomainIncludesPaths.get(1));
+                sharedPrefDomainIncludes.get(1));
         assertEquals("Invalid path parsed for <include/>",
                 new File(mContext.getSharedPrefsFile("foo").getParentFile(), "include4.xml")
                         .getCanonicalPath(),
-                sharedPrefDomainIncludesPaths.get(2));
+                sharedPrefDomainIncludes.get(2));
 
 
         assertEquals("Unexpected number of <exclude/>s", 7, excludesSet.size());
         // Sets are annoying to iterate over b/c order isn't enforced - convert to an array and
         // sort lexicographically.
-        ArrayList<String> arrayedSet = new ArrayList<>();
-        for (PathWithRequiredFlags exclude : excludesSet) {
-            arrayedSet.add(exclude.getPath());
-        }
+        List<String> arrayedSet = new ArrayList<String>(excludesSet);
         Collections.sort(arrayedSet);
 
         assertEquals("Invalid path parsed for <exclude/>",
@@ -410,10 +258,9 @@ public class FullBackupTest extends AndroidTestCase {
 
         assertEquals("Didn't throw away invalid \"..\" path.", 0, includeMap.size());
 
-        Set<PathWithRequiredFlags> fileDomainIncludes = includeMap.get(FullBackup.FILES_TREE_TOKEN);
+        Set<String> fileDomainIncludes = includeMap.get(FullBackup.FILES_TREE_TOKEN);
         assertNull("Didn't throw away invalid \"..\" path.", fileDomainIncludes);
     }
-
     public void testDoubleDotInPath_isIgnored() throws Exception {
         mXpp.setInput(new StringReader(
                 "<full-backup-content>" +
@@ -425,7 +272,7 @@ public class FullBackupTest extends AndroidTestCase {
 
         assertEquals("Didn't throw away invalid \"..\" path.", 0, includeMap.size());
 
-        Set<PathWithRequiredFlags> fileDomainIncludes = includeMap.get(FullBackup.FILES_TREE_TOKEN);
+        Set<String> fileDomainIncludes = includeMap.get(FullBackup.FILES_TREE_TOKEN);
         assertNull("Didn't throw away invalid \"..\" path.", fileDomainIncludes);
     }
 

@@ -23,13 +23,13 @@ import android.content.IntentFilter;
 import android.content.res.TypedArray;
 import android.icu.text.DateFormat;
 import android.icu.text.DisplayContext;
-import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.widget.TextView;
+import android.provider.Settings;
 
-import com.android.systemui.Dependency;
 import com.android.systemui.R;
 
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
@@ -53,9 +53,9 @@ public class DateView extends TextView {
                 if (Intent.ACTION_LOCALE_CHANGED.equals(action)
                         || Intent.ACTION_TIMEZONE_CHANGED.equals(action)) {
                     // need to get a fresh date format
-                    getHandler().post(() -> mDateFormat = null);
+                    mDateFormat = null;
                 }
-                getHandler().post(() -> updateClock());
+                updateClock();
             }
         }
     };
@@ -86,8 +86,7 @@ public class DateView extends TextView {
         filter.addAction(Intent.ACTION_TIME_CHANGED);
         filter.addAction(Intent.ACTION_TIMEZONE_CHANGED);
         filter.addAction(Intent.ACTION_LOCALE_CHANGED);
-        getContext().registerReceiver(mIntentReceiver, filter, null,
-                Dependency.get(Dependency.TIME_TICK_HANDLER));
+        getContext().registerReceiver(mIntentReceiver, filter, null, null);
 
         updateClock();
     }
@@ -110,21 +109,20 @@ public class DateView extends TextView {
 
         mCurrentTime.setTime(System.currentTimeMillis());
 
-        final String text = mDateFormat.format(mCurrentTime);
+        final String text = getDateFormat();
         if (!text.equals(mLastText)) {
             setText(text);
             mLastText = text;
         }
     }
 
-    public void setDatePattern(String pattern) {
-        if (TextUtils.equals(pattern, mDatePattern)) {
-            return;
-        }
-        mDatePattern = pattern;
-        mDateFormat = null;
-        if (isAttachedToWindow()) {
-            updateClock();
+    private String getDateFormat() {
+        if (getContext().getResources().getBoolean(com.android.internal.R.bool.config_dateformat)) {
+            String dateformat = Settings.System.getString(getContext().getContentResolver(),
+                    Settings.System.DATE_FORMAT);
+            return android.text.format.DateFormat.format(dateformat, mCurrentTime).toString();
+        } else {
+            return mDateFormat.format(mCurrentTime);
         }
     }
 }

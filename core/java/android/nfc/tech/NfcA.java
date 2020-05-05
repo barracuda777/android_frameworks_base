@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 NXP Semiconductors
+ * Copyright (C) 2015 NXP Semiconductors
  * The original Work has been changed by NXP Semiconductors.
  * Copyright (C) 2010 The Android Open Source Project
  *

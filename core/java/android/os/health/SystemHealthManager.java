@@ -16,15 +16,11 @@
 
 package android.os.health;
 
-import android.annotation.SystemService;
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.os.BatteryStats;
-import android.os.Build;
 import android.os.Process;
 import android.os.RemoteException;
 import android.os.ServiceManager;
-import android.os.ServiceManager.ServiceNotFoundException;
 
 import com.android.internal.app.IBatteryStats;
 
@@ -37,15 +33,12 @@ import com.android.internal.app.IBatteryStats;
  * by the logging itself.  It can be substantial.
  * <p>
  * <b>Battery Usage</b><br>
- * Since Android version {@link android.os.Build.VERSION_CODES#Q}, the statistics related to power
- * (battery) usage are recorded since the device was last considered fully charged (for previous
- * versions, it is instead since the device was last unplugged).
- * It is expected that applications schedule more work to do while the device is
- * plugged in (e.g. using {@link android.app.job.JobScheduler JobScheduler}), and
- * while that can affect charging rates, it is still preferable to actually draining
- * the battery.
+ * The statistics related to power (battery) usage are recorded since the device
+ * was last unplugged. It is expected that applications schedule more work to do
+ * while the device is plugged in (e.g. using {@link android.app.job.JobScheduler
+ * JobScheduler}), and while that can affect charging rates, it is still preferable
+ * to actually draining the battery.
  */
-@SystemService(Context.SYSTEM_HEALTH_SERVICE)
 public class SystemHealthManager {
     private final IBatteryStats mBatteryStats;
 
@@ -53,14 +46,9 @@ public class SystemHealthManager {
      * Construct a new SystemHealthManager object.
      * @hide
      */
-    @UnsupportedAppUsage
     public SystemHealthManager() {
-        this(IBatteryStats.Stub.asInterface(ServiceManager.getService(BatteryStats.SERVICE_NAME)));
-    }
-
-    /** {@hide} */
-    public SystemHealthManager(IBatteryStats batteryStats) {
-        mBatteryStats = batteryStats;
+        mBatteryStats = IBatteryStats.Stub.asInterface(
+            ServiceManager.getService(BatteryStats.SERVICE_NAME));
     }
 
     /**
@@ -68,7 +56,6 @@ public class SystemHealthManager {
      *
      * @hide
      */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     public static SystemHealthManager from(Context context) {
         return (SystemHealthManager)context.getSystemService(Context.SYSTEM_HEALTH_SERVICE);
     }

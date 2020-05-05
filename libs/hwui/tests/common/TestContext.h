@@ -17,58 +17,41 @@
 #ifndef TESTCONTEXT_H
 #define TESTCONTEXT_H
 
-#include <gui/BufferItemConsumer.h>
 #include <gui/DisplayEventReceiver.h>
 #include <gui/ISurfaceComposer.h>
-#include <gui/Surface.h>
 #include <gui/SurfaceComposerClient.h>
 #include <gui/SurfaceControl.h>
+#include <gui/Surface.h>
 #include <ui/DisplayInfo.h>
 #include <utils/Looper.h>
-
-#include <atomic>
-#include <thread>
 
 namespace android {
 namespace uirenderer {
 namespace test {
 
 extern DisplayInfo gDisplay;
-#define dp(x) ((x)*android::uirenderer::test::gDisplay.density)
+#define dp(x) ((x) * android::uirenderer::test::gDisplay.density)
 
-DisplayInfo getInternalDisplay();
+DisplayInfo getBuiltInDisplay();
 
 class TestContext {
 public:
     TestContext();
     ~TestContext();
 
-    // Must be called before surface();
-    void setRenderOffscreen(bool renderOffscreen) {
-        LOG_ALWAYS_FATAL_IF(mSurface.get(), "Must be called before surface is created");
-        mRenderOffscreen = renderOffscreen;
-    }
-
     sp<Surface> surface();
 
     void waitForVsync();
 
 private:
-    void createSurface();
-    void createWindowSurface();
-    void createOffscreenSurface();
-
     sp<SurfaceComposerClient> mSurfaceComposerClient;
     sp<SurfaceControl> mSurfaceControl;
-    sp<BufferItemConsumer> mConsumer;
     DisplayEventReceiver mDisplayEventReceiver;
     sp<Looper> mLooper;
-    sp<Surface> mSurface;
-    bool mRenderOffscreen;
 };
 
-}  // namespace test
-}  // namespace uirenderer
-}  // namespace android
+} // namespace test
+} // namespace uirenderer
+} // namespace android
 
 #endif

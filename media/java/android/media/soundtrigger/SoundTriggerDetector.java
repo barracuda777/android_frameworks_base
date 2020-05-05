@@ -20,9 +20,7 @@ import static android.hardware.soundtrigger.SoundTrigger.STATUS_OK;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
-import android.annotation.UnsupportedAppUsage;
 import android.hardware.soundtrigger.IRecognitionStatusCallback;
 import android.hardware.soundtrigger.SoundTrigger;
 import android.hardware.soundtrigger.SoundTrigger.RecognitionConfig;
@@ -139,7 +137,7 @@ public final class SoundTriggerDetector {
         }
 
         /**
-         * Gets the raw audio that triggered the detector.
+         * Gets the raw audio that triggered the keyphrase.
          * This may be null if the trigger audio isn't available.
          * If non-null, the format of the audio can be obtained by calling
          * {@link #getCaptureAudioFormat()}.
@@ -149,25 +147,6 @@ public final class SoundTriggerDetector {
         @Nullable
         public byte[] getTriggerAudio() {
             if (mTriggerAvailable) {
-                return mData;
-            } else {
-                return null;
-            }
-        }
-
-        /**
-         * Gets the opaque data passed from the detection engine for the event.
-         * This may be null if it was not populated by the engine, or if the data is known to
-         * contain the trigger audio.
-         *
-         * @see #getTriggerAudio
-         *
-         * @hide
-         */
-        @Nullable
-        @UnsupportedAppUsage
-        public byte[] getData() {
-            if (!mTriggerAvailable) {
                 return mData;
             } else {
                 return null;
@@ -193,7 +172,6 @@ public final class SoundTriggerDetector {
          * @hide
          */
         @Nullable
-        @UnsupportedAppUsage
         public Integer getCaptureSession() {
             if (mCaptureAvailable) {
                 return mCaptureSession;
@@ -257,7 +235,6 @@ public final class SoundTriggerDetector {
      * {@link Callback}.
      * @return Indicates whether the call succeeded or not.
      */
-    @RequiresPermission(android.Manifest.permission.MANAGE_SOUND_TRIGGER)
     public boolean startRecognition(@RecognitionFlags int recognitionFlags) {
         if (DBG) {
             Slog.d(TAG, "startRecognition()");
@@ -281,7 +258,6 @@ public final class SoundTriggerDetector {
     /**
      * Stops recognition for the associated model.
      */
-    @RequiresPermission(android.Manifest.permission.MANAGE_SOUND_TRIGGER)
     public boolean stopRecognition() {
         int status = STATUS_OK;
         try {

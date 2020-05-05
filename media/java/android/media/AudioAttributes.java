@@ -19,16 +19,12 @@ package android.media;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.SystemApi;
-import android.annotation.UnsupportedAppUsage;
-import android.media.audiopolicy.AudioProductStrategy;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.SparseIntArray;
-import android.util.proto.ProtoOutputStream;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -173,17 +169,10 @@ public final class AudioAttributes implements Parcelable {
      * source, such as audio capture devices.
      */
     public final static int USAGE_VIRTUAL_SOURCE = 15;
-    /**
-     * Usage value to use for audio responses to user queries, audio instructions or help
-     * utterances.
-     */
-    public final static int USAGE_ASSISTANT = 16;
 
     /**
      * IMPORTANT: when adding new usage types, add them to SDK_USAGES and update SUPPRESSIBLE_USAGES
-     *            if applicable, as well as audioattributes.proto.
-     *            Also consider adding them to <aaudio/AAudio.h> for the NDK.
-     *            Also consider adding them to UsageTypeConverter for service dump and etc.
+     *            if applicable.
      */
 
     /**
@@ -200,35 +189,6 @@ public final class AudioAttributes implements Parcelable {
      * @see #SUPPRESSIBLE_USAGES
      */
     public final static int SUPPRESSIBLE_CALL = 2;
-    /**
-     * @hide
-     * Denotes a usage that is never going to be muted, even in Total Silence.
-     * @see #SUPPRESSIBLE_USAGES
-     */
-    public final static int SUPPRESSIBLE_NEVER = 3;
-    /**
-     * @hide
-     * Denotes a usage for alarms,
-     * will be muted when the Zen mode priority doesn't allow alarms or in Alarms Only Mode
-     * @see #SUPPRESSIBLE_USAGES
-     */
-    public final static int SUPPRESSIBLE_ALARM = 4;
-    /**
-     * @hide
-     * Denotes a usage for media, game, assistant, and navigation
-     * will be muted when the Zen priority mode doesn't allow media
-     * @see #SUPPRESSIBLE_USAGES
-     */
-    public final static int SUPPRESSIBLE_MEDIA = 5;
-    /**
-     * @hide
-     * Denotes a usage for sounds not caught in SUPPRESSIBLE_NOTIFICATION,
-     * SUPPRESSIBLE_CALL,SUPPRESSIBLE_NEVER, SUPPRESSIBLE_ALARM or SUPPRESSIBLE_MEDIA.
-     * This includes sonification sounds.
-     * These will be muted when the Zen priority mode doesn't allow system sounds
-     * @see #SUPPRESSIBLE_USAGES
-     */
-    public final static int SUPPRESSIBLE_SYSTEM = 6;
 
     /**
      * @hide
@@ -246,17 +206,6 @@ public final class AudioAttributes implements Parcelable {
         SUPPRESSIBLE_USAGES.put(USAGE_NOTIFICATION_COMMUNICATION_INSTANT,SUPPRESSIBLE_NOTIFICATION);
         SUPPRESSIBLE_USAGES.put(USAGE_NOTIFICATION_COMMUNICATION_DELAYED,SUPPRESSIBLE_NOTIFICATION);
         SUPPRESSIBLE_USAGES.put(USAGE_NOTIFICATION_EVENT,                SUPPRESSIBLE_NOTIFICATION);
-        SUPPRESSIBLE_USAGES.put(USAGE_ASSISTANCE_ACCESSIBILITY,          SUPPRESSIBLE_NEVER);
-        SUPPRESSIBLE_USAGES.put(USAGE_VOICE_COMMUNICATION,               SUPPRESSIBLE_NEVER);
-        SUPPRESSIBLE_USAGES.put(USAGE_VOICE_COMMUNICATION_SIGNALLING,    SUPPRESSIBLE_NEVER);
-        SUPPRESSIBLE_USAGES.put(USAGE_ALARM,                             SUPPRESSIBLE_ALARM);
-        SUPPRESSIBLE_USAGES.put(USAGE_MEDIA,                             SUPPRESSIBLE_MEDIA);
-        SUPPRESSIBLE_USAGES.put(USAGE_ASSISTANCE_NAVIGATION_GUIDANCE,    SUPPRESSIBLE_MEDIA);
-        SUPPRESSIBLE_USAGES.put(USAGE_GAME,                              SUPPRESSIBLE_MEDIA);
-        SUPPRESSIBLE_USAGES.put(USAGE_ASSISTANT,                         SUPPRESSIBLE_MEDIA);
-        /** default volume assignment is STREAM_MUSIC, handle unknown usage as media */
-        SUPPRESSIBLE_USAGES.put(USAGE_UNKNOWN,                           SUPPRESSIBLE_MEDIA);
-        SUPPRESSIBLE_USAGES.put(USAGE_ASSISTANCE_SONIFICATION,           SUPPRESSIBLE_SYSTEM);
     }
 
     /**
@@ -278,8 +227,7 @@ public final class AudioAttributes implements Parcelable {
             USAGE_ASSISTANCE_ACCESSIBILITY,
             USAGE_ASSISTANCE_NAVIGATION_GUIDANCE,
             USAGE_ASSISTANCE_SONIFICATION,
-            USAGE_GAME,
-            USAGE_ASSISTANT,
+            USAGE_GAME
     };
 
     /**
@@ -352,106 +300,20 @@ public final class AudioAttributes implements Parcelable {
      * until there are no glitches.
      * This tuning step should be done while playing silence.
      * This technique provides a compromise between latency and glitch rate.
-     *
-     * @deprecated Use {@link AudioTrack.Builder#setPerformanceMode(int)} with
-     * {@link AudioTrack#PERFORMANCE_MODE_LOW_LATENCY} to control performance.
      */
     public final static int FLAG_LOW_LATENCY = 0x1 << 8;
 
-    /**
-     * @hide
-     * Flag requesting a deep buffer path when creating an {@code AudioTrack}.
-     *
-     * A deep buffer path, if available, may consume less power and is
-     * suitable for media playback where latency is not a concern.
-     * Use {@link AudioTrack.Builder#setPerformanceMode(int)} with
-     * {@link AudioTrack#PERFORMANCE_MODE_POWER_SAVING} to enable.
-     */
-    public final static int FLAG_DEEP_BUFFER = 0x1 << 9;
-
-    /**
-     * @hide
-     * Flag specifying that the audio shall not be captured by third-party apps
-     * with a MediaProjection.
-     */
-    public static final int FLAG_NO_MEDIA_PROJECTION = 0x1 << 10;
-
-    /**
-     * @hide
-     * Flag indicating force muting haptic channels.
-     */
-    public static final int FLAG_MUTE_HAPTIC = 0x1 << 11;
-
-    /**
-     * @hide
-     * Flag specifying that the audio shall not be captured by any apps, not even system apps.
-     */
-    public static final int FLAG_NO_SYSTEM_CAPTURE = 0x1 << 12;
-
-    // Note that even though FLAG_MUTE_HAPTIC is stored as a flag bit, it is not here since
-    // it is known as a boolean value outside of AudioAttributes.
-    private static final int FLAG_ALL = FLAG_AUDIBILITY_ENFORCED | FLAG_SECURE | FLAG_SCO
-            | FLAG_BEACON | FLAG_HW_AV_SYNC | FLAG_HW_HOTWORD | FLAG_BYPASS_INTERRUPTION_POLICY
-            | FLAG_BYPASS_MUTE | FLAG_LOW_LATENCY | FLAG_DEEP_BUFFER | FLAG_NO_MEDIA_PROJECTION
-            | FLAG_NO_SYSTEM_CAPTURE;
+    private final static int FLAG_ALL = FLAG_AUDIBILITY_ENFORCED | FLAG_SECURE | FLAG_SCO |
+            FLAG_BEACON | FLAG_HW_AV_SYNC | FLAG_HW_HOTWORD | FLAG_BYPASS_INTERRUPTION_POLICY |
+            FLAG_BYPASS_MUTE | FLAG_LOW_LATENCY;
     private final static int FLAG_ALL_PUBLIC = FLAG_AUDIBILITY_ENFORCED |
             FLAG_HW_AV_SYNC | FLAG_LOW_LATENCY;
 
-    /**
-     * Indicates that the audio may be captured by any app.
-     *
-     * For privacy, the following usages cannot be recorded: VOICE_COMMUNICATION*,
-     * USAGE_NOTIFICATION*, USAGE_ASSISTANCE* and USAGE_ASSISTANT.
-     *
-     * On {@link android.os.Build.VERSION_CODES#Q}, this means only {@link #USAGE_UNKNOWN},
-     * {@link #USAGE_MEDIA} and {@link #USAGE_GAME} may be captured.
-     *
-     * See {@link android.media.projection.MediaProjection} and
-     * {@link Builder#setAllowedCapturePolicy}.
-     */
-    public static final int ALLOW_CAPTURE_BY_ALL = 1;
-    /**
-     * Indicates that the audio may only be captured by system apps.
-     *
-     * System apps can capture for many purposes like accessibility, live captions, user guidance...
-     * but abide to the following restrictions:
-     *  - the audio cannot leave the device
-     *  - the audio cannot be passed to a third party app
-     *  - the audio cannot be recorded at a higher quality than 16kHz 16bit mono
-     *
-     * See {@link Builder#setAllowedCapturePolicy}.
-     */
-    public static final int ALLOW_CAPTURE_BY_SYSTEM = 2;
-    /**
-     * Indicates that the audio is not to be recorded by any app, even if it is a system app.
-     *
-     * It is encouraged to use {@link #ALLOW_CAPTURE_BY_SYSTEM} instead of this value as system apps
-     * provide significant and useful features for the user (such as live captioning
-     * and accessibility).
-     *
-     * See {@link Builder#setAllowedCapturePolicy}.
-     */
-    public static final int ALLOW_CAPTURE_BY_NONE = 3;
-
-    /** @hide */
-    @IntDef({
-        ALLOW_CAPTURE_BY_ALL,
-        ALLOW_CAPTURE_BY_SYSTEM,
-        ALLOW_CAPTURE_BY_NONE,
-    })
-    @Retention(RetentionPolicy.SOURCE)
-    public @interface CapturePolicy {}
-
-    @UnsupportedAppUsage
     private int mUsage = USAGE_UNKNOWN;
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     private int mContentType = CONTENT_TYPE_UNKNOWN;
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     private int mSource = MediaRecorder.AudioSource.AUDIO_SOURCE_INVALID;
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     private int mFlags = 0x0;
     private HashSet<String> mTags;
-    @UnsupportedAppUsage
     private String mFormattedTags;
     private Bundle mBundle; // lazy-initialized, may be null
 
@@ -529,31 +391,6 @@ public final class AudioAttributes implements Parcelable {
     }
 
     /**
-     * Return if haptic channels are muted.
-     * @return {@code true} if haptic channels are muted, {@code false} otherwise.
-     */
-    public boolean areHapticChannelsMuted() {
-        return (mFlags & FLAG_MUTE_HAPTIC) != 0;
-    }
-
-    /**
-     * Return the capture policy.
-     * @return the capture policy set by {@link Builder#setAllowedCapturePolicy(int)} or
-     *         the default if it was not called.
-     */
-    @CapturePolicy
-    public int getAllowedCapturePolicy() {
-        if ((mFlags & FLAG_NO_SYSTEM_CAPTURE) == FLAG_NO_SYSTEM_CAPTURE) {
-            return ALLOW_CAPTURE_BY_NONE;
-        }
-        if ((mFlags & FLAG_NO_MEDIA_PROJECTION) == FLAG_NO_MEDIA_PROJECTION) {
-            return ALLOW_CAPTURE_BY_SYSTEM;
-        }
-        return ALLOW_CAPTURE_BY_ALL;
-    }
-
-
-    /**
      * Builder class for {@link AudioAttributes} objects.
      * <p> Here is an example where <code>Builder</code> is used to define the
      * {@link AudioAttributes} to be used by a new <code>AudioTrack</code> instance:
@@ -577,7 +414,6 @@ public final class AudioAttributes implements Parcelable {
         private int mContentType = CONTENT_TYPE_UNKNOWN;
         private int mSource = MediaRecorder.AudioSource.AUDIO_SOURCE_INVALID;
         private int mFlags = 0x0;
-        private boolean mMuteHapticChannels = true;
         private HashSet<String> mTags = new HashSet<String>();
         private Bundle mBundle;
 
@@ -600,9 +436,8 @@ public final class AudioAttributes implements Parcelable {
         public Builder(AudioAttributes aa) {
             mUsage = aa.mUsage;
             mContentType = aa.mContentType;
-            mFlags = aa.getAllFlags();
+            mFlags = aa.mFlags;
             mTags = (HashSet<String>) aa.mTags.clone();
-            mMuteHapticChannels = aa.areHapticChannelsMuted();
         }
 
         /**
@@ -617,9 +452,6 @@ public final class AudioAttributes implements Parcelable {
             aa.mUsage = mUsage;
             aa.mSource = mSource;
             aa.mFlags = mFlags;
-            if (mMuteHapticChannels) {
-                aa.mFlags |= FLAG_MUTE_HAPTIC;
-            }
             aa.mTags = (HashSet<String>) mTags.clone();
             aa.mFormattedTags = TextUtils.join(";", mTags);
             if (mBundle != null) {
@@ -641,7 +473,6 @@ public final class AudioAttributes implements Parcelable {
          *     {@link AudioAttributes#USAGE_NOTIFICATION_COMMUNICATION_INSTANT},
          *     {@link AudioAttributes#USAGE_NOTIFICATION_COMMUNICATION_DELAYED},
          *     {@link AudioAttributes#USAGE_NOTIFICATION_EVENT},
-         *     {@link AudioAttributes#USAGE_ASSISTANT},
          *     {@link AudioAttributes#USAGE_ASSISTANCE_ACCESSIBILITY},
          *     {@link AudioAttributes#USAGE_ASSISTANCE_NAVIGATION_GUIDANCE},
          *     {@link AudioAttributes#USAGE_ASSISTANCE_SONIFICATION},
@@ -666,11 +497,10 @@ public final class AudioAttributes implements Parcelable {
                 case USAGE_ASSISTANCE_SONIFICATION:
                 case USAGE_GAME:
                 case USAGE_VIRTUAL_SOURCE:
-                case USAGE_ASSISTANT:
-                    mUsage = usage;
-                    break;
+                     mUsage = usage;
+                     break;
                 default:
-                    mUsage = USAGE_UNKNOWN;
+                     mUsage = USAGE_UNKNOWN;
             }
             return this;
         }
@@ -693,18 +523,16 @@ public final class AudioAttributes implements Parcelable {
                 case CONTENT_TYPE_MUSIC:
                 case CONTENT_TYPE_SONIFICATION:
                 case CONTENT_TYPE_SPEECH:
-                    mContentType = contentType;
-                    break;
+                     mContentType = contentType;
+                     break;
                 default:
-                    mContentType = CONTENT_TYPE_UNKNOWN;
+                     mUsage = CONTENT_TYPE_UNKNOWN;
             }
             return this;
         }
 
         /**
          * Sets the combination of flags.
-         *
-         * This is a bitwise OR with the existing flags.
          * @param flags a combination of {@link AudioAttributes#FLAG_AUDIBILITY_ENFORCED},
          *    {@link AudioAttributes#FLAG_HW_AV_SYNC}.
          * @return the same Builder instance.
@@ -712,43 +540,6 @@ public final class AudioAttributes implements Parcelable {
         public Builder setFlags(int flags) {
             flags &= AudioAttributes.FLAG_ALL;
             mFlags |= flags;
-            return this;
-        }
-
-        /**
-         * Specifies whether the audio may or may not be captured by other apps or the system.
-         *
-         * The default is {@link AudioAttributes#ALLOW_CAPTURE_BY_ALL}.
-         *
-         * There are multiple ways to set this policy:
-         * <ul>
-         * <li> for each track independently, with this method </li>
-         * <li> application-wide at runtime, with
-         *      {@link AudioManager#setAllowedCapturePolicy(int)} </li>
-         * <li> application-wide at build time, see {@code allowAudioPlaybackCapture} in the
-         *      application manifest. </li>
-         * </ul>
-         * The most restrictive policy is always applied.
-         *
-         * See {@link AudioPlaybackCaptureConfiguration} for more details on
-         * which audio signals can be captured.
-         *
-         * @return the same Builder instance
-         * @throws IllegalArgumentException if the argument is not a valid value.
-         */
-        public @NonNull Builder setAllowedCapturePolicy(@CapturePolicy int capturePolicy) {
-            mFlags = capturePolicyToFlags(capturePolicy, mFlags);
-            return this;
-        }
-
-        /**
-         * @hide
-         * Replaces flags.
-         * @param flags any combination of {@link AudioAttributes#FLAG_ALL}.
-         * @return the same Builder instance.
-         */
-        public Builder replaceFlags(int flags) {
-            mFlags = flags & AudioAttributes.FLAG_ALL;
             return this;
         }
 
@@ -777,7 +568,6 @@ public final class AudioAttributes implements Parcelable {
          * @param tag
          * @return the same Builder instance.
          */
-        @UnsupportedAppUsage
         public Builder addTag(String tag) {
             mTags.add(tag);
             return this;
@@ -785,13 +575,8 @@ public final class AudioAttributes implements Parcelable {
 
         /**
          * Sets attributes as inferred from the legacy stream types.
-         * Warning: do not use this method in combination with setting any other attributes such as
-         * usage, content type, flags or haptic control, as this method will overwrite (the more
-         * accurate) information describing the use case previously set in the <code>Builder</code>.
-         * In general, avoid using it and prefer setting usage and content type directly
-         * with {@link #setUsage(int)} and {@link #setContentType(int)}.
-         * <p>Use this method when building an {@link AudioAttributes} instance to initialize some
-         * of the attributes by information derived from a legacy stream type.
+         * Use this method when building an {@link AudioAttributes} instance to initialize some of
+         * the attributes by information derived from a legacy stream type.
          * @param streamType one of {@link AudioManager#STREAM_VOICE_CALL},
          *   {@link AudioManager#STREAM_SYSTEM}, {@link AudioManager#STREAM_RING},
          *   {@link AudioManager#STREAM_MUSIC}, {@link AudioManager#STREAM_ALARM},
@@ -799,12 +584,7 @@ public final class AudioAttributes implements Parcelable {
          * @return the same Builder instance.
          */
         public Builder setLegacyStreamType(int streamType) {
-            if (streamType == AudioManager.STREAM_ACCESSIBILITY) {
-                throw new IllegalArgumentException("STREAM_ACCESSIBILITY is not a legacy stream "
-                        + "type that was used for audio playback");
-            }
-            setInternalLegacyStreamType(streamType);
-            return this;
+            return setInternalLegacyStreamType(streamType);
         }
 
         /**
@@ -813,68 +593,43 @@ public final class AudioAttributes implements Parcelable {
          * @param streamType
          * @return the same Builder instance.
          */
-        @UnsupportedAppUsage
         public Builder setInternalLegacyStreamType(int streamType) {
-            mContentType = CONTENT_TYPE_UNKNOWN;
-            mUsage = USAGE_UNKNOWN;
-            if (AudioProductStrategy.getAudioProductStrategies().size() > 0) {
-                AudioAttributes attributes =
-                        AudioProductStrategy.getAudioAttributesForStrategyWithLegacyStreamType(
-                                streamType);
-                if (attributes != null) {
-                    mUsage = attributes.mUsage;
-                    mContentType = attributes.mContentType;
-                    mFlags = attributes.mFlags;
-                    mMuteHapticChannels = attributes.areHapticChannelsMuted();
-                    mTags = attributes.mTags;
-                    mBundle = attributes.mBundle;
-                    mSource = attributes.mSource;
-                }
+            switch(streamType) {
+                case AudioSystem.STREAM_VOICE_CALL:
+                    mContentType = CONTENT_TYPE_SPEECH;
+                    break;
+                case AudioSystem.STREAM_SYSTEM_ENFORCED:
+                    mFlags |= FLAG_AUDIBILITY_ENFORCED;
+                    // intended fall through, attributes in common with STREAM_SYSTEM
+                case AudioSystem.STREAM_SYSTEM:
+                    mContentType = CONTENT_TYPE_SONIFICATION;
+                    break;
+                case AudioSystem.STREAM_RING:
+                    mContentType = CONTENT_TYPE_SONIFICATION;
+                    break;
+                case AudioSystem.STREAM_MUSIC:
+                    mContentType = CONTENT_TYPE_MUSIC;
+                    break;
+                case AudioSystem.STREAM_ALARM:
+                    mContentType = CONTENT_TYPE_SONIFICATION;
+                    break;
+                case AudioSystem.STREAM_NOTIFICATION:
+                    mContentType = CONTENT_TYPE_SONIFICATION;
+                    break;
+                case AudioSystem.STREAM_BLUETOOTH_SCO:
+                    mContentType = CONTENT_TYPE_SPEECH;
+                    mFlags |= FLAG_SCO;
+                    break;
+                case AudioSystem.STREAM_DTMF:
+                    mContentType = CONTENT_TYPE_SONIFICATION;
+                    break;
+                case AudioSystem.STREAM_TTS:
+                    mContentType = CONTENT_TYPE_SPEECH;
+                    break;
+                default:
+                    Log.e(TAG, "Invalid stream type " + streamType + " for AudioAttributes");
             }
-            if (mContentType == CONTENT_TYPE_UNKNOWN) {
-                switch (streamType) {
-                    case AudioSystem.STREAM_VOICE_CALL:
-                        mContentType = CONTENT_TYPE_SPEECH;
-                        break;
-                    case AudioSystem.STREAM_SYSTEM_ENFORCED:
-                        mFlags |= FLAG_AUDIBILITY_ENFORCED;
-                        // intended fall through, attributes in common with STREAM_SYSTEM
-                    case AudioSystem.STREAM_SYSTEM:
-                        mContentType = CONTENT_TYPE_SONIFICATION;
-                        break;
-                    case AudioSystem.STREAM_RING:
-                        mContentType = CONTENT_TYPE_SONIFICATION;
-                        break;
-                    case AudioSystem.STREAM_MUSIC:
-                        mContentType = CONTENT_TYPE_MUSIC;
-                        break;
-                    case AudioSystem.STREAM_ALARM:
-                        mContentType = CONTENT_TYPE_SONIFICATION;
-                        break;
-                    case AudioSystem.STREAM_NOTIFICATION:
-                        mContentType = CONTENT_TYPE_SONIFICATION;
-                        break;
-                    case AudioSystem.STREAM_BLUETOOTH_SCO:
-                        mContentType = CONTENT_TYPE_SPEECH;
-                        mFlags |= FLAG_SCO;
-                        break;
-                    case AudioSystem.STREAM_DTMF:
-                        mContentType = CONTENT_TYPE_SONIFICATION;
-                        break;
-                    case AudioSystem.STREAM_TTS:
-                        mContentType = CONTENT_TYPE_SONIFICATION;
-                        mFlags |= FLAG_BEACON;
-                        break;
-                    case AudioSystem.STREAM_ACCESSIBILITY:
-                        mContentType = CONTENT_TYPE_SPEECH;
-                        break;
-                    default:
-                        Log.e(TAG, "Invalid stream type " + streamType + " for AudioAttributes");
-                }
-            }
-            if (mUsage == USAGE_UNKNOWN) {
-                mUsage = usageForStreamType(streamType);
-            }
+            mUsage = usageForLegacyStreamType(streamType);
             return this;
         }
 
@@ -886,9 +641,8 @@ public final class AudioAttributes implements Parcelable {
          * @param preset one of {@link MediaRecorder.AudioSource#DEFAULT},
          *     {@link MediaRecorder.AudioSource#MIC}, {@link MediaRecorder.AudioSource#CAMCORDER},
          *     {@link MediaRecorder.AudioSource#VOICE_RECOGNITION},
-         *     {@link MediaRecorder.AudioSource#VOICE_COMMUNICATION},
-         *     {@link MediaRecorder.AudioSource#UNPROCESSED} or
-         *     {@link MediaRecorder.AudioSource#VOICE_PERFORMANCE}
+         *     {@link MediaRecorder.AudioSource#VOICE_COMMUNICATION} or
+         *     {@link MediaRecorder.AudioSource#UNPROCESSED}
          * @return the same Builder instance.
          */
         @SystemApi
@@ -900,7 +654,6 @@ public final class AudioAttributes implements Parcelable {
                 case MediaRecorder.AudioSource.VOICE_RECOGNITION:
                 case MediaRecorder.AudioSource.VOICE_COMMUNICATION:
                 case MediaRecorder.AudioSource.UNPROCESSED:
-                case MediaRecorder.AudioSource.VOICE_PERFORMANCE:
                     mSource = preset;
                     break;
                 default:
@@ -912,7 +665,7 @@ public final class AudioAttributes implements Parcelable {
         /**
          * @hide
          * Same as {@link #setCapturePreset(int)} but authorizes the use of HOTWORD,
-         * REMOTE_SUBMIX, RADIO_TUNER, VOICE_DOWNLINK, VOICE_UPLINK, VOICE_CALL and ECHO_REFERENCE.
+         * REMOTE_SUBMIX and RADIO_TUNER.
          * @param preset
          * @return the same Builder instance.
          */
@@ -920,26 +673,11 @@ public final class AudioAttributes implements Parcelable {
         public Builder setInternalCapturePreset(int preset) {
             if ((preset == MediaRecorder.AudioSource.HOTWORD)
                     || (preset == MediaRecorder.AudioSource.REMOTE_SUBMIX)
-                    || (preset == MediaRecorder.AudioSource.RADIO_TUNER)
-                    || (preset == MediaRecorder.AudioSource.VOICE_DOWNLINK)
-                    || (preset == MediaRecorder.AudioSource.VOICE_UPLINK)
-                    || (preset == MediaRecorder.AudioSource.VOICE_CALL)
-                    || (preset == MediaRecorder.AudioSource.ECHO_REFERENCE)) {
+                    || (preset == MediaRecorder.AudioSource.RADIO_TUNER)) {
                 mSource = preset;
             } else {
                 setCapturePreset(preset);
             }
-            return this;
-        }
-
-        /**
-         * Specifying if haptic should be muted or not when playing audio-haptic coupled data.
-         * By default, haptic channels are disabled.
-         * @param muted true to force muting haptic channels.
-         * @return the same Builder instance.
-         */
-        public @NonNull Builder setHapticChannelsMuted(boolean muted) {
-            mMuteHapticChannels = muted;
             return this;
         }
     };
@@ -1016,7 +754,7 @@ public final class AudioAttributes implements Parcelable {
         }
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<AudioAttributes> CREATOR
+    public static final Parcelable.Creator<AudioAttributes> CREATOR
             = new Parcelable.Creator<AudioAttributes>() {
         /**
          * Rebuilds an AudioAttributes previously stored with writeToParcel().
@@ -1054,30 +792,11 @@ public final class AudioAttributes implements Parcelable {
     @Override
     public String toString () {
         return new String("AudioAttributes:"
-                + " usage=" + usageToString()
-                + " content=" + contentTypeToString()
+                + " usage=" + mUsage
+                + " content=" + mContentType
                 + " flags=0x" + Integer.toHexString(mFlags).toUpperCase()
                 + " tags=" + mFormattedTags
                 + " bundle=" + (mBundle == null ? "null" : mBundle.toString()));
-    }
-
-    /** @hide */
-    public void writeToProto(ProtoOutputStream proto, long fieldId) {
-        final long token = proto.start(fieldId);
-
-        proto.write(AudioAttributesProto.USAGE, mUsage);
-        proto.write(AudioAttributesProto.CONTENT_TYPE, mContentType);
-        proto.write(AudioAttributesProto.FLAGS, mFlags);
-        // mFormattedTags is never null due to assignment in Builder or unmarshalling.
-        for (String t : mFormattedTags.split(";")) {
-            t = t.trim();
-            if (t != "") {
-                proto.write(AudioAttributesProto.TAGS, t);
-            }
-        }
-        // TODO: is the data in mBundle useful for debugging?
-
-        proto.end(token);
     }
 
     /** @hide */
@@ -1118,27 +837,13 @@ public final class AudioAttributes implements Parcelable {
                 return new String("USAGE_ASSISTANCE_SONIFICATION");
             case USAGE_GAME:
                 return new String("USAGE_GAME");
-            case USAGE_ASSISTANT:
-                return new String("USAGE_ASSISTANT");
             default:
                 return new String("unknown usage " + usage);
         }
     }
 
     /** @hide */
-    public String contentTypeToString() {
-        switch(mContentType) {
-            case CONTENT_TYPE_UNKNOWN:
-                return new String("CONTENT_TYPE_UNKNOWN");
-            case CONTENT_TYPE_SPEECH: return new String("CONTENT_TYPE_SPEECH");
-            case CONTENT_TYPE_MUSIC: return new String("CONTENT_TYPE_MUSIC");
-            case CONTENT_TYPE_MOVIE: return new String("CONTENT_TYPE_MOVIE");
-            case CONTENT_TYPE_SONIFICATION: return new String("CONTENT_TYPE_SONIFICATION");
-            default: return new String("unknown content type " + mContentType);
-        }
-    }
-
-    private static int usageForStreamType(int streamType) {
+    public static int usageForLegacyStreamType(int streamType) {
         switch(streamType) {
             case AudioSystem.STREAM_VOICE_CALL:
                 return USAGE_VOICE_COMMUNICATION;
@@ -1157,30 +862,31 @@ public final class AudioAttributes implements Parcelable {
                 return USAGE_VOICE_COMMUNICATION;
             case AudioSystem.STREAM_DTMF:
                 return USAGE_VOICE_COMMUNICATION_SIGNALLING;
-            case AudioSystem.STREAM_ACCESSIBILITY:
-                return USAGE_ASSISTANCE_ACCESSIBILITY;
             case AudioSystem.STREAM_TTS:
+                return USAGE_ASSISTANCE_ACCESSIBILITY;
             default:
                 return USAGE_UNKNOWN;
         }
     }
-
     /**
-     * Returns the stream type matching this {@code AudioAttributes} instance for volume control.
+     * @hide
+     * CANDIDATE FOR PUBLIC (or at least SYSTEM) API
+     * Returns the stream type matching the given attributes for volume control.
      * Use this method to derive the stream type needed to configure the volume
-     * control slider in an {@link android.app.Activity} with
-     * {@link android.app.Activity#setVolumeControlStream(int)} for playback conducted with these
-     * attributes.
+     * control slider in an {@link Activity} with {@link Activity#setVolumeControlStream(int)}.
      * <BR>Do not use this method to set the stream type on an audio player object
-     * (e.g. {@link AudioTrack}, {@link MediaPlayer}) as this is deprecated,
-     * use {@code AudioAttributes} instead.
-     * @return a valid stream type for {@code Activity} or stream volume control that matches
+     * (e.g. {@link AudioTrack}, {@link MediaPlayer}), use <code>AudioAttributes</code> instead.
+     * @param aa non-null AudioAttributes.
+     * @return a valid stream type for <code>Activity</code> or stream volume control that matches
      *     the attributes, or {@link AudioManager#USE_DEFAULT_STREAM_TYPE} if there isn't a direct
-     *     match. Note that {@code USE_DEFAULT_STREAM_TYPE} is not a valid value
+     *     match. Note that <code>USE_DEFAULT_STREAM_TYPE</code> is not a valid value
      *     for {@link AudioManager#setStreamVolume(int, int, int)}.
      */
-    public int getVolumeControlStream() {
-        return toVolumeStreamType(true /*fromGetVolumeControlStream*/, this);
+    public static int getVolumeControlStream(@NonNull AudioAttributes aa) {
+        if (aa == null) {
+            throw new IllegalArgumentException("Invalid null audio attributes");
+        }
+        return toVolumeStreamType(true /*fromGetVolumeControlStream*/, aa);
     }
 
     /**
@@ -1190,7 +896,6 @@ public final class AudioAttributes implements Parcelable {
      * @param aa non-null AudioAttributes.
      * @return a valid stream type for volume control that matches the attributes.
      */
-    @UnsupportedAppUsage
     public static int toLegacyStreamType(@NonNull AudioAttributes aa) {
         return toVolumeStreamType(false /*fromGetVolumeControlStream*/, aa);
     }
@@ -1201,24 +906,17 @@ public final class AudioAttributes implements Parcelable {
             return fromGetVolumeControlStream ?
                     AudioSystem.STREAM_SYSTEM : AudioSystem.STREAM_SYSTEM_ENFORCED;
         }
-        if ((aa.getAllFlags() & FLAG_SCO) == FLAG_SCO) {
+        if ((aa.getFlags() & FLAG_SCO) == FLAG_SCO) {
             return fromGetVolumeControlStream ?
                     AudioSystem.STREAM_VOICE_CALL : AudioSystem.STREAM_BLUETOOTH_SCO;
         }
-        if ((aa.getAllFlags() & FLAG_BEACON) == FLAG_BEACON) {
-            return fromGetVolumeControlStream ?
-                    AudioSystem.STREAM_MUSIC : AudioSystem.STREAM_TTS;
-        }
 
-        if (AudioProductStrategy.getAudioProductStrategies().size() > 0) {
-            return AudioProductStrategy.getLegacyStreamTypeForStrategyWithAudioAttributes(aa);
-        }
         // usage to stream type mapping
         switch (aa.getUsage()) {
             case USAGE_MEDIA:
             case USAGE_GAME:
+            case USAGE_ASSISTANCE_ACCESSIBILITY:
             case USAGE_ASSISTANCE_NAVIGATION_GUIDANCE:
-            case USAGE_ASSISTANT:
                 return AudioSystem.STREAM_MUSIC;
             case USAGE_ASSISTANCE_SONIFICATION:
                 return AudioSystem.STREAM_SYSTEM;
@@ -1237,10 +935,9 @@ public final class AudioAttributes implements Parcelable {
             case USAGE_NOTIFICATION_COMMUNICATION_DELAYED:
             case USAGE_NOTIFICATION_EVENT:
                 return AudioSystem.STREAM_NOTIFICATION;
-            case USAGE_ASSISTANCE_ACCESSIBILITY:
-                return AudioSystem.STREAM_ACCESSIBILITY;
             case USAGE_UNKNOWN:
-                return AudioSystem.STREAM_MUSIC;
+                return fromGetVolumeControlStream ?
+                        AudioManager.USE_DEFAULT_STREAM_TYPE : AudioSystem.STREAM_MUSIC;
             default:
                 if (fromGetVolumeControlStream) {
                     throw new IllegalArgumentException("Unknown usage value " + aa.getUsage() +
@@ -1249,24 +946,6 @@ public final class AudioAttributes implements Parcelable {
                     return AudioSystem.STREAM_MUSIC;
                 }
         }
-    }
-
-    static int capturePolicyToFlags(@CapturePolicy int capturePolicy, int flags) {
-        switch (capturePolicy) {
-            case ALLOW_CAPTURE_BY_NONE:
-                flags |= FLAG_NO_MEDIA_PROJECTION | FLAG_NO_SYSTEM_CAPTURE;
-                break;
-            case ALLOW_CAPTURE_BY_SYSTEM:
-                flags |= FLAG_NO_MEDIA_PROJECTION;
-                flags &= ~FLAG_NO_SYSTEM_CAPTURE;
-                break;
-            case ALLOW_CAPTURE_BY_ALL:
-                flags &= ~FLAG_NO_SYSTEM_CAPTURE & ~FLAG_NO_MEDIA_PROJECTION;
-                break;
-            default:
-                throw new IllegalArgumentException("Unknown allow playback capture policy");
-        }
-        return flags;
     }
 
     /** @hide */
@@ -1285,8 +964,7 @@ public final class AudioAttributes implements Parcelable {
         USAGE_ASSISTANCE_ACCESSIBILITY,
         USAGE_ASSISTANCE_NAVIGATION_GUIDANCE,
         USAGE_ASSISTANCE_SONIFICATION,
-        USAGE_GAME,
-        USAGE_ASSISTANT,
+        USAGE_GAME
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface AttributeUsage {}

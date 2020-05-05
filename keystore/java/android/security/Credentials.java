@@ -16,11 +16,15 @@
 
 package android.security;
 
+import android.content.ActivityNotFoundException;
+import android.content.Context;
+import android.content.Intent;
+import android.util.Log;
+
 import com.android.org.bouncycastle.util.io.pem.PemObject;
 import com.android.org.bouncycastle.util.io.pem.PemReader;
 import com.android.org.bouncycastle.util.io.pem.PemWriter;
 
-import android.annotation.UnsupportedAppUsage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -29,6 +33,7 @@ import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyPair;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
@@ -47,18 +52,18 @@ public class Credentials {
 
     public static final String INSTALL_AS_USER_ACTION = "android.credentials.INSTALL_AS_USER";
 
+    public static final String UNLOCK_ACTION = "com.android.credentials.UNLOCK";
+
     /** Key prefix for CA certificates. */
     public static final String CA_CERTIFICATE = "CACERT_";
 
     /** Key prefix for user certificates. */
     public static final String USER_CERTIFICATE = "USRCERT_";
 
-    /** Key prefix for user private and secret keys. */
+    /** Key prefix for user private keys. */
     public static final String USER_PRIVATE_KEY = "USRPKEY_";
 
-    /** Key prefix for user secret keys.
-     *  @deprecated use {@code USER_PRIVATE_KEY} for this category instead.
-     */
+    /** Key prefix for user secret keys. */
     public static final String USER_SECRET_KEY = "USRSKEY_";
 
     /** Key prefix for VPN. */
@@ -123,7 +128,6 @@ public class Credentials {
      * Convert objects to a PEM format which is used for
      * CA_CERTIFICATE and USER_CERTIFICATE entries.
      */
-    @UnsupportedAppUsage
     public static byte[] convertToPem(Certificate... objects)
             throws IOException, CertificateEncodingException {
         ByteArrayOutputStream bao = new ByteArrayOutputStream();
@@ -164,6 +168,54 @@ public class Credentials {
         }
     }
 
+    private static Credentials singleton;
+
+    public static Credentials getInstance() {
+        if (singleton == null) {
+            singleton = new Credentials();
+        }
+        return singleton;
+    }
+
+    public void unlock(Context context) {
+        try {
+            Intent intent = new Intent(UNLOCK_ACTION);
+            context.startActivity(intent);
+        } catch (ActivityNotFoundException e) {
+            Log.w(LOGTAG, e.toString());
+        }
+    }
+
+    public void install(Context context) {
+        try {
+            Intent intent = KeyChain.createInstallIntent();
+            context.startActivity(intent);
+        } catch (ActivityNotFoundException e) {
+            Log.w(LOGTAG, e.toString());
+        }
+    }
+
+    public void install(Context context, KeyPair pair) {
+        try {
+            Intent intent = KeyChain.createInstallIntent();
+            intent.putExtra(EXTRA_PRIVATE_KEY, pair.getPrivate().getEncoded());
+            intent.putExtra(EXTRA_PUBLIC_KEY, pair.getPublic().getEncoded());
+            context.startActivity(intent);
+        } catch (ActivityNotFoundException e) {
+            Log.w(LOGTAG, e.toString());
+        }
+    }
+
+    public void install(Context context, String type, byte[] value) {
+        try {
+            Intent intent = KeyChain.createInstallIntent();
+            intent.putExtra(type, value);
+            context.startActivity(intent);
+        } catch (ActivityNotFoundException e) {
+            Log.w(LOGTAG, e.toString());
+        }
+    }
+
     /**
      * Delete all types (private key, user certificate, CA certificate) for a
      * particular {@code alias}. All three can exist for any given alias.
@@ -183,7 +235,8 @@ public class Credentials {
          * Make sure every type is deleted. There can be all three types, so
          * don't use a conditional here.
          */
-        return deleteUserKeyTypeForAlias(keystore, alias, uid)
+        return deletePrivateKeyTypeForAlias(keystore, alias, uid)
+                & deleteSecretKeyTypeForAlias(keystore, alias, uid)
                 & deleteCertificateTypesForAlias(keystore, alias, uid);
     }
 
@@ -211,30 +264,34 @@ public class Credentials {
     }
 
     /**
-     * Delete user key for a particular {@code alias}.
+     * Delete private key for a particular {@code alias}.
      * Returns {@code true} if the entry no longer exists.
      */
-    public static boolean deleteUserKeyTypeForAlias(KeyStore keystore, String alias) {
-        return deleteUserKeyTypeForAlias(keystore, alias, KeyStore.UID_SELF);
+    static boolean deletePrivateKeyTypeForAlias(KeyStore keystore, String alias) {
+        return deletePrivateKeyTypeForAlias(keystore, alias, KeyStore.UID_SELF);
     }
 
     /**
-     * Delete user key for a particular {@code alias}.
+     * Delete private key for a particular {@code alias}.
      * Returns {@code true} if the entry no longer exists.
      */
-    public static boolean deleteUserKeyTypeForAlias(KeyStore keystore, String alias, int uid) {
-        int ret = keystore.delete2(Credentials.USER_PRIVATE_KEY + alias, uid);
-        if (ret == KeyStore.KEY_NOT_FOUND) {
-            return keystore.delete(Credentials.USER_SECRET_KEY + alias, uid);
-        }
-        return ret == KeyStore.NO_ERROR;
+    static boolean deletePrivateKeyTypeForAlias(KeyStore keystore, String alias, int uid) {
+        return keystore.delete(Credentials.USER_PRIVATE_KEY + alias, uid);
     }
 
     /**
-     * Delete legacy prefixed entry for a particular {@code alias}
+     * Delete secret key for a particular {@code alias}.
      * Returns {@code true} if the entry no longer exists.
      */
-    public static boolean deleteLegacyKeyForAlias(KeyStore keystore, String alias, int uid) {
+    public static boolean deleteSecretKeyTypeForAlias(KeyStore keystore, String alias) {
+        return deleteSecretKeyTypeForAlias(keystore, alias, KeyStore.UID_SELF);
+    }
+
+    /**
+     * Delete secret key for a particular {@code alias}.
+     * Returns {@code true} if the entry no longer exists.
+     */
+    public static boolean deleteSecretKeyTypeForAlias(KeyStore keystore, String alias, int uid) {
         return keystore.delete(Credentials.USER_SECRET_KEY + alias, uid);
     }
 }

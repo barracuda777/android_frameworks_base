@@ -30,11 +30,6 @@ import java.util.Set;
  * when they are committed to storage.  Objects that are returned from the
  * various <code>get</code> methods must be treated as immutable by the application.
  *
- * <p>Note: This class provides strong consistency guarantees. It is using expensive operations
- * which might slow down an app. Frequently changing properties or properties where loss can be
- * tolerated should use other mechanisms. For more details read the comments on
- * {@link Editor#commit()} and {@link Editor#apply()}.
- *
  * <p><em>Note: This class does not support use across multiple processes.</em>
  *
  * <div class="special reference">
@@ -56,9 +51,6 @@ public interface SharedPreferences {
          * may be called even if a preference is set to its existing value.
          *
          * <p>This callback will be run on your main thread.
-         *
-         * <p><em>Note: This callback will not be triggered when preferences are cleared via
-         * {@link Editor#clear()}.</em>
          *
          * @param sharedPreferences The {@link SharedPreferences} that received
          *            the change.

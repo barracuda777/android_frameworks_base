@@ -30,7 +30,6 @@ import android.filterfw.core.KeyValueMap;
 import android.filterpacks.base.FrameBranch;
 import android.filterpacks.base.NullFilter;
 
-import android.annotation.UnsupportedAppUsage;
 import android.util.Log;
 
 /**
@@ -76,7 +75,6 @@ public class FilterGraph {
         return mFilters.contains(filter);
     }
 
-    @UnsupportedAppUsage
     public Filter getFilter(String name) {
         return mNameMap.get(name);
     }
@@ -162,7 +160,6 @@ public class FilterGraph {
         mTypeCheckMode = typeCheckMode;
     }
 
-    @UnsupportedAppUsage
     public void tearDown(FilterContext context) {
         if (!mFilters.isEmpty()) {
             flushFrames();

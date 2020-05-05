@@ -43,7 +43,6 @@ import dalvik.system.VMRuntime;
 
 import java.io.Closeable;
 import java.io.File;
-import java.io.FileDescriptor;
 import java.io.IOException;
 import java.util.List;
 
@@ -63,6 +62,8 @@ public class NativeLibraryHelper {
     // that the cpuAbiOverride must be clear.
     public static final String CLEAR_ABI_OVERRIDE = "-";
 
+    private static final Object mRestoreconSync = new Object();
+
     /**
      * A handle to an opened package, consisting of one or more APKs. Used as
      * input to the various NativeLibraryHelper methods. Allows us to scan and
@@ -77,7 +78,6 @@ public class NativeLibraryHelper {
         final long[] apkHandles;
         final boolean multiArch;
         final boolean extractNativeLibs;
-        final boolean debuggable;
 
         public static Handle create(File packageFile) throws IOException {
             try {
@@ -91,17 +91,15 @@ public class NativeLibraryHelper {
         public static Handle create(Package pkg) throws IOException {
             return create(pkg.getAllCodePaths(),
                     (pkg.applicationInfo.flags & ApplicationInfo.FLAG_MULTIARCH) != 0,
-                    (pkg.applicationInfo.flags & ApplicationInfo.FLAG_EXTRACT_NATIVE_LIBS) != 0,
-                    (pkg.applicationInfo.flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0);
+                    (pkg.applicationInfo.flags & ApplicationInfo.FLAG_EXTRACT_NATIVE_LIBS) != 0);
         }
 
         public static Handle create(PackageLite lite) throws IOException {
-            return create(lite.getAllCodePaths(), lite.multiArch, lite.extractNativeLibs,
-                    lite.debuggable);
+            return create(lite.getAllCodePaths(), lite.multiArch, lite.extractNativeLibs);
         }
 
         private static Handle create(List<String> codePaths, boolean multiArch,
-                boolean extractNativeLibs, boolean debuggable) throws IOException {
+                boolean extractNativeLibs) throws IOException {
             final int size = codePaths.size();
             final long[] apkHandles = new long[size];
             for (int i = 0; i < size; i++) {
@@ -116,26 +114,13 @@ public class NativeLibraryHelper {
                 }
             }
 
-            return new Handle(apkHandles, multiArch, extractNativeLibs, debuggable);
+            return new Handle(apkHandles, multiArch, extractNativeLibs);
         }
 
-        public static Handle createFd(PackageLite lite, FileDescriptor fd) throws IOException {
-            final long[] apkHandles = new long[1];
-            final String path = lite.baseCodePath;
-            apkHandles[0] = nativeOpenApkFd(fd, path);
-            if (apkHandles[0] == 0) {
-                throw new IOException("Unable to open APK " + path + " from fd " + fd);
-            }
-
-            return new Handle(apkHandles, lite.multiArch, lite.extractNativeLibs, lite.debuggable);
-        }
-
-        Handle(long[] apkHandles, boolean multiArch, boolean extractNativeLibs,
-                boolean debuggable) {
+        Handle(long[] apkHandles, boolean multiArch, boolean extractNativeLibs) {
             this.apkHandles = apkHandles;
             this.multiArch = multiArch;
             this.extractNativeLibs = extractNativeLibs;
-            this.debuggable = debuggable;
             mGuard.open("close");
         }
 
@@ -164,19 +149,17 @@ public class NativeLibraryHelper {
     }
 
     private static native long nativeOpenApk(String path);
-    private static native long nativeOpenApkFd(FileDescriptor fd, String debugPath);
     private static native void nativeClose(long handle);
 
-    private static native long nativeSumNativeBinaries(long handle, String cpuAbi,
-            boolean debuggable);
+    private static native long nativeSumNativeBinaries(long handle, String cpuAbi);
 
     private native static int nativeCopyNativeBinaries(long handle, String sharedLibraryPath,
-            String abiToCopy, boolean extractNativeLibs, boolean debuggable);
+            String abiToCopy, boolean extractNativeLibs, boolean hasNativeBridge);
 
     private static long sumNativeBinaries(Handle handle, String abi) {
         long sum = 0;
         for (long apkHandle : handle.apkHandles) {
-            sum += nativeSumNativeBinaries(apkHandle, abi, handle.debuggable);
+            sum += nativeSumNativeBinaries(apkHandle, abi);
         }
         return sum;
     }
@@ -192,7 +175,7 @@ public class NativeLibraryHelper {
     public static int copyNativeBinaries(Handle handle, File sharedLibraryDir, String abi) {
         for (long apkHandle : handle.apkHandles) {
             int res = nativeCopyNativeBinaries(apkHandle, sharedLibraryDir.getPath(), abi,
-                    handle.extractNativeLibs, handle.debuggable);
+                    handle.extractNativeLibs, HAS_NATIVE_BRIDGE);
             if (res != INSTALL_SUCCEEDED) {
                 return res;
             }
@@ -210,7 +193,7 @@ public class NativeLibraryHelper {
     public static int findSupportedAbi(Handle handle, String[] supportedAbis) {
         int finalRes = NO_NATIVE_LIBRARIES;
         for (long apkHandle : handle.apkHandles) {
-            final int res = nativeFindSupportedAbi(apkHandle, supportedAbis, handle.debuggable);
+            final int res = nativeFindSupportedAbi(apkHandle, supportedAbis);
             if (res == NO_NATIVE_LIBRARIES) {
                 // No native code, keep looking through all APKs.
             } else if (res == INSTALL_FAILED_NO_MATCHING_ABIS) {
@@ -232,8 +215,7 @@ public class NativeLibraryHelper {
         return finalRes;
     }
 
-    private native static int nativeFindSupportedAbi(long handle, String[] supportedAbis,
-            boolean debuggable);
+    private native static int nativeFindSupportedAbi(long handle, String[] supportedAbis);
 
     // Convenience method to call removeNativeBinariesFromDirLI(File)
     public static void removeNativeBinariesLI(String nativeLibraryPath) {
@@ -281,10 +263,7 @@ public class NativeLibraryHelper {
         }
     }
 
-    /**
-     * @hide
-     */
-    public static void createNativeLibrarySubdir(File path) throws IOException {
+    private static void createNativeLibrarySubdir(File path) throws IOException {
         if (!path.isDirectory()) {
             path.delete();
 
@@ -298,8 +277,12 @@ public class NativeLibraryHelper {
                 throw new IOException("Cannot chmod native library directory "
                         + path.getPath(), e);
             }
-        } else if (!SELinux.restorecon(path)) {
-            throw new IOException("Cannot set SELinux context for " + path.getPath());
+        } else {
+            synchronized (mRestoreconSync) {
+                if (!SELinux.restorecon(path)) {
+                    throw new IOException("Cannot set SELinux context for " + path.getPath());
+                }
+            }
         }
     }
 
@@ -446,6 +429,9 @@ public class NativeLibraryHelper {
 
     // We don't care about the other return values for now.
     private static final int BITCODE_PRESENT = 1;
+
+    private static final boolean HAS_NATIVE_BRIDGE =
+            !"0".equals(SystemProperties.get("ro.dalvik.vm.native.bridge", "0"));
 
     private static native int hasRenderscriptBitcode(long apkHandle);
 

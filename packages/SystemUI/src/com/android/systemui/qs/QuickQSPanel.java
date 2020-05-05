@@ -16,31 +16,24 @@
 
 package com.android.systemui.qs;
 
-import static com.android.systemui.util.InjectionInflationController.VIEW_CONTEXT;
-
 import android.content.Context;
 import android.content.res.Configuration;
-import android.graphics.Rect;
 import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
+import android.widget.Space;
 
-import com.android.systemui.Dependency;
-import com.android.systemui.DumpController;
 import com.android.systemui.R;
-import com.android.systemui.plugins.qs.QSTile;
-import com.android.systemui.plugins.qs.QSTile.SignalState;
-import com.android.systemui.plugins.qs.QSTile.State;
+import com.android.systemui.qs.QSTile.SignalState;
+import com.android.systemui.qs.QSTile.State;
 import com.android.systemui.qs.customize.QSCustomizer;
+import com.android.systemui.statusbar.phone.QSTileHost;
 import com.android.systemui.tuner.TunerService;
 import com.android.systemui.tuner.TunerService.Tunable;
 
 import java.util.ArrayList;
 import java.util.Collection;
-
-import javax.inject.Inject;
-import javax.inject.Named;
 
 /**
  * Version of QSPanel that only shows N Quick Tiles in the QS Header.
@@ -48,56 +41,39 @@ import javax.inject.Named;
 public class QuickQSPanel extends QSPanel {
 
     public static final String NUM_QUICK_TILES = "sysui_qqs_count";
-    private static final String TAG = "QuickQSPanel";
 
-    private boolean mDisabledByPolicy;
-    private static int mDefaultMaxTiles;
     private int mMaxTiles;
-    protected QSPanel mFullPanel;
+    private QSPanel mFullPanel;
+    private View mHeader;
 
-    @Inject
-    public QuickQSPanel(@Named(VIEW_CONTEXT) Context context, AttributeSet attrs,
-            DumpController dumpController) {
-        super(context, attrs, dumpController);
-        if (mFooter != null) {
-            removeView(mFooter.getView());
-        }
+    public QuickQSPanel(Context context, AttributeSet attrs) {
+        super(context, attrs);
         if (mTileLayout != null) {
             for (int i = 0; i < mRecords.size(); i++) {
                 mTileLayout.removeTile(mRecords.get(i));
             }
             removeView((View) mTileLayout);
         }
-        mDefaultMaxTiles = getResources().getInteger(R.integer.quick_qs_panel_max_columns);
         mTileLayout = new HeaderTileLayout(context);
         mTileLayout.setListening(mListening);
-        addView((View) mTileLayout, 0 /* Between brightness and footer */);
-        super.setPadding(0, 0, 0, 0);
-    }
-
-    @Override
-    public void setPadding(int left, int top, int right, int bottom) {
-        // Always have no padding.
-    }
-
-    @Override
-    protected void addDivider() {
+        addView((View) mTileLayout, 1 /* Between brightness and footer */);
     }
 
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        Dependency.get(TunerService.class).addTunable(mNumTiles, NUM_QUICK_TILES);
+        TunerService.get(mContext).addTunable(mNumTiles, NUM_QUICK_TILES);
     }
 
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        Dependency.get(TunerService.class).removeTunable(mNumTiles);
+        TunerService.get(mContext).removeTunable(mNumTiles);
     }
 
     public void setQSPanelAndHeader(QSPanel fullPanel, View header) {
         mFullPanel = fullPanel;
+        mHeader = header;
     }
 
     @Override
@@ -108,14 +84,19 @@ public class QuickQSPanel extends QSPanel {
     @Override
     protected void drawTile(TileRecord r, State state) {
         if (state instanceof SignalState) {
-            SignalState copy = new SignalState();
+            State copy = r.tile.newTileState();
             state.copyTo(copy);
             // No activity shown in the quick panel.
-            copy.activityIn = false;
-            copy.activityOut = false;
+            ((SignalState) copy).activityIn = false;
+            ((SignalState) copy).activityOut = false;
             state = copy;
         }
         super.drawTile(r, state);
+    }
+
+    @Override
+    protected QSTileBaseView createTileView(QSTile<?> tile, boolean collapsedView) {
+        return new QSTileBaseView(mContext, tile.createTileView(mContext), collapsedView);
     }
 
     @Override
@@ -132,17 +113,23 @@ public class QuickQSPanel extends QSPanel {
     }
 
     @Override
+    protected void onTileClick(QSTile<?> tile) {
+        tile.secondaryClick();
+    }
+
+    @Override
     public void onTuningChanged(String key, String newValue) {
-        if (QS_SHOW_BRIGHTNESS_SLIDER.equals(key)) {
-            // No Brightness or Tooltip for you!
+        // No tunings for you.
+        if (key.equals(QS_SHOW_BRIGHTNESS_SLIDER)) {
+            // No Brightness for you.
             super.onTuningChanged(key, "0");
         }
     }
 
     @Override
-    public void setTiles(Collection<QSTile> tiles) {
-        ArrayList<QSTile> quickTiles = new ArrayList<>();
-        for (QSTile tile : tiles) {
+    public void setTiles(Collection<QSTile<?>> tiles) {
+        ArrayList<QSTile<?>> quickTiles = new ArrayList<>();
+        for (QSTile<?> tile : tiles) {
             quickTiles.add(tile);
             if (quickTiles.size() == mMaxTiles) {
                 break;
@@ -158,153 +145,111 @@ public class QuickQSPanel extends QSPanel {
         }
     };
 
-    public static int getNumQuickTiles(Context context) {
-        return Dependency.get(TunerService.class).getValue(NUM_QUICK_TILES, mDefaultMaxTiles);
+    public int getNumQuickTiles(Context context) {
+        return TunerService.get(context).getValue(NUM_QUICK_TILES, 6);
     }
 
-    void setDisabledByPolicy(boolean disabled) {
-        if (disabled != mDisabledByPolicy) {
-            mDisabledByPolicy = disabled;
-            setVisibility(disabled ? View.GONE : View.VISIBLE);
-        }
-    }
+    private static class HeaderTileLayout extends LinearLayout implements QSTileLayout {
 
-    /**
-     * Sets the visibility of this {@link QuickQSPanel}. This method has no effect when this panel
-     * is disabled by policy through {@link #setDisabledByPolicy(boolean)}, and in this case the
-     * visibility will always be {@link View#GONE}. This method is called externally by
-     * {@link QSAnimator} only.
-     */
-    @Override
-    public void setVisibility(int visibility) {
-        if (mDisabledByPolicy) {
-            if (getVisibility() == View.GONE) {
-                return;
-            }
-            visibility = View.GONE;
-        }
-        super.setVisibility(visibility);
-    }
-
-    private static class HeaderTileLayout extends TileLayout {
-
+        protected final ArrayList<TileRecord> mRecords = new ArrayList<>();
         private boolean mListening;
-        private Rect mClippingBounds = new Rect();
 
         public HeaderTileLayout(Context context) {
             super(context);
             setClipChildren(false);
             setClipToPadding(false);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,
-                    LayoutParams.MATCH_PARENT);
-            lp.gravity = Gravity.CENTER_HORIZONTAL;
-            setLayoutParams(lp);
+            setGravity(Gravity.CENTER_VERTICAL);
+            setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
         }
 
         @Override
-        protected void onConfigurationChanged(Configuration newConfig) {
-            super.onConfigurationChanged(newConfig);
-            updateResources();
+        public void setListening(boolean listening) {
+            if (mListening == listening) return;
+            mListening = listening;
+            for (TileRecord record : mRecords) {
+                record.tile.setListening(this, mListening);
+            }
         }
 
         @Override
-        public void onFinishInflate(){
-            updateResources();
+        public void addTile(TileRecord tile) {
+            if (getChildCount() != 0) {
+                // Add a spacer.
+                addView(new Space(mContext), getChildCount(), generateSpaceParams());
+            }
+            addView(tile.tileView, getChildCount(), generateLayoutParams());
+            mRecords.add(tile);
+            tile.tile.setListening(this, mListening);
         }
 
-        private LayoutParams generateTileLayoutParams() {
-            LayoutParams lp = new LayoutParams(mCellWidth, mCellHeight);
+        private LayoutParams generateSpaceParams() {
+            int size = mContext.getResources().getDimensionPixelSize(R.dimen.qs_quick_tile_size);
+            LayoutParams lp = new LayoutParams(0, size);
+            lp.weight = 1;
+            lp.gravity = Gravity.CENTER;
+            return lp;
+        }
+
+        private LayoutParams generateLayoutParams() {
+            int size = mContext.getResources().getDimensionPixelSize(R.dimen.qs_quick_tile_size);
+            LayoutParams lp = new LayoutParams(size, size);
+            lp.gravity = Gravity.CENTER;
             return lp;
         }
 
         @Override
-        protected void addTileView(TileRecord tile) {
-            addView(tile.tileView, getChildCount(), generateTileLayoutParams());
+        public void removeTile(TileRecord tile) {
+            int childIndex = getChildIndex(tile.tileView);
+            // Remove the tile.
+            removeViewAt(childIndex);
+            if (getChildCount() != 0) {
+                // Remove its spacer as well.
+                removeViewAt(childIndex);
+            }
+            mRecords.remove(tile);
+            tile.tile.setListening(this, false);
+        }
+
+        private int getChildIndex(QSTileBaseView tileView) {
+            final int N = getChildCount();
+            for (int i = 0; i < N; i++) {
+                if (getChildAt(i) == tileView) {
+                    return i;
+                }
+            }
+            return -1;
         }
 
         @Override
-        protected void onLayout(boolean changed, int l, int t, int r, int b) {
-            // We only care about clipping on the right side
-            mClippingBounds.set(0, 0, r - l, 10000);
-            setClipBounds(mClippingBounds);
-
-            calculateColumns();
-
-            for (int i = 0; i < mRecords.size(); i++) {
-                mRecords.get(i).tileView.setVisibility( i < mColumns ? View.VISIBLE : View.GONE);
-            }
-
-            setAccessibilityOrder();
-            layoutTileRecords(mColumns);
+        public int getOffsetTop(TileRecord tile) {
+            return 0;
         }
 
         @Override
         public boolean updateResources() {
-            mCellWidth = mContext.getResources().getDimensionPixelSize(R.dimen.qs_quick_tile_size);
-            mCellHeight = mCellWidth;
-
+            // No resources here.
             return false;
         }
 
-        private boolean calculateColumns() {
-            int prevNumColumns = mColumns;
-            int maxTiles = mRecords.size();
-
-            if (maxTiles == 0){ // Early return during setup
-                mColumns = 0;
-                return true;
-            }
-
-            final int availableWidth = getMeasuredWidth() - getPaddingStart() - getPaddingEnd();
-            final int leftoverWhitespace = availableWidth - maxTiles * mCellWidth;
-            final int smallestHorizontalMarginNeeded;
-            smallestHorizontalMarginNeeded = leftoverWhitespace / Math.max(1, maxTiles - 1);
-
-            if (smallestHorizontalMarginNeeded > 0){
-                mCellMarginHorizontal = smallestHorizontalMarginNeeded;
-                mColumns = maxTiles;
-            } else{
-                mColumns = mCellWidth == 0 ? 1 :
-                        Math.min(maxTiles, availableWidth / mCellWidth );
-                mCellMarginHorizontal = (availableWidth - mColumns * mCellWidth) / (mColumns - 1);
-            }
-            return mColumns != prevNumColumns;
+        @Override
+        public boolean hasOverlappingRendering() {
+            return false;
         }
 
-        private void setAccessibilityOrder() {
+        @Override
+        protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+            super.onMeasure(widthMeasureSpec, heightMeasureSpec);
             if (mRecords != null && mRecords.size() > 0) {
                 View previousView = this;
                 for (TileRecord record : mRecords) {
                     if (record.tileView.getVisibility() == GONE) continue;
                     previousView = record.tileView.updateAccessibilityOrder(previousView);
                 }
+                mRecords.get(0).tileView.setAccessibilityTraversalAfter(
+                        R.id.alarm_status_collapsed);
                 mRecords.get(mRecords.size() - 1).tileView.setAccessibilityTraversalBefore(
                         R.id.expand_indicator);
             }
-        }
-
-        @Override
-        protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-            // Measure each QS tile.
-            for (TileRecord record : mRecords) {
-                if (record.tileView.getVisibility() == GONE) continue;
-                record.tileView.measure(exactly(mCellWidth), exactly(mCellHeight));
-            }
-
-            int height = mCellHeight;
-            if (height < 0) height = 0;
-
-            setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), height);
-        }
-
-        @Override
-        public int getNumVisibleTiles() {
-            return mColumns;
-        }
-
-        @Override
-        protected int getColumnStart(int column) {
-            return getPaddingStart() + column *  (mCellWidth + mCellMarginHorizontal);
         }
     }
 }

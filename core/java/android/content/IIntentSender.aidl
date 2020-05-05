@@ -22,6 +22,6 @@ import android.os.Bundle;
 
 /** @hide */
 oneway interface IIntentSender {
-    void send(int code, in Intent intent, String resolvedType, in IBinder whitelistToken,
+    void send(int code, in Intent intent, String resolvedType,
             IIntentReceiver finishedReceiver, String requiredPermission, in Bundle options);
 }

@@ -19,10 +19,6 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="car_guest" msgid="3738772168718508650">"Гость"</string>
-    <string name="start_guest_session" msgid="7055742120180595689">"Гость"</string>
-    <string name="car_add_user" msgid="5245196248349230898">"Добавить пользователя"</string>
-    <string name="car_new_user" msgid="8142927244990323906">"Новый пользователь"</string>
-    <string name="user_add_user_message_setup" msgid="1791011504259527329">"Когда вы добавите пользователя, ему потребуется настроить профиль."</string>
-    <string name="user_add_user_message_update" msgid="3383320289232716179">"Любой пользователь устройства может обновлять приложения для всех аккаунтов."</string>
+    <string name="car_lockscreen_disclaimer_title" msgid="7997539137376896441">"Безопасность движения"</string>
+    <string name="car_lockscreen_disclaimer_text" msgid="3061224684092952864">"Всегда учитывайте дорожную обстановку и соблюдайте правила. Маршруты могут быть неточными, неполными, проходить по опасным, неподходящим или запрещенным для движения участкам или пересекать границы. Сведения об организациях также могут быть неточными и неполными. Данные не обновляются в режиме реального времени, и точность определения местоположения не гарантируется. Не пользуйтесь мобильным устройством и не используйте приложения, не предназначенные для Android Auto, управляя автомобилем."</string>
 </resources>

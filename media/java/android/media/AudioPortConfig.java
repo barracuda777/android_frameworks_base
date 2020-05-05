@@ -16,8 +16,6 @@
 
 package android.media;
 
-import android.annotation.UnsupportedAppUsage;
-
 /**
  * An AudioPortConfig contains a possible configuration of an audio port chosen
  * among all possible attributes described by an AudioPort.
@@ -32,15 +30,10 @@ import android.annotation.UnsupportedAppUsage;
  */
 
 public class AudioPortConfig {
-    @UnsupportedAppUsage
     final AudioPort mPort;
-    @UnsupportedAppUsage
     private final int mSamplingRate;
-    @UnsupportedAppUsage
     private final int mChannelMask;
-    @UnsupportedAppUsage
     private final int mFormat;
-    @UnsupportedAppUsage
     private final AudioGainConfig mGain;
 
     // mConfigMask indicates which fields in this configuration should be
@@ -50,10 +43,8 @@ public class AudioPortConfig {
     static final int CHANNEL_MASK = 0x2;
     static final int FORMAT       = 0x4;
     static final int GAIN         = 0x8;
-    @UnsupportedAppUsage
     int mConfigMask;
 
-    @UnsupportedAppUsage
     AudioPortConfig(AudioPort port, int samplingRate, int channelMask, int format,
             AudioGainConfig gain) {
         mPort = port;
@@ -67,7 +58,6 @@ public class AudioPortConfig {
     /**
      * Returns the audio port this AudioPortConfig is issued from.
      */
-    @UnsupportedAppUsage
     public AudioPort port() {
         return mPort;
     }

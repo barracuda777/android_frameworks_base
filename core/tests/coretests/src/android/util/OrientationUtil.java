@@ -19,6 +19,7 @@ package android.util;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.pm.ActivityInfo;
+
 import android.test.ActivityInstrumentationTestCase2;
 
 import com.android.internal.util.Preconditions;

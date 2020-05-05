@@ -18,7 +18,6 @@ package android.widget;
 
 
 import android.annotation.AnimRes;
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.util.AttributeSet;
@@ -26,7 +25,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
-import android.view.inspector.InspectableProperty;
 
 /**
  * Base class for a {@link FrameLayout} container that will perform animations
@@ -38,9 +36,7 @@ import android.view.inspector.InspectableProperty;
  */
 public class ViewAnimator extends FrameLayout {
 
-    @UnsupportedAppUsage
     int mWhichChild = 0;
-    @UnsupportedAppUsage
     boolean mFirstTime = true;
 
     boolean mAnimateFirstTime = true;
@@ -151,7 +147,6 @@ public class ViewAnimator extends FrameLayout {
      * @param animate Whether or not to use the in and out animations, defaults
      *            to true.
      */
-    @UnsupportedAppUsage
     void showOnly(int childIndex, boolean animate) {
         final int count = getChildCount();
         for (int i = 0; i < count; i++) {
@@ -266,7 +261,6 @@ public class ViewAnimator extends FrameLayout {
      * @see #setInAnimation(android.view.animation.Animation)
      * @see #setInAnimation(android.content.Context, int)
      */
-    @InspectableProperty
     public Animation getInAnimation() {
         return mInAnimation;
     }
@@ -291,7 +285,6 @@ public class ViewAnimator extends FrameLayout {
      * @see #setOutAnimation(android.view.animation.Animation)
      * @see #setOutAnimation(android.content.Context, int)
      */
-    @InspectableProperty
     public Animation getOutAnimation() {
         return mOutAnimation;
     }
@@ -343,7 +336,6 @@ public class ViewAnimator extends FrameLayout {
      *
      * @see #setAnimateFirstView(boolean)
      */
-    @InspectableProperty
     public boolean getAnimateFirstView() {
         return mAnimateFirstTime;
     }

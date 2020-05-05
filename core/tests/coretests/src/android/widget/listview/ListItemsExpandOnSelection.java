@@ -17,11 +17,12 @@
 package android.widget.listview;
 
 import android.content.Context;
-import android.util.ListScenario;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AbsListView;
 import android.widget.TextView;
+
+import android.util.ListScenario;
 
 /**
  * A list where each item expands by 1.5 when selected.

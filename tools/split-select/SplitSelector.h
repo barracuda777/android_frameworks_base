@@ -29,7 +29,7 @@ namespace split {
 class SplitSelector {
 public:
     SplitSelector();
-    explicit SplitSelector(const android::Vector<SplitDescription>& splits);
+    SplitSelector(const android::Vector<SplitDescription>& splits);
 
     android::Vector<SplitDescription> getBestSplits(const SplitDescription& target) const;
 

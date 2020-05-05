@@ -17,7 +17,7 @@
 #define LOG_TAG "SQLiteConnection"
 
 #include <jni.h>
-#include <nativehelper/JNIHelp.h>
+#include <JNIHelp.h>
 #include <android_runtime/AndroidRuntime.h>
 #include <android_runtime/Log.h>
 
@@ -112,8 +112,7 @@ static int sqliteProgressHandlerCallback(void* data) {
 
 
 static jlong nativeOpen(JNIEnv* env, jclass clazz, jstring pathStr, jint openFlags,
-        jstring labelStr, jboolean enableTrace, jboolean enableProfile, jint lookasideSz,
-        jint lookasideCnt) {
+        jstring labelStr, jboolean enableTrace, jboolean enableProfile) {
     int sqliteFlags;
     if (openFlags & SQLiteConnection::CREATE_IF_NECESSARY) {
         sqliteFlags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
@@ -136,16 +135,6 @@ static jlong nativeOpen(JNIEnv* env, jclass clazz, jstring pathStr, jint openFla
     if (err != SQLITE_OK) {
         throw_sqlite3_exception_errcode(env, err, "Could not open database");
         return 0;
-    }
-
-    if (lookasideSz >= 0 && lookasideCnt >= 0) {
-        int err = sqlite3_db_config(db, SQLITE_DBCONFIG_LOOKASIDE, NULL, lookasideSz, lookasideCnt);
-        if (err != SQLITE_OK) {
-            ALOGE("sqlite3_db_config(..., %d, %d) failed: %d", lookasideSz, lookasideCnt, err);
-            throw_sqlite3_exception(env, db, "Cannot set lookaside");
-            sqlite3_close(db);
-            return 0;
-        }
     }
 
     // Check that the database is really read/write when that is what we asked for.
@@ -765,14 +754,6 @@ static jlong nativeExecuteForCursorWindow(JNIEnv* env, jclass clazz,
     if (startPos > totalRows) {
         ALOGE("startPos %d > actual rows %d", startPos, totalRows);
     }
-    if (totalRows > 0 && addedRows == 0) {
-        String8 msg;
-        msg.appendFormat("Row too big to fit into CursorWindow requiredPos=%d, totalRows=%d",
-                requiredPos, totalRows);
-        throw_sqlite3_exception(env, SQLITE_TOOBIG, NULL, msg.string());
-        return 0;
-    }
-
     jlong result = jlong(startPos) << 32 | jlong(totalRows);
     return result;
 }
@@ -808,7 +789,7 @@ static void nativeResetCancel(JNIEnv* env, jobject clazz, jlong connectionPtr,
 static const JNINativeMethod sMethods[] =
 {
     /* name, signature, funcPtr */
-    { "nativeOpen", "(Ljava/lang/String;ILjava/lang/String;ZZII)J",
+    { "nativeOpen", "(Ljava/lang/String;ILjava/lang/String;ZZ)J",
             (void*)nativeOpen },
     { "nativeClose", "(J)V",
             (void*)nativeClose },

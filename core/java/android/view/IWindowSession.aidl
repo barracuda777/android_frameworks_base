@@ -11,28 +11,23 @@
 ** Unless required by applicable law or agreed to in writing, software 
 ** distributed under the License is distributed on an "AS IS" BASIS, 
 ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
-** See the License for the specific language governing permissions and
+** See the License for the specific language governing permissions and 
 ** limitations under the License.
 */
 
 package android.view;
 
 import android.content.ClipData;
+import android.content.res.Configuration;
 import android.graphics.Rect;
 import android.graphics.Region;
 import android.os.Bundle;
-import android.util.MergedConfiguration;
-import android.view.DisplayCutout;
 import android.view.InputChannel;
 import android.view.IWindow;
 import android.view.IWindowId;
 import android.view.MotionEvent;
 import android.view.WindowManager;
-import android.view.InsetsState;
 import android.view.Surface;
-import android.view.SurfaceControl;
-
-import java.util.List;
 
 /**
  * System private per-application interface to the window manager.
@@ -40,15 +35,17 @@ import java.util.List;
  * {@hide}
  */
 interface IWindowSession {
+    int add(IWindow window, int seq, in WindowManager.LayoutParams attrs,
+            in int viewVisibility, out Rect outContentInsets, out Rect outStableInsets,
+            out InputChannel outInputChannel);
     int addToDisplay(IWindow window, int seq, in WindowManager.LayoutParams attrs,
-            in int viewVisibility, in int layerStackId, out Rect outFrame,
-            out Rect outContentInsets, out Rect outStableInsets, out Rect outOutsets,
-            out DisplayCutout.ParcelableWrapper displayCutout, out InputChannel outInputChannel,
-            out InsetsState insetsState);
+            in int viewVisibility, in int layerStackId, out Rect outContentInsets,
+            out Rect outStableInsets, out Rect outOutsets, out InputChannel outInputChannel);
+    int addWithoutInputChannel(IWindow window, int seq, in WindowManager.LayoutParams attrs,
+            in int viewVisibility, out Rect outContentInsets, out Rect outStableInsets);
     int addToDisplayWithoutInputChannel(IWindow window, int seq, in WindowManager.LayoutParams attrs,
             in int viewVisibility, in int layerStackId, out Rect outContentInsets,
-            out Rect outStableInsets, out InsetsState insetsState);
-    @UnsupportedAppUsage
+            out Rect outStableInsets);
     void remove(IWindow window);
 
     /**
@@ -66,7 +63,6 @@ interface IWindowSession {
      * @param viewVisibility Window root view's visibility.
      * @param flags Request flags: {@link WindowManagerGlobal#RELAYOUT_INSETS_PENDING},
      * {@link WindowManagerGlobal#RELAYOUT_DEFER_SURFACE_DESTROY}.
-     * @param frameNumber A frame number in which changes requested in this layout will be rendered.
      * @param outFrame Rect in which is placed the new position/size on
      * screen.
      * @param outOverscanInsets Rect in which is placed the offsets from
@@ -87,23 +83,45 @@ interface IWindowSession {
      * treat as real display. Example of such area is a chin in some models of wearable devices.
      * @param outBackdropFrame Rect which is used draw the resizing background during a resize
      * operation.
-     * @param outMergedConfiguration New config container that holds global, override and merged
-     * config for window, if it is now becoming visible and the merged configuration has changed
-     * since it was last displayed.
+     * @param outConfiguration New configuration of window, if it is now
+     * becoming visible and the global configuration has changed since it
+     * was last displayed.
      * @param outSurface Object in which is placed the new display surface.
-     * @param insetsState The current insets state in the system.
      *
      * @return int Result flags: {@link WindowManagerGlobal#RELAYOUT_SHOW_FOCUS},
      * {@link WindowManagerGlobal#RELAYOUT_FIRST_TIME}.
      */
     int relayout(IWindow window, int seq, in WindowManager.LayoutParams attrs,
             int requestedWidth, int requestedHeight, int viewVisibility,
-            int flags, long frameNumber, out Rect outFrame, out Rect outOverscanInsets,
+            int flags, out Rect outFrame, out Rect outOverscanInsets,
             out Rect outContentInsets, out Rect outVisibleInsets, out Rect outStableInsets,
-            out Rect outOutsets, out Rect outBackdropFrame,
-            out DisplayCutout.ParcelableWrapper displayCutout,
-            out MergedConfiguration outMergedConfiguration, out SurfaceControl outSurfaceControl,
-            out InsetsState insetsState);
+            out Rect outOutsets, out Rect outBackdropFrame, out Configuration outConfig,
+            out Surface outSurface);
+
+    /**
+     *  Position a window relative to it's parent (attached) window without triggering
+     *  a full relayout. This action may be deferred until a given frame number
+     *  for the parent window appears. This allows for synchronizing movement of a child
+     *  to repainting the contents of the parent.
+     *
+     *  "width" and "height" correspond to the width and height members of
+     *  WindowManager.LayoutParams in the {@link #relayout relayout()} case.
+     *  This may differ from the surface buffer size in the
+     *  case of {@link LayoutParams#FLAG_SCALED} and {@link #relayout relayout()}
+     *  must be used with requestedWidth/height if this must be changed.
+     *
+     *  @param window The window being modified. Must be attached to a parent window
+     *  or this call will fail.
+     *  @param left The new left position
+     *  @param top The new top position
+     *  @param right The new right position
+     *  @param bottom The new bottom position
+     *  @param deferTransactionUntilFrame Frame number from our parent (attached) to
+     *  defer this action until.
+     *  @param outFrame Rect in which is placed the new position/size on screen.
+     */
+    void repositionChild(IWindow childWindow, int left, int top, int right, int bottom,
+            long deferTransactionUntilFrame, out Rect outFrame);
 
     /*
      * Notify the window manager that an application is relaunching and
@@ -116,6 +134,12 @@ interface IWindowSession {
     void prepareToReplaceWindows(IBinder appToken, boolean childrenOnly);
 
     /**
+     * If a call to relayout() asked to have the surface destroy deferred,
+     * it must call this once it is okay to destroy that surface.
+     */
+    void performDeferredDestroy(IWindow window);
+
+    /**
      * Called by a client to report that it ran out of graphics memory.
      */
     boolean outOfMemory(IWindow window);
@@ -125,7 +149,6 @@ interface IWindowSession {
      * completely transparent, allowing it to work with the surface flinger
      * to optimize compositing of this part of the window.
      */
-    @UnsupportedAppUsage
     void setTransparentRegion(IWindow window, in Region region);
 
     /**
@@ -147,50 +170,38 @@ interface IWindowSession {
      */
     void getDisplayFrame(IWindow window, out Rect outDisplayFrame);
 
-    @UnsupportedAppUsage
     void finishDrawing(IWindow window);
 
-    @UnsupportedAppUsage
     void setInTouchMode(boolean showFocus);
-    @UnsupportedAppUsage
     boolean getInTouchMode();
 
-    @UnsupportedAppUsage
-    boolean performHapticFeedback(int effectId, boolean always);
+    boolean performHapticFeedback(IWindow window, int effectId, boolean always);
+
+    /**
+     * Allocate the drag's thumbnail surface.  Also assigns a token that identifies
+     * the drag to the OS and passes that as the return value.  A return value of
+     * null indicates failure.
+     */
+    IBinder prepareDrag(IWindow window, int flags,
+            int thumbnailWidth, int thumbnailHeight, out Surface outSurface);
 
     /**
      * Initiate the drag operation itself
-     *
-     * @param window Window which initiates drag operation.
-     * @param flags See {@code View#startDragAndDrop}
-     * @param surface Surface containing drag shadow image
-     * @param touchSource See {@code InputDevice#getSource()}
-     * @param touchX X coordinate of last touch point
-     * @param touchY Y coordinate of last touch point
-     * @param thumbCenterX X coordinate for the position within the shadow image that should be
-     *         underneath the touch point during the drag and drop operation.
-     * @param thumbCenterY Y coordinate for the position within the shadow image that should be
-     *         underneath the touch point during the drag and drop operation.
-     * @param data Data transferred by drag and drop
-     * @return Token of drag operation which will be passed to cancelDragAndDrop.
      */
-    @UnsupportedAppUsage
-    IBinder performDrag(IWindow window, int flags, in SurfaceControl surface, int touchSource,
+    boolean performDrag(IWindow window, IBinder dragToken, int touchSource,
             float touchX, float touchY, float thumbCenterX, float thumbCenterY, in ClipData data);
 
-    /**
+   /**
      * Report the result of a drop action targeted to the given window.
      * consumed is 'true' when the drop was accepted by a valid recipient,
      * 'false' otherwise.
      */
-    void reportDropResult(IWindow window, boolean consumed);
+	void reportDropResult(IWindow window, boolean consumed);
 
     /**
      * Cancel the current drag operation.
-     * skipAnimation is 'true' when it should skip the drag cancel animation which brings the drag
-     * shadow image back to the drag start position.
      */
-    void cancelDragAndDrop(IBinder dragToken, boolean skipAnimation);
+    void cancelDragAndDrop(IBinder dragToken);
 
     /**
      * Tell the OS that we've just dragged into a View that is willing to accept the drop
@@ -210,7 +221,6 @@ interface IWindowSession {
      */
     void setWallpaperPosition(IBinder windowToken, float x, float y, float xstep, float ystep);
 
-    @UnsupportedAppUsage
     void wallpaperOffsetsComplete(IBinder window);
 
     /**
@@ -221,7 +231,6 @@ interface IWindowSession {
     Bundle sendWallpaperCommand(IBinder window, String action, int x, int y,
             int z, in Bundle extras, boolean sync);
 
-    @UnsupportedAppUsage
     void wallpaperCommandComplete(IBinder window, in Bundle result);
 
     /**
@@ -254,51 +263,5 @@ interface IWindowSession {
      */
     boolean startMovingTask(IWindow window, float startX, float startY);
 
-    void finishMovingTask(IWindow window);
-
     void updatePointerIcon(IWindow window);
-
-    /**
-     * Reparent the top layers for a display to the requested SurfaceControl. The display that is
-     * going to be re-parented (the displayId passed in) needs to have been created by the same
-     * process that is requesting the re-parent. This is to ensure clients can't just re-parent
-     * display content info to any SurfaceControl, as this would be a security issue.
-     *
-     * @param window The window which owns the SurfaceControl. This indicates the z-order of the
-     *               windows of this display against the windows on the parent display.
-     * @param sc The SurfaceControl that the top level layers for the display should be re-parented
-     *           to.
-     * @param displayId The id of the display to be re-parented.
-     */
-    void reparentDisplayContent(IWindow window, in SurfaceControl sc, int displayId);
-
-    /**
-     * Update the location of a child display in its parent window. This enables windows in the
-     * child display to compute the global transformation matrix.
-     *
-     * @param window The parent window of the display.
-     * @param x The x coordinate in the parent window.
-     * @param y The y coordinate in the parent window.
-     * @param displayId The id of the display to be notified.
-     */
-    void updateDisplayContentLocation(IWindow window, int x, int y, int displayId);
-
-    /**
-     * Update a tap exclude region identified by provided id in the window. Touches on this region
-     * will neither be dispatched to this window nor change the focus to this window. Passing an
-     * invalid region will remove the area from the exclude region of this window.
-     */
-    void updateTapExcludeRegion(IWindow window, int regionId, in Region region);
-
-    /**
-     * Called when the client has changed the local insets state, and now the server should reflect
-     * that new state.
-     */
-    void insetsModified(IWindow window, in InsetsState state);
-
-
-    /**
-     * Called when the system gesture exclusion has changed.
-     */
-    oneway void reportSystemGestureExclusionChanged(IWindow window, in List<Rect> exclusionRects);
 }

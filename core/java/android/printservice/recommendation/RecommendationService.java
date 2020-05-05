@@ -119,16 +119,14 @@ public abstract class RecommendationService extends Service {
                     mCallbacks = null;
                     break;
                 case MSG_UPDATE:
-                    if (mCallbacks != null) {
-                        // Note that there might be a connection change in progress. In this case
-                        // the message is handled as before the change. This is acceptable as the
-                        // caller of the connection change has not guarantee when the connection
-                        // change binder transaction is actually processed.
-                        try {
-                            mCallbacks.onRecommendationsUpdated((List<RecommendationInfo>) msg.obj);
-                        } catch (RemoteException | NullPointerException e) {
-                            Log.e(LOG_TAG, "Could not update recommended services", e);
-                        }
+                    // Note that there might be a connection change in progress. In this case the
+                    // message is handled as before the change. This is acceptable as the caller of
+                    // the connection change has not guarantee when the connection change binder
+                    // transaction is actually processed.
+                    try {
+                        mCallbacks.onRecommendationsUpdated((List<RecommendationInfo>) msg.obj);
+                    } catch (RemoteException | NullPointerException e) {
+                        Log.e(LOG_TAG, "Could not update recommended services", e);
                     }
                     break;
             }

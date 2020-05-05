@@ -18,7 +18,6 @@ package android.media;
 
 import dalvik.system.CloseGuard;
 
-import android.annotation.UnsupportedAppUsage;
 import android.os.Handler;
 import android.view.Surface;
 
@@ -89,7 +88,6 @@ public final class RemoteDisplay {
     /**
      * Disconnects the remote display and stops listening for new connections.
      */
-    @UnsupportedAppUsage
     public void dispose() {
         dispose(false);
     }
@@ -127,7 +125,6 @@ public final class RemoteDisplay {
     }
 
     // Called from native.
-    @UnsupportedAppUsage
     private void notifyDisplayConnected(final Surface surface,
             final int width, final int height, final int flags, final int session) {
         mHandler.post(new Runnable() {
@@ -139,7 +136,6 @@ public final class RemoteDisplay {
     }
 
     // Called from native.
-    @UnsupportedAppUsage
     private void notifyDisplayDisconnected() {
         mHandler.post(new Runnable() {
             @Override
@@ -150,7 +146,6 @@ public final class RemoteDisplay {
     }
 
     // Called from native.
-    @UnsupportedAppUsage
     private void notifyDisplayError(final int error) {
         mHandler.post(new Runnable() {
             @Override

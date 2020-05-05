@@ -16,7 +16,6 @@
 
 package android.app;
 
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.os.Bundle;
@@ -137,12 +136,7 @@ import java.io.PrintWriter;
  *
  * {@sample development/samples/ApiDemos/src/com/example/android/apis/app/FragmentDialogOrActivity.java
  *      embed}
- *
- * @deprecated Use the <a href="{@docRoot}tools/extras/support-library.html">Support Library</a>
- *      {@link android.support.v4.app.DialogFragment} for consistent behavior across all devices
- *      and access to <a href="{@docRoot}topic/libraries/architecture/lifecycle.html">Lifecycle</a>.
  */
-@Deprecated
 public class DialogFragment extends Fragment
         implements DialogInterface.OnCancelListener, DialogInterface.OnDismissListener {
 
@@ -183,15 +177,11 @@ public class DialogFragment extends Fragment
     int mTheme = 0;
     boolean mCancelable = true;
     boolean mShowsDialog = true;
-    @UnsupportedAppUsage
     int mBackStackId = -1;
 
     Dialog mDialog;
-    @UnsupportedAppUsage
     boolean mViewDestroyed;
-    @UnsupportedAppUsage
     boolean mDismissed;
-    @UnsupportedAppUsage
     boolean mShownByMe;
 
     public DialogFragment() {
@@ -241,7 +231,6 @@ public class DialogFragment extends Fragment
     }
 
     /** {@hide} */
-    @UnsupportedAppUsage
     public void showAllowingStateLoss(FragmentManager manager, String tag) {
         mDismissed = false;
         mShownByMe = true;
@@ -409,9 +398,9 @@ public class DialogFragment extends Fragment
 
     /** @hide */
     @Override
-    public LayoutInflater onGetLayoutInflater(Bundle savedInstanceState) {
+    public LayoutInflater getLayoutInflater(Bundle savedInstanceState) {
         if (!mShowsDialog) {
-            return super.onGetLayoutInflater(savedInstanceState);
+            return super.getLayoutInflater(savedInstanceState);
         }
 
         mDialog = onCreateDialog(savedInstanceState);

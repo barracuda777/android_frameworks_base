@@ -21,12 +21,13 @@ import android.graphics.Canvas;
 import android.graphics.ColorFilter;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
-import android.graphics.RecordingCanvas;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
+import android.view.DisplayListCanvas;
 import android.view.ThreadedRenderer;
-import android.graphics.RenderNode;
+import android.view.RenderNode;
+import android.view.ThreadedRenderer;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.AbsoluteLayout;
@@ -119,7 +120,7 @@ public class MultiProducerActivity extends Activity implements OnClickListener {
             if (view == null) {
                 view.postDelayed(mSetup, 50);
             }
-            ThreadedRenderer renderer = view.getThreadedRenderer();
+            ThreadedRenderer renderer = view.getHardwareRenderer();
             if (renderer == null || view.getWidth() == 0) {
                 view.postDelayed(mSetup, 50);
             }
@@ -206,7 +207,7 @@ public class MultiProducerActivity extends Activity implements OnClickListener {
                     }
 
                     // Draw frame
-                    RecordingCanvas canvas = nodeFrame.start(currentFrameBounds.width(),
+                    DisplayListCanvas canvas = nodeFrame.start(currentFrameBounds.width(),
                             currentFrameBounds.height());
                     mFrameContent.draw(canvas);
                     nodeFrame.end(canvas);
@@ -228,7 +229,7 @@ public class MultiProducerActivity extends Activity implements OnClickListener {
                     }
 
                     // Draw Backdrop
-                    RecordingCanvas canvas = nodeBack.start(currentBackBounds.width(),
+                    DisplayListCanvas canvas = nodeBack.start(currentBackBounds.width(),
                             currentBackBounds.height());
                     mBackContent.draw(canvas);
                     nodeBack.end(canvas);

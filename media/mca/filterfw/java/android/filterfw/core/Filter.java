@@ -17,7 +17,6 @@
 
 package android.filterfw.core;
 
-import android.annotation.UnsupportedAppUsage;
 import android.filterfw.core.FilterContext;
 import android.filterfw.core.FilterPort;
 import android.filterfw.core.KeyValueMap;
@@ -70,7 +69,6 @@ public abstract class Filter {
     private boolean mLogVerbose;
     private static final String TAG = "Filter";
 
-    @UnsupportedAppUsage
     public Filter(String name) {
         mName = name;
         mFramesToRelease = new HashSet<Frame>();
@@ -83,7 +81,6 @@ public abstract class Filter {
     /** Tests to see if a given filter is installed on the system. Requires
      * full filter package name, including filterpack.
      */
-    @UnsupportedAppUsage
     public static final boolean isAvailable(String filterName) {
         ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
         Class filterClass;
@@ -153,7 +150,6 @@ public abstract class Filter {
         port.setFrame(frame);
     }
 
-    @UnsupportedAppUsage
     public final void setInputValue(String inputName, Object value) {
         setInputFrame(inputName, wrapInputValue(inputName, value));
     }

@@ -20,7 +20,6 @@ import android.annotation.IntRange;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.Size;
-import android.annotation.UnsupportedAppUsage;
 import android.icu.util.ULocale;
 
 import com.android.internal.annotations.GuardedBy;
@@ -235,7 +234,7 @@ public final class LocaleList implements Parcelable {
         mStringRepresentation = sb.toString();
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<LocaleList> CREATOR
+    public static final Parcelable.Creator<LocaleList> CREATOR
             = new Parcelable.Creator<LocaleList>() {
         @Override
         public LocaleList createFromParcel(Parcel source) {
@@ -296,19 +295,8 @@ public final class LocaleList implements Parcelable {
         return STRING_EN_XA.equals(locale) || STRING_AR_XB.equals(locale);
     }
 
-    /**
-     * Returns true if locale is a pseudo-locale, false otherwise.
-     * {@hide}
-     */
-    public static boolean isPseudoLocale(Locale locale) {
+    private static boolean isPseudoLocale(Locale locale) {
         return LOCALE_EN_XA.equals(locale) || LOCALE_AR_XB.equals(locale);
-    }
-
-    /**
-     * Returns true if locale is a pseudo-locale, false otherwise.
-     */
-    public static boolean isPseudoLocale(@Nullable ULocale locale) {
-        return isPseudoLocale(locale != null ? locale.toLocale() : null);
     }
 
     @IntRange(from=0, to=1)
@@ -545,7 +533,6 @@ public final class LocaleList implements Parcelable {
      *
      * {@hide}
      */
-    @UnsupportedAppUsage
     public static void setDefault(@NonNull @Size(min=1) LocaleList locales, int localeIndex) {
         if (locales == null) {
             throw new NullPointerException("locales is null");

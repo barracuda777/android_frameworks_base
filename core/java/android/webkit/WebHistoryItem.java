@@ -16,14 +16,13 @@
 
 package android.webkit;
 
-import android.annotation.Nullable;
 import android.annotation.SystemApi;
 import android.graphics.Bitmap;
 
 /**
  * A convenience class for accessing fields in an entry in the back/forward list
  * of a WebView. Each WebHistoryItem is a snapshot of the requested history
- * item.
+ * item. Each history item may be updated during the load of a page.
  * @see WebBackForwardList
  */
 public abstract class WebHistoryItem implements Cloneable {
@@ -44,6 +43,8 @@ public abstract class WebHistoryItem implements Cloneable {
      * history item. See getTargetUrl() for the url that is the actual target of
      * this history item.
      * @return The base url of this history item.
+     * Note: The VM ensures 32-bit atomic read/write operations so we don't have
+     * to synchronize this method.
      */
     public abstract String getUrl();
 
@@ -58,20 +59,21 @@ public abstract class WebHistoryItem implements Cloneable {
     /**
      * Return the document title of this history item.
      * @return The document title of this history item.
+     * Note: The VM ensures 32-bit atomic read/write operations so we don't have
+     * to synchronize this method.
      */
     public abstract String getTitle();
 
     /**
-     * Return the favicon of this history item or {@code null} if no favicon was found.
-     * @return A Bitmap containing the favicon for this history item or {@code null}.
+     * Return the favicon of this history item or null if no favicon was found.
+     * @return A Bitmap containing the favicon for this history item or null.
+     * Note: The VM ensures 32-bit atomic read/write operations so we don't have
+     * to synchronize this method.
      */
-    @Nullable
     public abstract Bitmap getFavicon();
 
     /**
-     * Clone the history item for use by clients of WebView. On Android 4.4 and later
-     * there is no need to use this, as the object is already a read-only copy of the
-     * internal state.
+     * Clone the history item for use by clients of WebView.
      */
     protected abstract WebHistoryItem clone();
 }

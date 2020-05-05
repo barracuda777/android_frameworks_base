@@ -16,7 +16,7 @@
 
 package com.android.multidexlegacytestapp;
 
-import androidx.multidex.MultiDexApplication;
+import android.support.multidex.MultiDexApplication;
 
 import java.lang.annotation.Annotation;
 

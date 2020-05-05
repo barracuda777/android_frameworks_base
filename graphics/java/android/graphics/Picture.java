@@ -16,9 +16,6 @@
 
 package android.graphics;
 
-import android.annotation.NonNull;
-import android.annotation.UnsupportedAppUsage;
-
 import java.io.InputStream;
 import java.io.OutputStream;
 
@@ -34,11 +31,8 @@ import java.io.OutputStream;
  * be replayed on a hardware accelerated canvas.</p>
  */
 public class Picture {
-    private PictureCanvas mRecordingCanvas;
-    // TODO: Figure out if this was a false-positive
-    @UnsupportedAppUsage(maxTargetSdk = 28)
+    private Canvas mRecordingCanvas;
     private long mNativePicture;
-    private boolean mRequiresHwAcceleration;
 
     private static final int WORKING_STREAM_STORAGE = 16 * 1024;
 
@@ -58,40 +52,20 @@ public class Picture {
         this(nativeConstructor(src != null ? src.mNativePicture : 0));
     }
 
-    /** @hide */
-    public Picture(long nativePicture) {
+    private Picture(long nativePicture) {
         if (nativePicture == 0) {
-            throw new IllegalArgumentException();
+            throw new RuntimeException();
         }
         mNativePicture = nativePicture;
-    }
-
-    /**
-     * Immediately releases the backing data of the Picture. This object will no longer
-     * be usable after calling this, and any further calls on the Picture will throw an
-     * IllegalStateException.
-     * // TODO: Support?
-     * @hide
-     */
-    public void close() {
-        if (mNativePicture != 0) {
-            nativeDestructor(mNativePicture);
-            mNativePicture = 0;
-        }
     }
 
     @Override
     protected void finalize() throws Throwable {
         try {
-            close();
+            nativeDestructor(mNativePicture);
+            mNativePicture = 0;
         } finally {
             super.finalize();
-        }
-    }
-
-    private void verifyValid() {
-        if (mNativePicture == 0) {
-            throw new IllegalStateException("Picture is destroyed");
         }
     }
 
@@ -103,15 +77,9 @@ public class Picture {
      * that was returned must no longer be used, and nothing should be drawn
      * into it.
      */
-    @NonNull
     public Canvas beginRecording(int width, int height) {
-        verifyValid();
-        if (mRecordingCanvas != null) {
-            throw new IllegalStateException("Picture already recording, must call #endRecording()");
-        }
         long ni = nativeBeginRecording(mNativePicture, width, height);
-        mRecordingCanvas = new PictureCanvas(this, ni);
-        mRequiresHwAcceleration = false;
+        mRecordingCanvas = new RecordingCanvas(this, ni);
         return mRecordingCanvas;
     }
 
@@ -122,9 +90,7 @@ public class Picture {
      * or {@link Canvas#drawPicture(Picture)} is called.
      */
     public void endRecording() {
-        verifyValid();
         if (mRecordingCanvas != null) {
-            mRequiresHwAcceleration = mRecordingCanvas.mHoldsHwBitmap;
             mRecordingCanvas = null;
             nativeEndRecording(mNativePicture);
         }
@@ -135,8 +101,7 @@ public class Picture {
      * does not reflect (per se) the content of the picture.
      */
     public int getWidth() {
-        verifyValid();
-        return nativeGetWidth(mNativePicture);
+      return nativeGetWidth(mNativePicture);
     }
 
     /**
@@ -144,24 +109,7 @@ public class Picture {
      * does not reflect (per se) the content of the picture.
      */
     public int getHeight() {
-        verifyValid();
-        return nativeGetHeight(mNativePicture);
-    }
-
-    /**
-     * Indicates whether or not this Picture contains recorded commands that only work when
-     * drawn to a hardware-accelerated canvas. If this returns true then this Picture can only
-     * be drawn to another Picture or to a Canvas where canvas.isHardwareAccelerated() is true.
-     *
-     * Note this value is only updated after recording has finished by a call to
-     * {@link #endRecording()}. Prior to that it will be the default value of false.
-     *
-     * @return true if the Picture can only be drawn to a hardware-accelerated canvas,
-     *         false otherwise.
-     */
-    public boolean requiresHardwareAcceleration() {
-        verifyValid();
-        return mRequiresHwAcceleration;
+      return nativeGetHeight(mNativePicture);
     }
 
     /**
@@ -177,13 +125,9 @@ public class Picture {
      *
      * @param canvas  The picture is drawn to this canvas
      */
-    public void draw(@NonNull Canvas canvas) {
-        verifyValid();
+    public void draw(Canvas canvas) {
         if (mRecordingCanvas != null) {
             endRecording();
-        }
-        if (mRequiresHwAcceleration && !canvas.isHardwareAccelerated()) {
-            canvas.onHwBitmapInSwMode();
         }
         nativeDraw(canvas.getNativeCanvasWrapper(), mNativePicture);
     }
@@ -195,13 +139,12 @@ public class Picture {
      * properly and are highly discouraged.
      *
      * @see #writeToStream(java.io.OutputStream)
-     * @removed
      * @deprecated The recommended alternative is to not use writeToStream and
      * instead draw the picture into a Bitmap from which you can persist it as
      * raw or compressed pixels.
      */
     @Deprecated
-    public static Picture createFromStream(@NonNull InputStream stream) {
+    public static Picture createFromStream(InputStream stream) {
         return new Picture(nativeCreateFromStream(stream, new byte[WORKING_STREAM_STORAGE]));
     }
 
@@ -212,18 +155,17 @@ public class Picture {
      * there is no guarantee that the Picture can be successfully reconstructed.
      *
      * @see #createFromStream(java.io.InputStream)
-     * @removed
      * @deprecated The recommended alternative is to draw the picture into a
      * Bitmap from which you can persist it as raw or compressed pixels.
      */
     @Deprecated
-    public void writeToStream(@NonNull OutputStream stream) {
-        verifyValid();
+    public void writeToStream(OutputStream stream) {
         // do explicit check before calling the native method
         if (stream == null) {
-            throw new IllegalArgumentException("stream cannot be null");
+            throw new NullPointerException();
         }
-        if (!nativeWriteToStream(mNativePicture, stream, new byte[WORKING_STREAM_STORAGE])) {
+        if (!nativeWriteToStream(mNativePicture, stream,
+                             new byte[WORKING_STREAM_STORAGE])) {
             throw new RuntimeException();
         }
     }
@@ -240,15 +182,12 @@ public class Picture {
                                            OutputStream stream, byte[] storage);
     private static native void nativeDestructor(long nativePicture);
 
-    private static class PictureCanvas extends Canvas {
+    private static class RecordingCanvas extends Canvas {
         private final Picture mPicture;
-        boolean mHoldsHwBitmap;
 
-        public PictureCanvas(Picture pict, long nativeCanvas) {
+        public RecordingCanvas(Picture pict, long nativeCanvas) {
             super(nativeCanvas);
             mPicture = pict;
-            // Disable bitmap density scaling. This matches RecordingCanvas.
-            mDensity = 0;
         }
 
         @Override
@@ -262,11 +201,6 @@ public class Picture {
                 throw new RuntimeException("Cannot draw a picture into its recording canvas");
             }
             super.drawPicture(picture);
-        }
-
-        @Override
-        protected void onHwBitmapInSwMode() {
-            mHoldsHwBitmap = true;
         }
     }
 }

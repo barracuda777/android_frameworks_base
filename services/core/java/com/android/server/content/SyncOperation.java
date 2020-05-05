@@ -18,12 +18,10 @@ package com.android.server.content;
 
 import android.accounts.Account;
 import android.app.job.JobInfo;
-import android.content.ContentResolver;
-import android.content.ContentResolver.SyncExemption;
 import android.content.pm.PackageManager;
+import android.content.ContentResolver;
 import android.os.Bundle;
 import android.os.PersistableBundle;
-import android.os.SystemClock;
 import android.os.UserHandle;
 import android.util.Slog;
 
@@ -99,33 +97,29 @@ public class SyncOperation {
     /** jobId of the JobScheduler job corresponding to this sync */
     public int jobId;
 
-    @SyncExemption
-    public int syncExemptionFlag;
-
     public SyncOperation(Account account, int userId, int owningUid, String owningPackage,
                          int reason, int source, String provider, Bundle extras,
-                         boolean allowParallelSyncs, @SyncExemption int syncExemptionFlag) {
+                         boolean allowParallelSyncs) {
         this(new SyncStorageEngine.EndPoint(account, provider, userId), owningUid, owningPackage,
-                reason, source, extras, allowParallelSyncs, syncExemptionFlag);
+                reason, source, extras, allowParallelSyncs);
     }
 
     private SyncOperation(SyncStorageEngine.EndPoint info, int owningUid, String owningPackage,
-            int reason, int source, Bundle extras, boolean allowParallelSyncs,
-            @SyncExemption int syncExemptionFlag) {
+                          int reason, int source, Bundle extras, boolean allowParallelSyncs) {
         this(info, owningUid, owningPackage, reason, source, extras, allowParallelSyncs, false,
-                NO_JOB_ID, 0, 0, syncExemptionFlag);
+                NO_JOB_ID, 0, 0);
     }
 
     public SyncOperation(SyncOperation op, long periodMillis, long flexMillis) {
         this(op.target, op.owningUid, op.owningPackage, op.reason, op.syncSource,
                 new Bundle(op.extras), op.allowParallelSyncs, op.isPeriodic, op.sourcePeriodicId,
-                periodMillis, flexMillis, ContentResolver.SYNC_EXEMPTION_NONE);
+                periodMillis, flexMillis);
     }
 
     public SyncOperation(SyncStorageEngine.EndPoint info, int owningUid, String owningPackage,
                          int reason, int source, Bundle extras, boolean allowParallelSyncs,
                          boolean isPeriodic, int sourcePeriodicId, long periodMillis,
-                         long flexMillis, @SyncExemption int syncExemptionFlag) {
+                         long flexMillis) {
         this.target = info;
         this.owningUid = owningUid;
         this.owningPackage = owningPackage;
@@ -139,7 +133,6 @@ public class SyncOperation {
         this.flexMillis = flexMillis;
         this.jobId = NO_JOB_ID;
         this.key = toKey();
-        this.syncExemptionFlag = syncExemptionFlag;
     }
 
     /* Get a one off sync operation instance from a periodic sync. */
@@ -149,7 +142,7 @@ public class SyncOperation {
         }
         SyncOperation op = new SyncOperation(target, owningUid, owningPackage, reason, syncSource,
                 new Bundle(extras), allowParallelSyncs, false, jobId /* sourcePeriodicId */,
-                periodMillis, flexMillis, ContentResolver.SYNC_EXEMPTION_NONE);
+                periodMillis, flexMillis);
         return op;
     }
 
@@ -167,7 +160,6 @@ public class SyncOperation {
         periodMillis = other.periodMillis;
         flexMillis = other.flexMillis;
         this.key = other.key;
-        syncExemptionFlag = other.syncExemptionFlag;
     }
 
     /**
@@ -236,7 +228,6 @@ public class SyncOperation {
         jobInfoExtras.putLong("flexMillis", flexMillis);
         jobInfoExtras.putLong("expectedRuntime", expectedRuntime);
         jobInfoExtras.putInt("retries", retries);
-        jobInfoExtras.putInt("syncExemptionFlag", syncExemptionFlag);
         return jobInfoExtras;
     }
 
@@ -245,9 +236,6 @@ public class SyncOperation {
      * contain a valid sync operation.
      */
     static SyncOperation maybeCreateFromJobExtras(PersistableBundle jobExtras) {
-        if (jobExtras == null) {
-            return null;
-        }
         String accountName, accountType;
         String provider;
         int userId, owningUid;
@@ -257,7 +245,6 @@ public class SyncOperation {
         Bundle extras;
         boolean allowParallelSyncs, isPeriodic;
         long periodMillis, flexMillis;
-        int syncExemptionFlag;
 
         if (!jobExtras.getBoolean("SyncManagerJob", false)) {
             return null;
@@ -276,8 +263,6 @@ public class SyncOperation {
         initiatedBy = jobExtras.getInt("sourcePeriodicId", NO_JOB_ID);
         periodMillis = jobExtras.getLong("periodMillis");
         flexMillis = jobExtras.getLong("flexMillis");
-        syncExemptionFlag = jobExtras.getInt("syncExemptionFlag",
-                ContentResolver.SYNC_EXEMPTION_NONE);
         extras = new Bundle();
 
         PersistableBundle syncExtras = jobExtras.getPersistableBundle("syncExtras");
@@ -299,8 +284,7 @@ public class SyncOperation {
         SyncStorageEngine.EndPoint target =
                 new SyncStorageEngine.EndPoint(account, provider, userId);
         SyncOperation op = new SyncOperation(target, owningUid, owningPackage, reason, source,
-                extras, allowParallelSyncs, isPeriodic, initiatedBy, periodMillis, flexMillis,
-                syncExemptionFlag);
+                extras, allowParallelSyncs, isPeriodic, initiatedBy, periodMillis, flexMillis);
         op.jobId = jobExtras.getInt("jobId");
         op.expectedRuntime = jobExtras.getLong("expectedRuntime");
         op.retries = jobExtras.getInt("retries");
@@ -363,81 +347,40 @@ public class SyncOperation {
 
     @Override
     public String toString() {
-        return dump(null, true, null, false);
+        return dump(null, true);
     }
 
-    public String toSafeString() {
-        return dump(null, true, null, true);
-    }
-
-    String dump(PackageManager pm, boolean shorter, SyncAdapterStateFetcher appStates,
-            boolean logSafe) {
+    String dump(PackageManager pm, boolean useOneLine) {
         StringBuilder sb = new StringBuilder();
-        sb.append("JobId=").append(jobId)
-                .append(" ")
-                .append(logSafe ? "***" : target.account.name)
-                .append("/")
-                .append(target.account.type)
+        sb.append("JobId: ").append(jobId)
+                .append(", ")
+                .append(target.account.name)
                 .append(" u")
-                .append(target.userId)
-                .append(" [")
+                .append(target.userId).append(" (")
+                .append(target.account.type)
+                .append(")")
+                .append(", ")
                 .append(target.provider)
-                .append("] ");
+                .append(", ");
         sb.append(SyncStorageEngine.SOURCES[syncSource]);
-        if (expectedRuntime != 0) {
-            sb.append(" ExpectedIn=");
-            SyncManager.formatDurationHMS(sb,
-                    (expectedRuntime - SystemClock.elapsedRealtime()));
-        }
         if (extras.getBoolean(ContentResolver.SYNC_EXTRAS_EXPEDITED, false)) {
-            sb.append(" EXPEDITED");
+            sb.append(", EXPEDITED");
         }
-        switch (syncExemptionFlag) {
-            case ContentResolver.SYNC_EXEMPTION_NONE:
-                break;
-            case ContentResolver.SYNC_EXEMPTION_PROMOTE_BUCKET:
-                sb.append(" STANDBY-EXEMPTED");
-                break;
-            case ContentResolver.SYNC_EXEMPTION_PROMOTE_BUCKET_WITH_TEMP:
-                sb.append(" STANDBY-EXEMPTED(TOP)");
-                break;
-            default:
-                sb.append(" ExemptionFlag=" + syncExemptionFlag);
-                break;
-        }
-        sb.append(" Reason=");
+        sb.append(", reason: ");
         sb.append(reasonToString(pm, reason));
         if (isPeriodic) {
-            sb.append(" (period=");
-            SyncManager.formatDurationHMS(sb, periodMillis);
-            sb.append(" flex=");
-            SyncManager.formatDurationHMS(sb, flexMillis);
-            sb.append(")");
+            sb.append(", period: " + periodMillis).append(", flexMillis: " + flexMillis);
         }
-        if (retries > 0) {
-            sb.append(" Retries=");
-            sb.append(retries);
-        }
-        if (!shorter) {
-            sb.append(" Owner={");
+        if (!useOneLine) {
+            sb.append("\n    ");
+            sb.append("owningUid=");
             UserHandle.formatUid(sb, owningUid);
-            sb.append(" ");
+            sb.append(" owningPackage=");
             sb.append(owningPackage);
-            if (appStates != null) {
-                sb.append(" [");
-                sb.append(appStates.getStandbyBucket(
-                        UserHandle.getUserId(owningUid), owningPackage));
-                sb.append("]");
-
-                if (appStates.isAppActive(owningUid)) {
-                    sb.append(" [ACTIVE]");
-                }
-            }
-            sb.append("}");
-            if (!extras.keySet().isEmpty()) {
-                sb.append(" ");
-                extrasToStringBuilder(extras, sb);
-            }
+        }
+        if (!useOneLine && !extras.keySet().isEmpty()) {
+            sb.append("\n    ");
+            extrasToStringBuilder(extras, sb);
         }
         return sb.toString();
     }
@@ -491,26 +434,12 @@ public class SyncOperation {
         return extras.getBoolean(ContentResolver.SYNC_EXTRAS_IGNORE_SETTINGS, false);
     }
 
-    boolean isAppStandbyExempted() {
-        return syncExemptionFlag != ContentResolver.SYNC_EXEMPTION_NONE;
-    }
-
-    static void extrasToStringBuilder(Bundle bundle, StringBuilder sb) {
-        if (bundle == null) {
-            sb.append("null");
-            return;
-        }
+    private static void extrasToStringBuilder(Bundle bundle, StringBuilder sb) {
         sb.append("[");
         for (String key : bundle.keySet()) {
             sb.append(key).append("=").append(bundle.get(key)).append(" ");
         }
         sb.append("]");
-    }
-
-    static String extrasToString(Bundle bundle) {
-        final StringBuilder sb = new StringBuilder();
-        extrasToStringBuilder(bundle, sb);
-        return sb.toString();
     }
 
     String wakeLockName() {

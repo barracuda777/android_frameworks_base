@@ -20,8 +20,7 @@ import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.graphics.SurfaceTexture;
 import android.os.Bundle;
-import androidx.appcompat.app.AppCompatActivity;
-import android.util.DisplayMetrics;
+import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.TextureView;
@@ -50,9 +49,7 @@ public class GlTextureViewActivity extends AppCompatActivity implements TextureV
         mRenderThread = new ImageFlipRenderThread(getResources(), surface);
         mRenderThread.start();
 
-        DisplayMetrics metrics = mTextureView.getContext().getResources().getDisplayMetrics();
-        int distance = Math.max(mTextureView.getWidth(), mTextureView.getHeight());
-        mTextureView.setCameraDistance(distance * metrics.density);
+        mTextureView.setCameraDistance(5000);
 
         ObjectAnimator animator = ObjectAnimator.ofFloat(mTextureView, "rotationY", 0.0f, 360.0f);
         animator.setRepeatMode(ObjectAnimator.REVERSE);

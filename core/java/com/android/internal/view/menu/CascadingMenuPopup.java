@@ -47,7 +47,6 @@ import com.android.internal.util.Preconditions;
  */
 final class CascadingMenuPopup extends MenuPopup implements MenuPresenter, OnKeyListener,
         PopupWindow.OnDismissListener {
-    private static final int ITEM_LAYOUT = com.android.internal.R.layout.cascading_menu_item_layout;
 
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({HORIZ_POSITION_LEFT, HORIZ_POSITION_RIGHT})
@@ -349,7 +348,7 @@ final class CascadingMenuPopup extends MenuPopup implements MenuPresenter, OnKey
      */
     private void showMenu(@NonNull MenuBuilder menu) {
         final LayoutInflater inflater = LayoutInflater.from(mContext);
-        final MenuAdapter adapter = new MenuAdapter(menu, inflater, mOverflowOnly, ITEM_LAYOUT);
+        final MenuAdapter adapter = new MenuAdapter(menu, inflater, mOverflowOnly);
 
         // Apply "force show icon" setting. There are 3 cases:
         // (1) This is the top level menu and icon spacing is forced. Add spacing.
@@ -382,7 +381,6 @@ final class CascadingMenuPopup extends MenuPopup implements MenuPresenter, OnKey
 
         if (parentView != null) {
             // This menu is a cascading submenu anchored to a parent view.
-            popupWindow.setAnchorView(parentView);
             popupWindow.setTouchModal(false);
             popupWindow.setEnterTransition(null);
 
@@ -390,30 +388,35 @@ final class CascadingMenuPopup extends MenuPopup implements MenuPresenter, OnKey
             final boolean showOnRight = nextMenuPosition == HORIZ_POSITION_RIGHT;
             mLastPosition = nextMenuPosition;
 
-            // Compute the horizontal offset to display the submenu to the right or to the left
-            // of the parent item.
+            final int[] tempLocation = new int[2];
+
+            // This popup menu will be positioned relative to the top-left edge
+            // of the view representing its parent menu.
+            parentView.getLocationInWindow(tempLocation);
+            final int parentOffsetLeft = parentInfo.window.getHorizontalOffset() + tempLocation[0];
+            final int parentOffsetTop = parentInfo.window.getVerticalOffset() + tempLocation[1];
+
             // By now, mDropDownGravity is the resolved absolute gravity, so
             // this should work in both LTR and RTL.
             final int x;
             if ((mDropDownGravity & Gravity.RIGHT) == Gravity.RIGHT) {
                 if (showOnRight) {
-                    x = menuWidth;
+                    x = parentOffsetLeft + menuWidth;
                 } else {
-                    x = -parentView.getWidth();
+                    x = parentOffsetLeft - parentView.getWidth();
                 }
             } else {
                 if (showOnRight) {
-                    x = parentView.getWidth();
+                    x = parentOffsetLeft + parentView.getWidth();
                 } else {
-                    x = -menuWidth;
+                    x = parentOffsetLeft - menuWidth;
                 }
             }
+
             popupWindow.setHorizontalOffset(x);
 
-            // Align with the top edge of the parent view (or the bottom edge when the submenu is
-            // flipped vertically).
-            popupWindow.setOverlapAnchor(true);
-            popupWindow.setVerticalOffset(0);
+            final int y = parentOffsetTop;
+            popupWindow.setVerticalOffset(y);
         } else {
             if (mHasXOffset) {
                 popupWindow.setHorizontalOffset(mXOffset);
@@ -431,11 +434,9 @@ final class CascadingMenuPopup extends MenuPopup implements MenuPresenter, OnKey
 
         popupWindow.show();
 
-        final ListView listView = popupWindow.getListView();
-        listView.setOnKeyListener(this);
-
         // If this is the root menu, show the title if requested.
         if (parentInfo == null && mShowTitle && menu.getHeaderTitle() != null) {
+            final ListView listView = popupWindow.getListView();
             final FrameLayout titleItemView = (FrameLayout) inflater.inflate(
                     R.layout.popup_menu_header_item_layout, listView, false);
             final TextView titleView = (TextView) titleItemView.findViewById(R.id.title);

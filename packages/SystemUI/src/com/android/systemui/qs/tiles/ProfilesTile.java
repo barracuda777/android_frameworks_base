@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2015 The CyanogenMod Project
- *               2017-2018 The LineageOS Project
+ * Copyright (C) 2017 The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.database.ContentObserver;
 import android.os.Handler;
-import android.service.quicksettings.Tile;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -33,53 +32,40 @@ import android.widget.ArrayAdapter;
 import android.widget.CheckedTextView;
 import android.widget.ListView;
 
-import com.android.systemui.Dependency;
-import com.android.systemui.plugins.ActivityStarter;
-import com.android.systemui.plugins.qs.DetailAdapter;
-import com.android.systemui.plugins.qs.QSTile.State;
-import com.android.systemui.qs.QSDetailItemsList;
-import com.android.systemui.qs.QSHost;
-import com.android.systemui.qs.tileimpl.QSTileImpl;
 import com.android.systemui.R;
+import com.android.systemui.qs.QSDetailItemsList;
+import com.android.systemui.qs.QSTile;
 import com.android.systemui.statusbar.policy.KeyguardMonitor;
 
-import lineageos.app.Profile;
-import lineageos.app.ProfileManager;
-import lineageos.providers.LineageSettings;
-import org.lineageos.internal.logging.LineageMetricsLogger;
+import cyanogenmod.app.Profile;
+import cyanogenmod.app.ProfileManager;
+import cyanogenmod.providers.CMSettings;
+import org.cyanogenmod.internal.logging.CMMetricsLogger;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import javax.inject.Inject;
-
-public class ProfilesTile extends QSTileImpl<State> {
+public class ProfilesTile extends QSTile<QSTile.State> implements KeyguardMonitor.Callback {
 
     private static final Intent PROFILES_SETTINGS =
-            new Intent("org.lineageos.lineageparts.PROFILES_SETTINGS");
-
-    private final Icon mIcon = ResourceIcon.get(R.drawable.ic_qs_profiles);
+            new Intent("org.cyanogenmod.cmparts.PROFILES_SETTINGS");
 
     private boolean mListening;
+    private ProfilesObserver mObserver;
+    private ProfileManager mProfileManager;
     private QSDetailItemsList mDetails;
     private ProfileAdapter mAdapter;
-
-    private final ActivityStarter mActivityStarter;
-    private final KeyguardMonitor mKeyguardMonitor;
-    private final ProfileManager mProfileManager;
-    private final ProfilesObserver mObserver;
+    private KeyguardMonitor mKeyguardMonitor;
     private final ProfileDetailAdapter mDetailAdapter;
-    private final KeyguardMonitorCallback mCallback = new KeyguardMonitorCallback();
+    private final QSTile.State mStateBeforeClick = newTileState();
 
-    @Inject
-    public ProfilesTile(QSHost host) {
+    public ProfilesTile(Host host) {
         super(host);
-        mActivityStarter = Dependency.get(ActivityStarter.class);
-        mKeyguardMonitor = Dependency.get(KeyguardMonitor.class);
         mProfileManager = ProfileManager.getInstance(mContext);
         mObserver = new ProfilesObserver(mHandler);
-        mDetailAdapter = (ProfileDetailAdapter) createDetailAdapter();
+        mKeyguardMonitor = host.getKeyguardMonitor();
+        mDetailAdapter = new ProfileDetailAdapter();
     }
 
     @Override
@@ -89,7 +75,7 @@ public class ProfilesTile extends QSTileImpl<State> {
 
     @Override
     public CharSequence getTileLabel() {
-        return mContext.getString(R.string.quick_settings_profiles_label);
+        return mContext.getString(R.string.quick_settings_profiles);
     }
 
     @Override
@@ -100,48 +86,34 @@ public class ProfilesTile extends QSTileImpl<State> {
     @Override
     protected void handleClick() {
         if (mKeyguardMonitor.isSecure() && mKeyguardMonitor.isShowing()) {
-            mActivityStarter.postQSRunnableDismissingKeyguard(() -> {
-                setProfilesEnabled(!profilesEnabled());
-            });
+            mHost.startRunnableDismissingKeyguard(() ->
+                showDetail(true));
             return;
         }
-        setProfilesEnabled(!profilesEnabled());
-    }
-
-    @Override
-    protected void handleSecondaryClick() {
-        if (mKeyguardMonitor.isSecure() && mKeyguardMonitor.isShowing()) {
-            mActivityStarter.postQSRunnableDismissingKeyguard(() -> {
-                setProfilesEnabled(true);
-                showDetail(true);
-            });
-            return;
-        }
-        setProfilesEnabled(true);
         showDetail(true);
     }
 
     @Override
     protected void handleLongClick() {
-        mActivityStarter.postStartActivityDismissingKeyguard(PROFILES_SETTINGS, 0);
+        mHost.startActivityDismissingKeyguard(PROFILES_SETTINGS);
     }
 
     @Override
     protected void handleUpdateState(State state, Object arg) {
-        state.icon = mIcon;
-        state.label = mContext.getString(R.string.quick_settings_profiles_label);
+        state.visible = true;
+
+        state.enabled = !mKeyguardMonitor.isShowing() || !mKeyguardMonitor.isSecure();
         if (profilesEnabled()) {
-            state.secondaryLabel = mProfileManager.getActiveProfile().getName();
+            state.icon = ResourceIcon.get(R.drawable.ic_qs_profiles_on);
+            state.label = mProfileManager.getActiveProfile().getName();
             state.contentDescription = mContext.getString(
                     R.string.accessibility_quick_settings_profiles, state.label);
-            state.state = Tile.STATE_ACTIVE;
         } else {
-            state.secondaryLabel = null;
+            state.icon = ResourceIcon.get(R.drawable.ic_qs_profiles_off);
+            state.label = mContext.getString(R.string.quick_settings_profiles_off);
             state.contentDescription = mContext.getString(
                     R.string.accessibility_quick_settings_profiles_off);
-            state.state = Tile.STATE_INACTIVE;
         }
-        state.dualTarget = true;
     }
 
     @Override
@@ -154,23 +126,18 @@ public class ProfilesTile extends QSTileImpl<State> {
         }
     }
 
-    private void setProfilesEnabled(Boolean enabled) {
-        LineageSettings.System.putInt(mContext.getContentResolver(),
-                LineageSettings.System.SYSTEM_PROFILES_ENABLED, enabled ? 1 : 0);
-    }
-
     private boolean profilesEnabled() {
-        return LineageSettings.System.getInt(mContext.getContentResolver(),
-                LineageSettings.System.SYSTEM_PROFILES_ENABLED, 1) == 1;
+        return CMSettings.System.getInt(mContext.getContentResolver(),
+                CMSettings.System.SYSTEM_PROFILES_ENABLED, 1) == 1;
     }
 
     @Override
     public int getMetricsCategory() {
-        return LineageMetricsLogger.TILE_PROFILES;
+        return CMMetricsLogger.TILE_PROFILES;
     }
 
     @Override
-    public void handleSetListening(boolean listening) {
+    public void setListening(boolean listening) {
         if (mListening == listening) return;
         mListening = listening;
         if (listening) {
@@ -179,12 +146,12 @@ public class ProfilesTile extends QSTileImpl<State> {
             filter.addAction(ProfileManager.INTENT_ACTION_PROFILE_SELECTED);
             filter.addAction(ProfileManager.INTENT_ACTION_PROFILE_UPDATED);
             mContext.registerReceiver(mReceiver, filter);
-            mKeyguardMonitor.addCallback(mCallback);
+            mKeyguardMonitor.addCallback(this);
             refreshState();
         } else {
             mObserver.endObserving();
             mContext.unregisterReceiver(mReceiver);
-            mKeyguardMonitor.removeCallback(mCallback);
+            mKeyguardMonitor.removeCallback(this);
         }
     }
 
@@ -194,15 +161,8 @@ public class ProfilesTile extends QSTileImpl<State> {
     }
 
     @Override
-    protected DetailAdapter createDetailAdapter() {
-        return new ProfileDetailAdapter();
-    }
-
-    private class KeyguardMonitorCallback implements KeyguardMonitor.Callback {
-        @Override
-        public void onKeyguardShowingChanged() {
-            refreshState();
-        }
+    public void onKeyguardChanged() {
+        refreshState();
     }
 
     private class ProfileAdapter extends ArrayAdapter<Profile> {
@@ -212,10 +172,9 @@ public class ProfilesTile extends QSTileImpl<State> {
 
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
-            CheckedTextView label = convertView != null
-                    ? (CheckedTextView) convertView
-                    : (CheckedTextView) LayoutInflater.from(mContext).inflate(
-                            android.R.layout.simple_list_item_single_choice, parent, false);
+            LayoutInflater inflater = LayoutInflater.from(mContext);
+            CheckedTextView label = (CheckedTextView) inflater.inflate(
+                    android.R.layout.simple_list_item_single_choice, parent, false);
 
             Profile p = getItem(position);
             label.setText(p.getName());
@@ -240,17 +199,18 @@ public class ProfilesTile extends QSTileImpl<State> {
 
         @Override
         public CharSequence getTitle() {
-            return mContext.getString(R.string.quick_settings_profiles_label);
+            return mContext.getString(R.string.quick_settings_profiles);
         }
 
         @Override
         public Boolean getToggleState() {
-            return profilesEnabled();
+            boolean enabled = profilesEnabled();
+            return enabled;
         }
 
         @Override
         public int getMetricsCategory() {
-            return LineageMetricsLogger.TILE_PROFILES_DETAIL;
+            return CMMetricsLogger.TILE_PROFILES_DETAIL;
         }
 
         @Override
@@ -263,26 +223,31 @@ public class ProfilesTile extends QSTileImpl<State> {
             list.setChoiceMode(AbsListView.CHOICE_MODE_SINGLE);
             list.setOnItemClickListener(this);
 
-            buildProfilesList();
+            mDetails.setEmptyState(R.drawable.ic_qs_profiles_off,
+                    R.string.quick_settings_profiles_off);
+
+            rebuildProfilesList(profilesEnabled());
 
             return mDetails;
         }
 
-        private void buildProfilesList() {
+        private void rebuildProfilesList(boolean populate) {
             mProfilesList.clear();
-            int selected = -1;
+            if (populate) {
+                int selected = -1;
 
-            final Profile[] profiles = mProfileManager.getProfiles();
-            final Profile activeProfile = mProfileManager.getActiveProfile();
-            final UUID activeUuid = activeProfile != null ? activeProfile.getUuid() : null;
+                final Profile[] profiles = mProfileManager.getProfiles();
+                final Profile activeProfile = mProfileManager.getActiveProfile();
+                final UUID activeUuid = activeProfile != null ? activeProfile.getUuid() : null;
 
-            for (int i = 0; i < profiles.length; i++) {
-                mProfilesList.add(profiles[i]);
-                if (activeUuid != null && activeUuid.equals(profiles[i].getUuid())) {
-                    selected = i;
+                for (int i = 0; i < profiles.length; i++) {
+                    mProfilesList.add(profiles[i]);
+                    if (activeUuid != null && activeUuid.equals(profiles[i].getUuid())) {
+                        selected = i;
+                    }
                 }
+                mDetails.getListView().setItemChecked(selected, true);
             }
-            mDetails.getListView().setItemChecked(selected, true);
             mAdapter.notifyDataSetChanged();
         }
 
@@ -293,8 +258,11 @@ public class ProfilesTile extends QSTileImpl<State> {
 
         @Override
         public void setToggleState(boolean state) {
-            setProfilesEnabled(state);
-            showDetail(false);
+            CMSettings.System.putInt(mContext.getContentResolver(),
+                    CMSettings.System.SYSTEM_PROFILES_ENABLED, state ? 1 : 0);
+
+            fireToggleStateChanged(state);
+            rebuildProfilesList(state);
         }
 
         @Override
@@ -316,8 +284,8 @@ public class ProfilesTile extends QSTileImpl<State> {
 
         public void startObserving() {
             mContext.getContentResolver().registerContentObserver(
-                    LineageSettings.System.getUriFor(
-                            LineageSettings.System.SYSTEM_PROFILES_ENABLED), false, this);
+                    CMSettings.System.getUriFor(CMSettings.System.SYSTEM_PROFILES_ENABLED),
+                    false, this);
         }
 
         public void endObserving() {

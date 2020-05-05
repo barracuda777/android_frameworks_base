@@ -16,13 +16,13 @@
 
 package android.widget.focus;
 
+import com.android.frameworks.coretests.R;
+
 import android.app.Activity;
 import android.os.Bundle;
-import android.view.View;
-import android.widget.Button;
 import android.widget.LinearLayout;
-
-import com.android.frameworks.coretests.R;
+import android.widget.Button;
+import android.view.View;
 
 /**
  * Exercises cases where elements of the UI are removed (and
@@ -35,10 +35,10 @@ public class FocusAfterRemoval extends Activity {
         super.onCreate(icicle);
         setContentView(R.layout.focus_after_removal);
 
-        final LinearLayout left = findViewById(R.id.leftLayout);
+        final LinearLayout left = (LinearLayout) findViewById(R.id.leftLayout);
 
         // top left makes parent layout GONE
-        Button topLeftButton = findViewById(R.id.topLeftButton);
+        Button topLeftButton = (Button) findViewById(R.id.topLeftButton);
         topLeftButton.setOnClickListener(new View.OnClickListener() {
 
             public void onClick(View v) {
@@ -48,7 +48,7 @@ public class FocusAfterRemoval extends Activity {
 
         // bottom left makes parent layout INVISIBLE
         // top left makes parent layout GONE
-        Button bottomLeftButton = findViewById(R.id.bottomLeftButton);
+        Button bottomLeftButton = (Button) findViewById(R.id.bottomLeftButton);
         bottomLeftButton.setOnClickListener(new View.OnClickListener() {
 
             public void onClick(View v) {
@@ -57,7 +57,7 @@ public class FocusAfterRemoval extends Activity {
         });
 
         // top right button makes top right button GONE
-        final Button topRightButton = findViewById(R.id.topRightButton);
+        final Button topRightButton = (Button) findViewById(R.id.topRightButton);
         topRightButton.setOnClickListener(new View.OnClickListener() {
 
             public void onClick(View v) {
@@ -66,7 +66,7 @@ public class FocusAfterRemoval extends Activity {
         });
 
         // bottom right button makes bottom right button INVISIBLE
-        final Button bottomRightButton = findViewById(R.id.bottomRightButton);
+        final Button bottomRightButton = (Button) findViewById(R.id.bottomRightButton);
         bottomRightButton.setOnClickListener(new View.OnClickListener() {
 
             public void onClick(View v) {

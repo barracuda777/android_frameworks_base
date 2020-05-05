@@ -16,8 +16,6 @@
 
 package android.nfc;
 
-import android.annotation.UnsupportedAppUsage;
-
 /**
  * This class defines all the error codes that can be returned by the service
  * and producing an exception on the application level. These are needed since
@@ -27,7 +25,6 @@ import android.annotation.UnsupportedAppUsage;
  */
 public class ErrorCodes {
 
-    @UnsupportedAppUsage
     public static boolean isError(int code) {
         if (code < 0) {
             return true;

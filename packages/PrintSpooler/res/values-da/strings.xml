@@ -32,13 +32,13 @@
     <string name="template_page_range" msgid="428638530038286328">"Interval på <xliff:g id="PAGE_COUNT">%1$s</xliff:g>"</string>
     <string name="pages_range_example" msgid="8558694453556945172">"f.eks. 1-5,8,11-13"</string>
     <string name="print_preview" msgid="8010217796057763343">"Vis udskrift"</string>
-    <string name="install_for_print_preview" msgid="6366303997385509332">"Installer et PDF-visningsprog. for at se en forhåndsvisning"</string>
+    <string name="install_for_print_preview" msgid="6366303997385509332">"Installer et PDF-visningsprog. for at se eksempel"</string>
     <string name="printing_app_crashed" msgid="854477616686566398">"Udskrivningsapp gik ned"</string>
     <string name="generating_print_job" msgid="3119608742651698916">"Udskriften generes"</string>
     <string name="save_as_pdf" msgid="5718454119847596853">"Gem som PDF"</string>
     <string name="all_printers" msgid="5018829726861876202">"Alle printere..."</string>
     <string name="print_dialog" msgid="32628687461331979">"Udskriftsdialog"</string>
-    <string name="current_page_template" msgid="5145005201131935302">"<xliff:g id="CURRENT_PAGE">%1$d</xliff:g> af <xliff:g id="PAGE_COUNT">%2$d</xliff:g>"</string>
+    <string name="current_page_template" msgid="1386638343571771292">"<xliff:g id="CURRENT_PAGE">%1$d</xliff:g> af <xliff:g id="PAGE_COUNT">%2$d</xliff:g>"</string>
     <string name="page_description_template" msgid="6831239682256197161">"Side <xliff:g id="CURRENT_PAGE">%1$d</xliff:g> ud af <xliff:g id="PAGE_COUNT">%2$d</xliff:g>"</string>
     <string name="summary_template" msgid="8899734908625669193">"Opsummering, kopier <xliff:g id="COPIES">%1$s</xliff:g>, papirstørrelse <xliff:g id="PAPER_SIZE">%2$s</xliff:g>"</string>
     <string name="expand_handle" msgid="7282974448109280522">"Håndtag til visning"</string>
@@ -61,8 +61,6 @@
     </plurals>
     <string name="printer_extended_description_template" msgid="1366699227703381874">"<xliff:g id="PRINT_SERVICE_LABEL">%1$s</xliff:g> – <xliff:g id="PRINTER_DESCRIPTION">%2$s</xliff:g>"</string>
     <string name="printer_info_desc" msgid="7181988788991581654">"Flere oplysninger om denne printer"</string>
-    <string name="notification_channel_progress" msgid="872788690775721436">"Aktive udskriftsjobs"</string>
-    <string name="notification_channel_failure" msgid="9042250774797916414">"Mislykkede udskriftsjobs"</string>
     <string name="could_not_create_file" msgid="3425025039427448443">"Filen kunne ikke oprettes"</string>
     <string name="print_services_disabled_toast" msgid="9089060734685174685">"Nogle udskrivningstjenester er deaktiveret"</string>
     <string name="print_searching_for_printers" msgid="6550424555079932867">"Søger efter printere"</string>
@@ -100,12 +98,12 @@
   </string-array>
   <string-array name="orientation_labels">
     <item msgid="4061931020926489228">"Stående"</item>
-    <item msgid="3199660090246166812">"Liggende format"</item>
+    <item msgid="3199660090246166812">"Liggende"</item>
   </string-array>
     <string name="print_write_error_message" msgid="5787642615179572543">"Der kunne ikke skrives til filen"</string>
     <string name="print_error_default_message" msgid="8602678405502922346">"Det virkede desværre ikke. Prøv igen."</string>
     <string name="print_error_retry" msgid="1426421728784259538">"Prøv igen"</string>
     <string name="print_error_printer_unavailable" msgid="8985614415253203381">"Denne printer er i øjeblikket ikke tilgængelig."</string>
-    <string name="print_cannot_load_page" msgid="6179560924492912009">"Forhåndsvisning kan ikke vises"</string>
-    <string name="print_preparing_preview" msgid="3939930735671364712">"Forhåndsvisning klargøres..."</string>
+    <string name="print_cannot_load_page" msgid="6179560924492912009">"Eksempelvisning kan ikke vises"</string>
+    <string name="print_preparing_preview" msgid="3939930735671364712">"Eksempelvisning forberedes..."</string>
 </resources>

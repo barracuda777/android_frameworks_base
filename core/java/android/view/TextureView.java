@@ -17,13 +17,11 @@
 package android.view;
 
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.Paint;
-import android.graphics.RecordingCanvas;
 import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.graphics.drawable.Drawable;
@@ -108,14 +106,11 @@ import android.util.Log;
 public class TextureView extends View {
     private static final String LOG_TAG = "TextureView";
 
-    @UnsupportedAppUsage
-    private TextureLayer mLayer;
-    @UnsupportedAppUsage
+    private HardwareLayer mLayer;
     private SurfaceTexture mSurface;
     private SurfaceTextureListener mListener;
     private boolean mHadSurface;
 
-    @UnsupportedAppUsage
     private boolean mOpaque = true;
 
     private final Matrix mMatrix = new Matrix();
@@ -123,7 +118,6 @@ public class TextureView extends View {
 
     private final Object[] mLock = new Object[0];
     private boolean mUpdateLayer;
-    @UnsupportedAppUsage
     private boolean mUpdateSurface;
 
     private Canvas mCanvas;
@@ -131,7 +125,6 @@ public class TextureView extends View {
 
     private final Object[] mNativeWindowLock = new Object[0];
     // Set by native code, do not write!
-    @UnsupportedAppUsage
     private long mNativeWindow;
 
     /**
@@ -224,7 +217,6 @@ public class TextureView extends View {
 
     /** @hide */
     @Override
-    @UnsupportedAppUsage
     protected void onDetachedFromWindowInternal() {
         destroyHardwareLayer();
         releaseSurfaceTexture();
@@ -235,13 +227,11 @@ public class TextureView extends View {
      * @hide
      */
     @Override
-    @UnsupportedAppUsage
     protected void destroyHardwareResources() {
         super.destroyHardwareResources();
         destroyHardwareLayer();
     }
 
-    @UnsupportedAppUsage
     private void destroyHardwareLayer() {
         if (mLayer != null) {
             mLayer.detachSurfaceTexture();
@@ -344,15 +334,15 @@ public class TextureView extends View {
         properties (alpha, layer paint) affect all of the content of a TextureView. */
 
         if (canvas.isHardwareAccelerated()) {
-            RecordingCanvas recordingCanvas = (RecordingCanvas) canvas;
+            DisplayListCanvas displayListCanvas = (DisplayListCanvas) canvas;
 
-            TextureLayer layer = getTextureLayer();
+            HardwareLayer layer = getHardwareLayer();
             if (layer != null) {
                 applyUpdate();
                 applyTransformMatrix();
 
                 mLayer.setLayerPaint(mLayerPaint); // ensure layer paint is up to date
-                recordingCanvas.drawTextureLayer(layer);
+                displayListCanvas.drawHardwareLayer(layer);
             }
         }
     }
@@ -379,13 +369,13 @@ public class TextureView extends View {
         }
     }
 
-    TextureLayer getTextureLayer() {
+    HardwareLayer getHardwareLayer() {
         if (mLayer == null) {
-            if (mAttachInfo == null || mAttachInfo.mThreadedRenderer == null) {
+            if (mAttachInfo == null || mAttachInfo.mHardwareRenderer == null) {
                 return null;
             }
 
-            mLayer = mAttachInfo.mThreadedRenderer.createTextureLayer();
+            mLayer = mAttachInfo.mHardwareRenderer.createTextureLayer();
             boolean createNewSurface = (mSurface == null);
             if (createNewSurface) {
                 // Create a new SurfaceTexture for the layer.
@@ -612,7 +602,7 @@ public class TextureView extends View {
             // the layer here thanks to the validate() call at the beginning of
             // this method
             if (mLayer == null && mUpdateSurface) {
-                getTextureLayer();
+                getHardwareLayer();
             }
 
             if (mLayer != null) {
@@ -796,7 +786,6 @@ public class TextureView extends View {
         mListener = listener;
     }
 
-    @UnsupportedAppUsage
     private final SurfaceTexture.OnFrameAvailableListener mUpdateListener =
             new SurfaceTexture.OnFrameAvailableListener() {
         @Override
@@ -850,9 +839,7 @@ public class TextureView extends View {
         public void onSurfaceTextureUpdated(SurfaceTexture surface);
     }
 
-    @UnsupportedAppUsage
     private native void nCreateNativeWindow(SurfaceTexture surface);
-    @UnsupportedAppUsage
     private native void nDestroyNativeWindow();
 
     private static native boolean nLockCanvas(long nativeWindow, Canvas canvas, Rect dirty);

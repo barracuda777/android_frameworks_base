@@ -18,7 +18,6 @@ package android.net;
 
 import android.annotation.SdkConstant;
 import android.annotation.SdkConstant.SdkConstantType;
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.text.TextUtils;
 import android.util.Log;
@@ -58,7 +57,6 @@ public final class Proxy {
      * {@link ConnectivityManager#getLinkProperties(Network)}.{@link LinkProperties#getHttpProxy()}
      * to get the proxy for the Network(s) they are using.
      */
-    @Deprecated
     public static final String EXTRA_PROXY_INFO = "android.intent.extra.PROXY_INFO";
 
     /** @hide */
@@ -107,7 +105,6 @@ public final class Proxy {
      *         A null value means that no host is to be used.
      * {@hide}
      */
-    @UnsupportedAppUsage
     public static final java.net.Proxy getProxy(Context ctx, String url) {
         String host = "";
         if ((url != null) && !isLocalHost(host)) {
@@ -133,7 +130,6 @@ public final class Proxy {
      * @deprecated Use standard java vm proxy values to find the host, port
      *         and exclusion list.  This call ignores the exclusion list.
      */
-    @Deprecated
     public static final String getHost(Context ctx) {
         java.net.Proxy proxy = getProxy(ctx, null);
         if (proxy == java.net.Proxy.NO_PROXY) return null;
@@ -151,7 +147,6 @@ public final class Proxy {
      * @deprecated Use standard java vm proxy values to find the host, port
      *         and exclusion list.  This call ignores the exclusion list.
      */
-    @Deprecated
     public static final int getPort(Context ctx) {
         java.net.Proxy proxy = getProxy(ctx, null);
         if (proxy == java.net.Proxy.NO_PROXY) return -1;
@@ -170,7 +165,6 @@ public final class Proxy {
      *         exclusion list.  This call ignores the exclusion list and no
      *         longer reports only mobile-data apn-based proxy values.
      */
-    @Deprecated
     public static final String getDefaultHost() {
         String host = System.getProperty("http.proxyHost");
         if (TextUtils.isEmpty(host)) return null;
@@ -185,7 +179,6 @@ public final class Proxy {
      *         exclusion list.  This call ignores the exclusion list and no
      *         longer reports only mobile-data apn-based proxy values.
      */
-    @Deprecated
     public static final int getDefaultPort() {
         if (getDefaultHost() == null) return -1;
         try {
@@ -241,7 +234,6 @@ public final class Proxy {
     }
 
     /** @hide */
-    @UnsupportedAppUsage
     public static final void setHttpProxySystemProperty(ProxyInfo p) {
         String host = null;
         String port = null;

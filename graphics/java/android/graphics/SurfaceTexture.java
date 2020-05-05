@@ -16,14 +16,13 @@
 
 package android.graphics;
 
+import java.lang.ref.WeakReference;
+
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.view.Surface;
-
-import java.lang.ref.WeakReference;
 
 /**
  * Captures frames from an image stream as an OpenGL ES texture.
@@ -69,17 +68,13 @@ import java.lang.ref.WeakReference;
  */
 public class SurfaceTexture {
     private final Looper mCreatorLooper;
-    @UnsupportedAppUsage
     private Handler mOnFrameAvailableHandler;
 
     /**
      * These fields are used by native code, do not access or modify.
      */
-    @UnsupportedAppUsage
     private long mSurfaceTexture;
-    @UnsupportedAppUsage
     private long mProducer;
-    @UnsupportedAppUsage
     private long mFrameAvailableListener;
 
     private boolean mIsSingleBuffered;
@@ -112,7 +107,7 @@ public class SurfaceTexture {
      *
      * @param texName the OpenGL texture object name (e.g. generated via glGenTextures)
      *
-     * @throws android.view.Surface.OutOfResourcesException If the SurfaceTexture cannot be created.
+     * @throws Surface.OutOfResourcesException If the SurfaceTexture cannot be created.
      */
     public SurfaceTexture(int texName) {
         this(texName, false);
@@ -133,7 +128,7 @@ public class SurfaceTexture {
      * @param texName the OpenGL texture object name (e.g. generated via glGenTextures)
      * @param singleBufferMode whether the SurfaceTexture will be in single buffered mode.
      *
-     * @throws android.view.Surface.OutOfResourcesException If the SurfaceTexture cannot be created.
+     * @throws Surface.OutOfResourcesException If the SurfaceTexture cannot be created.
      */
     public SurfaceTexture(int texName, boolean singleBufferMode) {
         mCreatorLooper = Looper.myLooper();
@@ -160,7 +155,8 @@ public class SurfaceTexture {
      *
      * @param singleBufferMode whether the SurfaceTexture will be in single buffered mode.
      *
-     * @throws android.view.Surface.OutOfResourcesException If the SurfaceTexture cannot be created.
+     * @throws Surface.OutOfResourcesException If the SurfaceTexture cannot be created.
+     * @hide
      */
     public SurfaceTexture(boolean singleBufferMode) {
         mCreatorLooper = Looper.myLooper();
@@ -323,17 +319,13 @@ public class SurfaceTexture {
      * Retrieve the timestamp associated with the texture image set by the most recent call to
      * updateTexImage.
      *
-     * <p>This timestamp is in nanoseconds, and is normally monotonically increasing. The timestamp
-     * should be unaffected by time-of-day adjustments. The specific meaning and zero point of the
-     * timestamp depends on the source providing images to the SurfaceTexture. Unless otherwise
-     * specified by the image source, timestamps cannot generally be compared across SurfaceTexture
-     * instances, or across multiple program invocations. It is mostly useful for determining time
-     * offsets between subsequent frames.</p>
-     *
-     * <p>For camera sources, timestamps should be strictly monotonic. Timestamps from MediaPlayer
-     * sources may be reset when the playback position is set. For EGL and Vulkan producers, the
-     * timestamp is the desired present time set with the EGL_ANDROID_presentation_time or
-     * VK_GOOGLE_display_timing extensions.</p>
+     * This timestamp is in nanoseconds, and is normally monotonically increasing. The timestamp
+     * should be unaffected by time-of-day adjustments, and for a camera should be strictly
+     * monotonic but for a MediaPlayer may be reset when the position is set.  The
+     * specific meaning and zero point of the timestamp depends on the source providing images to
+     * the SurfaceTexture. Unless otherwise specified by the image source, timestamps cannot
+     * generally be compared across SurfaceTexture instances, or across multiple program
+     * invocations. It is mostly useful for determining time offsets between subsequent frames.
      */
 
     public long getTimestamp() {
@@ -354,17 +346,14 @@ public class SurfaceTexture {
      * Always call this method when you are done with SurfaceTexture. Failing
      * to do so may delay resource deallocation for a significant amount of
      * time.
-     *
-     * @see #isReleased()
      */
     public void release() {
         nativeRelease();
     }
 
     /**
-     * Returns true if the SurfaceTexture was released.
-     *
-     * @see #release()
+     * Returns true if the SurfaceTexture was released
+     * @hide
      */
     public boolean isReleased() {
         return nativeIsReleased();
@@ -383,7 +372,6 @@ public class SurfaceTexture {
      * This method is invoked from native code only.
      */
     @SuppressWarnings({"UnusedDeclaration"})
-    @UnsupportedAppUsage
     private static void postEventFromNative(WeakReference<SurfaceTexture> weakSelf) {
         SurfaceTexture st = weakSelf.get();
         if (st != null) {
@@ -411,9 +399,16 @@ public class SurfaceTexture {
     private native void nativeSetDefaultBufferSize(int width, int height);
     private native void nativeUpdateTexImage();
     private native void nativeReleaseTexImage();
-    @UnsupportedAppUsage
     private native int nativeDetachFromGLContext();
     private native int nativeAttachToGLContext(int texName);
+    private native int nativeGetQueuedCount();
     private native void nativeRelease();
     private native boolean nativeIsReleased();
+
+    /*
+     * We use a class initializer to allow the native code to cache some
+     * field offsets.
+     */
+    private static native void nativeClassInit();
+    static { nativeClassInit(); }
 }

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2015 The CyanogenMod Project
- * Copyright (C) 2017-2019 The LineageOS Project
+ * Copyright (C) 2017 The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,55 +20,28 @@ package com.android.systemui.qs.tiles;
 import android.content.Context;
 import android.content.Intent;
 import android.database.ContentObserver;
-import android.net.ConnectivityManager;
-import android.net.LinkAddress;
-import android.net.Network;
+import android.net.NetworkUtils;
 import android.net.Uri;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.os.UserHandle;
 import android.provider.Settings;
-import android.service.quicksettings.Tile;
 
-import com.android.systemui.Dependency;
-import com.android.systemui.plugins.ActivityStarter;
-import com.android.systemui.plugins.qs.QSTile.BooleanState;
-import com.android.systemui.qs.QSHost;
-import com.android.systemui.qs.tileimpl.QSTileImpl;
 import com.android.systemui.R;
-import com.android.systemui.statusbar.phone.UnlockMethodCache;
-import com.android.systemui.statusbar.policy.KeyguardMonitor;
+import com.android.systemui.qs.QSTile;
 
-import lineageos.providers.LineageSettings;
-import org.lineageos.internal.logging.LineageMetricsLogger;
-
-import java.net.Inet4Address;
-import java.net.Inet6Address;
 import java.net.InetAddress;
-import java.util.List;
 
-import javax.inject.Inject;
+import cyanogenmod.providers.CMSettings;
+import org.cyanogenmod.internal.logging.CMMetricsLogger;
 
 /** Quick settings tile: AdbOverNetwork **/
-public class AdbOverNetworkTile extends QSTileImpl<BooleanState> {
+public class AdbOverNetworkTile extends QSTile<QSTile.BooleanState> {
 
     private boolean mListening;
-    private final KeyguardMonitor mKeyguardMonitor;
-    private final KeyguardMonitorCallback mKeyguardCallback = new KeyguardMonitorCallback();
-    private final UnlockMethodCache mUnlockMethodCache;
-
-    private final ConnectivityManager mConnectivityManager;
-
-    private String mNetworkAddress;
 
     private static final Intent SETTINGS_DEVELOPMENT =
             new Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS);
-
-    @Inject
-    public AdbOverNetworkTile(QSHost host) {
-        super(host);
-        mKeyguardMonitor = Dependency.get(KeyguardMonitor.class);
-        mConnectivityManager = mContext.getSystemService(ConnectivityManager.class);
-        mUnlockMethodCache = UnlockMethodCache.getInstance(mHost.getContext());
-    }
 
     @Override
     public BooleanState newTileState() {
@@ -77,31 +50,41 @@ public class AdbOverNetworkTile extends QSTileImpl<BooleanState> {
 
     @Override
     protected void handleClick() {
-        if (mKeyguardMonitor.isSecure() && !mUnlockMethodCache.canSkipBouncer()) {
-            Dependency.get(ActivityStarter.class)
-                    .postQSRunnableDismissingKeyguard(this::toggleAction);
-        } else {
-            toggleAction();
-        }
+        CMSettings.Secure.putIntForUser(mContext.getContentResolver(),
+                CMSettings.Secure.ADB_PORT, getState().value ? -1 : 5555,
+                UserHandle.USER_CURRENT);
     }
 
     @Override
     public Intent getLongClickIntent() {
-        return SETTINGS_DEVELOPMENT;
+        return null;
+    }
+
+    @Override
+    protected void handleLongClick() {
+        mHost.startActivityDismissingKeyguard(SETTINGS_DEVELOPMENT);
     }
 
     @Override
     protected void handleUpdateState(BooleanState state, Object arg) {
-        state.value = isAdbEnabled() && isAdbNetworkEnabled();
-        state.icon = ResourceIcon.get(R.drawable.ic_qs_network_adb);
-        state.label = mContext.getString(R.string.quick_settings_network_adb_label);
+        state.value = isAdbNetworkEnabled();
         if (state.value) {
-            state.secondaryLabel = mNetworkAddress != null ? mNetworkAddress
-                    : mContext.getString(R.string.quick_settings_network_adb_no_network);
-            state.state = Tile.STATE_ACTIVE;
+            WifiManager wifiManager = (WifiManager) mContext.getSystemService(Context.WIFI_SERVICE);
+            WifiInfo wifiInfo = wifiManager.getConnectionInfo();
+
+            if (wifiInfo != null) {
+                // if wifiInfo is not null, set the label to "hostAddress"
+                InetAddress address = NetworkUtils.intToInetAddress(wifiInfo.getIpAddress());
+                state.label = address.getHostAddress();
+            } else {
+                //if wifiInfo is null, set the label without host address
+                state.label = mContext.getString(R.string.quick_settings_network_adb_label);
+            }
+            state.icon = ResourceIcon.get(R.drawable.ic_qs_network_adb_on);
         } else {
-            state.secondaryLabel = null;
-            state.state = canEnableAdbNetwork() ? Tile.STATE_INACTIVE : Tile.STATE_UNAVAILABLE;
+            // Otherwise set the disabled label and icon
+            state.label = mContext.getString(R.string.quick_settings_network_adb_label);
+            state.icon = ResourceIcon.get(R.drawable.ic_qs_network_adb_off);
         }
     }
 
@@ -112,7 +95,7 @@ public class AdbOverNetworkTile extends QSTileImpl<BooleanState> {
 
     @Override
     public int getMetricsCategory() {
-        return LineageMetricsLogger.TILE_ADB_OVER_NETWORK;
+        return CMMetricsLogger.TILE_ADB_OVER_NETWORK;
     }
 
     private boolean isAdbEnabled() {
@@ -121,27 +104,12 @@ public class AdbOverNetworkTile extends QSTileImpl<BooleanState> {
     }
 
     private boolean isAdbNetworkEnabled() {
-        return LineageSettings.Secure.getInt(mContext.getContentResolver(),
-                LineageSettings.Secure.ADB_PORT, 0) > 0;
+        return CMSettings.Secure.getInt(mContext.getContentResolver(),
+                CMSettings.Secure.ADB_PORT, 0) > 0;
     }
 
-    private boolean canEnableAdbNetwork() {
-        return isAdbEnabled() && isNetworkAvailable();
-    }
-
-    private boolean isNetworkAvailable() {
-        return mNetworkAddress != null;
-    }
-
-    private void toggleAction() {
-        final boolean active = getState().value;
-        // Always allow toggle off if currently on.
-        if (!active && !canEnableAdbNetwork()) {
-            return;
-        }
-        LineageSettings.Secure.putIntForUser(mContext.getContentResolver(),
-                LineageSettings.Secure.ADB_PORT, active ? -1 : 5555,
-                UserHandle.USER_CURRENT);
+    public AdbOverNetworkTile(Host host) {
+        super(host);
     }
 
     private ContentObserver mObserver = new ContentObserver(mHandler) {
@@ -152,59 +120,19 @@ public class AdbOverNetworkTile extends QSTileImpl<BooleanState> {
     };
 
     @Override
-    public void handleSetListening(boolean listening) {
+    public void setListening(boolean listening) {
         if (mListening != listening) {
             mListening = listening;
             if (listening) {
                 mContext.getContentResolver().registerContentObserver(
-                        LineageSettings.Secure.getUriFor(LineageSettings.Secure.ADB_PORT),
+                        CMSettings.Secure.getUriFor(CMSettings.Secure.ADB_PORT),
                         false, mObserver);
                 mContext.getContentResolver().registerContentObserver(
                         Settings.Global.getUriFor(Settings.Global.ADB_ENABLED),
                         false, mObserver);
-                mKeyguardMonitor.addCallback(mKeyguardCallback);
-                mConnectivityManager.registerDefaultNetworkCallback(mNetworkCallback);
             } else {
                 mContext.getContentResolver().unregisterContentObserver(mObserver);
-                mKeyguardMonitor.removeCallback(mKeyguardCallback);
-                mConnectivityManager.unregisterNetworkCallback(mNetworkCallback);
             }
         }
     }
-
-    private class KeyguardMonitorCallback implements KeyguardMonitor.Callback {
-        @Override
-        public void onKeyguardShowingChanged() {
-            refreshState();
-        }
-    }
-
-    private ConnectivityManager.NetworkCallback mNetworkCallback =
-            new ConnectivityManager.NetworkCallback() {
-        @Override
-        public void onAvailable(Network network) {
-            List<LinkAddress> linkAddresses =
-                    mConnectivityManager.getLinkProperties(network).getLinkAddresses();
-            // Determine local network address.
-            // Use first IPv4 address if available, otherwise use first IPv6.
-            String ipv4 = null, ipv6 = null;
-            for (LinkAddress la : linkAddresses) {
-                final InetAddress addr = la.getAddress();
-                if (ipv4 == null && addr instanceof Inet4Address) {
-                    ipv4 = addr.getHostAddress();
-                    break;
-                } else if (ipv6 == null && addr instanceof Inet6Address) {
-                    ipv6 = addr.getHostAddress();
-                }
-            }
-            mNetworkAddress = ipv4 != null ? ipv4 : ipv6;
-            refreshState();
-        }
-
-        @Override
-        public void onLost(Network network) {
-            mNetworkAddress = null;
-            refreshState();
-        }
-    };
 }

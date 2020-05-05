@@ -992,11 +992,6 @@ public final class ObjectAnimator extends ValueAnimator {
     }
 
     @Override
-    boolean isInitialized() {
-        return mInitialized;
-    }
-
-    @Override
     public ObjectAnimator clone() {
         final ObjectAnimator anim = (ObjectAnimator) super.clone();
         return anim;

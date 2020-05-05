@@ -21,38 +21,30 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.ConnectivityManager;
-import android.os.SystemProperties;
-import android.os.UserManager;
 import android.provider.Settings;
 import android.provider.Settings.Global;
-import android.service.quicksettings.Tile;
 import android.widget.Switch;
 
 import com.android.internal.logging.MetricsLogger;
-import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
-import com.android.internal.telephony.TelephonyIntents;
-import com.android.internal.telephony.TelephonyProperties;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.systemui.R;
-import com.android.systemui.plugins.ActivityStarter;
-import com.android.systemui.plugins.qs.QSTile.BooleanState;
 import com.android.systemui.qs.GlobalSetting;
-import com.android.systemui.qs.QSHost;
-import com.android.systemui.qs.tileimpl.QSTileImpl;
-
-import javax.inject.Inject;
+import com.android.systemui.qs.QSTile;
 
 /** Quick settings tile: Airplane mode **/
-public class AirplaneModeTile extends QSTileImpl<BooleanState> {
-    private final Icon mIcon = ResourceIcon.get(com.android.internal.R.drawable.ic_qs_airplane);
+public class AirplaneModeTile extends QSTile<QSTile.BooleanState> {
+    private final AnimationIcon mEnable =
+            new AnimationIcon(R.drawable.ic_signal_airplane_enable_animation,
+                    R.drawable.ic_signal_airplane_disable);
+    private final AnimationIcon mDisable =
+            new AnimationIcon(R.drawable.ic_signal_airplane_disable_animation,
+                    R.drawable.ic_signal_airplane_enable);
     private final GlobalSetting mSetting;
-    private final ActivityStarter mActivityStarter;
 
     private boolean mListening;
 
-    @Inject
-    public AirplaneModeTile(QSHost host, ActivityStarter activityStarter) {
+    public AirplaneModeTile(Host host) {
         super(host);
-        mActivityStarter = activityStarter;
 
         mSetting = new GlobalSetting(mContext, mHandler, Global.AIRPLANE_MODE_ON) {
             @Override
@@ -69,15 +61,8 @@ public class AirplaneModeTile extends QSTileImpl<BooleanState> {
 
     @Override
     public void handleClick() {
-        boolean airplaneModeEnabled = mState.value;
-        MetricsLogger.action(mContext, getMetricsCategory(), !airplaneModeEnabled);
-        if (!airplaneModeEnabled && Boolean.parseBoolean(
-                SystemProperties.get(TelephonyProperties.PROPERTY_INECM_MODE))) {
-            mActivityStarter.postStartActivityDismissingKeyguard(
-                    new Intent(TelephonyIntents.ACTION_SHOW_NOTICE_ECM_BLOCK_OTHERS), 0);
-            return;
-        }
-        setEnabled(!airplaneModeEnabled);
+        MetricsLogger.action(mContext, getMetricsCategory(), !mState.value);
+        setEnabled(!mState.value);
     }
 
     private void setEnabled(boolean enabled) {
@@ -98,19 +83,18 @@ public class AirplaneModeTile extends QSTileImpl<BooleanState> {
 
     @Override
     protected void handleUpdateState(BooleanState state, Object arg) {
-        checkIfRestrictionEnforcedByAdminOnly(state, UserManager.DISALLOW_AIRPLANE_MODE);
         final int value = arg instanceof Integer ? (Integer)arg : mSetting.getValue();
         final boolean airplaneMode = value != 0;
         state.value = airplaneMode;
         state.label = mContext.getString(R.string.airplane_mode);
-        state.icon = mIcon;
-        if (state.slash == null) {
-            state.slash = new SlashState();
+        if (airplaneMode) {
+            state.icon = mEnable;
+        } else {
+            state.icon = mDisable;
         }
-        state.slash.isSlashed = !airplaneMode;
-        state.state = airplaneMode ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
         state.contentDescription = state.label;
-        state.expandedAccessibilityClassName = Switch.class.getName();
+        state.minimalAccessibilityClassName = state.expandedAccessibilityClassName
+                = Switch.class.getName();
     }
 
     @Override
@@ -127,7 +111,7 @@ public class AirplaneModeTile extends QSTileImpl<BooleanState> {
         }
     }
 
-    public void handleSetListening(boolean listening) {
+    public void setListening(boolean listening) {
         if (mListening == listening) return;
         mListening = listening;
         if (listening) {

@@ -1,4 +1,5 @@
-/*
+/* //device/java/android/android/app/INotificationManager.aidl
+**
 ** Copyright 2009, The Android Open Source Project
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,31 +29,26 @@ import android.view.IWindow;
 
 /**
  * Interface implemented by the AccessibilityManagerService called by
- * the AccessibilityManagers.
+ * the AccessibilityMasngers.
  *
  * @hide
  */
 interface IAccessibilityManager {
 
-    oneway void interrupt(int userId);
+    int addClient(IAccessibilityManagerClient client, int userId);
 
-    oneway void sendAccessibilityEvent(in AccessibilityEvent uiEvent, int userId);
-
-    long addClient(IAccessibilityManagerClient client, int userId);
+    boolean sendAccessibilityEvent(in AccessibilityEvent uiEvent, int userId);
 
     List<AccessibilityServiceInfo> getInstalledAccessibilityServiceList(int userId);
 
-    @UnsupportedAppUsage
     List<AccessibilityServiceInfo> getEnabledAccessibilityServiceList(int feedbackType, int userId);
 
+    void interrupt(int userId);
+
     int addAccessibilityInteractionConnection(IWindow windowToken,
-            in IAccessibilityInteractionConnection connection,
-            String packageName, int userId);
+        in IAccessibilityInteractionConnection connection, int userId);
 
     void removeAccessibilityInteractionConnection(IWindow windowToken);
-
-    void setPictureInPictureActionReplacingConnection(
-            in IAccessibilityInteractionConnection connection);
 
     void registerUiTestAutomationService(IBinder owner, IAccessibilityServiceClient client,
         in AccessibilityServiceInfo info, int flags);
@@ -64,21 +60,7 @@ interface IAccessibilityManager {
 
     IBinder getWindowToken(int windowId, int userId);
 
-    void notifyAccessibilityButtonClicked(int displayId);
+    void enableAccessibilityService(in ComponentName service, int userId);
 
-    void notifyAccessibilityButtonVisibilityChanged(boolean available);
-
-    // Requires Manifest.permission.MANAGE_ACCESSIBILITY
-    void performAccessibilityShortcut();
-
-    // Requires Manifest.permission.MANAGE_ACCESSIBILITY
-    String getAccessibilityShortcutService();
-
-    // System process only
-    boolean sendFingerprintGesture(int gestureKeyCode);
-
-    // System process only
-    int getAccessibilityWindowId(IBinder windowToken);
-
-    long getRecommendedTimeoutMillis();
+    void disableAccessibilityService(in ComponentName service, int userId);
 }

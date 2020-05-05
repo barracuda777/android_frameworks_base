@@ -18,23 +18,19 @@ package android.database;
 
 import static android.database.DatabaseUtils.InsertHelper.TABLE_INFO_PRAGMA_COLUMNNAME_INDEX;
 import static android.database.DatabaseUtils.InsertHelper.TABLE_INFO_PRAGMA_DEFAULT_INDEX;
-
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
-import android.database.sqlite.SQLiteDebug;
 import android.database.sqlite.SQLiteException;
+import android.os.Handler;
 import android.os.Parcel;
-import android.support.test.uiautomator.UiDevice;
 import android.test.AndroidTestCase;
 import android.test.PerformanceTestCase;
+import android.test.suitebuilder.annotation.LargeTest;
+import android.test.suitebuilder.annotation.MediumTest;
+import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Log;
 import android.util.Pair;
-
-import androidx.test.InstrumentationRegistry;
-import androidx.test.filters.LargeTest;
-import androidx.test.filters.MediumTest;
-import androidx.test.filters.SmallTest;
 
 import junit.framework.Assert;
 
@@ -44,9 +40,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
-/**
- * Usage:  bit FrameworksCoreTests:android.database.DatabaseGeneralTest
- */
 public class DatabaseGeneralTest extends AndroidTestCase implements PerformanceTestCase {
     private static final String TAG = "DatabaseGeneralTest";
 
@@ -75,7 +68,7 @@ public class DatabaseGeneralTest extends AndroidTestCase implements PerformanceT
     @Override
     protected void tearDown() throws Exception {
         mDatabase.close();
-        SQLiteDatabase.deleteDatabase(mDatabaseFile);
+        mDatabaseFile.delete();
         super.tearDown();
     }
 
@@ -268,7 +261,7 @@ public class DatabaseGeneralTest extends AndroidTestCase implements PerformanceT
      * @throws Exception
      */
     @SmallTest
-    public void testPhoneNumbersEqualInternational() throws Exception {
+    public void testPhoneNumbersEqualInternationl() throws Exception {
         assertPhoneNumberEqual("1", "1");
         assertPhoneNumberEqual("123123", "123123");
         assertPhoneNumberNotEqual("123123", "923123");
@@ -288,16 +281,6 @@ public class DatabaseGeneralTest extends AndroidTestCase implements PerformanceT
 
         // French trunk digit
         assertPhoneNumberEqual("+33123456789", "0123456789");
-
-        // Hungarian two digit trunk (currently only works for loose comparison)
-        assertPhoneNumberEqual("+36 1 234 5678", "06 1234-5678", false);
-
-        // Mexican two digit trunk (currently only works for loose comparison)
-        assertPhoneNumberEqual("+52 55 1234 5678", "01 55 1234 5678", false);
-
-        // Mongolian two digit trunk (currently only works for loose comparison)
-        assertPhoneNumberEqual("+976 1 123 4567", "01 1 23 4567", false);
-        assertPhoneNumberEqual("+976 2 234 5678", "02 2 34 5678", false);
 
         // Trunk digit for city codes in the Netherlands
         assertPhoneNumberEqual("+31771234567", "0771234567");
@@ -328,22 +311,9 @@ public class DatabaseGeneralTest extends AndroidTestCase implements PerformanceT
         assertPhoneNumberEqual("008001231234", "8001231234", false);
         assertPhoneNumberNotEqual("008001231234", "8001231234", true);
 
-        // Confirm that the bug found before does not re-appear
-        assertPhoneNumberNotEqual("080-1234-5678", "+819012345678");
-
-        // Wrong prefix for Japan (currently only works for loose comparison)
-        assertPhoneNumberNotEqual("290-1234-5678", "+819012345678", false);
-        assertPhoneNumberNotEqual("+819012345678", "290-1234-5678", false);
-
-        // Wrong prefix for USA
-        assertPhoneNumberNotEqual("550-450-3605", "+14504503605");
-        assertPhoneNumberNotEqual("550-450-3605", "+15404503605");
-        assertPhoneNumberNotEqual("550-450-3605", "+15514503605");
-        assertPhoneNumberNotEqual("5504503605", "+14504503605");
-        assertPhoneNumberNotEqual("+14504503605", "550-450-3605");
-        assertPhoneNumberNotEqual("+15404503605", "550-450-3605");
-        assertPhoneNumberNotEqual("+15514503605", "550-450-3605");
-        assertPhoneNumberNotEqual("+14504503605", "5504503605");
+        // Confirm that the bug found before does not re-appear in the strict compalation
+        assertPhoneNumberEqual("080-1234-5678", "+819012345678", false);
+        assertPhoneNumberNotEqual("080-1234-5678", "+819012345678", true);
     }
 
     @MediumTest
@@ -1074,52 +1044,6 @@ public class DatabaseGeneralTest extends AndroidTestCase implements PerformanceT
         }
     }
 
-    @SmallTest
-    public void testOpenDatabaseLookasideConfig() {
-        // First check that lookaside is active
-        verifyLookasideStats(false);
-        // Reopen test db with lookaside disabled
-        mDatabase.close();
-        SQLiteDatabase.OpenParams params = new SQLiteDatabase.OpenParams.Builder()
-                .setLookasideConfig(0, 0).build();
-        mDatabase = SQLiteDatabase.openDatabase(mDatabaseFile, params);
-        verifyLookasideStats(true);
-    }
-
-    @SmallTest
-    public void testOpenParamsSetLookasideConfigValidation() {
-        try {
-            SQLiteDatabase.OpenParams params = new SQLiteDatabase.OpenParams.Builder()
-                    .setLookasideConfig(-1, 0).build();
-            fail("Negative slot size should be rejected");
-        } catch (IllegalArgumentException expected) {
-        }
-        try {
-            SQLiteDatabase.OpenParams params = new SQLiteDatabase.OpenParams.Builder()
-                    .setLookasideConfig(0, -10).build();
-            fail("Negative slot count should be rejected");
-        } catch (IllegalArgumentException expected) {
-        }
-    }
-
-    void verifyLookasideStats(boolean expectDisabled) {
-        boolean dbStatFound = false;
-        SQLiteDebug.PagerStats info = SQLiteDebug.getDatabaseInfo();
-        for (SQLiteDebug.DbStats dbStat : info.dbStats) {
-            if (dbStat.dbName.endsWith(mDatabaseFile.getName())) {
-                dbStatFound = true;
-                Log.i(TAG, "Lookaside for " + dbStat.dbName + " " + dbStat.lookaside);
-                if (expectDisabled) {
-                    assertTrue("lookaside slots count should be zero", dbStat.lookaside == 0);
-                } else {
-                    assertTrue("lookaside slots count should be greater than zero",
-                            dbStat.lookaside > 0);
-                }
-            }
-        }
-        assertTrue("No dbstat found for " + mDatabaseFile.getName(), dbStatFound);
-    }
-
     @LargeTest
     public void testDefaultDatabaseErrorHandler() {
         DefaultDatabaseErrorHandler errorHandler = new DefaultDatabaseErrorHandler();
@@ -1209,55 +1133,6 @@ public class DatabaseGeneralTest extends AndroidTestCase implements PerformanceT
             }
         } catch (Exception e) {
             fail("unexpected");
-        }
-    }
-
-    @MediumTest
-    public void testCloseIdleConnection() throws Exception {
-        mDatabase.close();
-        SQLiteDatabase.OpenParams params = new SQLiteDatabase.OpenParams.Builder()
-                .setIdleConnectionTimeout(1000).build();
-        mDatabase = SQLiteDatabase.openDatabase(mDatabaseFile, params);
-        // Wait a bit and check that connection is still open
-        Thread.sleep(100);
-        String output = executeShellCommand("dumpsys dbinfo " + getContext().getPackageName());
-        assertTrue("Connection #0 should be open. Output: " + output,
-                output.contains("Connection #0:"));
-
-        // Now cause idle timeout and check that connection is closed
-        Thread.sleep(1000);
-        output = executeShellCommand("dumpsys dbinfo " + getContext().getPackageName());
-        assertFalse("Connection #0 should be closed. Output: " + output,
-                output.contains("Connection #0:"));
-    }
-
-    @SmallTest
-    public void testSetIdleConnectionTimeoutValidation() throws Exception {
-        try {
-            new SQLiteDatabase.OpenParams.Builder().setIdleConnectionTimeout(-1).build();
-            fail("Negative timeout should be rejected");
-        } catch (IllegalArgumentException expected) {
-        }
-    }
-
-    private String executeShellCommand(String cmd) throws Exception {
-        return UiDevice.getInstance(
-                InstrumentationRegistry.getInstrumentation()).executeShellCommand(cmd);
-    }
-
-    @SmallTest
-    public void testSavepointRollbacks() {
-        try (SQLiteDatabase db = SQLiteDatabase.openOrCreateDatabase(":memory:", null)) {
-            db.execSQL("drop table if exists data");
-            db.execSQL("create table if not exists data (id INTEGER PRIMARY KEY, val TEXT)");
-            db.execSQL("begin deferred transaction");
-            db.execSQL("insert into data (val) values('row 1')");
-            db.execSQL("savepoint foo");
-            db.execSQL("insert into data (val) values('row 2')");
-            db.execSQL("rollback to foo");
-            db.execSQL("commit transaction");
-            long rowCount = DatabaseUtils.longForQuery(db, "select count(*) from data", null);
-            assertEquals(1, rowCount);
         }
     }
 }

@@ -16,13 +16,13 @@
 
 package android.database;
 
+import android.test.suitebuilder.annotation.SmallTest;
+import android.database.CursorWindow;
 import android.test.PerformanceTestCase;
 
-import androidx.test.filters.SmallTest;
+import java.util.Arrays;
 
 import junit.framework.TestCase;
-
-import java.util.Arrays;
 
 public class CursorWindowTest extends TestCase implements PerformanceTestCase {
     public boolean isPerformanceOnly() {

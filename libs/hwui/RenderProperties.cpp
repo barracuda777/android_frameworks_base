@@ -24,6 +24,7 @@
 #include <SkPathOps.h>
 
 #include "Matrix.h"
+#include "OpenGLRenderer.h"
 #include "hwui/Canvas.h"
 #include "utils/MathUtils.h"
 
@@ -44,15 +45,15 @@ void LayerProperties::reset() {
 }
 
 bool LayerProperties::setColorFilter(SkColorFilter* filter) {
-    if (mColorFilter.get() == filter) return false;
-    mColorFilter = sk_ref_sp(filter);
-    return true;
+   if (mColorFilter == filter) return false;
+   SkRefCnt_SafeAssign(mColorFilter, filter);
+   return true;
 }
 
 bool LayerProperties::setFromPaint(const SkPaint* paint) {
     bool changed = false;
     changed |= setAlpha(static_cast<uint8_t>(PaintUtils::getAlphaDirect(paint)));
-    changed |= setXferMode(PaintUtils::getBlendModeDirect(paint));
+    changed |= setXferMode(PaintUtils::getXfermodeDirect(paint));
     changed |= setColorFilter(paint ? paint->getColorFilter() : nullptr);
     return changed;
 }
@@ -62,17 +63,22 @@ LayerProperties& LayerProperties::operator=(const LayerProperties& other) {
     setOpaque(other.opaque());
     setAlpha(other.alpha());
     setXferMode(other.xferMode());
-    setColorFilter(other.getColorFilter());
+    setColorFilter(other.colorFilter());
     return *this;
 }
 
-RenderProperties::ComputedFields::ComputedFields() : mTransformMatrix(nullptr) {}
+RenderProperties::ComputedFields::ComputedFields()
+        : mTransformMatrix(nullptr) {
+}
 
 RenderProperties::ComputedFields::~ComputedFields() {
     delete mTransformMatrix;
 }
 
-RenderProperties::RenderProperties() : mStaticMatrix(nullptr), mAnimationMatrix(nullptr) {}
+RenderProperties::RenderProperties()
+        : mStaticMatrix(nullptr)
+        , mAnimationMatrix(nullptr) {
+}
 
 RenderProperties::~RenderProperties() {
     delete mStaticMatrix;
@@ -94,84 +100,76 @@ RenderProperties& RenderProperties::operator=(const RenderProperties& other) {
     return *this;
 }
 
-static void dumpMatrix(std::ostream& output, std::string& indent, const char* label,
-                       SkMatrix* matrix) {
-    if (matrix) {
-        output << indent << "(" << label << " " << matrix << ": ";
-        output << std::fixed << std::setprecision(2);
-        output << "[" << matrix->get(0) << " " << matrix->get(1) << " " << matrix->get(2) << "]";
-        output << " [" << matrix->get(3) << " " << matrix->get(4) << " " << matrix->get(5) << "]";
-        output << " [" << matrix->get(6) << " " << matrix->get(7) << " " << matrix->get(8) << "]";
-        output << ")" << std::endl;
-    }
-}
-
-void RenderProperties::debugOutputProperties(std::ostream& output, const int level) const {
-    auto indent = std::string(level * 2, ' ');
+void RenderProperties::debugOutputProperties(const int level) const {
     if (mPrimitiveFields.mLeft != 0 || mPrimitiveFields.mTop != 0) {
-        output << indent << "(Translate (left, top) " << mPrimitiveFields.mLeft << ", "
-               << mPrimitiveFields.mTop << ")" << std::endl;
+        ALOGD("%*s(Translate (left, top) %d, %d)", level * 2, "",
+                mPrimitiveFields.mLeft, mPrimitiveFields.mTop);
     }
-    dumpMatrix(output, indent, "ConcatMatrix (static)", mStaticMatrix);
-    dumpMatrix(output, indent, "ConcatMatrix (animation)", mAnimationMatrix);
-
-    output << std::fixed << std::setprecision(2);
+    if (mStaticMatrix) {
+        ALOGD("%*s(ConcatMatrix (static) %p: " SK_MATRIX_STRING ")",
+                level * 2, "", mStaticMatrix, SK_MATRIX_ARGS(mStaticMatrix));
+    }
+    if (mAnimationMatrix) {
+        ALOGD("%*s(ConcatMatrix (animation) %p: " SK_MATRIX_STRING ")",
+                level * 2, "", mAnimationMatrix, SK_MATRIX_ARGS(mAnimationMatrix));
+    }
     if (hasTransformMatrix()) {
         if (isTransformTranslateOnly()) {
-            output << indent << "(Translate " << getTranslationX() << ", " << getTranslationY()
-                   << ", " << getZ() << ")" << std::endl;
+            ALOGD("%*s(Translate %.2f, %.2f, %.2f)",
+                    level * 2, "", getTranslationX(), getTranslationY(), getZ());
         } else {
-            dumpMatrix(output, indent, "ConcatMatrix ", mComputedFields.mTransformMatrix);
+            ALOGD("%*s(ConcatMatrix %p: " SK_MATRIX_STRING ")",
+                    level * 2, "", mComputedFields.mTransformMatrix, SK_MATRIX_ARGS(mComputedFields.mTransformMatrix));
         }
     }
 
     const bool isLayer = effectiveLayerType() != LayerType::None;
     int clipFlags = getClippingFlags();
-    if (mPrimitiveFields.mAlpha < 1 && !MathUtils::isZero(mPrimitiveFields.mAlpha)) {
+    if (mPrimitiveFields.mAlpha < 1
+            && !MathUtils::isZero(mPrimitiveFields.mAlpha)) {
         if (isLayer) {
-            clipFlags &= ~CLIP_TO_BOUNDS;  // bounds clipping done by layer
+            clipFlags &= ~CLIP_TO_BOUNDS; // bounds clipping done by layer
         }
 
         if (CC_LIKELY(isLayer || !getHasOverlappingRendering())) {
             // simply scale rendering content's alpha
-            output << indent << "(ScaleAlpha " << mPrimitiveFields.mAlpha << ")" << std::endl;
+            ALOGD("%*s(ScaleAlpha %.2f)", level * 2, "", mPrimitiveFields.mAlpha);
         } else {
             // savelayeralpha to create an offscreen buffer to apply alpha
             Rect layerBounds(0, 0, getWidth(), getHeight());
             if (clipFlags) {
                 getClippingRectForFlags(clipFlags, &layerBounds);
-                clipFlags = 0;  // all clipping done by savelayer
+                clipFlags = 0; // all clipping done by savelayer
             }
-            output << indent << "(SaveLayerAlpha " << (int)layerBounds.left << ", "
-                   << (int)layerBounds.top << ", " << (int)layerBounds.right << ", "
-                   << (int)layerBounds.bottom << ", " << (int)(mPrimitiveFields.mAlpha * 255)
-                   << ", 0x" << std::hex << (SaveFlags::HasAlphaLayer | SaveFlags::ClipToLayer)
-                   << ")" << std::dec << std::endl;
+            ALOGD("%*s(SaveLayerAlpha %d, %d, %d, %d, %d, 0x%x)", level * 2, "",
+                    (int)layerBounds.left, (int)layerBounds.top,
+                    (int)layerBounds.right, (int)layerBounds.bottom,
+                    (int)(mPrimitiveFields.mAlpha * 255),
+                    SaveFlags::HasAlphaLayer | SaveFlags::ClipToLayer);
         }
     }
 
     if (clipFlags) {
         Rect clipRect;
         getClippingRectForFlags(clipFlags, &clipRect);
-        output << indent << "(ClipRect " << (int)clipRect.left << ", " << (int)clipRect.top << ", "
-               << (int)clipRect.right << ", " << (int)clipRect.bottom << ")" << std::endl;
+        ALOGD("%*s(ClipRect %d, %d, %d, %d)", level * 2, "",
+                (int)clipRect.left, (int)clipRect.top, (int)clipRect.right, (int)clipRect.bottom);
     }
 
     if (getRevealClip().willClip()) {
         Rect bounds;
         getRevealClip().getBounds(&bounds);
-        output << indent << "(Clip to reveal clip with bounds " << bounds.left << ", " << bounds.top
-               << ", " << bounds.right << ", " << bounds.bottom << ")" << std::endl;
+        ALOGD("%*s(Clip to reveal clip with bounds %.2f %.2f %.2f %.2f)", level * 2, "",
+                RECT_ARGS(bounds));
     }
 
     auto& outline = mPrimitiveFields.mOutline;
     if (outline.getShouldClip()) {
         if (outline.isEmpty()) {
-            output << indent << "(Clip to empty outline)";
+            ALOGD("%*s(Clip to empty outline)", level * 2, "");
         } else if (outline.willClip()) {
-            const Rect& bounds = outline.getBounds();
-            output << indent << "(Clip to outline with bounds " << bounds.left << ", " << bounds.top
-                   << ", " << bounds.right << ", " << bounds.bottom << ")" << std::endl;
+            ALOGD("%*s(Clip to outline with bounds %.2f %.2f %.2f %.2f)", level * 2, "",
+                    RECT_ARGS(outline.getBounds()));
         }
     }
 }
@@ -202,7 +200,7 @@ void RenderProperties::updateMatrix() {
             mComputedFields.mTransformCamera.getMatrix(&transform3D);
             transform3D.preTranslate(-getPivotX(), -getPivotY());
             transform3D.postTranslate(getPivotX() + getTranslationX(),
-                                      getPivotY() + getTranslationY());
+                    getPivotY() + getTranslationY());
             transform->postConcat(transform3D);
             mComputedFields.mTransformCamera.restore();
         }

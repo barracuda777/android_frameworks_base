@@ -16,11 +16,13 @@
 
 package android.view;
 
-import android.app.Activity;
-import android.os.Bundle;
-import android.widget.LinearLayout;
-
 import com.android.frameworks.coretests.R;
+
+import android.os.Bundle;
+import android.app.Activity;
+import android.widget.LinearLayout;
+import android.view.ViewGroup;
+import android.view.LayoutInflater;
 
 /**
  * Exercise <merge /> tag in XML files.

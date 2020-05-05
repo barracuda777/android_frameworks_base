@@ -17,7 +17,7 @@
 package android.app.activity;
 
 import android.app.Activity;
-import android.app.ActivityManager;
+import android.app.ActivityManagerNative;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -27,12 +27,12 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.UserHandle;
+import android.test.FlakyTest;
+import android.test.suitebuilder.annotation.Suppress;
 import android.util.Log;
 
-import androidx.test.filters.FlakyTest;
-import androidx.test.filters.LargeTest;
+import java.util.Arrays;
 
-@LargeTest
 public class BroadcastTest extends ActivityTestsBase {
     public static final int BROADCAST_TIMEOUT = 5 * 1000;
 
@@ -230,7 +230,7 @@ public class BroadcastTest extends ActivityTestsBase {
     };
 
     // Mark flaky until http://b/issue?id=1191607 is resolved.
-    @FlakyTest
+    @FlakyTest(tolerance=2)
     public void testRegistered() throws Exception {
         runLaunchpad(LaunchpadActivity.BROADCAST_REGISTERED);
     }
@@ -247,12 +247,12 @@ public class BroadcastTest extends ActivityTestsBase {
         runLaunchpad(LaunchpadActivity.BROADCAST_ABORT);
     }
 
-    @FlakyTest
+    @FlakyTest(tolerance=2)
     public void testAll() throws Exception {
         runLaunchpad(LaunchpadActivity.BROADCAST_ALL);
     }
 
-    @FlakyTest
+    @FlakyTest(tolerance=2)
     public void testMulti() throws Exception {
         runLaunchpad(LaunchpadActivity.BROADCAST_MULTI);
     }
@@ -304,10 +304,10 @@ public class BroadcastTest extends ActivityTestsBase {
     public void testSetSticky() throws Exception {
         Intent intent = new Intent(LaunchpadActivity.BROADCAST_STICKY1, null);
         intent.putExtra("test", LaunchpadActivity.DATA_1);
-        ActivityManager.getService().unbroadcastIntent(null, intent,
+        ActivityManagerNative.getDefault().unbroadcastIntent(null, intent,
                 UserHandle.myUserId());
 
-        ActivityManager.broadcastStickyIntent(intent, UserHandle.myUserId());
+        ActivityManagerNative.broadcastStickyIntent(intent, null, UserHandle.myUserId());
         addIntermediate("finished-broadcast");
 
         IntentFilter filter = new IntentFilter(LaunchpadActivity.BROADCAST_STICKY1);
@@ -319,9 +319,9 @@ public class BroadcastTest extends ActivityTestsBase {
     public void testClearSticky() throws Exception {
         Intent intent = new Intent(LaunchpadActivity.BROADCAST_STICKY1, null);
         intent.putExtra("test", LaunchpadActivity.DATA_1);
-        ActivityManager.broadcastStickyIntent(intent, UserHandle.myUserId());
+        ActivityManagerNative.broadcastStickyIntent(intent, null, UserHandle.myUserId());
 
-        ActivityManager.getService().unbroadcastIntent(
+        ActivityManagerNative.getDefault().unbroadcastIntent(
                 null, new Intent(LaunchpadActivity.BROADCAST_STICKY1, null),
                 UserHandle.myUserId());
         addIntermediate("finished-unbroadcast");
@@ -334,10 +334,10 @@ public class BroadcastTest extends ActivityTestsBase {
     public void testReplaceSticky() throws Exception {
         Intent intent = new Intent(LaunchpadActivity.BROADCAST_STICKY1, null);
         intent.putExtra("test", LaunchpadActivity.DATA_1);
-        ActivityManager.broadcastStickyIntent(intent, UserHandle.myUserId());
+        ActivityManagerNative.broadcastStickyIntent(intent, null, UserHandle.myUserId());
         intent.putExtra("test", LaunchpadActivity.DATA_2);
 
-        ActivityManager.broadcastStickyIntent(intent, UserHandle.myUserId());
+        ActivityManagerNative.broadcastStickyIntent(intent, null, UserHandle.myUserId());
         addIntermediate("finished-broadcast");
 
         IntentFilter filter = new IntentFilter(LaunchpadActivity.BROADCAST_STICKY1);
@@ -347,24 +347,24 @@ public class BroadcastTest extends ActivityTestsBase {
     }
 
     // Marking flaky until http://b/issue?id=1191337 is resolved
-    @FlakyTest
+    @FlakyTest(tolerance=2)
     public void testReceiveSticky() throws Exception {
         Intent intent = new Intent(LaunchpadActivity.BROADCAST_STICKY1, null);
         intent.putExtra("test", LaunchpadActivity.DATA_1);
-        ActivityManager.broadcastStickyIntent(intent, UserHandle.myUserId());
+        ActivityManagerNative.broadcastStickyIntent(intent, null, UserHandle.myUserId());
 
         runLaunchpad(LaunchpadActivity.BROADCAST_STICKY1);
     }
 
     // Marking flaky until http://b/issue?id=1191337 is resolved
-    @FlakyTest
+    @FlakyTest(tolerance=2)
     public void testReceive2Sticky() throws Exception {
         Intent intent = new Intent(LaunchpadActivity.BROADCAST_STICKY1, null);
         intent.putExtra("test", LaunchpadActivity.DATA_1);
-        ActivityManager.broadcastStickyIntent(intent, UserHandle.myUserId());
+        ActivityManagerNative.broadcastStickyIntent(intent, null, UserHandle.myUserId());
         intent = new Intent(LaunchpadActivity.BROADCAST_STICKY2, null);
         intent.putExtra("test", LaunchpadActivity.DATA_2);
-        ActivityManager.broadcastStickyIntent(intent, UserHandle.myUserId());
+        ActivityManagerNative.broadcastStickyIntent(intent, null, UserHandle.myUserId());
 
         runLaunchpad(LaunchpadActivity.BROADCAST_STICKY2);
     }

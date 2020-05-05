@@ -27,11 +27,8 @@ import android.content.res.TypedArray;
 import android.content.res.XmlResourceParser;
 import android.os.Bundle;
 import android.test.AndroidTestCase;
-
-import androidx.test.filters.SmallTest;
-
+import android.test.suitebuilder.annotation.SmallTest;
 import com.android.frameworks.coretests.R;
-
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 

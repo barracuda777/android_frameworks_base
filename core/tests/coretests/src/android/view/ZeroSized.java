@@ -16,10 +16,10 @@
 
 package android.view;
 
-import android.app.Activity;
-import android.os.Bundle;
-
 import com.android.frameworks.coretests.R;
+
+import android.os.Bundle;
+import android.app.Activity;
 
 /**
  * This activity contains Views with various widths and heights. The goal is to exercise the

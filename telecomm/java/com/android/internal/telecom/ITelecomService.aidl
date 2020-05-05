@@ -45,7 +45,7 @@ interface ITelecomService {
     /**
      * @see TelecomServiceImpl#getUserSelectedOutgoingPhoneAccount
      */
-    PhoneAccountHandle getUserSelectedOutgoingPhoneAccount(String callingPackage);
+    PhoneAccountHandle getUserSelectedOutgoingPhoneAccount();
 
     /**
      * @see TelecomServiceImpl#setUserSelectedOutgoingPhoneAccount
@@ -57,11 +57,6 @@ interface ITelecomService {
      */
     List<PhoneAccountHandle> getCallCapablePhoneAccounts(
             boolean includeDisabledAccounts, String callingPackage);
-
-    /**
-     * @see TelecomServiceImpl#getSelfManagedPhoneAccounts
-     */
-    List<PhoneAccountHandle> getSelfManagedPhoneAccounts(String callingPackage);
 
     /**
      * @see TelecomManager#getPhoneAccountsSupportingScheme
@@ -97,7 +92,7 @@ interface ITelecomService {
     /**
      * @see TelecomServiceImpl#getSimCallManager
      */
-    PhoneAccountHandle getSimCallManager(int subId);
+    PhoneAccountHandle getSimCallManager();
 
     /**
      * @see TelecomServiceImpl#getSimCallManagerForUser
@@ -170,11 +165,6 @@ interface ITelecomService {
     boolean isInCall(String callingPackage);
 
     /**
-     * @see TelecomServiceImpl#isInManagedCall
-     */
-    boolean isInManagedCall(String callingPackage);
-
-    /**
      * @see TelecomServiceImpl#isRinging
      */
     boolean isRinging(String callingPackage);
@@ -182,23 +172,22 @@ interface ITelecomService {
     /**
      * @see TelecomServiceImpl#getCallState
      */
-    @UnsupportedAppUsage
     int getCallState();
 
     /**
      * @see TelecomServiceImpl#endCall
      */
-    boolean endCall(String callingPackage);
+    boolean endCall();
 
     /**
      * @see TelecomServiceImpl#acceptRingingCall
      */
-    void acceptRingingCall(String callingPackage);
+    void acceptRingingCall();
 
     /**
      * @see TelecomServiceImpl#acceptRingingCallWithVideoState(int)
      */
-    void acceptRingingCallWithVideoState(String callingPackage, int videoState);
+    void acceptRingingCallWithVideoState(int videoState);
 
     /**
      * @see TelecomServiceImpl#cancelMissedCallsNotification
@@ -260,50 +249,4 @@ interface ITelecomService {
     * @see TelecomServiceImpl#createManageBlockedNumbersIntent
     **/
     Intent createManageBlockedNumbersIntent();
-
-    /**
-     * @see TelecomServiceImpl#isIncomingCallPermitted
-     */
-    boolean isIncomingCallPermitted(in PhoneAccountHandle phoneAccountHandle);
-
-    /**
-     * @see TelecomServiceImpl#isOutgoingCallPermitted
-     */
-    boolean isOutgoingCallPermitted(in PhoneAccountHandle phoneAccountHandle);
-
-    /**
-     * @see TelecomServiceImpl#waitOnHandler
-     */
-    void waitOnHandlers();
-
-    /**
-     * @see TelecomServiceImpl#acceptHandover
-     */
-    void acceptHandover(in Uri srcAddr, int videoState, in PhoneAccountHandle destAcct);
-
-    /**
-     * @see TelecomServiceImpl#isInEmergencyCall
-     */
-    boolean isInEmergencyCall();
-
-    /**
-     * @see TelecomServiceImpl#handleCallIntent
-     */
-    void handleCallIntent(in Intent intent);
-
-    void setTestDefaultCallRedirectionApp(String packageName);
-
-    void setTestPhoneAcctSuggestionComponent(String flattenedComponentName);
-
-    void setTestDefaultCallScreeningApp(String packageName);
-
-    void addOrRemoveTestCallCompanionApp(String packageName, boolean isAdded);
-
-    void setTestAutoModeApp(String packageName);
-
-    /**
-     * @see TelecomServiceImpl#setTestDefaultDialer
-     */
-    void setTestDefaultDialer(in String packageName);
-
 }

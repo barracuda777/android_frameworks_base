@@ -29,8 +29,8 @@
 #include <string>
 
 #include "jni.h"
-#include <nativehelper/JNIHelp.h>
-#include <nativehelper/ScopedPrimitiveArray.h>
+#include "JNIHelp.h"
+#include "ScopedPrimitiveArray.h"
 
 #include "android_runtime/AndroidRuntime.h"
 #include "android_runtime/Log.h"
@@ -194,9 +194,6 @@ android_mtp_MtpDevice_open(JNIEnv *env, jobject thiz, jstring deviceName, jint f
         return JNI_FALSE;
     }
 
-    // The passed in fd is maintained by the UsbDeviceConnection
-    fd = dup(fd);
-
     MtpDevice* device = MtpDevice::open(deviceNameStr, fd);
     env->ReleaseStringUTFChars(deviceName, deviceNameStr);
 
@@ -258,7 +255,7 @@ android_mtp_MtpDevice_get_device_info(JNIEnv *env, jobject thiz)
                 return NULL;
             }
             for (size_t i = 0; i < size; ++i) {
-                elements[i] = static_cast<int>(deviceInfo->mOperations->at(i));
+                elements[i] = deviceInfo->mOperations->itemAt(i);
             }
             env->SetObjectField(info, field_deviceInfo_operationsSupported, operations.get());
         }
@@ -274,7 +271,7 @@ android_mtp_MtpDevice_get_device_info(JNIEnv *env, jobject thiz)
                 return NULL;
             }
             for (size_t i = 0; i < size; ++i) {
-                elements[i] = static_cast<int>(deviceInfo->mEvents->at(i));
+                elements[i] = deviceInfo->mEvents->itemAt(i);
             }
             env->SetObjectField(info, field_deviceInfo_eventsSupported, events.get());
         }
@@ -296,7 +293,7 @@ android_mtp_MtpDevice_get_storage_ids(JNIEnv *env, jobject thiz)
     int length = storageIDs->size();
     jintArray array = env->NewIntArray(length);
     // FIXME is this cast safe?
-    env->SetIntArrayRegion(array, 0, length, (const jint *)storageIDs->data());
+    env->SetIntArrayRegion(array, 0, length, (const jint *)storageIDs->array());
 
     delete storageIDs;
     return array;
@@ -350,7 +347,7 @@ android_mtp_MtpDevice_get_object_handles(JNIEnv *env, jobject thiz,
     int length = handles->size();
     jintArray array = env->NewIntArray(length);
     // FIXME is this cast safe?
-    env->SetIntArrayRegion(array, 0, length, (const jint *)handles->data());
+    env->SetIntArrayRegion(array, 0, length, (const jint *)handles->array());
 
     delete handles;
     return array;
@@ -604,12 +601,12 @@ android_mtp_MtpDevice_send_object_info(JNIEnv *env, jobject thiz, jobject info)
 {
     MtpDevice* device = get_device_from_object(env, thiz);
     if (!device) {
-        return NULL;
+        return JNI_FALSE;
     }
 
     // Updating existing objects is not supported.
     if (env->GetIntField(info, field_objectInfo_handle) != -1) {
-        return NULL;
+        return JNI_FALSE;
     }
 
     MtpObjectInfo* object_info = new MtpObjectInfo(-1);

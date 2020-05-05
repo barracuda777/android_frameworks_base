@@ -16,18 +16,21 @@
 
 package android.media;
 
-import android.annotation.UnsupportedAppUsage;
 import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.graphics.Bitmap;
-import android.media.session.MediaSession;
 import android.media.session.MediaSessionLegacyHelper;
 import android.media.session.PlaybackState;
+import android.media.session.MediaSession;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.Looper;
+import android.os.Message;
 import android.os.SystemClock;
 import android.util.Log;
+
+import java.lang.IllegalArgumentException;
 
 /**
  * RemoteControlClient enables exposing information meant to be consumed by remote controls
@@ -346,6 +349,16 @@ import android.util.Log;
      */
     public RemoteControlClient(PendingIntent mediaButtonIntent) {
         mRcMediaIntent = mediaButtonIntent;
+
+        Looper looper;
+        if ((looper = Looper.myLooper()) != null) {
+            mEventHandler = new EventHandler(this, looper);
+        } else if ((looper = Looper.getMainLooper()) != null) {
+            mEventHandler = new EventHandler(this, looper);
+        } else {
+            mEventHandler = null;
+            Log.e(TAG, "RemoteControlClient() couldn't find main application thread");
+        }
     }
 
     /**
@@ -365,6 +378,8 @@ import android.util.Log;
      */
     public RemoteControlClient(PendingIntent mediaButtonIntent, Looper looper) {
         mRcMediaIntent = mediaButtonIntent;
+
+        mEventHandler = new EventHandler(this, looper);
     }
 
     /**
@@ -678,7 +693,7 @@ import android.util.Log;
 
                 // USE_SESSIONS
                 if (mSession != null) {
-                    int pbState = getStateFromRccState(state);
+                    int pbState = PlaybackState.getStateFromRccState(state);
                     long position = hasPosition ? mPlaybackPositionMs
                             : PlaybackState.PLAYBACK_POSITION_UNKNOWN;
 
@@ -689,6 +704,79 @@ import android.util.Log;
                     mSession.setPlaybackState(mSessionPlaybackState);
                 }
             }
+        }
+    }
+
+    /**
+     * @hide
+     */
+    public void playItemResponse(boolean success) {
+        Log.e(TAG, "playItemResponse");
+        playItemResponseInt(success);
+    }
+
+    private void playItemResponseInt(boolean success) {
+        Log.d(TAG, "playItemResponseInt");
+        Log.v(TAG, "success: " + success);
+
+        // USE_SESSIONS
+        if (mSession != null) {
+            mSession.playItemResponse(success);
+        }
+    }
+
+    /**
+     * @hide
+     */
+    public void updateNowPlayingEntries(long[] playList) {
+        Log.e(TAG, "updateNowPlayingEntries: Item numbers: " + playList.length);
+        updateNowPlayingEntriesInt(playList);
+    }
+
+    private void updateNowPlayingEntriesInt(long[] playList) {
+        Log.d(TAG, "updateNowPlayingEntriesInt");
+
+        // USE_SESSIONS
+        if (mSession != null) {
+            mSession.updateNowPlayingEntries(playList);
+        }
+    }
+
+    /**
+     * @hide
+     */
+    public void updateFolderInfoBrowsedPlayer(String stringUri) {
+        Log.e(TAG, "updateFolderInfoBrowsedPlayer");
+        synchronized(mCacheLock) {
+            updateFolderInfoBrowsedPlayerInt(stringUri);
+        }
+    }
+
+    private void updateFolderInfoBrowsedPlayerInt(String stringUri) {
+        Log.d(TAG, "updateFolderInfoBrowsedPlayerInt");
+
+        // USE_SESSIONS
+        if (mSession != null) {
+            mSession.updateFolderInfoBrowsedPlayer(stringUri);
+        }
+    }
+
+    /**
+     * @hide
+     */
+    public void updateNowPlayingContentChange() {
+        Log.e(TAG, "updateNowPlayingContentChange");
+        synchronized(mCacheLock) {
+            updateNowPlayingContentChangeInt();
+        }
+    }
+
+    private void updateNowPlayingContentChangeInt() {
+        Log.d(TAG, "updateNowPlayingContentChangeInt");
+
+        // USE_SESSIONS
+        if (mSession != null) {
+            mSession.updateNowPlayingContentChange();
         }
     }
 
@@ -714,7 +802,8 @@ import android.util.Log;
             // USE_SESSIONS
             if (mSession != null) {
                 PlaybackState.Builder bob = new PlaybackState.Builder(mSessionPlaybackState);
-                bob.setActions(getActionsFromRccControlFlags(transportControlFlags));
+                bob.setActions(
+                        PlaybackState.getActionsFromRccControlFlags(transportControlFlags));
                 mSessionPlaybackState = bob.build();
                 mSession.setPlaybackState(mSessionPlaybackState);
             }
@@ -749,6 +838,56 @@ import android.util.Log;
         }
     }
 
+    /**
+     * @hide
+     */
+    public interface OnGetNowPlayingEntriesListener {
+        public abstract void onGetNowPlayingEntries();
+    }
+
+    /**
+     * @hide
+     */
+    public void setNowPlayingEntriesUpdateListener(OnGetNowPlayingEntriesListener l) {
+        Log.d(TAG, "setNowPlayingEntriesUpdateListener");
+        synchronized(mCacheLock) {
+            mGetNowPlayingEntriesListener = l;
+        }
+    }
+
+    /**
+     * @hide
+     */
+    public interface OnSetBrowsedPlayerListener {
+        public abstract void onSetBrowsedPlayer();
+    }
+
+    /**
+     * @hide
+     */
+    public void setBrowsedPlayerUpdateListener(OnSetBrowsedPlayerListener l) {
+        Log.d(TAG, "setBrowsedPlayerUpdateListener");
+        synchronized(mCacheLock) {
+            mSetBrowsedPlayerListener = l;
+        }
+    }
+
+    /**
+     * @hide
+     */
+    public interface OnSetPlayItemListener {
+        public abstract void onSetPlayItem(int scope, long uid);
+    }
+
+    /**
+     * @hide
+     */
+    public void setPlayItemListener(OnSetPlayItemListener l) {
+        Log.d(TAG, "setPlayItemListener");
+        synchronized(mCacheLock) {
+            mSetPlayItemListener = l;
+        }
+    }
 
     /**
      * Interface definition for a callback to be invoked when the media playback position is
@@ -816,7 +955,6 @@ import android.util.Log;
      * position updates. The playback position being "readable" is considered from the application's
      * point of view.
      */
-    @UnsupportedAppUsage
     public static int MEDIA_POSITION_READABLE = 1 << 0;
     /**
      * @hide
@@ -824,7 +962,6 @@ import android.util.Log;
      * playback position updates. The playback position being "writable"
      * is considered from the application's point of view.
      */
-    @UnsupportedAppUsage
     public static int MEDIA_POSITION_WRITABLE = 1 << 1;
 
     /** @hide */
@@ -891,6 +1028,13 @@ import android.util.Log;
     /**
      * The current remote control client generation ID across the system, as known by this object
      */
+
+    private OnSetBrowsedPlayerListener mSetBrowsedPlayerListener;
+
+    private OnSetPlayItemListener mSetPlayItemListener;
+
+    private OnGetNowPlayingEntriesListener mGetNowPlayingEntriesListener;
+
     private int mCurrentClientGenId = -1;
 
     /**
@@ -944,7 +1088,66 @@ import android.util.Log;
                 onUpdateMetadata(mCurrentClientGenId, MetadataEditor.RATING_KEY_BY_USER, rating);
             }
         }
+
+        @Override
+        public void setPlayItem(int scope, long uid) {
+            // only post messages, we can't block here
+            if (mEventHandler != null) {
+                mEventHandler.removeMessages(MSG_SET_PLAY_ITEM);
+                mEventHandler.sendMessage(mEventHandler.obtainMessage(
+                        MSG_SET_PLAY_ITEM, 0 /* arg1 */, scope /* arg2, ignored */,
+                        new Long(uid)));
+            }
+        }
+
+        @Override
+        public void getNowPlayingEntries() {
+            // only post messages, we can't block here
+            if (mEventHandler != null) {
+                mEventHandler.removeMessages(MSG_GET_NOW_PLAYING_ENTRIES);
+                mEventHandler.sendMessage(mEventHandler.obtainMessage(
+                        MSG_GET_NOW_PLAYING_ENTRIES, 0, 0, null));
+            }
+        }
+
+        @Override
+        public void setBrowsedPlayer() {
+            Log.d(TAG, "setBrowsedPlayer in RemoteControlClient");
+            if (mEventHandler != null) {
+                mEventHandler.sendMessage(mEventHandler.obtainMessage(
+                        MSG_SET_BROWSED_PLAYER, 0 /* arg1 */, 0 /* arg2*/, null));
+            }
+        }
     };
+
+    private EventHandler mEventHandler;
+    private final static int MSG_SET_BROWSED_PLAYER = 12;
+    private final static int MSG_SET_PLAY_ITEM = 13;
+    private final static int MSG_GET_NOW_PLAYING_ENTRIES = 14;
+
+    private class EventHandler extends Handler {
+        public EventHandler(RemoteControlClient rcc, Looper looper) {
+            super(looper);
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            switch(msg.what) {
+                case MSG_SET_BROWSED_PLAYER:
+                    Log.d(TAG, "MSG_SET_BROWSED_PLAYER in RemoteControlClient");
+                    onSetBrowsedPlayer();
+                    break;
+                case MSG_SET_PLAY_ITEM:
+                    onSetPlayItem(msg.arg2, ((Long)msg.obj).longValue());
+                    break;
+                case MSG_GET_NOW_PLAYING_ENTRIES:
+                    onGetNowPlayingEntries();
+                    break;
+                default:
+                    Log.e(TAG, "Unknown event " + msg.what + " in RemoteControlClient handler");
+            }
+        }
+    }
 
     //===========================================================
     // Message handlers
@@ -961,6 +1164,36 @@ import android.util.Log;
         synchronized (mCacheLock) {
             if ((mCurrentClientGenId == generationId) && (mMetadataUpdateListener != null)) {
                 mMetadataUpdateListener.onMetadataUpdate(key, value);
+            }
+        }
+    }
+
+    private void onSetPlayItem(int scope, long uid) {
+        Log.d(TAG, "onSetPlayItem");
+        synchronized (mCacheLock) {
+            if (mSetPlayItemListener != null) {
+                Log.d(TAG, "mSetPlayItemListener.onSetPlayItem");
+                mSetPlayItemListener.onSetPlayItem(scope, uid);
+            }
+        }
+    }
+
+    private void onSetBrowsedPlayer() {
+        Log.d(TAG, "onSetBrowsedPlayer");
+        synchronized (mCacheLock) {
+            if (mSetBrowsedPlayerListener != null) {
+                Log.d(TAG, "mSetBrowsedPlayerListener.onSetBrowsedPlayer");
+                mSetBrowsedPlayerListener.onSetBrowsedPlayer();
+            }
+        }
+    }
+
+    private void onGetNowPlayingEntries() {
+        Log.d(TAG, "onGetNowPlayingEntries");
+        synchronized (mCacheLock) {
+            if (mGetNowPlayingEntriesListener != null) {
+                Log.d(TAG, "mGetNowPlayingEntriesListener.onGetNowPlayingEntries");
+                mGetNowPlayingEntriesListener.onGetNowPlayingEntries();
             }
         }
     }
@@ -996,19 +1229,16 @@ import android.util.Log;
      * Period for playback position drift checks, 15s when playing at 1x or slower.
      */
     private final static long POSITION_REFRESH_PERIOD_PLAYING_MS = 15000;
-
     /**
      * Minimum period for playback position drift checks, never more often when every 2s, when
      * fast forwarding or rewinding.
      */
     private final static long POSITION_REFRESH_PERIOD_MIN_MS = 2000;
-
     /**
      * The value above which the difference between client-reported playback position and
      * estimated position is considered a drift.
      */
     private final static long POSITION_DRIFT_MAX_MS = 500;
-
     /**
      * Compute the period at which the estimated playback position should be compared against the
      * actual playback position. Is a funciton of playback speed.
@@ -1022,152 +1252,5 @@ import android.util.Log;
             return Math.max((long)(POSITION_REFRESH_PERIOD_PLAYING_MS / Math.abs(speed)),
                     POSITION_REFRESH_PERIOD_MIN_MS);
         }
-    }
-
-    /**
-     * Get the {@link PlaybackState} state for the given
-     * {@link RemoteControlClient} state.
-     *
-     * @param rccState The state used by {@link RemoteControlClient}.
-     * @return The equivalent state used by {@link PlaybackState}.
-     */
-    private static int getStateFromRccState(int rccState) {
-        switch (rccState) {
-            case PLAYSTATE_BUFFERING:
-                return PlaybackState.STATE_BUFFERING;
-            case PLAYSTATE_ERROR:
-                return PlaybackState.STATE_ERROR;
-            case PLAYSTATE_FAST_FORWARDING:
-                return PlaybackState.STATE_FAST_FORWARDING;
-            case PLAYSTATE_NONE:
-                return PlaybackState.STATE_NONE;
-            case PLAYSTATE_PAUSED:
-                return PlaybackState.STATE_PAUSED;
-            case PLAYSTATE_PLAYING:
-                return PlaybackState.STATE_PLAYING;
-            case PLAYSTATE_REWINDING:
-                return PlaybackState.STATE_REWINDING;
-            case PLAYSTATE_SKIPPING_BACKWARDS:
-                return PlaybackState.STATE_SKIPPING_TO_PREVIOUS;
-            case PLAYSTATE_SKIPPING_FORWARDS:
-                return PlaybackState.STATE_SKIPPING_TO_NEXT;
-            case PLAYSTATE_STOPPED:
-                return PlaybackState.STATE_STOPPED;
-            default:
-                return -1;
-        }
-    }
-
-    /**
-     * Get the {@link RemoteControlClient} state for the given
-     * {@link PlaybackState} state.
-     *
-     * @param state The state used by {@link PlaybackState}.
-     * @return The equivalent state used by {@link RemoteControlClient}.
-     */
-    static int getRccStateFromState(int state) {
-        switch (state) {
-            case PlaybackState.STATE_BUFFERING:
-                return PLAYSTATE_BUFFERING;
-            case PlaybackState.STATE_ERROR:
-                return PLAYSTATE_ERROR;
-            case PlaybackState.STATE_FAST_FORWARDING:
-                return PLAYSTATE_FAST_FORWARDING;
-            case PlaybackState.STATE_NONE:
-                return PLAYSTATE_NONE;
-            case PlaybackState.STATE_PAUSED:
-                return PLAYSTATE_PAUSED;
-            case PlaybackState.STATE_PLAYING:
-                return PLAYSTATE_PLAYING;
-            case PlaybackState.STATE_REWINDING:
-                return PLAYSTATE_REWINDING;
-            case PlaybackState.STATE_SKIPPING_TO_PREVIOUS:
-                return PLAYSTATE_SKIPPING_BACKWARDS;
-            case PlaybackState.STATE_SKIPPING_TO_NEXT:
-                return PLAYSTATE_SKIPPING_FORWARDS;
-            case PlaybackState.STATE_STOPPED:
-                return PLAYSTATE_STOPPED;
-            default:
-                return -1;
-        }
-    }
-
-    private static long getActionsFromRccControlFlags(int rccFlags) {
-        long actions = 0;
-        long flag = 1;
-        while (flag <= rccFlags) {
-            if ((flag & rccFlags) != 0) {
-                actions |= getActionForRccFlag((int) flag);
-            }
-            flag = flag << 1;
-        }
-        return actions;
-    }
-
-    static int getRccControlFlagsFromActions(long actions) {
-        int rccFlags = 0;
-        long action = 1;
-        while (action <= actions && action < Integer.MAX_VALUE) {
-            if ((action & actions) != 0) {
-                rccFlags |= getRccFlagForAction(action);
-            }
-            action = action << 1;
-        }
-        return rccFlags;
-    }
-
-    private static long getActionForRccFlag(int flag) {
-        switch (flag) {
-            case FLAG_KEY_MEDIA_PREVIOUS:
-                return PlaybackState.ACTION_SKIP_TO_PREVIOUS;
-            case FLAG_KEY_MEDIA_REWIND:
-                return PlaybackState.ACTION_REWIND;
-            case FLAG_KEY_MEDIA_PLAY:
-                return PlaybackState.ACTION_PLAY;
-            case FLAG_KEY_MEDIA_PLAY_PAUSE:
-                return PlaybackState.ACTION_PLAY_PAUSE;
-            case FLAG_KEY_MEDIA_PAUSE:
-                return PlaybackState.ACTION_PAUSE;
-            case FLAG_KEY_MEDIA_STOP:
-                return PlaybackState.ACTION_STOP;
-            case FLAG_KEY_MEDIA_FAST_FORWARD:
-                return PlaybackState.ACTION_FAST_FORWARD;
-            case FLAG_KEY_MEDIA_NEXT:
-                return PlaybackState.ACTION_SKIP_TO_NEXT;
-            case FLAG_KEY_MEDIA_POSITION_UPDATE:
-                return PlaybackState.ACTION_SEEK_TO;
-            case FLAG_KEY_MEDIA_RATING:
-                return PlaybackState.ACTION_SET_RATING;
-        }
-        return 0;
-    }
-
-    private static int getRccFlagForAction(long action) {
-        // We only care about the lower set of actions that can map to rcc
-        // flags.
-        int testAction = action < Integer.MAX_VALUE ? (int) action : 0;
-        switch (testAction) {
-            case (int) PlaybackState.ACTION_SKIP_TO_PREVIOUS:
-                return FLAG_KEY_MEDIA_PREVIOUS;
-            case (int) PlaybackState.ACTION_REWIND:
-                return FLAG_KEY_MEDIA_REWIND;
-            case (int) PlaybackState.ACTION_PLAY:
-                return FLAG_KEY_MEDIA_PLAY;
-            case (int) PlaybackState.ACTION_PLAY_PAUSE:
-                return FLAG_KEY_MEDIA_PLAY_PAUSE;
-            case (int) PlaybackState.ACTION_PAUSE:
-                return FLAG_KEY_MEDIA_PAUSE;
-            case (int) PlaybackState.ACTION_STOP:
-                return FLAG_KEY_MEDIA_STOP;
-            case (int) PlaybackState.ACTION_FAST_FORWARD:
-                return FLAG_KEY_MEDIA_FAST_FORWARD;
-            case (int) PlaybackState.ACTION_SKIP_TO_NEXT:
-                return FLAG_KEY_MEDIA_NEXT;
-            case (int) PlaybackState.ACTION_SEEK_TO:
-                return FLAG_KEY_MEDIA_POSITION_UPDATE;
-            case (int) PlaybackState.ACTION_SET_RATING:
-                return FLAG_KEY_MEDIA_RATING;
-        }
-        return 0;
     }
 }

@@ -22,9 +22,6 @@ import android.os.Bundle;
  * @hide
  */
 public class MediaBrowserUtils {
-    /**
-     * Compares whether two bundles are the same.
-     */
     public static boolean areSameOptions(Bundle options1, Bundle options2) {
         if (options1 == options2) {
             return true;
@@ -42,9 +39,6 @@ public class MediaBrowserUtils {
         }
     }
 
-    /**
-     * Returnes true if the page options has duplicated items.
-     */
     public static boolean hasDuplicatedItems(Bundle options1, Bundle options2) {
         int page1 = options1 == null ? -1 : options1.getInt(MediaBrowser.EXTRA_PAGE, -1);
         int page2 = options2 == null ? -1 : options2.getInt(MediaBrowser.EXTRA_PAGE, -1);

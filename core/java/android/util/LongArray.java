@@ -16,15 +16,8 @@
 
 package android.util;
 
-import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
-
 import com.android.internal.util.ArrayUtils;
-import com.android.internal.util.Preconditions;
-
 import libcore.util.EmptyArray;
-
-import java.util.Arrays;
 
 /**
  * Implements a growing array of long primitives.
@@ -37,15 +30,9 @@ public class LongArray implements Cloneable {
     private long[] mValues;
     private int mSize;
 
-    private  LongArray(long[] array, int size) {
-        mValues = array;
-        mSize = Preconditions.checkArgumentInRange(size, 0, array.length, "size");
-    }
-
     /**
      * Creates an empty LongArray with the default initial capacity.
      */
-    @UnsupportedAppUsage
     public LongArray() {
         this(10);
     }
@@ -63,35 +50,6 @@ public class LongArray implements Cloneable {
     }
 
     /**
-     * Creates an LongArray wrapping the given primitive long array.
-     */
-    public static LongArray wrap(long[] array) {
-        return new LongArray(array, array.length);
-    }
-
-    /**
-     * Creates an LongArray from the given primitive long array, copying it.
-     */
-    public static LongArray fromArray(long[] array, int size) {
-        return wrap(Arrays.copyOf(array, size));
-    }
-
-    /**
-     * Changes the size of this LongArray. If this LongArray is shrinked, the backing array capacity
-     * is unchanged. If the new size is larger than backing array capacity, a new backing array is
-     * created from the current content of this LongArray padded with 0s.
-     */
-    public void resize(int newSize) {
-        Preconditions.checkArgumentNonnegative(newSize);
-        if (newSize <= mValues.length) {
-            Arrays.fill(mValues, newSize, mValues.length, 0);
-        } else {
-            ensureCapacity(newSize - mSize);
-        }
-        mSize = newSize;
-    }
-
-    /**
      * Appends the specified value to the end of this array.
      */
     public void add(long value) {
@@ -99,24 +57,23 @@ public class LongArray implements Cloneable {
     }
 
     /**
-     * Inserts a value at the specified position in this array. If the specified index is equal to
-     * the length of the array, the value is added at the end.
+     * Inserts a value at the specified position in this array.
      *
      * @throws IndexOutOfBoundsException when index &lt; 0 || index &gt; size()
      */
-    @UnsupportedAppUsage
     public void add(int index, long value) {
-        ensureCapacity(1);
-        int rightSegment = mSize - index;
-        mSize++;
-        ArrayUtils.checkBounds(mSize, index);
+        if (index < 0 || index > mSize) {
+            throw new IndexOutOfBoundsException();
+        }
 
-        if (rightSegment != 0) {
-            // Move by 1 all values from the right of 'index'
-            System.arraycopy(mValues, index, mValues, index + 1, rightSegment);
+        ensureCapacity(1);
+
+        if (mSize - index != 0) {
+            System.arraycopy(mValues, index, mValues, index + 1, mSize - index);
         }
 
         mValues[index] = value;
+        mSize++;
     }
 
     /**
@@ -168,18 +125,11 @@ public class LongArray implements Cloneable {
     /**
      * Returns the value at the specified position in this array.
      */
-    @UnsupportedAppUsage
     public long get(int index) {
-        ArrayUtils.checkBounds(mSize, index);
+        if (index >= mSize) {
+            throw new ArrayIndexOutOfBoundsException(mSize, index);
+        }
         return mValues[index];
-    }
-
-    /**
-     * Sets the value at the specified position in this array.
-     */
-    public void set(int index, long value) {
-        ArrayUtils.checkBounds(mSize, index);
-        mValues[index] = value;
     }
 
     /**
@@ -200,7 +150,9 @@ public class LongArray implements Cloneable {
      * Removes the value at the specified index from this array.
      */
     public void remove(int index) {
-        ArrayUtils.checkBounds(mSize, index);
+        if (index >= mSize) {
+            throw new ArrayIndexOutOfBoundsException(mSize, index);
+        }
         System.arraycopy(mValues, index + 1, mValues, index, mSize - index - 1);
         mSize--;
     }
@@ -208,29 +160,7 @@ public class LongArray implements Cloneable {
     /**
      * Returns the number of values in this array.
      */
-    @UnsupportedAppUsage
     public int size() {
         return mSize;
-    }
-
-    /**
-     * Returns a new array with the contents of this LongArray.
-     */
-    public long[] toArray() {
-        return Arrays.copyOf(mValues, mSize);
-    }
-
-    /**
-     * Test if each element of {@code a} equals corresponding element from {@code b}
-     */
-    public static boolean elementsEqual(@Nullable LongArray a, @Nullable LongArray b) {
-        if (a == null || b == null) return a == b;
-        if (a.mSize != b.mSize) return false;
-        for (int i = 0; i < a.mSize; i++) {
-            if (a.get(i) != b.get(i)) {
-                return false;
-            }
-        }
-        return true;
     }
 }

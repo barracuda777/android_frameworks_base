@@ -88,7 +88,7 @@ public class HardwareCanvasSurfaceViewActivity extends Activity implements Callb
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
-        mThread = new RenderingThread(holder);
+        mThread = new RenderingThread(holder.getSurface());
         mThread.start();
     }
 
@@ -103,11 +103,11 @@ public class HardwareCanvasSurfaceViewActivity extends Activity implements Callb
     }
 
     private static class RenderingThread extends Thread {
-        private final SurfaceHolder mSurface;
+        private final Surface mSurface;
         private volatile boolean mRunning = true;
         private int mWidth, mHeight;
 
-        public RenderingThread(SurfaceHolder surface) {
+        public RenderingThread(Surface surface) {
             mSurface = surface;
         }
 

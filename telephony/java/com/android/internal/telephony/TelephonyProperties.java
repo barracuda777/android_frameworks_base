@@ -88,6 +88,11 @@ public interface TelephonyProperties
      */
     static final String PROPERTY_LTE_ON_CDMA_DEVICE = "telephony.lteOnCdmaDevice";
 
+    /**
+     * {@see BaseCommands#getLteOnGsmMode()}
+     */
+    static final String PROPERTY_LTE_ON_GSM_DEVICE = "telephony.lteOnGsmDevice";
+
     static final String CURRENT_ACTIVE_PHONE = "gsm.current.phone-type";
 
     //****** SIM Card
@@ -188,17 +193,11 @@ public interface TelephonyProperties
      */
     static final String PROPERTY_IGNORE_NITZ = "telephony.test.ignore.nitz";
 
-    /**
+     /**
      * Property to set multi sim feature.
      * Type:  String(dsds, dsda)
      */
     static final String PROPERTY_MULTI_SIM_CONFIG = "persist.radio.multisim.config";
-
-    /**
-     * Property to indicate if reboot is required when changing modems configurations
-     * Type:  String(true, false) default is false; most devices don't need reboot
-     */
-    String PROPERTY_REBOOT_REQUIRED_ON_MODEM_CHANGE = "persist.radio.reboot_on_modem_change";
 
     /**
      * Property to store default subscription.
@@ -224,11 +223,43 @@ public interface TelephonyProperties
      */
     static final String PROPERTY_VIDEOCALL_AUDIO_OUTPUT = "persist.radio.call.audio.output";
 
-    /** 'true' if the carrier text from opportunistic subscription should be used to display
-     * on UI.
-     *
+    /**
+     * Used when Presence app sends Dial intent with specific schema
+     * If true: skip schema parsing and use Tel schema
+     * If false: parse schema
      */
-    String DISPLAY_OPPORTUNISTIC_SUBSCRIPTION_CARRIER_TEXT_PROPERTY_NAME =
-            "persist.radio.display_opportunistic_carrier";
+    static final String EXTRA_SKIP_SCHEMA_PARSING =
+            "org.codeaurora.extra.SKIP_SCHEMA_PARSING";
+
+    /**
+     * For Group Conference Calling
+     * If true: isConferenceUri in Dial is set to true,
+     *          which indicates that Dial is for Conference Calling
+     * If false: above is set to false
+     */
+    static final String EXTRAS_IS_CONFERENCE_URI = "isConferenceUri";
+
+    /**
+     * For Group Conference Dialing Feature
+     * If true: Dial intent triggered from Group Conference Calling screen
+     * if false: normal dial
+     */
+    static final String EXTRA_DIAL_CONFERENCE_URI =
+            "org.codeaurora.extra.DIAL_CONFERENCE_URI";
+
+    /**
+     * For Add Participant Feature
+     * If true: Dial intent triggered from Dialpad is for AddParticipant
+     * if false: normal dial
+     */
+    static final String ADD_PARTICIPANT_KEY = "add_participant";
+
+    /*
+     * For VICE Feature
+     * If true: Dial intent is for call pull functionality
+     * if false: normal dial
+     */
+    static final String EXTRA_IS_CALL_PULL =
+            "org.codeaurora.extra.IS_CALL_PULL";
 
 }

@@ -22,14 +22,11 @@ import android.annotation.Nullable;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
-import android.media.AudioPresentation;
 import android.media.MediaCodec;
 import android.media.MediaFormat;
 import android.media.MediaHTTPService;
 import android.net.Uri;
 import android.os.IBinder;
-import android.os.IHwBinder;
-import android.os.PersistableBundle;
 
 import com.android.internal.util.Preconditions;
 
@@ -39,7 +36,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -71,9 +68,6 @@ import java.util.UUID;
  * extractor.release();
  * extractor = null;
  * </pre>
- *
- * <p>This class requires the {@link android.Manifest.permission#INTERNET} permission
- * when used with network-based content.
  */
 final public class MediaExtractor {
     public MediaExtractor() {
@@ -95,10 +89,6 @@ final public class MediaExtractor {
      *
      * @param context the Context to use when resolving the Uri
      * @param uri the Content URI of the data you want to extract from.
-     *
-     * <p>When <code>uri</code> refers to a network file the
-     * {@link android.Manifest.permission#INTERNET} permission is required.
-     *
      * @param headers the headers to be sent together with the request for the data.
      *        This can be {@code null} if no specific headers are to be sent with the
      *        request.
@@ -146,10 +136,6 @@ final public class MediaExtractor {
      * Sets the data source (file-path or http URL) to use.
      *
      * @param path the path of the file, or the http URL
-     *
-     * <p>When <code>path</code> refers to a network file the
-     * {@link android.Manifest.permission#INTERNET} permission is required.
-     *
      * @param headers the headers associated with the http request for the stream you want to play.
      *        This can be {@code null} if no specific headers are to be sent with the
      *        request.
@@ -195,9 +181,6 @@ final public class MediaExtractor {
      * directory), and that the pathname should reference a world-readable file.
      * As an alternative, the application could first open the file for reading,
      * and then use the file descriptor form {@link #setDataSource(FileDescriptor)}.
-     *
-     * <p>When <code>path</code> refers to a network file the
-     * {@link android.Manifest.permission#INTERNET} permission is required.
      */
     public final void setDataSource(@NonNull String path) throws IOException {
         nativeSetDataSource(
@@ -248,119 +231,6 @@ final public class MediaExtractor {
      */
     public native final void setDataSource(
             @NonNull FileDescriptor fd, long offset, long length) throws IOException;
-
-    /**
-     * Sets the MediaCas instance to use. This should be called after a
-     * successful setDataSource() if at least one track reports mime type
-     * of {@link android.media.MediaFormat#MIMETYPE_AUDIO_SCRAMBLED}
-     * or {@link android.media.MediaFormat#MIMETYPE_VIDEO_SCRAMBLED}.
-     * Stream parsing will not proceed until a valid MediaCas object
-     * is provided.
-     *
-     * @param mediaCas the MediaCas object to use.
-     */
-    public final void setMediaCas(@NonNull MediaCas mediaCas) {
-        mMediaCas = mediaCas;
-        nativeSetMediaCas(mediaCas.getBinder());
-    }
-
-    private native final void nativeSetMediaCas(@NonNull IHwBinder casBinder);
-
-    /**
-     * Describes the conditional access system used to scramble a track.
-     */
-    public static final class CasInfo {
-        private final int mSystemId;
-        private final MediaCas.Session mSession;
-        private final byte[] mPrivateData;
-
-        CasInfo(int systemId, @Nullable MediaCas.Session session, @Nullable byte[] privateData) {
-            mSystemId = systemId;
-            mSession = session;
-            mPrivateData = privateData;
-        }
-
-        /**
-         * Retrieves the system id of the conditional access system.
-         *
-         * @return CA system id of the CAS used to scramble the track.
-         */
-        public int getSystemId() {
-            return mSystemId;
-        }
-
-        /**
-         * Retrieves the private data in the CA_Descriptor associated with a track.
-         * Some CAS systems may need this to initialize the CAS plugin object. This
-         * private data can only be retrieved before a valid {@link MediaCas} object
-         * is set on the extractor.
-         * <p>
-         * @see MediaExtractor#setMediaCas
-         * <p>
-         * @return a byte array containing the private data. A null return value
-         *         indicates that the private data is unavailable. An empty array,
-         *         on the other hand, indicates that the private data is empty
-         *         (zero in length).
-         */
-        @Nullable
-        public byte[] getPrivateData() {
-            return mPrivateData;
-        }
-
-        /**
-         * Retrieves the {@link MediaCas.Session} associated with a track. The
-         * session is needed to initialize a descrambler in order to decode the
-         * scrambled track. The session object can only be retrieved after a valid
-         * {@link MediaCas} object is set on the extractor.
-         * <p>
-         * @see MediaExtractor#setMediaCas
-         * @see MediaDescrambler#setMediaCasSession
-         * <p>
-         * @return a {@link MediaCas.Session} object associated with a track.
-         */
-        public MediaCas.Session getSession() {
-            return mSession;
-        }
-    }
-
-    private ArrayList<Byte> toByteArray(@NonNull byte[] data) {
-        ArrayList<Byte> byteArray = new ArrayList<Byte>(data.length);
-        for (int i = 0; i < data.length; i++) {
-            byteArray.add(i, Byte.valueOf(data[i]));
-        }
-        return byteArray;
-    }
-
-    /**
-     * Retrieves the information about the conditional access system used to scramble
-     * a track.
-     *
-     * @param index of the track.
-     * @return an {@link CasInfo} object describing the conditional access system.
-     */
-    public CasInfo getCasInfo(int index) {
-        Map<String, Object> formatMap = getTrackFormatNative(index);
-        if (formatMap.containsKey(MediaFormat.KEY_CA_SYSTEM_ID)) {
-            int systemId = ((Integer)formatMap.get(MediaFormat.KEY_CA_SYSTEM_ID)).intValue();
-            MediaCas.Session session = null;
-            byte[] privateData = null;
-            if (formatMap.containsKey(MediaFormat.KEY_CA_PRIVATE_DATA)) {
-                ByteBuffer buf = (ByteBuffer) formatMap.get(MediaFormat.KEY_CA_PRIVATE_DATA);
-                buf.rewind();
-                privateData = new byte[buf.remaining()];
-                buf.get(privateData);
-            }
-            if (mMediaCas != null && formatMap.containsKey(MediaFormat.KEY_CA_SESSION_ID)) {
-                ByteBuffer buf = (ByteBuffer) formatMap.get(MediaFormat.KEY_CA_SESSION_ID);
-                buf.rewind();
-                final byte[] sessionId = new byte[buf.remaining()];
-                buf.get(sessionId);
-                session = mMediaCas.createFromSessionId(toByteArray(sessionId));
-            }
-            return new CasInfo(systemId, session, privateData);
-        }
-        return null;
-    }
 
     @Override
     protected void finalize() {
@@ -425,20 +295,6 @@ final public class MediaExtractor {
         }
         return null;
     }
-
-    /**
-     * Get the list of available audio presentations for the track.
-     * @param trackIndex index of the track.
-     * @return a list of available audio presentations for a given valid audio track index.
-     * The list will be empty if the source does not contain any audio presentations.
-     */
-    @NonNull
-    public List<AudioPresentation> getAudioPresentations(int trackIndex) {
-        return native_getAudioPresentations(trackIndex);
-    }
-
-    @NonNull
-    private native List<AudioPresentation> native_getAudioPresentations(int trackIndex);
 
     /**
      * Get the PSSH info if present.
@@ -671,12 +527,6 @@ final public class MediaExtractor {
      */
     public native long getSampleTime();
 
-    /**
-     * @return size of the current sample in bytes or -1 if no more
-     * samples are available.
-     */
-    public native long getSampleSize();
-
     // Keep these in sync with their equivalents in NuMediaExtractor.h
     /**
      * The sample is a sync sample (or in {@link MediaCodec}'s terminology
@@ -692,22 +542,12 @@ final public class MediaExtractor {
      */
     public static final int SAMPLE_FLAG_ENCRYPTED = 2;
 
-    /**
-     * This indicates that the buffer only contains part of a frame,
-     * and the decoder should batch the data until a buffer without
-     * this flag appears before decoding the frame.
-     *
-     * @see MediaCodec#BUFFER_FLAG_PARTIAL_FRAME
-     */
-    public static final int SAMPLE_FLAG_PARTIAL_FRAME = 4;
-
     /** @hide */
     @IntDef(
         flag = true,
         value = {
             SAMPLE_FLAG_SYNC,
             SAMPLE_FLAG_ENCRYPTED,
-            SAMPLE_FLAG_PARTIAL_FRAME,
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface SampleFlag {}
@@ -744,25 +584,6 @@ final public class MediaExtractor {
      */
     public native boolean hasCacheReachedEndOfStream();
 
-    /**
-     *  Return Metrics data about the current media container.
-     *
-     * @return a {@link PersistableBundle} containing the set of attributes and values
-     * available for the media container being handled by this instance
-     * of MediaExtractor.
-     * The attributes are descibed in {@link MetricsConstants}.
-     *
-     *  Additional vendor-specific fields may also be present in
-     *  the return value.
-     */
-
-    public PersistableBundle getMetrics() {
-        PersistableBundle bundle = native_getMetrics();
-        return bundle;
-    }
-
-    private native PersistableBundle native_getMetrics();
-
     private static native final void native_init();
     private native final void native_setup();
     private native final void native_finalize();
@@ -772,35 +593,5 @@ final public class MediaExtractor {
         native_init();
     }
 
-    private MediaCas mMediaCas;
-
     private long mNativeContext;
-
-    public final static class MetricsConstants
-    {
-        private MetricsConstants() {}
-
-        /**
-         * Key to extract the container format
-         * from the {@link MediaExtractor#getMetrics} return value.
-         * The value is a String.
-         */
-        public static final String FORMAT = "android.media.mediaextractor.fmt";
-
-        /**
-         * Key to extract the container MIME type
-         * from the {@link MediaExtractor#getMetrics} return value.
-         * The value is a String.
-         */
-        public static final String MIME_TYPE = "android.media.mediaextractor.mime";
-
-        /**
-         * Key to extract the number of tracks in the container
-         * from the {@link MediaExtractor#getMetrics} return value.
-         * The value is an integer.
-         */
-        public static final String TRACKS = "android.media.mediaextractor.ntrk";
-
-    }
-
 }

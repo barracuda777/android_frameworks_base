@@ -34,9 +34,8 @@ class TreeInfo;
 // Responsible for managing the animators for a single RenderNode
 class AnimatorManager {
     PREVENT_COPY_AND_ASSIGN(AnimatorManager);
-
 public:
-    explicit AnimatorManager(RenderNode& parent);
+    AnimatorManager(RenderNode& parent);
     ~AnimatorManager();
 
     void addAnimator(const sp<BaseRenderNodeAnimator>& animator);
@@ -69,8 +68,8 @@ private:
     AnimationHandle* mAnimationHandle;
 
     // To improve the efficiency of resizing & removing from the vector
-    std::vector<sp<BaseRenderNodeAnimator> > mNewAnimators;
-    std::vector<sp<BaseRenderNodeAnimator> > mAnimators;
+    std::vector< sp<BaseRenderNodeAnimator> > mNewAnimators;
+    std::vector< sp<BaseRenderNodeAnimator> > mAnimators;
 };
 
 } /* namespace uirenderer */

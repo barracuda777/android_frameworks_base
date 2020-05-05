@@ -237,8 +237,7 @@ public class MtpDatabaseTest extends AndroidTestCase {
         assertEquals(
                 COLUMN_FLAGS,
                 DocumentsContract.Document.FLAG_SUPPORTS_DELETE |
-                DocumentsContract.Document.FLAG_SUPPORTS_WRITE |
-                DocumentsContract.Document.FLAG_SUPPORTS_METADATA,
+                DocumentsContract.Document.FLAG_SUPPORTS_WRITE,
                 cursor.getInt(9));
         assertEquals(2 * 1024 * 1024, getInt(cursor, COLUMN_SIZE));
         assertEquals(
@@ -1116,7 +1115,7 @@ public class MtpDatabaseTest extends AndroidTestCase {
             // Don't return mime type that is inconsistent with format code.
             cursor.moveToNext();
             assertEquals("inconsistent.txt", cursor.getString(0));
-            assertEquals("video/mpeg", cursor.getString(1));
+            assertEquals("video/mp4", cursor.getString(1));
             cursor.moveToNext();
             assertEquals("noext", cursor.getString(0));
             assertEquals("application/octet-stream", cursor.getString(1));

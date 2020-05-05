@@ -19,7 +19,6 @@ package android.media.session;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
 import android.app.Activity;
 import android.app.PendingIntent;
 import android.content.Context;
@@ -30,30 +29,25 @@ import android.media.MediaDescription;
 import android.media.MediaMetadata;
 import android.media.Rating;
 import android.media.VolumeProvider;
-import android.media.session.MediaSessionManager.RemoteUserInfo;
 import android.net.Uri;
-import android.os.BadParcelableException;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.os.Process;
 import android.os.RemoteException;
 import android.os.ResultReceiver;
+import android.os.UserHandle;
 import android.service.media.MediaBrowserService;
 import android.text.TextUtils;
 import android.util.Log;
-import android.util.Pair;
 import android.view.KeyEvent;
-import android.view.ViewConfiguration;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.ref.WeakReference;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * Allows interaction with media controllers, volume keys, media buttons, and
@@ -78,24 +72,18 @@ import java.util.Objects;
  * MediaSession objects are thread safe.
  */
 public final class MediaSession {
-    static final String TAG = "MediaSession";
+    private static final String TAG = "MediaSession";
 
     /**
      * Set this flag on the session to indicate that it can handle media button
      * events.
-     * @deprecated This flag is no longer used. All media sessions are expected to handle media
-     * button events now.
      */
-    @Deprecated
     public static final int FLAG_HANDLES_MEDIA_BUTTONS = 1 << 0;
 
     /**
      * Set this flag on the session to indicate that it handles transport
      * control commands through its {@link Callback}.
-     * @deprecated This flag is no longer used. All media sessions are expected to handle transport
-     * controls now.
      */
-    @Deprecated
     public static final int FLAG_HANDLES_TRANSPORT_CONTROLS = 1 << 1;
 
     /**
@@ -106,16 +94,6 @@ public final class MediaSession {
      * @hide
      */
     public static final int FLAG_EXCLUSIVE_GLOBAL_PRIORITY = 1 << 16;
-
-    /**
-     * @hide
-     */
-    public static final int INVALID_UID = -1;
-
-    /**
-     * @hide
-     */
-    public static final int INVALID_PID = -1;
 
     /** @hide */
     @Retention(RetentionPolicy.SOURCE)
@@ -128,13 +106,11 @@ public final class MediaSession {
     private final Object mLock = new Object();
     private final int mMaxBitmapSize;
 
-    private final Token mSessionToken;
+    private final MediaSession.Token mSessionToken;
     private final MediaController mController;
     private final ISession mBinder;
     private final CallbackStub mCbStub;
 
-    // Do not change the name of mCallback. Support lib accesses this by using reflection.
-    @UnsupportedAppUsage
     private CallbackMessageHandler mCallback;
     private VolumeProvider mVolumeProvider;
     private PlaybackState mPlaybackState;
@@ -151,47 +127,34 @@ public final class MediaSession {
      * @param tag A short name for debugging purposes.
      */
     public MediaSession(@NonNull Context context, @NonNull String tag) {
-        this(context, tag, null);
+        this(context, tag, UserHandle.myUserId());
     }
 
     /**
-     * Creates a new session. The session will automatically be registered with
-     * the system but will not be published until {@link #setActive(boolean)
-     * setActive(true)} is called. You must call {@link #release()} when
-     * finished with the session.
-     * <p>
-     * The {@code sessionInfo} can include additional unchanging information about this session.
-     * For example, it can include the version of the application, or the list of the custom
-     * commands that this session supports.
+     * Creates a new session as the specified user. To create a session as a
+     * user other than your own you must hold the
+     * {@link android.Manifest.permission#INTERACT_ACROSS_USERS_FULL}
+     * permission.
      *
      * @param context The context to use to create the session.
      * @param tag A short name for debugging purposes.
-     * @param sessionInfo A bundle for additional information about this session.
-     *                    Controllers can get this information by calling
-     *                    {@link MediaController#getSessionInfo()}.
-     *                    An {@link IllegalArgumentException} will be thrown if this contains
-     *                    any non-framework Parcelable objects.
+     * @param userId The user id to create the session as.
+     * @hide
      */
-    public MediaSession(@NonNull Context context, @NonNull String tag,
-            @Nullable Bundle sessionInfo) {
+    public MediaSession(@NonNull Context context, @NonNull String tag, int userId) {
         if (context == null) {
             throw new IllegalArgumentException("context cannot be null.");
         }
         if (TextUtils.isEmpty(tag)) {
             throw new IllegalArgumentException("tag cannot be null or empty");
         }
-        if (hasCustomParcelable(sessionInfo)) {
-            throw new IllegalArgumentException("sessionInfo shouldn't contain any custom "
-                    + "parcelables");
-        }
-
         mMaxBitmapSize = context.getResources().getDimensionPixelSize(
                 com.android.internal.R.dimen.config_mediaMetadataBitmapMaxSize);
         mCbStub = new CallbackStub(this);
         MediaSessionManager manager = (MediaSessionManager) context
                 .getSystemService(Context.MEDIA_SESSION_SERVICE);
         try {
-            mBinder = manager.createSession(mCbStub, tag, sessionInfo);
+            mBinder = manager.createSession(mCbStub, tag, userId);
             mSessionToken = new Token(mBinder.getController());
             mController = new MediaController(context, mSessionToken);
         } catch (RemoteException e) {
@@ -223,14 +186,17 @@ public final class MediaSession {
      */
     public void setCallback(@Nullable Callback callback, @Nullable Handler handler) {
         synchronized (mLock) {
-            if (mCallback != null) {
-                // We're updating the callback, clear the session from the old one.
-                mCallback.mCallback.mSession = null;
-                mCallback.removeCallbacksAndMessages(null);
-            }
             if (callback == null) {
+                if (mCallback != null) {
+                    mCallback.mCallback.mSession = null;
+                }
                 mCallback = null;
                 return;
+            }
+            if (mCallback != null) {
+                // We're updating the callback, clear the session from the old
+                // one.
+                mCallback.mCallback.mSession = null;
             }
             if (handler == null) {
                 handler = new Handler();
@@ -397,7 +363,7 @@ public final class MediaSession {
      */
     public void release() {
         try {
-            mBinder.destroySession();
+            mBinder.destroy();
         } catch (RemoteException e) {
             Log.wtf(TAG, "Error releasing session: ", e);
         }
@@ -441,28 +407,16 @@ public final class MediaSession {
 
     /**
      * Update the current metadata. New metadata can be created using
-     * {@link android.media.MediaMetadata.Builder}. This operation may take time proportional to
-     * the size of the bitmap to replace large bitmaps with a scaled down copy.
+     * {@link android.media.MediaMetadata.Builder}.
      *
      * @param metadata The new metadata
-     * @see android.media.MediaMetadata.Builder#putBitmap
      */
     public void setMetadata(@Nullable MediaMetadata metadata) {
-        long duration = -1;
-        int fields = 0;
-        MediaDescription description = null;
-        if (metadata != null) {
+        if (metadata != null ) {
             metadata = (new MediaMetadata.Builder(metadata, mMaxBitmapSize)).build();
-            if (metadata.containsKey(MediaMetadata.METADATA_KEY_DURATION)) {
-                duration = metadata.getLong(MediaMetadata.METADATA_KEY_DURATION);
-            }
-            fields = metadata.size();
-            description = metadata.getDescription();
         }
-        String metadataDescription = "size=" + fields + ", description=" + description;
-
         try {
-            mBinder.setMetadata(metadata, duration, metadataDescription);
+            mBinder.setMetadata(metadata);
         } catch (RemoteException e) {
             Log.wtf(TAG, "Dead object in setPlaybackState.", e);
         }
@@ -481,7 +435,7 @@ public final class MediaSession {
      */
     public void setQueue(@Nullable List<QueueItem> queue) {
         try {
-            mBinder.setQueue(queue == null ? null : new ParceledListSlice(queue));
+            mBinder.setQueue(queue == null ? null : new ParceledListSlice<QueueItem>(queue));
         } catch (RemoteException e) {
             Log.wtf("Dead object in setQueue.", e);
         }
@@ -539,19 +493,55 @@ public final class MediaSession {
     }
 
     /**
-     * Gets the controller information who sent the current request.
-     * <p>
-     * Note: This is only valid while in a request callback, such as {@link Callback#onPlay}.
-     *
-     * @throws IllegalStateException If this method is called outside of {@link Callback} methods.
-     * @see MediaSessionManager#isTrustedForMediaControl(RemoteUserInfo)
-     */
-    public final @NonNull RemoteUserInfo getCurrentControllerInfo() {
-        if (mCallback == null || mCallback.mCurrentControllerInfo == null) {
-            throw new IllegalStateException(
-                    "This should be called inside of MediaSession.Callback methods");
+    * @hide
+    */
+    public void playItemResponse(boolean success) {
+        Log.d(TAG, "MediaSession: playItemResponse");
+
+        try {
+            mBinder.playItemResponse(success);
+        } catch (RemoteException e) {
+            Log.wtf(TAG, "Dead object in playItemResponse.", e);
         }
-        return mCallback.mCurrentControllerInfo;
+    }
+
+    /**
+    * @hide
+    */
+    public void updateNowPlayingEntries(long[] playList) {
+        Log.d(TAG, "MediaSession: updateNowPlayingEntries");
+
+        try {
+            mBinder.updateNowPlayingEntries(playList);
+        } catch (RemoteException e) {
+            Log.wtf(TAG, "Dead object in updateNowPlayingEntries.", e);
+        }
+    }
+
+    /**
+    * @hide
+    */
+    public void updateFolderInfoBrowsedPlayer(String stringUri) {
+        Log.d(TAG, "MediaSession: updateFolderInfoBrowsedPlayer");
+
+        try {
+            mBinder.updateFolderInfoBrowsedPlayer(stringUri);
+        } catch (RemoteException e) {
+            Log.wtf(TAG, "Dead object in updateFolderInfoBrowsedPlayer.", e);
+        }
+    }
+
+    /**
+    * @hide
+    */
+    public void updateNowPlayingContentChange() {
+        Log.d(TAG, "MediaSession: updateNowPlayingContentChange");
+
+        try {
+            mBinder.updateNowPlayingContentChange();
+        } catch (RemoteException e) {
+            Log.wtf(TAG, "Dead object in updateNowPlayingContentChange.", e);
+        }
     }
 
     /**
@@ -581,12 +571,146 @@ public final class MediaSession {
      *
      * @hide
      */
-    @UnsupportedAppUsage
     public String getCallingPackage() {
-        if (mCallback != null && mCallback.mCurrentControllerInfo != null) {
-            return mCallback.mCurrentControllerInfo.getPackageName();
+        try {
+            return mBinder.getCallingPackage();
+        } catch (RemoteException e) {
+            Log.wtf(TAG, "Dead object in getCallingPackage.", e);
         }
         return null;
+    }
+
+    private void dispatchPrepare() {
+        postToCallback(CallbackMessageHandler.MSG_PREPARE);
+    }
+
+    private void dispatchPrepareFromMediaId(String mediaId, Bundle extras) {
+        postToCallback(CallbackMessageHandler.MSG_PREPARE_MEDIA_ID, mediaId, extras);
+    }
+
+    private void dispatchPrepareFromSearch(String query, Bundle extras) {
+        postToCallback(CallbackMessageHandler.MSG_PREPARE_SEARCH, query, extras);
+    }
+
+    private void dispatchPrepareFromUri(Uri uri, Bundle extras) {
+        postToCallback(CallbackMessageHandler.MSG_PREPARE_URI, uri, extras);
+    }
+
+    private void dispatchPlay() {
+        postToCallback(CallbackMessageHandler.MSG_PLAY);
+    }
+
+    private void dispatchPlayFromMediaId(String mediaId, Bundle extras) {
+        postToCallback(CallbackMessageHandler.MSG_PLAY_MEDIA_ID, mediaId, extras);
+    }
+
+    private void dispatchPlayFromSearch(String query, Bundle extras) {
+        postToCallback(CallbackMessageHandler.MSG_PLAY_SEARCH, query, extras);
+    }
+
+    private void dispatchPlayFromUri(Uri uri, Bundle extras) {
+        postToCallback(CallbackMessageHandler.MSG_PLAY_URI, uri, extras);
+    }
+
+    private void dispatchSkipToItem(long id) {
+        postToCallback(CallbackMessageHandler.MSG_SKIP_TO_ITEM, id);
+    }
+
+    private void dispatchPause() {
+        postToCallback(CallbackMessageHandler.MSG_PAUSE);
+    }
+
+    private void dispatchStop() {
+        postToCallback(CallbackMessageHandler.MSG_STOP);
+    }
+
+    private void dispatchNext() {
+        postToCallback(CallbackMessageHandler.MSG_NEXT);
+    }
+
+    private void dispatchPrevious() {
+        postToCallback(CallbackMessageHandler.MSG_PREVIOUS);
+    }
+
+    private void dispatchFastForward() {
+        postToCallback(CallbackMessageHandler.MSG_FAST_FORWARD);
+    }
+
+    private void dispatchRewind() {
+        postToCallback(CallbackMessageHandler.MSG_REWIND);
+    }
+
+    private void dispatchSeekTo(long pos) {
+        postToCallback(CallbackMessageHandler.MSG_SEEK_TO, pos);
+    }
+
+    private void dispatchRate(Rating rating) {
+        postToCallback(CallbackMessageHandler.MSG_RATE, rating);
+    }
+
+    private void dispatchCustomAction(String action, Bundle args) {
+        postToCallback(CallbackMessageHandler.MSG_CUSTOM_ACTION, action, args);
+    }
+
+    private void dispatchMediaButton(Intent mediaButtonIntent) {
+        postToCallback(CallbackMessageHandler.MSG_MEDIA_BUTTON, mediaButtonIntent);
+    }
+
+    private void dispatchSetBrowsedPlayerCommand() {
+        postToCallback(CallbackMessageHandler.MSG_SET_BROWSED_PLAYER);
+    }
+
+    private void dispatchSetPlayItemCommand(long uid, int scope) {
+        PlayItemToken playItemToken = new PlayItemToken(uid, scope);
+        postToCallback(CallbackMessageHandler.MSG_SET_PLAY_ITEM, playItemToken);
+    }
+
+    private class PlayItemToken {
+        private long mUid;
+        private int mScope;
+        public PlayItemToken(long uid, int scope) {
+            mUid = uid;
+            mScope = scope;
+        }
+        public int getScope() {
+            return mScope;
+        }
+        public long getUid() {
+            return mUid;
+        }
+    }
+
+    private void dispatchGetNowPlayingItemsCommand() {
+        postToCallback(CallbackMessageHandler.MSG_GET_NOW_PLAYING_ITEMS);
+    }
+
+    private void dispatchAdjustVolume(int direction) {
+        postToCallback(CallbackMessageHandler.MSG_ADJUST_VOLUME, direction);
+    }
+
+    private void dispatchSetVolumeTo(int volume) {
+        postToCallback(CallbackMessageHandler.MSG_SET_VOLUME, volume);
+    }
+
+    private void postToCallback(int what) {
+        postToCallback(what, null);
+    }
+
+    private void postCommand(String command, Bundle args, ResultReceiver resultCb) {
+        Command cmd = new Command(command, args, resultCb);
+        postToCallback(CallbackMessageHandler.MSG_COMMAND, cmd);
+    }
+
+    private void postToCallback(int what, Object obj) {
+        postToCallback(what, obj, null);
+    }
+
+    private void postToCallback(int what, Object obj, Bundle extras) {
+        synchronized (mLock) {
+            if (mCallback != null) {
+                mCallback.post(what, obj, extras);
+            }
+        }
     }
 
     /**
@@ -609,168 +733,19 @@ public final class MediaSession {
     }
 
     /**
-     * Returns whether the given bundle includes non-framework Parcelables.
-     */
-    static boolean hasCustomParcelable(@Nullable Bundle bundle) {
-        if (bundle == null) {
-            return false;
-        }
-
-        // Try writing the bundle to parcel, and read it with framework classloader.
-        Parcel parcel = null;
-        try {
-            parcel = Parcel.obtain();
-            parcel.writeBundle(bundle);
-            parcel.setDataPosition(0);
-            Bundle out = parcel.readBundle(null);
-
-            // Calling Bundle#size() will trigger Bundle#unparcel().
-            out.size();
-        } catch (BadParcelableException e) {
-            Log.d(TAG, "Custom parcelable in bundle.", e);
-            return true;
-        } finally {
-            if (parcel != null) {
-                parcel.recycle();
-            }
-        }
-        return false;
-    }
-
-    void dispatchPrepare(RemoteUserInfo caller) {
-        postToCallback(caller, CallbackMessageHandler.MSG_PREPARE, null, null);
-    }
-
-    void dispatchPrepareFromMediaId(RemoteUserInfo caller, String mediaId, Bundle extras) {
-        postToCallback(caller, CallbackMessageHandler.MSG_PREPARE_MEDIA_ID, mediaId, extras);
-    }
-
-    void dispatchPrepareFromSearch(RemoteUserInfo caller, String query, Bundle extras) {
-        postToCallback(caller, CallbackMessageHandler.MSG_PREPARE_SEARCH, query, extras);
-    }
-
-    void dispatchPrepareFromUri(RemoteUserInfo caller, Uri uri, Bundle extras) {
-        postToCallback(caller, CallbackMessageHandler.MSG_PREPARE_URI, uri, extras);
-    }
-
-    void dispatchPlay(RemoteUserInfo caller) {
-        postToCallback(caller, CallbackMessageHandler.MSG_PLAY, null, null);
-    }
-
-    void dispatchPlayFromMediaId(RemoteUserInfo caller, String mediaId, Bundle extras) {
-        postToCallback(caller, CallbackMessageHandler.MSG_PLAY_MEDIA_ID, mediaId, extras);
-    }
-
-    void dispatchPlayFromSearch(RemoteUserInfo caller, String query, Bundle extras) {
-        postToCallback(caller, CallbackMessageHandler.MSG_PLAY_SEARCH, query, extras);
-    }
-
-    void dispatchPlayFromUri(RemoteUserInfo caller, Uri uri, Bundle extras) {
-        postToCallback(caller, CallbackMessageHandler.MSG_PLAY_URI, uri, extras);
-    }
-
-    void dispatchSkipToItem(RemoteUserInfo caller, long id) {
-        postToCallback(caller, CallbackMessageHandler.MSG_SKIP_TO_ITEM, id, null);
-    }
-
-    void dispatchPause(RemoteUserInfo caller) {
-        postToCallback(caller, CallbackMessageHandler.MSG_PAUSE, null, null);
-    }
-
-    void dispatchStop(RemoteUserInfo caller) {
-        postToCallback(caller, CallbackMessageHandler.MSG_STOP, null, null);
-    }
-
-    void dispatchNext(RemoteUserInfo caller) {
-        postToCallback(caller, CallbackMessageHandler.MSG_NEXT, null, null);
-    }
-
-    void dispatchPrevious(RemoteUserInfo caller) {
-        postToCallback(caller, CallbackMessageHandler.MSG_PREVIOUS, null, null);
-    }
-
-    void dispatchFastForward(RemoteUserInfo caller) {
-        postToCallback(caller, CallbackMessageHandler.MSG_FAST_FORWARD, null, null);
-    }
-
-    void dispatchRewind(RemoteUserInfo caller) {
-        postToCallback(caller, CallbackMessageHandler.MSG_REWIND, null, null);
-    }
-
-    void dispatchSeekTo(RemoteUserInfo caller, long pos) {
-        postToCallback(caller, CallbackMessageHandler.MSG_SEEK_TO, pos, null);
-    }
-
-    void dispatchRate(RemoteUserInfo caller, Rating rating) {
-        postToCallback(caller, CallbackMessageHandler.MSG_RATE, rating, null);
-    }
-
-    void dispatchSetPlaybackSpeed(RemoteUserInfo caller, float speed) {
-        postToCallback(caller, CallbackMessageHandler.MSG_SET_PLAYBACK_SPEED, speed, null);
-    }
-
-    void dispatchCustomAction(RemoteUserInfo caller, String action, Bundle args) {
-        postToCallback(caller, CallbackMessageHandler.MSG_CUSTOM_ACTION, action, args);
-    }
-
-    void dispatchMediaButton(RemoteUserInfo caller, Intent mediaButtonIntent) {
-        postToCallback(caller, CallbackMessageHandler.MSG_MEDIA_BUTTON, mediaButtonIntent, null);
-    }
-
-    void dispatchMediaButtonDelayed(RemoteUserInfo info, Intent mediaButtonIntent,
-            long delay) {
-        postToCallbackDelayed(info, CallbackMessageHandler.MSG_PLAY_PAUSE_KEY_DOUBLE_TAP_TIMEOUT,
-                mediaButtonIntent, null, delay);
-    }
-
-    void dispatchAdjustVolume(RemoteUserInfo caller, int direction) {
-        postToCallback(caller, CallbackMessageHandler.MSG_ADJUST_VOLUME, direction, null);
-    }
-
-    void dispatchSetVolumeTo(RemoteUserInfo caller, int volume) {
-        postToCallback(caller, CallbackMessageHandler.MSG_SET_VOLUME, volume, null);
-    }
-
-    void dispatchCommand(RemoteUserInfo caller, String command, Bundle args,
-            ResultReceiver resultCb) {
-        Command cmd = new Command(command, args, resultCb);
-        postToCallback(caller, CallbackMessageHandler.MSG_COMMAND, cmd, null);
-    }
-
-    void postToCallback(RemoteUserInfo caller, int what, Object obj, Bundle data) {
-        postToCallbackDelayed(caller, what, obj, data, 0);
-    }
-
-    void postToCallbackDelayed(RemoteUserInfo caller, int what, Object obj, Bundle data,
-            long delay) {
-        synchronized (mLock) {
-            if (mCallback != null) {
-                mCallback.post(caller, what, obj, data, delay);
-            }
-        }
-    }
-
-    /**
      * Represents an ongoing session. This may be passed to apps by the session
      * owner to allow them to create a {@link MediaController} to communicate with
      * the session.
      */
     public static final class Token implements Parcelable {
 
-        private final int mUid;
-        private final ISessionController mBinder;
+        private ISessionController mBinder;
 
         /**
          * @hide
          */
         public Token(ISessionController binder) {
-            mUid = Process.myUid();
             mBinder = binder;
-        }
-
-        Token(Parcel in) {
-            mUid = in.readInt();
-            mBinder = ISessionController.Stub.asInterface(in.readStrongBinder());
         }
 
         @Override
@@ -780,15 +755,14 @@ public final class MediaSession {
 
         @Override
         public void writeToParcel(Parcel dest, int flags) {
-            dest.writeInt(mUid);
             dest.writeStrongBinder(mBinder.asBinder());
         }
 
         @Override
         public int hashCode() {
             final int prime = 31;
-            int result = mUid;
-            result = prime * result + (mBinder == null ? 0 : mBinder.asBinder().hashCode());
+            int result = 1;
+            result = prime * result + ((mBinder == null) ? 0 : mBinder.asBinder().hashCode());
             return result;
         }
 
@@ -801,36 +775,23 @@ public final class MediaSession {
             if (getClass() != obj.getClass())
                 return false;
             Token other = (Token) obj;
-            if (mUid != other.mUid) {
+            if (mBinder == null) {
+                if (other.mBinder != null)
+                    return false;
+            } else if (!mBinder.asBinder().equals(other.mBinder.asBinder()))
                 return false;
-            }
-            if (mBinder == null || other.mBinder == null) {
-                return mBinder == other.mBinder;
-            }
-            return Objects.equals(mBinder.asBinder(), other.mBinder.asBinder());
+            return true;
         }
 
-        /**
-         * Gets the UID of this token.
-         * @hide
-         */
-        public int getUid() {
-            return mUid;
-        }
-
-        /**
-         * Gets the controller binder in this token.
-         * @hide
-         */
-        public ISessionController getBinder() {
+        ISessionController getBinder() {
             return mBinder;
         }
 
-        public static final @android.annotation.NonNull Parcelable.Creator<Token> CREATOR =
-                new Parcelable.Creator<Token>() {
+        public static final Parcelable.Creator<Token> CREATOR
+                = new Parcelable.Creator<Token>() {
             @Override
             public Token createFromParcel(Parcel in) {
-                return new Token(in);
+                return new Token(ISessionController.Stub.asInterface(in.readStrongBinder()));
             }
 
             @Override
@@ -845,10 +806,7 @@ public final class MediaSession {
      * and the system. A callback may be set using {@link #setCallback}.
      */
     public abstract static class Callback {
-
         private MediaSession mSession;
-        private CallbackMessageHandler mHandler;
-        private boolean mMediaPlayPauseKeyPending;
 
         public Callback() {
         }
@@ -880,40 +838,12 @@ public final class MediaSession {
          * @return True if the event was handled, false otherwise.
          */
         public boolean onMediaButtonEvent(@NonNull Intent mediaButtonIntent) {
-            if (mSession != null && mHandler != null
+            if (mSession != null
                     && Intent.ACTION_MEDIA_BUTTON.equals(mediaButtonIntent.getAction())) {
                 KeyEvent ke = mediaButtonIntent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
                 if (ke != null && ke.getAction() == KeyEvent.ACTION_DOWN) {
                     PlaybackState state = mSession.mPlaybackState;
                     long validActions = state == null ? 0 : state.getActions();
-                    switch (ke.getKeyCode()) {
-                        case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
-                        case KeyEvent.KEYCODE_HEADSETHOOK:
-                            if (ke.getRepeatCount() > 0) {
-                                // Consider long-press as a single tap.
-                                handleMediaPlayPauseKeySingleTapIfPending();
-                            } else if (mMediaPlayPauseKeyPending) {
-                                // Consider double tap as the next.
-                                mHandler.removeMessages(CallbackMessageHandler
-                                        .MSG_PLAY_PAUSE_KEY_DOUBLE_TAP_TIMEOUT);
-                                mMediaPlayPauseKeyPending = false;
-                                if ((validActions & PlaybackState.ACTION_SKIP_TO_NEXT) != 0) {
-                                    onSkipToNext();
-                                }
-                            } else {
-                                mMediaPlayPauseKeyPending = true;
-                                mSession.dispatchMediaButtonDelayed(
-                                        mSession.getCurrentControllerInfo(),
-                                        mediaButtonIntent, ViewConfiguration.getDoubleTapTimeout());
-                            }
-                            return true;
-                        default:
-                            // If another key is pressed within double tap timeout, consider the
-                            // pending play/pause as a single tap to handle media keys in order.
-                            handleMediaPlayPauseKeySingleTapIfPending();
-                            break;
-                    }
-
                     switch (ke.getKeyCode()) {
                         case KeyEvent.KEYCODE_MEDIA_PLAY:
                             if ((validActions & PlaybackState.ACTION_PLAY) != 0) {
@@ -957,31 +887,26 @@ public final class MediaSession {
                                 return true;
                             }
                             break;
+                        case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
+                        case KeyEvent.KEYCODE_HEADSETHOOK:
+                            boolean isPlaying = state == null ? false
+                                    : state.getState() == PlaybackState.STATE_PLAYING;
+                            boolean canPlay = (validActions & (PlaybackState.ACTION_PLAY_PAUSE
+                                    | PlaybackState.ACTION_PLAY)) != 0;
+                            boolean canPause = (validActions & (PlaybackState.ACTION_PLAY_PAUSE
+                                    | PlaybackState.ACTION_PAUSE)) != 0;
+                            if (isPlaying && canPause) {
+                                onPause();
+                                return true;
+                            } else if (!isPlaying && canPlay) {
+                                onPlay();
+                                return true;
+                            }
+                            break;
                     }
                 }
             }
             return false;
-        }
-
-        private void handleMediaPlayPauseKeySingleTapIfPending() {
-            if (!mMediaPlayPauseKeyPending) {
-                return;
-            }
-            mMediaPlayPauseKeyPending = false;
-            mHandler.removeMessages(CallbackMessageHandler.MSG_PLAY_PAUSE_KEY_DOUBLE_TAP_TIMEOUT);
-            PlaybackState state = mSession.mPlaybackState;
-            long validActions = state == null ? 0 : state.getActions();
-            boolean isPlaying = state != null
-                    && state.getState() == PlaybackState.STATE_PLAYING;
-            boolean canPlay = (validActions & (PlaybackState.ACTION_PLAY_PAUSE
-                    | PlaybackState.ACTION_PLAY)) != 0;
-            boolean canPause = (validActions & (PlaybackState.ACTION_PLAY_PAUSE
-                    | PlaybackState.ACTION_PAUSE)) != 0;
-            if (isPlaying && canPause) {
-                onPause();
-            } else if (!isPlaying && canPlay) {
-                onPlay();
-            }
         }
 
         /**
@@ -1117,22 +1042,6 @@ public final class MediaSession {
         }
 
         /**
-         * Override to handle the playback speed change.
-         * To update the new playback speed, create a new {@link PlaybackState} by using {@link
-         * PlaybackState.Builder#setState(int, long, float)}, and set it with
-         * {@link #setPlaybackState(PlaybackState)}.
-         * <p>
-         * A value of {@code 1.0f} is the default playback value, and a negative value indicates
-         * reverse playback. The {@code speed} will not be equal to zero.
-         *
-         * @param speed the playback speed
-         * @see #setPlaybackState(PlaybackState)
-         * @see PlaybackState.Builder#setState(int, long, float)
-         */
-        public void onSetPlaybackSpeed(float speed) {
-        }
-
-        /**
          * Called when a {@link MediaController} wants a {@link PlaybackState.CustomAction} to be
          * performed.
          *
@@ -1142,6 +1051,25 @@ public final class MediaSession {
          */
         public void onCustomAction(@NonNull String action, @Nullable Bundle extras) {
         }
+
+        /**
+         * @hide
+         */
+        public void setBrowsedPlayer() {
+        }
+
+        /**
+         * @hide
+         */
+        public void setPlayItem(int scope, long uid) {
+        }
+
+        /**
+         * @hide
+         */
+        public void getNowPlayingEntries() {
+        }
+
     }
 
     /**
@@ -1151,31 +1079,24 @@ public final class MediaSession {
         private WeakReference<MediaSession> mMediaSession;
 
         public CallbackStub(MediaSession session) {
-            mMediaSession = new WeakReference<>(session);
-        }
-
-        private static RemoteUserInfo createRemoteUserInfo(String packageName, int pid, int uid) {
-            return new RemoteUserInfo(packageName, pid, uid);
+            mMediaSession = new WeakReference<MediaSession>(session);
         }
 
         @Override
-        public void onCommand(String packageName, int pid, int uid,
-                ISessionControllerCallback caller, String command, Bundle args, ResultReceiver cb) {
+        public void onCommand(String command, Bundle args, ResultReceiver cb) {
             MediaSession session = mMediaSession.get();
             if (session != null) {
-                session.dispatchCommand(createRemoteUserInfo(packageName, pid, uid),
-                        command, args, cb);
+                session.postCommand(command, args, cb);
             }
         }
 
         @Override
-        public void onMediaButton(String packageName, int pid, int uid, Intent mediaButtonIntent,
-                int sequenceNumber, ResultReceiver cb) {
+        public void onMediaButton(Intent mediaButtonIntent, int sequenceNumber,
+                ResultReceiver cb) {
             MediaSession session = mMediaSession.get();
             try {
                 if (session != null) {
-                    session.dispatchMediaButton(createRemoteUserInfo(packageName, pid, uid),
-                            mediaButtonIntent);
+                    session.dispatchMediaButton(mediaButtonIntent);
                 }
             } finally {
                 if (cb != null) {
@@ -1185,217 +1106,192 @@ public final class MediaSession {
         }
 
         @Override
-        public void onMediaButtonFromController(String packageName, int pid, int uid,
-                ISessionControllerCallback caller, Intent mediaButtonIntent) {
+        public void onPrepare() {
             MediaSession session = mMediaSession.get();
             if (session != null) {
-                session.dispatchMediaButton(createRemoteUserInfo(packageName, pid, uid),
-                        mediaButtonIntent);
+                session.dispatchPrepare();
             }
         }
 
         @Override
-        public void onPrepare(String packageName, int pid, int uid,
-                ISessionControllerCallback caller) {
+        public void onPrepareFromMediaId(String mediaId, Bundle extras) {
             MediaSession session = mMediaSession.get();
             if (session != null) {
-                session.dispatchPrepare(createRemoteUserInfo(packageName, pid, uid));
+                session.dispatchPrepareFromMediaId(mediaId, extras);
             }
         }
 
         @Override
-        public void onPrepareFromMediaId(String packageName, int pid, int uid,
-                ISessionControllerCallback caller, String mediaId,
-                Bundle extras) {
+        public void onPrepareFromSearch(String query, Bundle extras) {
             MediaSession session = mMediaSession.get();
             if (session != null) {
-                session.dispatchPrepareFromMediaId(
-                        createRemoteUserInfo(packageName, pid, uid), mediaId, extras);
+                session.dispatchPrepareFromSearch(query, extras);
             }
         }
 
         @Override
-        public void onPrepareFromSearch(String packageName, int pid, int uid,
-                ISessionControllerCallback caller, String query,
-                Bundle extras) {
+        public void onPrepareFromUri(Uri uri, Bundle extras) {
             MediaSession session = mMediaSession.get();
             if (session != null) {
-                session.dispatchPrepareFromSearch(
-                        createRemoteUserInfo(packageName, pid, uid), query, extras);
+                session.dispatchPrepareFromUri(uri, extras);
             }
         }
 
         @Override
-        public void onPrepareFromUri(String packageName, int pid, int uid,
-                ISessionControllerCallback caller, Uri uri, Bundle extras) {
+        public void onPlay() {
             MediaSession session = mMediaSession.get();
             if (session != null) {
-                session.dispatchPrepareFromUri(createRemoteUserInfo(packageName, pid, uid),
-                        uri, extras);
+                session.dispatchPlay();
             }
         }
 
         @Override
-        public void onPlay(String packageName, int pid, int uid,
-                ISessionControllerCallback caller) {
+        public void onPlayFromMediaId(String mediaId, Bundle extras) {
             MediaSession session = mMediaSession.get();
             if (session != null) {
-                session.dispatchPlay(createRemoteUserInfo(packageName, pid, uid));
+                session.dispatchPlayFromMediaId(mediaId, extras);
             }
         }
 
         @Override
-        public void onPlayFromMediaId(String packageName, int pid, int uid,
-                ISessionControllerCallback caller, String mediaId,
-                Bundle extras) {
+        public void onPlayFromSearch(String query, Bundle extras) {
             MediaSession session = mMediaSession.get();
             if (session != null) {
-                session.dispatchPlayFromMediaId(createRemoteUserInfo(packageName, pid, uid),
-                        mediaId, extras);
+                session.dispatchPlayFromSearch(query, extras);
             }
         }
 
         @Override
-        public void onPlayFromSearch(String packageName, int pid, int uid,
-                ISessionControllerCallback caller, String query,
-                Bundle extras) {
+        public void onPlayFromUri(Uri uri, Bundle extras) {
             MediaSession session = mMediaSession.get();
             if (session != null) {
-                session.dispatchPlayFromSearch(createRemoteUserInfo(packageName, pid, uid),
-                        query, extras);
+                session.dispatchPlayFromUri(uri, extras);
             }
         }
 
         @Override
-        public void onPlayFromUri(String packageName, int pid, int uid,
-                ISessionControllerCallback caller, Uri uri, Bundle extras) {
+        public void onSkipToTrack(long id) {
             MediaSession session = mMediaSession.get();
             if (session != null) {
-                session.dispatchPlayFromUri(createRemoteUserInfo(packageName, pid, uid),
-                        uri, extras);
+                session.dispatchSkipToItem(id);
             }
         }
 
         @Override
-        public void onSkipToTrack(String packageName, int pid, int uid,
-                ISessionControllerCallback caller, long id) {
+        public void onPause() {
             MediaSession session = mMediaSession.get();
             if (session != null) {
-                session.dispatchSkipToItem(createRemoteUserInfo(packageName, pid, uid), id);
+                session.dispatchPause();
             }
         }
 
         @Override
-        public void onPause(String packageName, int pid, int uid,
-                ISessionControllerCallback caller) {
+        public void onStop() {
             MediaSession session = mMediaSession.get();
             if (session != null) {
-                session.dispatchPause(createRemoteUserInfo(packageName, pid, uid));
+                session.dispatchStop();
             }
         }
 
         @Override
-        public void onStop(String packageName, int pid, int uid,
-                ISessionControllerCallback caller) {
+        public void onNext() {
             MediaSession session = mMediaSession.get();
             if (session != null) {
-                session.dispatchStop(createRemoteUserInfo(packageName, pid, uid));
+                session.dispatchNext();
             }
         }
 
         @Override
-        public void onNext(String packageName, int pid, int uid,
-                ISessionControllerCallback caller) {
+        public void onPrevious() {
             MediaSession session = mMediaSession.get();
             if (session != null) {
-                session.dispatchNext(createRemoteUserInfo(packageName, pid, uid));
+                session.dispatchPrevious();
             }
         }
 
         @Override
-        public void onPrevious(String packageName, int pid, int uid,
-                ISessionControllerCallback caller) {
+        public void onFastForward() {
             MediaSession session = mMediaSession.get();
             if (session != null) {
-                session.dispatchPrevious(createRemoteUserInfo(packageName, pid, uid));
+                session.dispatchFastForward();
             }
         }
 
         @Override
-        public void onFastForward(String packageName, int pid, int uid,
-                ISessionControllerCallback caller) {
+        public void onRewind() {
             MediaSession session = mMediaSession.get();
             if (session != null) {
-                session.dispatchFastForward(createRemoteUserInfo(packageName, pid, uid));
+                session.dispatchRewind();
             }
         }
 
         @Override
-        public void onRewind(String packageName, int pid, int uid,
-                ISessionControllerCallback caller) {
+        public void onSeekTo(long pos) {
             MediaSession session = mMediaSession.get();
             if (session != null) {
-                session.dispatchRewind(createRemoteUserInfo(packageName, pid, uid));
+                session.dispatchSeekTo(pos);
             }
         }
 
         @Override
-        public void onSeekTo(String packageName, int pid, int uid,
-                ISessionControllerCallback caller, long pos) {
+        public void onRate(Rating rating) {
             MediaSession session = mMediaSession.get();
             if (session != null) {
-                session.dispatchSeekTo(createRemoteUserInfo(packageName, pid, uid), pos);
+                session.dispatchRate(rating);
             }
         }
 
         @Override
-        public void onRate(String packageName, int pid, int uid, ISessionControllerCallback caller,
-                Rating rating) {
+        public void setRemoteControlClientBrowsedPlayer() throws RemoteException {
+            Log.d(TAG, "setRemoteControlClientBrowsedPlayer in CallbackStub");
             MediaSession session = mMediaSession.get();
             if (session != null) {
-                session.dispatchRate(createRemoteUserInfo(packageName, pid, uid), rating);
+                session.dispatchSetBrowsedPlayerCommand();
             }
         }
 
         @Override
-        public void onSetPlaybackSpeed(String packageName, int pid, int uid,
-                ISessionControllerCallback caller, float speed) {
+        public void setRemoteControlClientPlayItem(long uid, int scope) throws RemoteException {
+            Log.d(TAG, "setRemoteControlClientPlayItem in CallbackStub");
             MediaSession session = mMediaSession.get();
             if (session != null) {
-                session.dispatchSetPlaybackSpeed(
-                        createRemoteUserInfo(packageName, pid, uid), speed);
+                session.dispatchSetPlayItemCommand(uid, scope);
             }
         }
 
         @Override
-        public void onCustomAction(String packageName, int pid, int uid,
-                ISessionControllerCallback caller, String action, Bundle args) {
+        public void getRemoteControlClientNowPlayingEntries() throws RemoteException {
+            Log.d(TAG, "getRemoteControlClientNowPlayingEntries in CallbackStub");
             MediaSession session = mMediaSession.get();
             if (session != null) {
-                session.dispatchCustomAction(createRemoteUserInfo(packageName, pid, uid),
-                        action, args);
+                session.dispatchGetNowPlayingItemsCommand();
             }
         }
 
         @Override
-        public void onAdjustVolume(String packageName, int pid, int uid,
-                ISessionControllerCallback caller, int direction) {
+        public void onCustomAction(String action, Bundle args) {
             MediaSession session = mMediaSession.get();
             if (session != null) {
-                session.dispatchAdjustVolume(createRemoteUserInfo(packageName, pid, uid),
-                        direction);
+                session.dispatchCustomAction(action, args);
             }
         }
 
         @Override
-        public void onSetVolumeTo(String packageName, int pid, int uid,
-                ISessionControllerCallback caller, int value) {
+        public void onAdjustVolume(int direction) {
             MediaSession session = mMediaSession.get();
             if (session != null) {
-                session.dispatchSetVolumeTo(createRemoteUserInfo(packageName, pid, uid),
-                        value);
+                session.dispatchAdjustVolume(direction);
             }
         }
+
+        @Override
+        public void onSetVolumeTo(int value) {
+            MediaSession session = mMediaSession.get();
+            if (session != null) {
+                session.dispatchSetVolumeTo(value);
+            }
+        }
+
     }
 
     /**
@@ -1404,12 +1300,11 @@ public final class MediaSession {
      */
     public static final class QueueItem implements Parcelable {
         /**
-         * This id is reserved. No items can be explicitly assigned this id.
+         * This id is reserved. No items can be explicitly asigned this id.
          */
         public static final int UNKNOWN_ID = -1;
 
         private final MediaDescription mDescription;
-        @UnsupportedAppUsage
         private final long mId;
 
         /**
@@ -1460,46 +1355,24 @@ public final class MediaSession {
             return 0;
         }
 
-        public static final @android.annotation.NonNull Creator<MediaSession.QueueItem> CREATOR =
-                new Creator<MediaSession.QueueItem>() {
+        public static final Creator<MediaSession.QueueItem> CREATOR = new Creator<MediaSession.QueueItem>() {
 
-                    @Override
-                    public MediaSession.QueueItem createFromParcel(Parcel p) {
-                        return new MediaSession.QueueItem(p);
-                    }
+            @Override
+            public MediaSession.QueueItem createFromParcel(Parcel p) {
+                return new MediaSession.QueueItem(p);
+            }
 
-                    @Override
-                    public MediaSession.QueueItem[] newArray(int size) {
-                        return new MediaSession.QueueItem[size];
-                    }
-                };
+            @Override
+            public MediaSession.QueueItem[] newArray(int size) {
+                return new MediaSession.QueueItem[size];
+            }
+        };
 
         @Override
         public String toString() {
-            return "MediaSession.QueueItem {" + "Description=" + mDescription + ", Id=" + mId
-                    + " }";
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (o == null) {
-                return false;
-            }
-
-            if (!(o instanceof QueueItem)) {
-                return false;
-            }
-
-            final QueueItem item = (QueueItem) o;
-            if (mId != item.mId) {
-                return false;
-            }
-
-            if (!Objects.equals(mDescription, item.mDescription)) {
-                return false;
-            }
-
-            return true;
+            return "MediaSession.QueueItem {" +
+                    "Description=" + mDescription +
+                    ", Id=" + mId + " }";
         }
     }
 
@@ -1508,7 +1381,7 @@ public final class MediaSession {
         public final Bundle extras;
         public final ResultReceiver stub;
 
-        Command(String command, Bundle extras, ResultReceiver stub) {
+        public Command(String command, Bundle extras, ResultReceiver stub) {
             this.command = command;
             this.extras = extras;
             this.stub = stub;
@@ -1516,6 +1389,7 @@ public final class MediaSession {
     }
 
     private class CallbackMessageHandler extends Handler {
+
         private static final int MSG_COMMAND = 1;
         private static final int MSG_MEDIA_BUTTON = 2;
         private static final int MSG_PREPARE = 3;
@@ -1535,74 +1409,75 @@ public final class MediaSession {
         private static final int MSG_REWIND = 17;
         private static final int MSG_SEEK_TO = 18;
         private static final int MSG_RATE = 19;
-        private static final int MSG_SET_PLAYBACK_SPEED = 20;
-        private static final int MSG_CUSTOM_ACTION = 21;
-        private static final int MSG_ADJUST_VOLUME = 22;
-        private static final int MSG_SET_VOLUME = 23;
-        private static final int MSG_PLAY_PAUSE_KEY_DOUBLE_TAP_TIMEOUT = 24;
+        private static final int MSG_CUSTOM_ACTION = 20;
+        private static final int MSG_ADJUST_VOLUME = 21;
+        private static final int MSG_SET_VOLUME = 22;
+        private static final int MSG_SET_BROWSED_PLAYER = 23;
+        private static final int MSG_SET_PLAY_ITEM = 24;
+        private static final int MSG_GET_NOW_PLAYING_ITEMS = 25;
 
         private MediaSession.Callback mCallback;
-        private RemoteUserInfo mCurrentControllerInfo;
 
-        CallbackMessageHandler(Looper looper, MediaSession.Callback callback) {
-            super(looper);
+        public CallbackMessageHandler(Looper looper, MediaSession.Callback callback) {
+            super(looper, null, true);
             mCallback = callback;
-            mCallback.mHandler = this;
         }
 
-        void post(RemoteUserInfo caller, int what, Object obj, Bundle data, long delayMs) {
-            Pair<RemoteUserInfo, Object> objWithCaller = Pair.create(caller, obj);
-            Message msg = obtainMessage(what, objWithCaller);
-            msg.setAsynchronous(true);
-            msg.setData(data);
-            if (delayMs > 0) {
-                sendMessageDelayed(msg, delayMs);
-            } else {
-                sendMessage(msg);
-            }
+        public void post(int what, Object obj, Bundle bundle) {
+            Message msg = obtainMessage(what, obj);
+            msg.setData(bundle);
+            msg.sendToTarget();
+        }
+
+        public void post(int what, Object obj) {
+            obtainMessage(what, obj).sendToTarget();
+        }
+
+        public void post(int what) {
+            post(what, null);
+        }
+
+        public void post(int what, Object obj, int arg1) {
+            obtainMessage(what, arg1, 0, obj).sendToTarget();
         }
 
         @Override
         public void handleMessage(Message msg) {
-            mCurrentControllerInfo = ((Pair<RemoteUserInfo, Object>) msg.obj).first;
-
             VolumeProvider vp;
-            Object obj = ((Pair<RemoteUserInfo, Object>) msg.obj).second;
-
             switch (msg.what) {
                 case MSG_COMMAND:
-                    Command cmd = (Command) obj;
+                    Command cmd = (Command) msg.obj;
                     mCallback.onCommand(cmd.command, cmd.extras, cmd.stub);
                     break;
                 case MSG_MEDIA_BUTTON:
-                    mCallback.onMediaButtonEvent((Intent) obj);
+                    mCallback.onMediaButtonEvent((Intent) msg.obj);
                     break;
                 case MSG_PREPARE:
                     mCallback.onPrepare();
                     break;
                 case MSG_PREPARE_MEDIA_ID:
-                    mCallback.onPrepareFromMediaId((String) obj, msg.getData());
+                    mCallback.onPrepareFromMediaId((String) msg.obj, msg.getData());
                     break;
                 case MSG_PREPARE_SEARCH:
-                    mCallback.onPrepareFromSearch((String) obj, msg.getData());
+                    mCallback.onPrepareFromSearch((String) msg.obj, msg.getData());
                     break;
                 case MSG_PREPARE_URI:
-                    mCallback.onPrepareFromUri((Uri) obj, msg.getData());
+                    mCallback.onPrepareFromUri((Uri) msg.obj, msg.getData());
                     break;
                 case MSG_PLAY:
                     mCallback.onPlay();
                     break;
                 case MSG_PLAY_MEDIA_ID:
-                    mCallback.onPlayFromMediaId((String) obj, msg.getData());
+                    mCallback.onPlayFromMediaId((String) msg.obj, msg.getData());
                     break;
                 case MSG_PLAY_SEARCH:
-                    mCallback.onPlayFromSearch((String) obj, msg.getData());
+                    mCallback.onPlayFromSearch((String) msg.obj, msg.getData());
                     break;
                 case MSG_PLAY_URI:
-                    mCallback.onPlayFromUri((Uri) obj, msg.getData());
+                    mCallback.onPlayFromUri((Uri) msg.obj, msg.getData());
                     break;
                 case MSG_SKIP_TO_ITEM:
-                    mCallback.onSkipToQueueItem((Long) obj);
+                    mCallback.onSkipToQueueItem((Long) msg.obj);
                     break;
                 case MSG_PAUSE:
                     mCallback.onPause();
@@ -1623,23 +1498,20 @@ public final class MediaSession {
                     mCallback.onRewind();
                     break;
                 case MSG_SEEK_TO:
-                    mCallback.onSeekTo((Long) obj);
+                    mCallback.onSeekTo((Long) msg.obj);
                     break;
                 case MSG_RATE:
-                    mCallback.onSetRating((Rating) obj);
-                    break;
-                case MSG_SET_PLAYBACK_SPEED:
-                    mCallback.onSetPlaybackSpeed((Float) obj);
+                    mCallback.onSetRating((Rating) msg.obj);
                     break;
                 case MSG_CUSTOM_ACTION:
-                    mCallback.onCustomAction((String) obj, msg.getData());
+                    mCallback.onCustomAction((String) msg.obj, msg.getData());
                     break;
                 case MSG_ADJUST_VOLUME:
                     synchronized (mLock) {
                         vp = mVolumeProvider;
                     }
                     if (vp != null) {
-                        vp.onAdjustVolume((int) obj);
+                        vp.onAdjustVolume((int) msg.obj);
                     }
                     break;
                 case MSG_SET_VOLUME:
@@ -1647,14 +1519,22 @@ public final class MediaSession {
                         vp = mVolumeProvider;
                     }
                     if (vp != null) {
-                        vp.onSetVolumeTo((int) obj);
+                        vp.onSetVolumeTo((int) msg.obj);
                     }
+                case MSG_SET_BROWSED_PLAYER:
+                    Log.d(TAG, "MSG_SET_BROWSED_PLAYER received in CallbackMessageHandler");
+                    mCallback.setBrowsedPlayer();
                     break;
-                case MSG_PLAY_PAUSE_KEY_DOUBLE_TAP_TIMEOUT:
-                    mCallback.handleMediaPlayPauseKeySingleTapIfPending();
+                case MSG_SET_PLAY_ITEM:
+                    Log.d(TAG, "MSG_SET_PLAY_ITEM received in CallbackMessageHandler");
+                    PlayItemToken playItemToken = (PlayItemToken) msg.obj;
+                    mCallback.setPlayItem(playItemToken.getScope(), playItemToken.getUid());
+                    break;
+                case MSG_GET_NOW_PLAYING_ITEMS:
+                    Log.d(TAG, "MSG_GET_NOW_PLAYING_ITEMS received in CallbackMessageHandler");
+                    mCallback.getNowPlayingEntries();
                     break;
             }
-            mCurrentControllerInfo = null;
         }
     }
 }

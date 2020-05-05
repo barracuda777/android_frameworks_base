@@ -33,7 +33,6 @@ interface IOptionsService
      * @return StatusCode, status of the request placed.
      * @hide
      */
-    @UnsupportedAppUsage
     StatusCode getVersion(int optionsServiceHandle);
 
     /**
@@ -45,7 +44,6 @@ interface IOptionsService
      * The service will fill UceLong.mUceLong with optionsServiceListenerHdl
      * @return StatusCode, status of the request placed.
      */
-    @UnsupportedAppUsage
     StatusCode addListener(int optionsServiceHandle, IOptionsListener optionsListener,
                            inout UceLong optionsServiceListenerHdl);
 
@@ -56,7 +54,6 @@ interface IOptionsService
      * @param optionsServiceListenerHdl provided in createOptionsService() or Addlistener().
      * @return StatusCode, status of the request placed.
      */
-    @UnsupportedAppUsage
     StatusCode removeListener(int optionsServiceHandle, in UceLong optionsServiceListenerHdl);
 
     /**
@@ -69,7 +66,6 @@ interface IOptionsService
      *                  with original request.
      * @return StatusCode, status of the request placed.
      */
-    @UnsupportedAppUsage
     StatusCode setMyInfo(int optionsServiceHandle , in CapInfo capInfo, int reqUserData);
 
 
@@ -82,7 +78,6 @@ interface IOptionsService
      *                  with original request.
      * @return StatusCode, status of the request placed.
      */
-    @UnsupportedAppUsage
     StatusCode getMyInfo(int optionsServiceHandle , int reqUserdata);
 
     /**
@@ -95,7 +90,6 @@ interface IOptionsService
      *                  with original request.
      * @return StatusCode, status of the request placed.
      */
-    @UnsupportedAppUsage
     StatusCode getContactCap(int optionsServiceHandle , String remoteURI, int reqUserData);
 
 
@@ -109,7 +103,6 @@ interface IOptionsService
      *                  with original request.
      * @return StatusCode, status of the request placed.
      */
-    @UnsupportedAppUsage
     StatusCode getContactListCap(int optionsServiceHandle, in String[] remoteURIList,
                                  int reqUserData);
 
@@ -126,7 +119,6 @@ interface IOptionsService
      * @param bContactInBL, true if the contact is blacklisted, else false.
      * @return StatusCode, status of the request placed.
      */
-    @UnsupportedAppUsage
     StatusCode responseIncomingOptions(int optionsServiceHandle,  int tId, int sipResponseCode,
                                        String reasonPhrase, in OptionsCapInfo capInfo,
                                        in boolean bContactInBL);

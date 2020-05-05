@@ -16,7 +16,6 @@
 
 package android.content;
 
-import android.annotation.UnsupportedAppUsage;
 import android.database.Cursor;
 import android.os.RemoteException;
 
@@ -34,7 +33,6 @@ public abstract class CursorEntityIterator implements EntityIterator {
      * first Entity, if there are any.
      * @param cursor the cursor that contains the rows that make up the entities
      */
-    @UnsupportedAppUsage
     public CursorEntityIterator(Cursor cursor) {
         mIsClosed = false;
         mCursor = cursor;

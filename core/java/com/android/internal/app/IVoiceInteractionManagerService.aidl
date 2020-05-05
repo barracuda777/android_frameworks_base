@@ -19,9 +19,7 @@ package com.android.internal.app;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.os.Bundle;
-import android.os.RemoteCallback;
 
-import com.android.internal.app.IVoiceActionCheckCallback;
 import com.android.internal.app.IVoiceInteractionSessionShowCallback;
 import com.android.internal.app.IVoiceInteractor;
 import com.android.internal.app.IVoiceInteractionSessionListener;
@@ -37,7 +35,6 @@ interface IVoiceInteractionManagerService {
     boolean showSessionFromSession(IBinder token, in Bundle sessionArgs, int flags);
     boolean hideSessionFromSession(IBinder token);
     int startVoiceActivity(IBinder token, in Intent intent, String resolvedType);
-    int startAssistantActivity(IBinder token, in Intent intent, String resolvedType);
     void setKeepAwake(IBinder token, boolean keepAwake);
     void closeSystemDialogs(IBinder token);
     void finish(IBinder token);
@@ -52,7 +49,6 @@ interface IVoiceInteractionManagerService {
      * @param keyphraseId The unique identifier for the keyphrase.
      * @param bcp47Locale The BCP47 language tag  for the keyphrase's locale.
      */
-    @UnsupportedAppUsage
     SoundTrigger.KeyphraseSoundModel getKeyphraseSoundModel(int keyphraseId, in String bcp47Locale);
     /**
      * Add/Update the given keyphrase sound model.
@@ -146,29 +142,4 @@ interface IVoiceInteractionManagerService {
      * Register a voice interaction listener.
      */
     void registerVoiceInteractionSessionListener(IVoiceInteractionSessionListener listener);
-
-    /**
-     * Checks the availability of a set of voice actions for the current active voice service.
-     * Returns all supported voice actions.
-     */
-    void getActiveServiceSupportedActions(in List<String> voiceActions,
-     in IVoiceActionCheckCallback callback);
-
-    /**
-     * Provide hints for showing UI.
-     */
-    void setUiHints(in IVoiceInteractionService service, in Bundle hints);
-
-    /**
-     * Requests a list of supported actions from a specific activity.
-     */
-    void requestDirectActions(in IBinder token, int taskId, IBinder assistToken,
-             in RemoteCallback cancellationCallback, in RemoteCallback callback);
-
-    /**
-     * Requests performing an action from a specific activity.
-     */
-    void performDirectAction(in IBinder token, String actionId, in Bundle arguments, int taskId,
-            IBinder assistToken, in RemoteCallback cancellationCallback,
-            in RemoteCallback resultCallback);
 }

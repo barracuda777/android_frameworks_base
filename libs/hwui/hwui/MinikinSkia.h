@@ -17,65 +17,50 @@
 #ifndef _ANDROID_GRAPHICS_MINIKIN_SKIA_H_
 #define _ANDROID_GRAPHICS_MINIKIN_SKIA_H_
 
-#include <SkRefCnt.h>
 #include <cutils/compiler.h>
 #include <minikin/MinikinFont.h>
 
-class SkFont;
+class SkPaint;
 class SkTypeface;
 
 namespace android {
 
-class ANDROID_API MinikinFontSkia : public minikin::MinikinFont {
+class ANDROID_API MinikinFontSkia : public MinikinFont {
 public:
-    MinikinFontSkia(sk_sp<SkTypeface> typeface, const void* fontData, size_t fontSize,
-                    std::string_view filePath, int ttcIndex,
-                    const std::vector<minikin::FontVariation>& axes);
+    // Note: this takes ownership of the reference (will unref on dtor)
+    explicit MinikinFontSkia(SkTypeface *typeface, const void* fontData, size_t fontSize,
+        int ttcIndex);
 
-    float GetHorizontalAdvance(uint32_t glyph_id, const minikin::MinikinPaint& paint,
-                               const minikin::FontFakery& fakery) const override;
+    ~MinikinFontSkia();
 
-    void GetHorizontalAdvances(uint16_t* glyph_ids, uint32_t count,
-                               const minikin::MinikinPaint& paint,
-                               const minikin::FontFakery& fakery,
-                               float* outAdvances) const override;
+    float GetHorizontalAdvance(uint32_t glyph_id,
+        const MinikinPaint &paint) const;
 
-    void GetBounds(minikin::MinikinRect* bounds, uint32_t glyph_id,
-                   const minikin::MinikinPaint& paint,
-                   const minikin::FontFakery& fakery) const override;
+    void GetBounds(MinikinRect* bounds, uint32_t glyph_id,
+        const MinikinPaint &paint) const;
 
-    void GetFontExtent(minikin::MinikinExtent* extent, const minikin::MinikinPaint& paint,
-                       const minikin::FontFakery& fakery) const override;
+    const void* GetTable(uint32_t tag, size_t* size, MinikinDestroyFunc* destroy);
 
     SkTypeface* GetSkTypeface() const;
-    sk_sp<SkTypeface> RefSkTypeface() const;
 
     // Access to underlying raw font bytes
     const void* GetFontData() const;
     size_t GetFontSize() const;
     int GetFontIndex() const;
-    const std::string& getFilePath() const { return mFilePath; }
-    const std::vector<minikin::FontVariation>& GetAxes() const;
-    std::shared_ptr<minikin::MinikinFont> createFontWithVariation(
-            const std::vector<minikin::FontVariation>&) const;
 
-    static uint32_t packFontFlags(const SkFont&);
-    static void unpackFontFlags(SkFont*, uint32_t fontFlags);
+    static uint32_t packPaintFlags(const SkPaint* paint);
+    static void unpackPaintFlags(SkPaint* paint, uint32_t paintFlags);
 
     // set typeface and fake bold/italic parameters
-    static void populateSkFont(SkFont*, const minikin::MinikinFont* font,
-                               minikin::FontFakery fakery);
-
+    static void populateSkPaint(SkPaint* paint, const MinikinFont* font, FontFakery fakery);
 private:
-    sk_sp<SkTypeface> mTypeface;
+    SkTypeface* mTypeface;
 
     // A raw pointer to the font data - it should be owned by some other object with
     // lifetime at least as long as this object.
     const void* mFontData;
     size_t mFontSize;
     int mTtcIndex;
-    std::vector<minikin::FontVariation> mAxes;
-    std::string mFilePath;
 };
 
 }  // namespace android

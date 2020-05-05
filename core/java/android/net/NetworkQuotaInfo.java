@@ -16,40 +16,45 @@
 
 package android.net;
 
-import android.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 import android.os.Parcelable;
 
 /**
- * @deprecated nobody should be using this, but keep it around returning stub
- *             values to prevent app crashes.
+ * Information about quota status on a specific network.
+ *
  * @hide
  */
-@Deprecated
 public class NetworkQuotaInfo implements Parcelable {
+    private final long mEstimatedBytes;
+    private final long mSoftLimitBytes;
+    private final long mHardLimitBytes;
+
     public static final long NO_LIMIT = -1;
 
     /** {@hide} */
-    public NetworkQuotaInfo() {
+    public NetworkQuotaInfo(long estimatedBytes, long softLimitBytes, long hardLimitBytes) {
+        mEstimatedBytes = estimatedBytes;
+        mSoftLimitBytes = softLimitBytes;
+        mHardLimitBytes = hardLimitBytes;
     }
 
     /** {@hide} */
     public NetworkQuotaInfo(Parcel in) {
+        mEstimatedBytes = in.readLong();
+        mSoftLimitBytes = in.readLong();
+        mHardLimitBytes = in.readLong();
     }
 
-    @UnsupportedAppUsage
     public long getEstimatedBytes() {
-        return 0;
+        return mEstimatedBytes;
     }
 
-    @UnsupportedAppUsage
     public long getSoftLimitBytes() {
-        return NO_LIMIT;
+        return mSoftLimitBytes;
     }
 
-    @UnsupportedAppUsage
     public long getHardLimitBytes() {
-        return NO_LIMIT;
+        return mHardLimitBytes;
     }
 
     @Override
@@ -59,10 +64,12 @@ public class NetworkQuotaInfo implements Parcelable {
 
     @Override
     public void writeToParcel(Parcel out, int flags) {
+        out.writeLong(mEstimatedBytes);
+        out.writeLong(mSoftLimitBytes);
+        out.writeLong(mHardLimitBytes);
     }
 
-    @UnsupportedAppUsage
-    public static final @android.annotation.NonNull Creator<NetworkQuotaInfo> CREATOR = new Creator<NetworkQuotaInfo>() {
+    public static final Creator<NetworkQuotaInfo> CREATOR = new Creator<NetworkQuotaInfo>() {
         @Override
         public NetworkQuotaInfo createFromParcel(Parcel in) {
             return new NetworkQuotaInfo(in);

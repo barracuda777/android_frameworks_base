@@ -22,7 +22,6 @@ import static android.text.format.DateUtils.MINUTE_IN_MILLIS;
 import static android.text.format.DateUtils.YEAR_IN_MILLIS;
 import static android.text.format.Time.getJulianDay;
 
-import android.annotation.UnsupportedAppUsage;
 import android.app.ActivityThread;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -31,18 +30,17 @@ import android.content.IntentFilter;
 import android.content.res.Configuration;
 import android.content.res.TypedArray;
 import android.database.ContentObserver;
+import android.icu.util.Calendar;
 import android.os.Handler;
 import android.text.format.Time;
 import android.util.AttributeSet;
 import android.view.accessibility.AccessibilityNodeInfo;
-import android.view.inspector.InspectableProperty;
 import android.widget.RemoteViews.RemoteView;
 
 import com.android.internal.R;
 
 import java.text.DateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.TimeZone;
 
@@ -78,7 +76,6 @@ public class DateTimeView extends TextView {
         this(context, null);
     }
 
-    @UnsupportedAppUsage
     public DateTimeView(Context context, AttributeSet attrs) {
         super(context, attrs);
         final TypedArray a = context.obtainStyledAttributes(attrs,
@@ -107,16 +104,8 @@ public class DateTimeView extends TextView {
             sReceiverInfo.set(ri);
         }
         ri.addView(this);
-        // The view may not be added to the view hierarchy immediately right after setTime()
-        // is called which means it won't get any update from intents before being added.
-        // In such case, the view might show the incorrect relative time after being added to the
-        // view hierarchy until the next update intent comes.
-        // So we update the time here if mShowRelativeTime is enabled to prevent this case.
-        if (mShowRelativeTime) {
-            update();
-        }
     }
-
+        
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
@@ -127,7 +116,6 @@ public class DateTimeView extends TextView {
     }
 
     @android.view.RemotableViewMethod
-    @UnsupportedAppUsage
     public void setTime(long time) {
         Time t = new Time();
         t.set(time);
@@ -143,16 +131,6 @@ public class DateTimeView extends TextView {
         update();
     }
 
-    /**
-     * Returns whether this view shows relative time
-     *
-     * @return True if it shows relative time, false otherwise
-     */
-    @InspectableProperty(name = "showReleative", hasAttributeId = false)
-    public boolean isShowRelativeTime() {
-        return mShowRelativeTime;
-    }
-
     @Override
     @android.view.RemotableViewMethod
     public void setVisibility(@Visibility int visibility) {
@@ -163,7 +141,6 @@ public class DateTimeView extends TextView {
         }
     }
 
-    @UnsupportedAppUsage
     void update() {
         if (mTime == null || getVisibility() == GONE) {
             return;
@@ -316,7 +293,7 @@ public class DateTimeView extends TextView {
      */
     private long computeNextMidnight(TimeZone timeZone) {
         Calendar c = Calendar.getInstance();
-        c.setTimeZone(timeZone);
+        c.setTimeZone(libcore.icu.DateUtilsBridge.icuTimeZone(timeZone));
         c.add(Calendar.DAY_OF_MONTH, 1);
         c.set(Calendar.HOUR_OF_DAY, 0);
         c.set(Calendar.MINUTE, 0);
@@ -413,18 +390,6 @@ public class DateTimeView extends TextView {
         }
     }
 
-    /**
-     * @hide
-     */
-    public static void setReceiverHandler(Handler handler) {
-        ReceiverInfo ri = sReceiverInfo.get();
-        if (ri == null) {
-            ri = new ReceiverInfo();
-            sReceiverInfo.set(ri);
-        }
-        ri.setHandler(handler);
-    }
-
     private static class ReceiverInfo {
         private final ArrayList<DateTimeView> mAttachedViews = new ArrayList<DateTimeView>();
         private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
@@ -451,48 +416,35 @@ public class DateTimeView extends TextView {
             }
         };
 
-        private Handler mHandler = new Handler();
-
         public void addView(DateTimeView v) {
-            synchronized (mAttachedViews) {
-                final boolean register = mAttachedViews.isEmpty();
-                mAttachedViews.add(v);
-                if (register) {
-                    register(getApplicationContextIfAvailable(v.getContext()));
-                }
+            final boolean register = mAttachedViews.isEmpty();
+            mAttachedViews.add(v);
+            if (register) {
+                register(getApplicationContextIfAvailable(v.getContext()));
             }
         }
 
         public void removeView(DateTimeView v) {
-            synchronized (mAttachedViews) {
-                final boolean removed = mAttachedViews.remove(v);
-                // Only unregister once when we remove the last view in the list otherwise we risk
-                // trying to unregister a receiver that is no longer registered.
-                if (removed && mAttachedViews.isEmpty()) {
-                    unregister(getApplicationContextIfAvailable(v.getContext()));
-                }
+            mAttachedViews.remove(v);
+            if (mAttachedViews.isEmpty()) {
+                unregister(getApplicationContextIfAvailable(v.getContext()));
             }
         }
 
         void updateAll() {
-            synchronized (mAttachedViews) {
-                final int count = mAttachedViews.size();
-                for (int i = 0; i < count; i++) {
-                    DateTimeView view = mAttachedViews.get(i);
-                    view.post(() -> view.clearFormatAndUpdate());
-                }
+            final int count = mAttachedViews.size();
+            for (int i = 0; i < count; i++) {
+                mAttachedViews.get(i).clearFormatAndUpdate();
             }
         }
 
         long getSoonestUpdateTime() {
             long result = Long.MAX_VALUE;
-            synchronized (mAttachedViews) {
-                final int count = mAttachedViews.size();
-                for (int i = 0; i < count; i++) {
-                    final long time = mAttachedViews.get(i).mUpdateTimeMillis;
-                    if (time < result) {
-                        result = time;
-                    }
+            final int count = mAttachedViews.size();
+            for (int i = 0; i < count; i++) {
+                final long time = mAttachedViews.get(i).mUpdateTimeMillis;
+                if (time < result) {
+                    result = time;
                 }
             }
             return result;
@@ -509,21 +461,11 @@ public class DateTimeView extends TextView {
             filter.addAction(Intent.ACTION_TIME_CHANGED);
             filter.addAction(Intent.ACTION_CONFIGURATION_CHANGED);
             filter.addAction(Intent.ACTION_TIMEZONE_CHANGED);
-            context.registerReceiver(mReceiver, filter, null, mHandler);
+            context.registerReceiver(mReceiver, filter);
         }
 
         void unregister(Context context) {
             context.unregisterReceiver(mReceiver);
-        }
-
-        public void setHandler(Handler handler) {
-            mHandler = handler;
-            synchronized (mAttachedViews) {
-                if (!mAttachedViews.isEmpty()) {
-                    unregister(mAttachedViews.get(0).getContext());
-                    register(mAttachedViews.get(0).getContext());
-                }
-            }
         }
     }
 }

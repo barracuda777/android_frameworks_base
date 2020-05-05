@@ -17,8 +17,6 @@
 package android.content;
 
 import android.accounts.Account;
-import android.annotation.UnsupportedAppUsage;
-import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
 
@@ -34,7 +32,6 @@ public class SyncInfo implements Parcelable {
     private static final Account REDACTED_ACCOUNT = new Account("*****", "*****");
 
     /** @hide */
-    @UnsupportedAppUsage
     public final int authorityId;
 
     /**
@@ -66,7 +63,6 @@ public class SyncInfo implements Parcelable {
     }
 
     /** @hide */
-    @UnsupportedAppUsage
     public SyncInfo(int authorityId, Account account, String authority, long startTime) {
         this.authorityId = authorityId;
         this.account = account;
@@ -96,7 +92,6 @@ public class SyncInfo implements Parcelable {
     }
 
     /** @hide */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     SyncInfo(Parcel parcel) {
         authorityId = parcel.readInt();
         account = parcel.readParcelable(Account.class.getClassLoader());
@@ -105,8 +100,7 @@ public class SyncInfo implements Parcelable {
     }
 
     /** @hide */
-    @UnsupportedAppUsage
-    public static final @android.annotation.NonNull Creator<SyncInfo> CREATOR = new Creator<SyncInfo>() {
+    public static final Creator<SyncInfo> CREATOR = new Creator<SyncInfo>() {
         public SyncInfo createFromParcel(Parcel in) {
             return new SyncInfo(in);
         }

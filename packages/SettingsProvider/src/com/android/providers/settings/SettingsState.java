@@ -16,43 +16,22 @@
 
 package com.android.providers.settings;
 
-import static android.os.Process.FIRST_APPLICATION_UID;
-import static android.os.Process.INVALID_UID;
-
-import android.annotation.NonNull;
-import android.content.Context;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageInfo;
-import android.content.pm.PackageManager;
-import android.content.pm.PackageManagerInternal;
-import android.content.pm.Signature;
-import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
-import android.os.UserHandle;
 import android.provider.Settings;
-import android.provider.Settings.Global;
-import android.providers.settings.SettingsOperationProto;
 import android.text.TextUtils;
 import android.util.ArrayMap;
 import android.util.AtomicFile;
 import android.util.Base64;
 import android.util.Slog;
-import android.util.SparseIntArray;
-import android.util.StatsLog;
 import android.util.TimeUtils;
 import android.util.Xml;
-import android.util.proto.ProtoOutputStream;
-
 import com.android.internal.annotations.GuardedBy;
-import com.android.internal.util.ArrayUtils;
-import com.android.server.LocalServices;
-
 import libcore.io.IoUtils;
-
+import libcore.util.Objects;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlSerializer;
@@ -64,11 +43,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * This class contains the state for one type of settings. It is responsible
@@ -87,8 +63,6 @@ final class SettingsState {
 
     private static final String LOG_TAG = "SettingsState";
 
-    static final String SYSTEM_PACKAGE_NAME = "android";
-
     static final int SETTINGS_VERSION_NEW_ENCODING = 121;
 
     private static final long WRITE_SETTINGS_DELAY_MILLIS = 200;
@@ -97,32 +71,27 @@ final class SettingsState {
     public static final int MAX_BYTES_PER_APP_PACKAGE_UNLIMITED = -1;
     public static final int MAX_BYTES_PER_APP_PACKAGE_LIMITED = 20000;
 
+    public static final String SYSTEM_PACKAGE_NAME = "android";
+
     public static final int VERSION_UNDEFINED = -1;
 
     private static final String TAG_SETTINGS = "settings";
     private static final String TAG_SETTING = "setting";
     private static final String ATTR_PACKAGE = "package";
-    private static final String ATTR_DEFAULT_SYS_SET = "defaultSysSet";
-    private static final String ATTR_TAG = "tag";
-    private static final String ATTR_TAG_BASE64 = "tagBase64";
 
     private static final String ATTR_VERSION = "version";
     private static final String ATTR_ID = "id";
     private static final String ATTR_NAME = "name";
 
-    /**
-     * Non-binary value will be written in this attributes.
-     */
+    /** Non-binary value will be written in this attribute. */
     private static final String ATTR_VALUE = "value";
-    private static final String ATTR_DEFAULT_VALUE = "defaultValue";
 
     /**
-     * KXmlSerializer won't like some characters. We encode such characters
-     * in base64 and store in this attribute.
-     * NOTE: A null value will have *neither* ATTR_VALUE nor ATTR_VALUE_BASE64.
+     * KXmlSerializer won't like some characters.  We encode such characters in base64 and
+     * store in this attribute.
+     * NOTE: A null value will have NEITHER ATTR_VALUE nor ATTR_VALUE_BASE64.
      */
     private static final String ATTR_VALUE_BASE64 = "valueBase64";
-    private static final String ATTR_DEFAULT_VALUE_BASE64 = "defaultValueBase64";
 
     // This was used in version 120 and before.
     private static final String NULL_VALUE_OLD_STYLE = "null";
@@ -132,29 +101,10 @@ final class SettingsState {
     private static final String HISTORICAL_OPERATION_DELETE = "delete";
     private static final String HISTORICAL_OPERATION_PERSIST = "persist";
     private static final String HISTORICAL_OPERATION_INITIALIZE = "initialize";
-    private static final String HISTORICAL_OPERATION_RESET = "reset";
-
-    private static final String SHELL_PACKAGE_NAME = "com.android.shell";
-    private static final String ROOT_PACKAGE_NAME = "root";
-
-    private static final String NULL_VALUE = "null";
-
-    private static final Object sLock = new Object();
-
-    @GuardedBy("sLock")
-    private static final SparseIntArray sSystemUids = new SparseIntArray();
-
-    @GuardedBy("sLock")
-    private static Signature sSystemSignature;
-
-    private final Object mWriteLock = new Object();
 
     private final Object mLock;
 
     private final Handler mHandler;
-
-    @GuardedBy("mLock")
-    private final Context mContext;
 
     @GuardedBy("mLock")
     private final ArrayMap<String, Setting> mSettings = new ArrayMap<>();
@@ -168,10 +118,7 @@ final class SettingsState {
     @GuardedBy("mLock")
     private final File mStatePersistFile;
 
-    @GuardedBy("mLock")
-    private final String mStatePersistTag;
-
-    private final Setting mNullSetting = new Setting(null, null, false, null, null) {
+    private final Setting mNullSetting = new Setting(null, null, null) {
         @Override
         public boolean isNull() {
             return true;
@@ -202,64 +149,13 @@ final class SettingsState {
     @GuardedBy("mLock")
     private int mNextHistoricalOpIdx;
 
-    public static final int SETTINGS_TYPE_GLOBAL = 0;
-    public static final int SETTINGS_TYPE_SYSTEM = 1;
-    public static final int SETTINGS_TYPE_SECURE = 2;
-    public static final int SETTINGS_TYPE_SSAID = 3;
-    public static final int SETTINGS_TYPE_CONFIG = 4;
-
-    public static final int SETTINGS_TYPE_MASK = 0xF0000000;
-    public static final int SETTINGS_TYPE_SHIFT = 28;
-
-    public static int makeKey(int type, int userId) {
-        return (type << SETTINGS_TYPE_SHIFT) | userId;
-    }
-
-    public static int getTypeFromKey(int key) {
-        return key >>> SETTINGS_TYPE_SHIFT;
-    }
-
-    public static int getUserIdFromKey(int key) {
-        return key & ~SETTINGS_TYPE_MASK;
-    }
-
-    public static String settingTypeToString(int type) {
-        switch (type) {
-            case SETTINGS_TYPE_CONFIG: {
-                return "SETTINGS_CONFIG";
-            }
-            case SETTINGS_TYPE_GLOBAL: {
-                return "SETTINGS_GLOBAL";
-            }
-            case SETTINGS_TYPE_SECURE: {
-                return "SETTINGS_SECURE";
-            }
-            case SETTINGS_TYPE_SYSTEM: {
-                return "SETTINGS_SYSTEM";
-            }
-            case SETTINGS_TYPE_SSAID: {
-                return "SETTINGS_SSAID";
-            }
-            default: {
-                return "UNKNOWN";
-            }
-        }
-    }
-
-    public static String keyToString(int key) {
-        return "Key[user=" + getUserIdFromKey(key) + ";type="
-                + settingTypeToString(getTypeFromKey(key)) + "]";
-    }
-
-    public SettingsState(Context context, Object lock, File file, int key,
-            int maxBytesPerAppPackage, Looper looper) {
+    public SettingsState(Object lock, File file, int key, int maxBytesPerAppPackage,
+            Looper looper) {
         // It is important that we use the same lock as the settings provider
         // to ensure multiple mutations on this state are atomicaly persisted
         // as the async persistence should be blocked while we make changes.
-        mContext = context;
         mLock = lock;
         mStatePersistFile = file;
-        mStatePersistTag = "settings-" + getTypeFromKey(key) + "-" + getUserIdFromKey(key);
         mKey = key;
         mHandler = new MyHandler(looper);
         if (maxBytesPerAppPackage == MAX_BYTES_PER_APP_PACKAGE_LIMITED) {
@@ -279,7 +175,6 @@ final class SettingsState {
     }
 
     // The settings provider must hold its lock when calling here.
-    @GuardedBy("mLock")
     public int getVersionLocked() {
         return mVersion;
     }
@@ -289,7 +184,6 @@ final class SettingsState {
     }
 
     // The settings provider must hold its lock when calling here.
-    @GuardedBy("mLock")
     public void setVersionLocked(int version) {
         if (version == mVersion) {
             return;
@@ -300,8 +194,7 @@ final class SettingsState {
     }
 
     // The settings provider must hold its lock when calling here.
-    @GuardedBy("mLock")
-    public void removeSettingsForPackageLocked(String packageName) {
+    public void onPackageRemovedLocked(String packageName) {
         boolean removedSomething = false;
 
         final int settingCount = mSettings.size();
@@ -325,7 +218,6 @@ final class SettingsState {
     }
 
     // The settings provider must hold its lock when calling here.
-    @GuardedBy("mLock")
     public List<String> getSettingNamesLocked() {
         ArrayList<String> names = new ArrayList<>();
         final int settingsCount = mSettings.size();
@@ -337,7 +229,6 @@ final class SettingsState {
     }
 
     // The settings provider must hold its lock when calling here.
-    @GuardedBy("mLock")
     public Setting getSettingLocked(String name) {
         if (TextUtils.isEmpty(name)) {
             return mNullSetting;
@@ -350,69 +241,37 @@ final class SettingsState {
     }
 
     // The settings provider must hold its lock when calling here.
-    public boolean updateSettingLocked(String name, String value, String tag,
-            boolean makeValue, String packageName) {
+    public boolean updateSettingLocked(String name, String value, String packageName) {
         if (!hasSettingLocked(name)) {
             return false;
         }
 
-        return insertSettingLocked(name, value, tag, makeValue, packageName);
+        return insertSettingLocked(name, value, packageName);
     }
 
     // The settings provider must hold its lock when calling here.
-    @GuardedBy("mLock")
-    public void resetSettingDefaultValueLocked(String name) {
-        Setting oldSetting = getSettingLocked(name);
-        if (oldSetting != null && !oldSetting.isNull() && oldSetting.getDefaultValue() != null) {
-            String oldValue = oldSetting.getValue();
-            String oldDefaultValue = oldSetting.getDefaultValue();
-            Setting newSetting = new Setting(name, oldSetting.getValue(), null,
-                    oldSetting.getPackageName(), oldSetting.getTag(), false,
-                    oldSetting.getId());
-            mSettings.put(name, newSetting);
-            updateMemoryUsagePerPackageLocked(newSetting.getPackageName(), oldValue,
-                    newSetting.getValue(), oldDefaultValue, newSetting.getDefaultValue());
-            scheduleWriteIfNeededLocked();
-        }
-    }
-
-    // The settings provider must hold its lock when calling here.
-    @GuardedBy("mLock")
-    public boolean insertSettingLocked(String name, String value, String tag,
-            boolean makeDefault, String packageName) {
-        return insertSettingLocked(name, value, tag, makeDefault, false, packageName);
-    }
-
-    // The settings provider must hold its lock when calling here.
-    @GuardedBy("mLock")
-    public boolean insertSettingLocked(String name, String value, String tag,
-            boolean makeDefault, boolean forceNonSystemPackage, String packageName) {
+    public boolean insertSettingLocked(String name, String value, String packageName) {
         if (TextUtils.isEmpty(name)) {
             return false;
         }
 
         Setting oldState = mSettings.get(name);
         String oldValue = (oldState != null) ? oldState.value : null;
-        String oldDefaultValue = (oldState != null) ? oldState.defaultValue : null;
         Setting newState;
 
         if (oldState != null) {
-            if (!oldState.update(value, makeDefault, packageName, tag, forceNonSystemPackage)) {
+            if (!oldState.update(value, packageName)) {
                 return false;
             }
             newState = oldState;
         } else {
-            newState = new Setting(name, value, makeDefault, packageName, tag);
+            newState = new Setting(name, value, packageName);
             mSettings.put(name, newState);
         }
 
-        StatsLog.write(StatsLog.SETTING_CHANGED, name, value, newState.value, oldValue, tag,
-            makeDefault, getUserIdFromKey(mKey), StatsLog.SETTING_CHANGED__REASON__UPDATED);
-
         addHistoricalOperationLocked(HISTORICAL_OPERATION_UPDATE, newState);
 
-        updateMemoryUsagePerPackageLocked(packageName, oldValue, value,
-                oldDefaultValue, newState.getDefaultValue());
+        updateMemoryUsagePerPackageLocked(packageName, oldValue, value);
 
         scheduleWriteIfNeededLocked();
 
@@ -426,7 +285,6 @@ final class SettingsState {
     }
 
     // The settings provider must hold its lock when calling here.
-    @GuardedBy("mLock")
     public boolean deleteSettingLocked(String name) {
         if (TextUtils.isEmpty(name) || !hasSettingLocked(name)) {
             return false;
@@ -434,12 +292,7 @@ final class SettingsState {
 
         Setting oldState = mSettings.remove(name);
 
-        StatsLog.write(StatsLog.SETTING_CHANGED, name, /* value= */ "", /* newValue= */ "",
-            oldState.value, /* tag */ "", false, getUserIdFromKey(mKey),
-            StatsLog.SETTING_CHANGED__REASON__DELETED);
-
-        updateMemoryUsagePerPackageLocked(oldState.packageName, oldState.value,
-                null, oldState.defaultValue, null);
+        updateMemoryUsagePerPackageLocked(oldState.packageName, oldState.value, null);
 
         addHistoricalOperationLocked(HISTORICAL_OPERATION_DELETE, oldState);
 
@@ -449,37 +302,6 @@ final class SettingsState {
     }
 
     // The settings provider must hold its lock when calling here.
-    @GuardedBy("mLock")
-    public boolean resetSettingLocked(String name) {
-        if (TextUtils.isEmpty(name) || !hasSettingLocked(name)) {
-            return false;
-        }
-
-        Setting setting = mSettings.get(name);
-
-        Setting oldSetting = new Setting(setting);
-        String oldValue = setting.getValue();
-        String oldDefaultValue = setting.getDefaultValue();
-
-        if (!setting.reset()) {
-            return false;
-        }
-
-        String newValue = setting.getValue();
-        String newDefaultValue = setting.getDefaultValue();
-
-        updateMemoryUsagePerPackageLocked(setting.packageName, oldValue,
-                newValue, oldDefaultValue, newDefaultValue);
-
-        addHistoricalOperationLocked(HISTORICAL_OPERATION_RESET, oldSetting);
-
-        scheduleWriteIfNeededLocked();
-
-        return true;
-    }
-
-    // The settings provider must hold its lock when calling here.
-    @GuardedBy("mLock")
     public void destroyLocked(Runnable callback) {
         mHandler.removeMessages(MyHandler.MSG_PERSIST_SETTINGS);
         if (callback != null) {
@@ -493,7 +315,6 @@ final class SettingsState {
         }
     }
 
-    @GuardedBy("mLock")
     private void addHistoricalOperationLocked(String type, Setting setting) {
         if (mHistoricalOperations == null) {
             return;
@@ -509,40 +330,6 @@ final class SettingsState {
         mNextHistoricalOpIdx++;
         if (mNextHistoricalOpIdx >= HISTORICAL_OPERATION_COUNT) {
             mNextHistoricalOpIdx = 0;
-        }
-    }
-
-    /**
-     * Dump historical operations as a proto buf.
-     *
-     * @param proto The proto buf stream to dump to
-     * @param fieldId The repeated field ID to use to save an operation to.
-     */
-    void dumpHistoricalOperations(@NonNull ProtoOutputStream proto, long fieldId) {
-        synchronized (mLock) {
-            if (mHistoricalOperations == null) {
-                return;
-            }
-
-            final int operationCount = mHistoricalOperations.size();
-            for (int i = 0; i < operationCount; i++) {
-                int index = mNextHistoricalOpIdx - 1 - i;
-                if (index < 0) {
-                    index = operationCount + index;
-                }
-                HistoricalOperation operation = mHistoricalOperations.get(index);
-
-                final long token = proto.start(fieldId);
-                proto.write(SettingsOperationProto.TIMESTAMP, operation.mTimestamp);
-                proto.write(SettingsOperationProto.OPERATION, operation.mOperation);
-                if (operation.mSetting != null) {
-                    // Only add the name of the setting, since we don't know the historical package
-                    // and values for it so they would be misleading to add here (all we could
-                    // add is what the current data is).
-                    proto.write(SettingsOperationProto.SETTING, operation.mSetting.getName());
-                }
-                proto.end(token);
-            }
         }
     }
 
@@ -563,11 +350,8 @@ final class SettingsState {
                 pw.print(" ");
                 pw.print(operation.mOperation);
                 if (operation.mSetting != null) {
-                    pw.print(" ");
-                    // Only print the name of the setting, since we don't know the
-                    // historical package and values for it so they would be misleading
-                    // to print here (all we could print is what the current data is).
-                    pw.print(operation.mSetting.getName());
+                    pw.print("  ");
+                    pw.print(operation.mSetting);
                 }
                 pw.println();
             }
@@ -576,9 +360,8 @@ final class SettingsState {
         }
     }
 
-    @GuardedBy("mLock")
     private void updateMemoryUsagePerPackageLocked(String packageName, String oldValue,
-            String newValue, String oldDefaultValue, String newDefaultValue) {
+            String newValue) {
         if (mMaxBytesPerAppPackage == MAX_BYTES_PER_APP_PACKAGE_UNLIMITED) {
             return;
         }
@@ -589,10 +372,7 @@ final class SettingsState {
 
         final int oldValueSize = (oldValue != null) ? oldValue.length() : 0;
         final int newValueSize = (newValue != null) ? newValue.length() : 0;
-        final int oldDefaultValueSize = (oldDefaultValue != null) ? oldDefaultValue.length() : 0;
-        final int newDefaultValueSize = (newDefaultValue != null) ? newDefaultValue.length() : 0;
-        final int deltaSize = newValueSize + newDefaultValueSize
-                - oldValueSize - oldDefaultValueSize;
+        final int deltaSize = newValueSize - oldValueSize;
 
         Integer currentSize = mPackageToMemoryUsage.get(packageName);
         final int newSize = Math.max((currentSize != null)
@@ -612,12 +392,10 @@ final class SettingsState {
         mPackageToMemoryUsage.put(packageName, newSize);
     }
 
-    @GuardedBy("mLock")
     private boolean hasSettingLocked(String name) {
         return mSettings.indexOfKey(name) >= 0;
     }
 
-    @GuardedBy("mLock")
     private void scheduleWriteIfNeededLocked() {
         // If dirty then we have a write already scheduled.
         if (!mDirty) {
@@ -626,7 +404,6 @@ final class SettingsState {
         }
     }
 
-    @GuardedBy("mLock")
     private void writeStateAsyncLocked() {
         final long currentTimeMillis = SystemClock.uptimeMillis();
 
@@ -657,7 +434,12 @@ final class SettingsState {
     }
 
     private void doWriteState() {
-        boolean wroteState = false;
+        if (DEBUG_PERSISTENCE) {
+            Slog.i(LOG_TAG, "[PERSIST START]");
+        }
+
+        AtomicFile destination = new AtomicFile(mStatePersistFile);
+
         final int version;
         final ArrayMap<String, Setting> settings;
 
@@ -668,116 +450,50 @@ final class SettingsState {
             mWriteScheduled = false;
         }
 
-        synchronized (mWriteLock) {
-            if (DEBUG_PERSISTENCE) {
-                Slog.i(LOG_TAG, "[PERSIST START]");
-            }
+        FileOutputStream out = null;
+        try {
+            out = destination.startWrite();
 
-            AtomicFile destination = new AtomicFile(mStatePersistFile, mStatePersistTag);
-            FileOutputStream out = null;
-            try {
-                out = destination.startWrite();
+            XmlSerializer serializer = Xml.newSerializer();
+            serializer.setOutput(out, StandardCharsets.UTF_8.name());
+            serializer.setFeature("http://xmlpull.org/v1/doc/features.html#indent-output", true);
+            serializer.startDocument(null, true);
+            serializer.startTag(null, TAG_SETTINGS);
+            serializer.attribute(null, ATTR_VERSION, String.valueOf(version));
 
-                XmlSerializer serializer = Xml.newSerializer();
-                serializer.setOutput(out, StandardCharsets.UTF_8.name());
-                serializer.setFeature("http://xmlpull.org/v1/doc/features.html#indent-output",
-                        true);
-                serializer.startDocument(null, true);
-                serializer.startTag(null, TAG_SETTINGS);
-                serializer.attribute(null, ATTR_VERSION, String.valueOf(version));
+            final int settingCount = settings.size();
+            for (int i = 0; i < settingCount; i++) {
+                Setting setting = settings.valueAt(i);
 
-                final int settingCount = settings.size();
-                for (int i = 0; i < settingCount; i++) {
-                    Setting setting = settings.valueAt(i);
-
-                    if (setting.isTransient()) {
-                        if (DEBUG_PERSISTENCE) {
-                            Slog.i(LOG_TAG, "[SKIPPED PERSISTING]" + setting.getName());
-                        }
-                        continue;
-                    }
-
-                    writeSingleSetting(mVersion, serializer, setting.getId(), setting.getName(),
-                            setting.getValue(), setting.getDefaultValue(), setting.getPackageName(),
-                            setting.getTag(), setting.isDefaultFromSystem());
-
-                    if (DEBUG_PERSISTENCE) {
-                        Slog.i(LOG_TAG, "[PERSISTED]" + setting.getName() + "="
-                                + setting.getValue());
-                    }
-                }
-
-                serializer.endTag(null, TAG_SETTINGS);
-                serializer.endDocument();
-                destination.finishWrite(out);
-
-                wroteState = true;
+                writeSingleSetting(mVersion, serializer, setting.getId(), setting.getName(),
+                        setting.getValue(), setting.getPackageName());
 
                 if (DEBUG_PERSISTENCE) {
-                    Slog.i(LOG_TAG, "[PERSIST END]");
+                    Slog.i(LOG_TAG, "[PERSISTED]" + setting.getName() + "=" + setting.getValue());
                 }
-            } catch (Throwable t) {
-                Slog.wtf(LOG_TAG, "Failed to write settings, restoring backup", t);
-                if (t instanceof IOException) {
-                    // we failed to create a directory, so log the permissions and existence
-                    // state for the settings file and directory
-                    logSettingsDirectoryInformation(destination.getBaseFile());
-                    if (t.getMessage().contains("Couldn't create directory")) {
-                        // attempt to create the directory with Files.createDirectories, which
-                        // throws more informative errors than File.mkdirs.
-                        Path parentPath = destination.getBaseFile().getParentFile().toPath();
-                        try {
-                            Files.createDirectories(parentPath);
-                            Slog.i(LOG_TAG, "Successfully created " + parentPath);
-                        } catch (Throwable t2) {
-                            Slog.e(LOG_TAG, "Failed to write " + parentPath
-                                    + " with Files.writeDirectories", t2);
-                        }
-                    }
-                }
-                destination.failWrite(out);
-            } finally {
-                IoUtils.closeQuietly(out);
             }
-        }
 
-        if (wroteState) {
+            serializer.endTag(null, TAG_SETTINGS);
+            serializer.endDocument();
+            destination.finishWrite(out);
+
             synchronized (mLock) {
                 addHistoricalOperationLocked(HISTORICAL_OPERATION_PERSIST, null);
             }
-        }
-    }
 
-    private static void logSettingsDirectoryInformation(File settingsFile) {
-        File parent = settingsFile.getParentFile();
-        Slog.i(LOG_TAG, "directory info for directory/file " + settingsFile
-                + " with stacktrace ", new Exception());
-        File ancestorDir = parent;
-        while (ancestorDir != null) {
-            if (!ancestorDir.exists()) {
-                Slog.i(LOG_TAG, "ancestor directory " + ancestorDir
-                        + " does not exist");
-                ancestorDir = ancestorDir.getParentFile();
-            } else {
-                Slog.i(LOG_TAG, "ancestor directory " + ancestorDir
-                        + " exists");
-                Slog.i(LOG_TAG, "ancestor directory " + ancestorDir
-                        + " permissions: r: " + ancestorDir.canRead() + " w: "
-                        + ancestorDir.canWrite() + " x: " + ancestorDir.canExecute());
-                File ancestorParent = ancestorDir.getParentFile();
-                if (ancestorParent != null) {
-                    Slog.i(LOG_TAG, "ancestor's parent directory " + ancestorParent
-                            + " permissions: r: " + ancestorParent.canRead() + " w: "
-                            + ancestorParent.canWrite() + " x: " + ancestorParent.canExecute());
-                }
-                break;
+            if (DEBUG_PERSISTENCE) {
+                Slog.i(LOG_TAG, "[PERSIST END]");
             }
+        } catch (Throwable t) {
+            Slog.wtf(LOG_TAG, "Failed to write settings, restoring backup", t);
+            destination.failWrite(out);
+        } finally {
+            IoUtils.closeQuietly(out);
         }
     }
 
     static void writeSingleSetting(int version, XmlSerializer serializer, String id,
-            String name, String value, String defaultValue, String packageName,
-            String tag, boolean defaultSysSet) throws IOException {
+            String name, String value, String packageName) throws IOException {
         if (id == null || isBinary(id) || name == null || isBinary(name)
                 || packageName == null || isBinary(packageName)) {
             // This shouldn't happen.
@@ -786,46 +502,38 @@ final class SettingsState {
         serializer.startTag(null, TAG_SETTING);
         serializer.attribute(null, ATTR_ID, id);
         serializer.attribute(null, ATTR_NAME, name);
-        setValueAttribute(ATTR_VALUE, ATTR_VALUE_BASE64,
-                version, serializer, value);
+        setValueAttribute(version, serializer, value);
         serializer.attribute(null, ATTR_PACKAGE, packageName);
-        if (defaultValue != null) {
-            setValueAttribute(ATTR_DEFAULT_VALUE, ATTR_DEFAULT_VALUE_BASE64,
-                    version, serializer, defaultValue);
-            serializer.attribute(null, ATTR_DEFAULT_SYS_SET, Boolean.toString(defaultSysSet));
-            setValueAttribute(ATTR_TAG, ATTR_TAG_BASE64,
-                    version, serializer, tag);
-        }
         serializer.endTag(null, TAG_SETTING);
     }
 
-    static void setValueAttribute(String attr, String attrBase64, int version,
-            XmlSerializer serializer, String value) throws IOException {
+    static void setValueAttribute(int version, XmlSerializer serializer, String value)
+            throws IOException {
         if (version >= SETTINGS_VERSION_NEW_ENCODING) {
             if (value == null) {
                 // Null value -> No ATTR_VALUE nor ATTR_VALUE_BASE64.
             } else if (isBinary(value)) {
-                serializer.attribute(null, attrBase64, base64Encode(value));
+                serializer.attribute(null, ATTR_VALUE_BASE64, base64Encode(value));
             } else {
-                serializer.attribute(null, attr, value);
+                serializer.attribute(null, ATTR_VALUE, value);
             }
         } else {
             // Old encoding.
             if (value == null) {
-                serializer.attribute(null, attr, NULL_VALUE_OLD_STYLE);
+                serializer.attribute(null, ATTR_VALUE, NULL_VALUE_OLD_STYLE);
             } else {
-                serializer.attribute(null, attr, value);
+                serializer.attribute(null, ATTR_VALUE, value);
             }
         }
     }
 
-    private String getValueAttribute(XmlPullParser parser, String attr, String base64Attr) {
+    private String getValueAttribute(XmlPullParser parser) {
         if (mVersion >= SETTINGS_VERSION_NEW_ENCODING) {
-            final String value = parser.getAttributeValue(null, attr);
+            final String value = parser.getAttributeValue(null, ATTR_VALUE);
             if (value != null) {
                 return value;
             }
-            final String base64 = parser.getAttributeValue(null, base64Attr);
+            final String base64 = parser.getAttributeValue(null, ATTR_VALUE_BASE64);
             if (base64 != null) {
                 return base64Decode(base64);
             }
@@ -833,7 +541,7 @@ final class SettingsState {
             return null;
         } else {
             // Old encoding.
-            final String stored = parser.getAttributeValue(null, attr);
+            final String stored = parser.getAttributeValue(null, ATTR_VALUE);
             if (NULL_VALUE_OLD_STYLE.equals(stored)) {
                 return null;
             } else {
@@ -842,15 +550,19 @@ final class SettingsState {
         }
     }
 
-    @GuardedBy("mLock")
     private void readStateSyncLocked() {
         FileInputStream in;
+        if (!mStatePersistFile.exists()) {
+            Slog.i(LOG_TAG, "No settings state " + mStatePersistFile);
+            addHistoricalOperationLocked(HISTORICAL_OPERATION_INITIALIZE, null);
+            return;
+        }
         try {
             in = new AtomicFile(mStatePersistFile).openRead();
         } catch (FileNotFoundException fnfe) {
-            Slog.i(LOG_TAG, "No settings state " + mStatePersistFile);
-            logSettingsDirectoryInformation(mStatePersistFile);
-            addHistoricalOperationLocked(HISTORICAL_OPERATION_INITIALIZE, null);
+            String message = "No settings state " + mStatePersistFile;
+            Slog.wtf(LOG_TAG, message);
+            Slog.i(LOG_TAG, message);
             return;
         }
         try {
@@ -860,20 +572,10 @@ final class SettingsState {
         } catch (XmlPullParserException | IOException e) {
             String message = "Failed parsing settings file: " + mStatePersistFile;
             Slog.wtf(LOG_TAG, message);
-            throw new IllegalStateException(message, e);
+            throw new IllegalStateException(message , e);
         } finally {
             IoUtils.closeQuietly(in);
         }
-    }
-
-    /**
-     * Uses AtomicFile to check if the file or its backup exists.
-     * @param file The file to check for existence
-     * @return whether the original or backup exist
-     */
-    public static boolean stateFileExists(File file) {
-        AtomicFile stateFile = new AtomicFile(file);
-        return stateFile.exists();
     }
 
     private void parseStateLocked(XmlPullParser parser)
@@ -893,7 +595,6 @@ final class SettingsState {
         }
     }
 
-    @GuardedBy("mLock")
     private void parseSettingsLocked(XmlPullParser parser)
             throws IOException, XmlPullParserException {
 
@@ -911,19 +612,9 @@ final class SettingsState {
             if (tagName.equals(TAG_SETTING)) {
                 String id = parser.getAttributeValue(null, ATTR_ID);
                 String name = parser.getAttributeValue(null, ATTR_NAME);
-                String value = getValueAttribute(parser, ATTR_VALUE, ATTR_VALUE_BASE64);
+                String value = getValueAttribute(parser);
                 String packageName = parser.getAttributeValue(null, ATTR_PACKAGE);
-                String defaultValue = getValueAttribute(parser, ATTR_DEFAULT_VALUE,
-                        ATTR_DEFAULT_VALUE_BASE64);
-                String tag = null;
-                boolean fromSystem = false;
-                if (defaultValue != null) {
-                    fromSystem = Boolean.parseBoolean(parser.getAttributeValue(
-                            null, ATTR_DEFAULT_SYS_SET));
-                    tag = getValueAttribute(parser, ATTR_TAG, ATTR_TAG_BASE64);
-                }
-                mSettings.put(name, new Setting(name, value, defaultValue, packageName, tag,
-                        fromSystem, id));
+                mSettings.put(name, new Setting(name, value, packageName, id));
 
                 if (DEBUG_PERSISTENCE) {
                     Slog.i(LOG_TAG, "[RESTORED] " + name + "=" + value);
@@ -970,54 +661,37 @@ final class SettingsState {
     class Setting {
         private String name;
         private String value;
-        private String defaultValue;
         private String packageName;
         private String id;
-        private String tag;
-        // Whether the default is set by the system
-        private boolean defaultFromSystem;
 
         public Setting(Setting other) {
             name = other.name;
             value = other.value;
-            defaultValue = other.defaultValue;
             packageName = other.packageName;
             id = other.id;
-            defaultFromSystem = other.defaultFromSystem;
-            tag = other.tag;
         }
 
-        public Setting(String name, String value, boolean makeDefault, String packageName,
-                String tag) {
-            this.name = name;
-            update(value, makeDefault, packageName, tag, false);
+        public Setting(String name, String value, String packageName) {
+            init(name, value, packageName, String.valueOf(mNextId++));
         }
 
-        public Setting(String name, String value, String defaultValue,
-                String packageName, String tag, boolean fromSystem, String id) {
-            mNextId = Math.max(mNextId, Long.parseLong(id) + 1);
-            if (NULL_VALUE.equals(value)) {
-                value = null;
-            }
-            init(name, value, tag, defaultValue, packageName, fromSystem, id);
+        public Setting(String name, String value, String packageName, String id) {
+            mNextId = Math.max(mNextId, Long.valueOf(id) + 1);
+            init(name, value, packageName, id);
         }
 
-        private void init(String name, String value, String tag, String defaultValue,
-                String packageName, boolean fromSystem, String id) {
+        private void init(String name, String value, String packageName, String id) {
             this.name = name;
             this.value = value;
-            this.tag = tag;
-            this.defaultValue = defaultValue;
             this.packageName = packageName;
             this.id = id;
-            this.defaultFromSystem = fromSystem;
         }
 
         public String getName() {
             return name;
         }
 
-        public int getKey() {
+        public int getkey() {
             return mKey;
         }
 
@@ -1025,20 +699,8 @@ final class SettingsState {
             return value;
         }
 
-        public String getTag() {
-            return tag;
-        }
-
-        public String getDefaultValue() {
-            return defaultValue;
-        }
-
         public String getPackageName() {
             return packageName;
-        }
-
-        public boolean isDefaultFromSystem() {
-            return defaultFromSystem;
         }
 
         public String getId() {
@@ -1049,72 +711,18 @@ final class SettingsState {
             return false;
         }
 
-        /** @return whether the value changed */
-        public boolean reset() {
-            return update(this.defaultValue, false, packageName, null, true);
-        }
-
-        public boolean isTransient() {
-            switch (getTypeFromKey(getKey())) {
-                case SETTINGS_TYPE_GLOBAL:
-                    return ArrayUtils.contains(Global.TRANSIENT_SETTINGS, getName());
-            }
-            return false;
-        }
-
-        public boolean update(String value, boolean setDefault, String packageName, String tag,
-                boolean forceNonSystemPackage) {
-            if (NULL_VALUE.equals(value)) {
-                value = null;
-            }
-
-            final boolean callerSystem = !forceNonSystemPackage &&
-                    !isNull() && isSystemPackage(mContext, packageName);
-            // Settings set by the system are always defaults.
-            if (callerSystem) {
-                setDefault = true;
-            }
-
-            String defaultValue = this.defaultValue;
-            boolean defaultFromSystem = this.defaultFromSystem;
-            if (setDefault) {
-                if (!Objects.equals(value, this.defaultValue)
-                        && (!defaultFromSystem || callerSystem)) {
-                    defaultValue = value;
-                    // Default null means no default, so the tag is irrelevant
-                    // since it is used to reset a settings subset their defaults.
-                    // Also it is irrelevant if the system set the canonical default.
-                    if (defaultValue == null) {
-                        tag = null;
-                        defaultFromSystem = false;
-                    }
-                }
-                if (!defaultFromSystem && value != null) {
-                    if (callerSystem) {
-                        defaultFromSystem = true;
-                    }
-                }
-            }
-
-            // Is something gonna change?
-            if (Objects.equals(value, this.value)
-                    && Objects.equals(defaultValue, this.defaultValue)
-                    && Objects.equals(packageName, this.packageName)
-                    && Objects.equals(tag, this.tag)
-                    && defaultFromSystem == this.defaultFromSystem) {
+        public boolean update(String value, String packageName) {
+            if (Objects.equal(value, this.value)) {
                 return false;
             }
-
-            init(name, value, tag, defaultValue, packageName, defaultFromSystem,
-                    String.valueOf(mNextId++));
+            this.value = value;
+            this.packageName = packageName;
+            this.id = String.valueOf(mNextId++);
             return true;
         }
 
         public String toString() {
-            return "Setting{name=" + name + " value=" + value
-                    + (defaultValue != null ? " default=" + defaultValue : "")
-                    + " packageName=" + packageName + " tag=" + tag
-                    + " defaultFromSystem=" + defaultFromSystem + "}";
+            return "Setting{name=" + value + " from " + packageName + "}";
         }
     }
 
@@ -1170,101 +778,5 @@ final class SettingsState {
             sb.append(ch);
         }
         return sb.toString();
-    }
-
-    // Check if a specific package belonging to the caller is part of the system package.
-    public static boolean isSystemPackage(Context context, String packageName) {
-        final int callingUid = Binder.getCallingUid();
-        final int callingUserId = UserHandle.getUserId(callingUid);
-        return isSystemPackage(context, packageName, callingUid, callingUserId);
-    }
-
-    // Check if a specific package, uid, and user ID are part of the system package.
-    public static boolean isSystemPackage(Context context, String packageName, int uid,
-            int userId) {
-        synchronized (sLock) {
-            if (SYSTEM_PACKAGE_NAME.equals(packageName)) {
-                return true;
-            }
-
-            // Shell and Root are not considered a part of the system
-            if (SHELL_PACKAGE_NAME.equals(packageName)
-                    || ROOT_PACKAGE_NAME.equals(packageName)) {
-                return false;
-            }
-
-            if (uid != INVALID_UID) {
-                // Native services running as a special UID get a pass
-                final int callingAppId = UserHandle.getAppId(uid);
-                if (callingAppId < FIRST_APPLICATION_UID) {
-                    sSystemUids.put(callingAppId, callingAppId);
-                    return true;
-                }
-            }
-
-            final long identity = Binder.clearCallingIdentity();
-            try {
-                try {
-                    uid = context.getPackageManager().getPackageUidAsUser(packageName, 0, userId);
-                } catch (PackageManager.NameNotFoundException e) {
-                    return false;
-                }
-
-                // If the system or a special system UID (like telephony), done.
-                if (UserHandle.getAppId(uid) < FIRST_APPLICATION_UID) {
-                    sSystemUids.put(uid, uid);
-                    return true;
-                }
-
-                // If already known system component, done.
-                if (sSystemUids.indexOfKey(uid) >= 0) {
-                    return true;
-                }
-
-                // If SetupWizard, done.
-                PackageManagerInternal packageManagerInternal = LocalServices.getService(
-                        PackageManagerInternal.class);
-                if (packageName.equals(packageManagerInternal.getSetupWizardPackageName())) {
-                    sSystemUids.put(uid, uid);
-                    return true;
-                }
-
-                // If a persistent system app, done.
-                PackageInfo packageInfo;
-                try {
-                    packageInfo = context.getPackageManager().getPackageInfoAsUser(
-                            packageName, PackageManager.GET_SIGNATURES, userId);
-                    if ((packageInfo.applicationInfo.flags
-                            & ApplicationInfo.FLAG_PERSISTENT) != 0
-                            && (packageInfo.applicationInfo.flags
-                            & ApplicationInfo.FLAG_SYSTEM) != 0) {
-                        sSystemUids.put(uid, uid);
-                        return true;
-                    }
-                } catch (PackageManager.NameNotFoundException e) {
-                    return false;
-                }
-
-                // Last check if system signed.
-                if (sSystemSignature == null) {
-                    try {
-                        sSystemSignature = context.getPackageManager().getPackageInfoAsUser(
-                                SYSTEM_PACKAGE_NAME, PackageManager.GET_SIGNATURES,
-                                UserHandle.USER_SYSTEM).signatures[0];
-                    } catch (PackageManager.NameNotFoundException e) {
-                        /* impossible */
-                        return false;
-                    }
-                }
-                if (sSystemSignature.equals(packageInfo.signatures[0])) {
-                    sSystemUids.put(uid, uid);
-                    return true;
-                }
-            } finally {
-                Binder.restoreCallingIdentity(identity);
-            }
-
-            return false;
-        }
     }
 }

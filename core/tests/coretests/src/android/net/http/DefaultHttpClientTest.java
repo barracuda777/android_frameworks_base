@@ -41,13 +41,7 @@ import org.apache.http.message.BasicHeader;
  */
 public final class DefaultHttpClientTest extends TestCase {
 
-    private MockWebServer server;
-
-    @Override
-    public void setUp() throws Exception {
-        super.setUp();
-        server = new MockWebServer();
-    }
+    private MockWebServer server = new MockWebServer();
 
     @Override protected void tearDown() throws Exception {
         server.shutdown();

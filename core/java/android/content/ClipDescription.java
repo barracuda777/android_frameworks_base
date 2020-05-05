@@ -20,11 +20,8 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.PersistableBundle;
 import android.text.TextUtils;
-import android.util.TimeUtils;
-import android.util.proto.ProtoOutputStream;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 
 /**
  * Meta-data describing the contents of a {@link ClipData}.  Provides enough
@@ -92,9 +89,8 @@ public class ClipDescription implements Parcelable {
 
 
     final CharSequence mLabel;
-    private final ArrayList<String> mMimeTypes;
+    final String[] mMimeTypes;
     private PersistableBundle mExtras;
-    private long mTimeStamp;
 
     /**
      * Create a new clip.
@@ -107,7 +103,7 @@ public class ClipDescription implements Parcelable {
             throw new NullPointerException("mimeTypes is null");
         }
         mLabel = label;
-        mMimeTypes = new ArrayList<String>(Arrays.asList(mimeTypes));
+        mMimeTypes = mimeTypes;
     }
 
     /**
@@ -115,8 +111,7 @@ public class ClipDescription implements Parcelable {
      */
     public ClipDescription(ClipDescription o) {
         mLabel = o.mLabel;
-        mMimeTypes = new ArrayList<String>(o.mMimeTypes);
-        mTimeStamp = o.mTimeStamp;
+        mMimeTypes = o.mMimeTypes;
     }
 
     /**
@@ -146,29 +141,6 @@ public class ClipDescription implements Parcelable {
     }
 
     /**
-     * Used for setting the timestamp at which the associated {@link ClipData} is copied to
-     * global clipboard.
-     *
-     * @param timeStamp at which the associated {@link ClipData} is copied to clipboard in
-     *                  {@link System#currentTimeMillis()} time base.
-     * @hide
-     */
-    public void setTimestamp(long timeStamp) {
-        mTimeStamp = timeStamp;
-    }
-
-    /**
-     * Return the timestamp at which the associated {@link ClipData} is copied to global clipboard
-     * in the {@link System#currentTimeMillis()} time base.
-     *
-     * @return timestamp at which the associated {@link ClipData} is copied to global clipboard
-     *         or {@code 0} if it is not copied to clipboard.
-     */
-    public long getTimestamp() {
-        return mTimeStamp;
-    }
-
-    /**
      * Return the label for this clip.
      */
     public CharSequence getLabel() {
@@ -183,9 +155,8 @@ public class ClipDescription implements Parcelable {
      * matches the desired MIME type, else false.
      */
     public boolean hasMimeType(String mimeType) {
-        final int size = mMimeTypes.size();
-        for (int i=0; i<size; i++) {
-            if (compareMimeTypes(mMimeTypes.get(i), mimeType)) {
+        for (int i=0; i<mMimeTypes.length; i++) {
+            if (compareMimeTypes(mMimeTypes[i], mimeType)) {
                 return true;
             }
         }
@@ -202,13 +173,12 @@ public class ClipDescription implements Parcelable {
      */
     public String[] filterMimeTypes(String mimeType) {
         ArrayList<String> array = null;
-        final int size = mMimeTypes.size();
-        for (int i=0; i<size; i++) {
-            if (compareMimeTypes(mMimeTypes.get(i), mimeType)) {
+        for (int i=0; i<mMimeTypes.length; i++) {
+            if (compareMimeTypes(mMimeTypes[i], mimeType)) {
                 if (array == null) {
                     array = new ArrayList<String>();
                 }
-                array.add(mMimeTypes.get(i));
+                array.add(mMimeTypes[i]);
             }
         }
         if (array == null) {
@@ -223,26 +193,14 @@ public class ClipDescription implements Parcelable {
      * Return the number of MIME types the clip is available in.
      */
     public int getMimeTypeCount() {
-        return mMimeTypes.size();
+        return mMimeTypes.length;
     }
 
     /**
      * Return one of the possible clip MIME types.
      */
     public String getMimeType(int index) {
-        return mMimeTypes.get(index);
-    }
-
-    /**
-     * Add MIME types to the clip description.
-     */
-    void addMimeTypes(String[] mimeTypes) {
-        for (int i=0; i!=mimeTypes.length; i++) {
-            final String mimeType = mimeTypes[i];
-            if (!mMimeTypes.contains(mimeType)) {
-                mMimeTypes.add(mimeType);
-            }
-        }
+        return mMimeTypes[index];
     }
 
     /**
@@ -271,12 +229,11 @@ public class ClipDescription implements Parcelable {
         if (mMimeTypes == null) {
             throw new NullPointerException("null mime types");
         }
-        final int size = mMimeTypes.size();
-        if (size <= 0) {
+        if (mMimeTypes.length <= 0) {
             throw new IllegalArgumentException("must have at least 1 mime type");
         }
-        for (int i=0; i<size; i++) {
-            if (mMimeTypes.get(i) == null) {
+        for (int i=0; i<mMimeTypes.length; i++) {
+            if (mMimeTypes[i] == null) {
                 throw new NullPointerException("mime type at " + i + " is null");
             }
         }
@@ -312,52 +269,20 @@ public class ClipDescription implements Parcelable {
             first = false;
             b.append(mExtras.toString());
         }
-        if (mTimeStamp > 0) {
-            if (!first) {
-                b.append(' ');
-            }
-            first = false;
-            b.append('<');
-            b.append(TimeUtils.logTimeOfDay(mTimeStamp));
-            b.append('>');
-        }
         return !first;
     }
 
     /** @hide */
     public boolean toShortStringTypesOnly(StringBuilder b) {
         boolean first = true;
-        final int size = mMimeTypes.size();
-        for (int i=0; i<size; i++) {
+        for (int i=0; i<mMimeTypes.length; i++) {
             if (!first) {
                 b.append(' ');
             }
             first = false;
-            b.append(mMimeTypes.get(i));
+            b.append(mMimeTypes[i]);
         }
         return !first;
-    }
-
-    /** @hide */
-    public void writeToProto(ProtoOutputStream proto, long fieldId) {
-        final long token = proto.start(fieldId);
-
-        final int size = mMimeTypes.size();
-        for (int i = 0; i < size; i++) {
-            proto.write(ClipDescriptionProto.MIME_TYPES, mMimeTypes.get(i));
-        }
-
-        if (mLabel != null) {
-            proto.write(ClipDescriptionProto.LABEL, mLabel.toString());
-        }
-        if (mExtras != null) {
-            mExtras.writeToProto(proto, ClipDescriptionProto.EXTRAS);
-        }
-        if (mTimeStamp > 0) {
-            proto.write(ClipDescriptionProto.TIMESTAMP_MS, mTimeStamp);
-        }
-
-        proto.end(token);
     }
 
     @Override
@@ -368,19 +293,17 @@ public class ClipDescription implements Parcelable {
     @Override
     public void writeToParcel(Parcel dest, int flags) {
         TextUtils.writeToParcel(mLabel, dest, flags);
-        dest.writeStringList(mMimeTypes);
+        dest.writeStringArray(mMimeTypes);
         dest.writePersistableBundle(mExtras);
-        dest.writeLong(mTimeStamp);
     }
 
     ClipDescription(Parcel in) {
         mLabel = TextUtils.CHAR_SEQUENCE_CREATOR.createFromParcel(in);
-        mMimeTypes = in.createStringArrayList();
+        mMimeTypes = in.createStringArray();
         mExtras = in.readPersistableBundle();
-        mTimeStamp = in.readLong();
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<ClipDescription> CREATOR =
+    public static final Parcelable.Creator<ClipDescription> CREATOR =
         new Parcelable.Creator<ClipDescription>() {
 
             public ClipDescription createFromParcel(Parcel source) {

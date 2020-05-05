@@ -17,11 +17,9 @@
 package android.content;
 
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
 import android.content.res.AssetFileDescriptor;
 import android.database.Cursor;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.ICancellationSignal;
@@ -37,20 +35,16 @@ import java.util.ArrayList;
  * @hide
  */
 public interface IContentProvider extends IInterface {
-    public Cursor query(String callingPkg, Uri url, @Nullable String[] projection,
-            @Nullable Bundle queryArgs, @Nullable ICancellationSignal cancellationSignal)
-            throws RemoteException;
+    public Cursor query(String callingPkg, Uri url, String[] projection, String selection,
+            String[] selectionArgs, String sortOrder, ICancellationSignal cancellationSignal)
+                    throws RemoteException;
     public String getType(Uri url) throws RemoteException;
-    @UnsupportedAppUsage
     public Uri insert(String callingPkg, Uri url, ContentValues initialValues)
             throws RemoteException;
-    @UnsupportedAppUsage
     public int bulkInsert(String callingPkg, Uri url, ContentValues[] initialValues)
             throws RemoteException;
-    @UnsupportedAppUsage
     public int delete(String callingPkg, Uri url, String selection, String[] selectionArgs)
             throws RemoteException;
-    @UnsupportedAppUsage
     public int update(String callingPkg, Uri url, ContentValues values, String selection,
             String[] selectionArgs) throws RemoteException;
     public ParcelFileDescriptor openFile(
@@ -60,35 +54,16 @@ public interface IContentProvider extends IInterface {
     public AssetFileDescriptor openAssetFile(
             String callingPkg, Uri url, String mode, ICancellationSignal signal)
             throws RemoteException, FileNotFoundException;
-
-    @Deprecated
-    public default ContentProviderResult[] applyBatch(String callingPkg,
+    public ContentProviderResult[] applyBatch(String callingPkg,
             ArrayList<ContentProviderOperation> operations)
-                    throws RemoteException, OperationApplicationException {
-        return applyBatch(callingPkg, "unknown", operations);
-    }
-
-    public ContentProviderResult[] applyBatch(String callingPkg, String authority,
-            ArrayList<ContentProviderOperation> operations)
-            throws RemoteException, OperationApplicationException;
-
-    @Deprecated
-    @UnsupportedAppUsage
-    public default Bundle call(String callingPkg, String method,
-            @Nullable String arg, @Nullable Bundle extras) throws RemoteException {
-        return call(callingPkg, "unknown", method, arg, extras);
-    }
-
-    public Bundle call(String callingPkg, String authority, String method,
-            @Nullable String arg, @Nullable Bundle extras) throws RemoteException;
-
+                    throws RemoteException, OperationApplicationException;
+    public Bundle call(
+            String callingPkg, String method, @Nullable String arg, @Nullable Bundle extras)
+            throws RemoteException;
     public ICancellationSignal createCancellationSignal() throws RemoteException;
 
     public Uri canonicalize(String callingPkg, Uri uri) throws RemoteException;
     public Uri uncanonicalize(String callingPkg, Uri uri) throws RemoteException;
-
-    public boolean refresh(String callingPkg, Uri url, @Nullable Bundle args,
-            ICancellationSignal cancellationSignal) throws RemoteException;
 
     // Data interchange.
     public String[] getStreamTypes(Uri url, String mimeTypeFilter) throws RemoteException;
@@ -96,10 +71,8 @@ public interface IContentProvider extends IInterface {
             Bundle opts, ICancellationSignal signal) throws RemoteException, FileNotFoundException;
 
     /* IPC constants */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     static final String descriptor = "android.content.IContentProvider";
 
-    @UnsupportedAppUsage
     static final int QUERY_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION;
     static final int GET_TYPE_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION + 1;
     static final int INSERT_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION + 2;
@@ -115,5 +88,4 @@ public interface IContentProvider extends IInterface {
     static final int CREATE_CANCELATION_SIGNAL_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION + 23;
     static final int CANONICALIZE_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION + 24;
     static final int UNCANONICALIZE_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION + 25;
-    static final int REFRESH_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION + 26;
 }

@@ -17,5 +17,5 @@
 
 package android.net;
 
-@JavaOnlyStableParcelable parcelable LinkAddress;
+parcelable LinkAddress;
 

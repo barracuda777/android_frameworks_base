@@ -16,15 +16,36 @@
 
 package android.os;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
+import android.net.LocalSocket;
+import android.net.LocalSocketAddress;
 import android.system.Os;
 import android.system.OsConstants;
-import android.webkit.WebViewZygote;
-
+import android.util.Log;
+import com.android.internal.os.Zygote;
 import dalvik.system.VMRuntime;
+import java.io.BufferedWriter;
+import java.io.DataInputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+/*package*/ class ZygoteStartFailedEx extends Exception {
+    ZygoteStartFailedEx(String s) {
+        super(s);
+    }
+
+    ZygoteStartFailedEx(Throwable cause) {
+        super(cause);
+    }
+
+    ZygoteStartFailedEx(String s, Throwable cause) {
+        super(s, cause);
+    }
+}
 
 /**
  * Tools for managing OS processes.
@@ -33,12 +54,18 @@ public class Process {
     private static final String LOG_TAG = "Process";
 
     /**
-     * An invalid UID value.
+     * @hide for internal use only.
      */
-    public static final int INVALID_UID = -1;
+    public static final String ZYGOTE_SOCKET = "zygote";
+
+    /**
+     * @hide for internal use only.
+     */
+    public static final String SECONDARY_ZYGOTE_SOCKET = "zygote_secondary";
 
     /**
      * Defines the root UID.
+     * @hide
      */
     public static final int ROOT_UID = 0;
 
@@ -54,6 +81,7 @@ public class Process {
 
     /**
      * Defines the UID/GID for the user shell.
+     * @hide
      */
     public static final int SHELL_UID = 2000;
 
@@ -61,58 +89,41 @@ public class Process {
      * Defines the UID/GID for the log group.
      * @hide
      */
-    @UnsupportedAppUsage
     public static final int LOG_UID = 1007;
 
     /**
      * Defines the UID/GID for the WIFI supplicant process.
      * @hide
      */
-    @UnsupportedAppUsage
     public static final int WIFI_UID = 1010;
 
     /**
      * Defines the UID/GID for the mediaserver process.
      * @hide
      */
-    @UnsupportedAppUsage
     public static final int MEDIA_UID = 1013;
 
     /**
      * Defines the UID/GID for the DRM process.
      * @hide
      */
-    @UnsupportedAppUsage
     public static final int DRM_UID = 1019;
 
     /**
      * Defines the UID/GID for the group that controls VPN services.
      * @hide
      */
-    @UnsupportedAppUsage
     public static final int VPN_UID = 1016;
-
-    /**
-     * Defines the UID/GID for keystore.
-     * @hide
-     */
-    public static final int KEYSTORE_UID = 1017;
 
     /**
      * Defines the UID/GID for the NFC service process.
      * @hide
      */
-    @UnsupportedAppUsage
     public static final int NFC_UID = 1027;
 
     /**
-     * Defines the UID/GID for the clatd process.
-     * @hide
-     * */
-    public static final int CLAT_UID = 1029;
-
-    /**
      * Defines the UID/GID for the Bluetooth service process.
+     * @hide
      */
     public static final int BLUETOOTH_UID = 1002;
 
@@ -147,45 +158,6 @@ public class Process {
     public static final int CAMERASERVER_UID = 1047;
 
     /**
-     * Defines the UID/GID for the tethering DNS resolver (currently dnsmasq).
-     * @hide
-     */
-    public static final int DNS_TETHER_UID = 1052;
-
-    /**
-     * Defines the UID/GID for the WebView zygote process.
-     * @hide
-     */
-    public static final int WEBVIEW_ZYGOTE_UID = 1053;
-
-    /**
-     * Defines the UID used for resource tracking for OTA updates.
-     * @hide
-     */
-    public static final int OTA_UPDATE_UID = 1061;
-
-    /**
-     * Defines the UID used for incidentd.
-     * @hide
-     */
-    public static final int INCIDENTD_UID = 1067;
-
-    /**
-     * Defines the UID/GID for the Secure Element service process.
-     * @hide
-     */
-    public static final int SE_UID = 1068;
-
-    /**
-     * Defines the UID/GID for the NetworkStack app.
-     * @hide
-     */
-    public static final int NETWORK_STACK_UID = 1073;
-
-    /** {@hide} */
-    public static final int NOBODY_UID = 9999;
-
-    /**
      * Defines the start of a range of UIDs (and GIDs), going from this
      * number to {@link #LAST_APPLICATION_UID} that are reserved for assigning
      * to applications.
@@ -199,38 +171,15 @@ public class Process {
     public static final int LAST_APPLICATION_UID = 19999;
 
     /**
-     * First uid used for fully isolated sandboxed processes spawned from an app zygote
-     * @hide
-     */
-    @TestApi
-    public static final int FIRST_APP_ZYGOTE_ISOLATED_UID = 90000;
-
-    /**
-     * Number of UIDs we allocate per application zygote
-     * @hide
-     */
-    @TestApi
-    public static final int NUM_UIDS_PER_APP_ZYGOTE = 100;
-
-    /**
-     * Last uid used for fully isolated sandboxed processes spawned from an app zygote
-     * @hide
-     */
-    @TestApi
-    public static final int LAST_APP_ZYGOTE_ISOLATED_UID = 98999;
-
-    /**
      * First uid used for fully isolated sandboxed processes (with no permissions of their own)
      * @hide
      */
-    @TestApi
     public static final int FIRST_ISOLATED_UID = 99000;
 
     /**
      * Last uid used for fully isolated sandboxed processes (with no permissions of their own)
      * @hide
      */
-    @TestApi
     public static final int LAST_ISOLATED_UID = 99999;
 
     /**
@@ -252,11 +201,6 @@ public class Process {
      * @hide
      */
     public static final int LAST_SHARED_APPLICATION_GID = 59999;
-
-    /** {@hide} */
-    public static final int FIRST_APPLICATION_CACHE_GID = 20000;
-    /** {@hide} */
-    public static final int LAST_APPLICATION_CACHE_GID = 29999;
 
     /**
      * Standard priority of application threads.
@@ -321,15 +265,6 @@ public class Process {
      * {@link java.lang.Thread} class.
      */
     public static final int THREAD_PRIORITY_URGENT_DISPLAY = -8;
-
-    /**
-     * Standard priority of video threads.  Applications can not normally
-     * change to this priority.
-     * Use with {@link #setThreadPriority(int)} and
-     * {@link #setThreadPriority(int, int)}, <b>not</b> with the normal
-     * {@link java.lang.Thread} class.
-     */
-    public static final int THREAD_PRIORITY_VIDEO = -10;
 
     /**
      * Standard priority of audio threads.  Applications can not normally
@@ -452,19 +387,6 @@ public class Process {
      **/
     public static final int THREAD_GROUP_TOP_APP = 5;
 
-    /**
-     * Thread group for RT app.
-     * @hide
-     **/
-    public static final int THREAD_GROUP_RT_APP = 6;
-
-    /**
-     * Thread group for bound foreground services that should
-     * have additional CPU restrictions during screen off
-     * @hide
-     **/
-    public static final int THREAD_GROUP_RESTRICTED = 7;
-
     public static final int SIGNAL_QUIT = 3;
     public static final int SIGNAL_KILL = 9;
     public static final int SIGNAL_USR1 = 10;
@@ -473,10 +395,83 @@ public class Process {
     private static long sStartUptimeMillis;
 
     /**
-     * State associated with the zygote process.
-     * @hide
+     * State for communicating with the zygote process.
+     *
+     * @hide for internal use only.
      */
-    public static final ZygoteProcess ZYGOTE_PROCESS = new ZygoteProcess();
+    public static class ZygoteState {
+        final LocalSocket socket;
+        final DataInputStream inputStream;
+        final BufferedWriter writer;
+        final List<String> abiList;
+
+        boolean mClosed;
+
+        private ZygoteState(LocalSocket socket, DataInputStream inputStream,
+                BufferedWriter writer, List<String> abiList) {
+            this.socket = socket;
+            this.inputStream = inputStream;
+            this.writer = writer;
+            this.abiList = abiList;
+        }
+
+        public static ZygoteState connect(String socketAddress) throws IOException {
+            DataInputStream zygoteInputStream = null;
+            BufferedWriter zygoteWriter = null;
+            final LocalSocket zygoteSocket = new LocalSocket();
+
+            try {
+                zygoteSocket.connect(new LocalSocketAddress(socketAddress,
+                        LocalSocketAddress.Namespace.RESERVED));
+
+                zygoteInputStream = new DataInputStream(zygoteSocket.getInputStream());
+
+                zygoteWriter = new BufferedWriter(new OutputStreamWriter(
+                        zygoteSocket.getOutputStream()), 256);
+            } catch (IOException ex) {
+                try {
+                    zygoteSocket.close();
+                } catch (IOException ignore) {
+                }
+
+                throw ex;
+            }
+
+            String abiListString = getAbiList(zygoteWriter, zygoteInputStream);
+            Log.i("Zygote", "Process: zygote socket opened, supported ABIS: " + abiListString);
+
+            return new ZygoteState(zygoteSocket, zygoteInputStream, zygoteWriter,
+                    Arrays.asList(abiListString.split(",")));
+        }
+
+        boolean matches(String abi) {
+            return abiList.contains(abi);
+        }
+
+        public void close() {
+            try {
+                socket.close();
+            } catch (IOException ex) {
+                Log.e(LOG_TAG,"I/O exception on routine close", ex);
+            }
+
+            mClosed = true;
+        }
+
+        boolean isClosed() {
+            return mClosed;
+        }
+    }
+
+    /**
+     * The state of the connection to the primary zygote.
+     */
+    static ZygoteState primaryZygoteState;
+
+    /**
+     * The state of the connection to the secondary zygote.
+     */
+    static ZygoteState secondaryZygoteState;
 
     /**
      * Start a new process.
@@ -493,68 +488,301 @@ public class Process {
      * make easily identifyable processes even if you are using the same base
      * <var>processClass</var> to start them.
      * 
-     * When invokeWith is not null, the process will be started as a fresh app
-     * and not a zygote fork. Note that this is only allowed for uid 0 or when
-     * runtimeFlags contains DEBUG_ENABLE_DEBUGGER.
-     *
      * @param processClass The class to use as the process's main entry
      *                     point.
      * @param niceName A more readable name to use for the process.
      * @param uid The user-id under which the process will run.
      * @param gid The group-id under which the process will run.
      * @param gids Additional group-ids associated with the process.
-     * @param runtimeFlags Additional flags for the runtime.
+     * @param debugFlags Additional flags.
      * @param targetSdkVersion The target SDK version for the app.
      * @param seInfo null-ok SELinux information for the new process.
      * @param abi non-null the ABI this app should be started with.
      * @param instructionSet null-ok the instruction set to use.
      * @param appDataDir null-ok the data directory of the app.
-     * @param invokeWith null-ok the command to invoke with.
-     * @param packageName null-ok the name of the package this process belongs to.
-     *
      * @param zygoteArgs Additional arguments to supply to the zygote process.
+     * 
      * @return An object that describes the result of the attempt to start the process.
      * @throws RuntimeException on fatal start failure
      * 
      * {@hide}
      */
-    public static ProcessStartResult start(@NonNull final String processClass,
-                                           @Nullable final String niceName,
-                                           int uid, int gid, @Nullable int[] gids,
-                                           int runtimeFlags,
-                                           int mountExternal,
-                                           int targetSdkVersion,
-                                           @Nullable String seInfo,
-                                           @NonNull String abi,
-                                           @Nullable String instructionSet,
-                                           @Nullable String appDataDir,
-                                           @Nullable String invokeWith,
-                                           @Nullable String packageName,
-                                           @Nullable String[] zygoteArgs) {
-        return ZYGOTE_PROCESS.start(processClass, niceName, uid, gid, gids,
-                    runtimeFlags, mountExternal, targetSdkVersion, seInfo,
-                    abi, instructionSet, appDataDir, invokeWith, packageName,
-                    /*useUsapPool=*/ true, zygoteArgs);
+    public static final ProcessStartResult start(final String processClass,
+                                  final String niceName,
+                                  int uid, int gid, int[] gids,
+                                  int debugFlags, int mountExternal,
+                                  int targetSdkVersion,
+                                  String seInfo,
+                                  String abi,
+                                  String instructionSet,
+                                  String appDataDir,
+                                  String[] zygoteArgs) {
+        try {
+            return startViaZygote(processClass, niceName, uid, gid, gids,
+                    debugFlags, mountExternal, targetSdkVersion, seInfo,
+                    abi, instructionSet, appDataDir, zygoteArgs);
+        } catch (ZygoteStartFailedEx ex) {
+            Log.e(LOG_TAG,
+                    "Starting VM process through Zygote failed");
+            throw new RuntimeException(
+                    "Starting VM process through Zygote failed", ex);
+        }
     }
 
-    /** @hide */
-    public static ProcessStartResult startWebView(@NonNull final String processClass,
-                                                  @Nullable final String niceName,
-                                                  int uid, int gid, @Nullable int[] gids,
-                                                  int runtimeFlags,
-                                                  int mountExternal,
-                                                  int targetSdkVersion,
-                                                  @Nullable String seInfo,
-                                                  @NonNull String abi,
-                                                  @Nullable String instructionSet,
-                                                  @Nullable String appDataDir,
-                                                  @Nullable String invokeWith,
-                                                  @Nullable String packageName,
-                                                  @Nullable String[] zygoteArgs) {
-        return WebViewZygote.getProcess().start(processClass, niceName, uid, gid, gids,
-                    runtimeFlags, mountExternal, targetSdkVersion, seInfo,
-                    abi, instructionSet, appDataDir, invokeWith, packageName,
-                    /*useUsapPool=*/ false, zygoteArgs);
+    /** retry interval for opening a zygote socket */
+    static final int ZYGOTE_RETRY_MILLIS = 500;
+
+    /**
+     * Queries the zygote for the list of ABIS it supports.
+     *
+     * @throws ZygoteStartFailedEx if the query failed.
+     */
+    private static String getAbiList(BufferedWriter writer, DataInputStream inputStream)
+            throws IOException {
+        // Each query starts with the argument count (1 in this case)
+        writer.write("1");
+        // ... followed by a new-line.
+        writer.newLine();
+        // ... followed by our only argument.
+        writer.write("--query-abi-list");
+        writer.newLine();
+        writer.flush();
+
+        // The response is a length prefixed stream of ASCII bytes.
+        int numBytes = inputStream.readInt();
+        byte[] bytes = new byte[numBytes];
+        inputStream.readFully(bytes);
+
+        return new String(bytes, StandardCharsets.US_ASCII);
+    }
+
+    /**
+     * Sends an argument list to the zygote process, which starts a new child
+     * and returns the child's pid. Please note: the present implementation
+     * replaces newlines in the argument list with spaces.
+     *
+     * @throws ZygoteStartFailedEx if process start failed for any reason
+     */
+    private static ProcessStartResult zygoteSendArgsAndGetResult(
+            ZygoteState zygoteState, ArrayList<String> args)
+            throws ZygoteStartFailedEx {
+        try {
+            // Throw early if any of the arguments are malformed. This means we can
+            // avoid writing a partial response to the zygote.
+            int sz = args.size();
+            for (int i = 0; i < sz; i++) {
+                if (args.get(i).indexOf('\n') >= 0) {
+                    throw new ZygoteStartFailedEx("embedded newlines not allowed");
+                }
+            }
+
+            /**
+             * See com.android.internal.os.ZygoteInit.readArgumentList()
+             * Presently the wire format to the zygote process is:
+             * a) a count of arguments (argc, in essence)
+             * b) a number of newline-separated argument strings equal to count
+             *
+             * After the zygote process reads these it will write the pid of
+             * the child or -1 on failure, followed by boolean to
+             * indicate whether a wrapper process was used.
+             */
+            final BufferedWriter writer = zygoteState.writer;
+            final DataInputStream inputStream = zygoteState.inputStream;
+
+            writer.write(Integer.toString(args.size()));
+            writer.newLine();
+
+            for (int i = 0; i < sz; i++) {
+                String arg = args.get(i);
+                writer.write(arg);
+                writer.newLine();
+            }
+
+            writer.flush();
+
+            // Should there be a timeout on this?
+            ProcessStartResult result = new ProcessStartResult();
+
+            // Always read the entire result from the input stream to avoid leaving
+            // bytes in the stream for future process starts to accidentally stumble
+            // upon.
+            result.pid = inputStream.readInt();
+            result.usingWrapper = inputStream.readBoolean();
+
+            if (result.pid < 0) {
+                throw new ZygoteStartFailedEx("fork() failed");
+            }
+            return result;
+        } catch (IOException ex) {
+            zygoteState.close();
+            throw new ZygoteStartFailedEx(ex);
+        }
+    }
+
+    /**
+     * Starts a new process via the zygote mechanism.
+     *
+     * @param processClass Class name whose static main() to run
+     * @param niceName 'nice' process name to appear in ps
+     * @param uid a POSIX uid that the new process should setuid() to
+     * @param gid a POSIX gid that the new process shuold setgid() to
+     * @param gids null-ok; a list of supplementary group IDs that the
+     * new process should setgroup() to.
+     * @param debugFlags Additional flags.
+     * @param targetSdkVersion The target SDK version for the app.
+     * @param seInfo null-ok SELinux information for the new process.
+     * @param abi the ABI the process should use.
+     * @param instructionSet null-ok the instruction set to use.
+     * @param appDataDir null-ok the data directory of the app.
+     * @param extraArgs Additional arguments to supply to the zygote process.
+     * @return An object that describes the result of the attempt to start the process.
+     * @throws ZygoteStartFailedEx if process start failed for any reason
+     */
+    private static ProcessStartResult startViaZygote(final String processClass,
+                                  final String niceName,
+                                  final int uid, final int gid,
+                                  final int[] gids,
+                                  int debugFlags, int mountExternal,
+                                  int targetSdkVersion,
+                                  String seInfo,
+                                  String abi,
+                                  String instructionSet,
+                                  String appDataDir,
+                                  String[] extraArgs)
+                                  throws ZygoteStartFailedEx {
+        synchronized(Process.class) {
+            ArrayList<String> argsForZygote = new ArrayList<String>();
+
+            // --runtime-args, --setuid=, --setgid=,
+            // and --setgroups= must go first
+            argsForZygote.add("--runtime-args");
+            argsForZygote.add("--setuid=" + uid);
+            argsForZygote.add("--setgid=" + gid);
+            if ((debugFlags & Zygote.DEBUG_ENABLE_JNI_LOGGING) != 0) {
+                argsForZygote.add("--enable-jni-logging");
+            }
+            if ((debugFlags & Zygote.DEBUG_ENABLE_SAFEMODE) != 0) {
+                argsForZygote.add("--enable-safemode");
+            }
+            if ((debugFlags & Zygote.DEBUG_ENABLE_DEBUGGER) != 0) {
+                argsForZygote.add("--enable-debugger");
+            }
+            if ((debugFlags & Zygote.DEBUG_ENABLE_CHECKJNI) != 0) {
+                argsForZygote.add("--enable-checkjni");
+            }
+            if ((debugFlags & Zygote.DEBUG_GENERATE_DEBUG_INFO) != 0) {
+                argsForZygote.add("--generate-debug-info");
+            }
+            if ((debugFlags & Zygote.DEBUG_ALWAYS_JIT) != 0) {
+                argsForZygote.add("--always-jit");
+            }
+            if ((debugFlags & Zygote.DEBUG_NATIVE_DEBUGGABLE) != 0) {
+                argsForZygote.add("--native-debuggable");
+            }
+            if ((debugFlags & Zygote.DEBUG_ENABLE_ASSERT) != 0) {
+                argsForZygote.add("--enable-assert");
+            }
+            if (mountExternal == Zygote.MOUNT_EXTERNAL_DEFAULT) {
+                argsForZygote.add("--mount-external-default");
+            } else if (mountExternal == Zygote.MOUNT_EXTERNAL_READ) {
+                argsForZygote.add("--mount-external-read");
+            } else if (mountExternal == Zygote.MOUNT_EXTERNAL_WRITE) {
+                argsForZygote.add("--mount-external-write");
+            }
+            argsForZygote.add("--target-sdk-version=" + targetSdkVersion);
+
+            //TODO optionally enable debuger
+            //argsForZygote.add("--enable-debugger");
+
+            // --setgroups is a comma-separated list
+            if (gids != null && gids.length > 0) {
+                StringBuilder sb = new StringBuilder();
+                sb.append("--setgroups=");
+
+                int sz = gids.length;
+                for (int i = 0; i < sz; i++) {
+                    if (i != 0) {
+                        sb.append(',');
+                    }
+                    sb.append(gids[i]);
+                }
+
+                argsForZygote.add(sb.toString());
+            }
+
+            if (niceName != null) {
+                argsForZygote.add("--nice-name=" + niceName);
+            }
+
+            if (seInfo != null) {
+                argsForZygote.add("--seinfo=" + seInfo);
+            }
+
+            if (instructionSet != null) {
+                argsForZygote.add("--instruction-set=" + instructionSet);
+            }
+
+            if (appDataDir != null) {
+                argsForZygote.add("--app-data-dir=" + appDataDir);
+            }
+
+            argsForZygote.add(processClass);
+
+            if (extraArgs != null) {
+                for (String arg : extraArgs) {
+                    argsForZygote.add(arg);
+                }
+            }
+
+            return zygoteSendArgsAndGetResult(openZygoteSocketIfNeeded(abi), argsForZygote);
+        }
+    }
+
+    /**
+     * Tries to establish a connection to the zygote that handles a given {@code abi}. Might block and retry if the
+     * zygote is unresponsive. This method is a no-op if a connection is already open.
+     *
+     * @hide
+     */
+    public static void establishZygoteConnectionForAbi(String abi) {
+        try {
+            openZygoteSocketIfNeeded(abi);
+        } catch (ZygoteStartFailedEx ex) {
+            throw new RuntimeException("Unable to connect to zygote for abi: " + abi, ex);
+        }
+    }
+
+    /**
+     * Tries to open socket to Zygote process if not already open. If
+     * already open, does nothing.  May block and retry.
+     */
+    private static ZygoteState openZygoteSocketIfNeeded(String abi) throws ZygoteStartFailedEx {
+        if (primaryZygoteState == null || primaryZygoteState.isClosed()) {
+            try {
+                primaryZygoteState = ZygoteState.connect(ZYGOTE_SOCKET);
+            } catch (IOException ioe) {
+                throw new ZygoteStartFailedEx("Error connecting to primary zygote", ioe);
+            }
+        }
+
+        if (primaryZygoteState.matches(abi)) {
+            return primaryZygoteState;
+        }
+
+        // The primary zygote didn't match. Try the secondary.
+        if (secondaryZygoteState == null || secondaryZygoteState.isClosed()) {
+            try {
+            secondaryZygoteState = ZygoteState.connect(SECONDARY_ZYGOTE_SOCKET);
+            } catch (IOException ioe) {
+                throw new ZygoteStartFailedEx("Error connecting to secondary zygote", ioe);
+            }
+        }
+
+        if (secondaryZygoteState.matches(abi)) {
+            return secondaryZygoteState;
+        }
+
+        throw new ZygoteStartFailedEx("Unsupported zygote ABI: " + abi);
     }
 
     /**
@@ -602,7 +830,6 @@ public class Process {
      * Returns the identifier of this process' parent.
      * @hide
      */
-    @UnsupportedAppUsage
     public static final int myPpid() {
         return Os.getppid();
     }
@@ -636,14 +863,6 @@ public class Process {
     }
 
     /**
-     * Returns whether the given uid belongs to a system core component or not.
-     * @hide
-     */
-    public static boolean isCoreUid(int uid) {
-        return UserHandle.isCore(uid);
-    }
-
-    /**
      * Returns whether the given uid belongs to an application.
      * @param uid A kernel uid.
      * @return Whether the uid corresponds to an application sandbox running in
@@ -655,17 +874,16 @@ public class Process {
 
     /**
      * Returns whether the current process is in an isolated sandbox.
+     * @hide
      */
     public static final boolean isIsolated() {
         return isIsolated(myUid());
     }
 
     /** {@hide} */
-    @UnsupportedAppUsage
     public static final boolean isIsolated(int uid) {
         uid = UserHandle.getAppId(uid);
-        return (uid >= FIRST_ISOLATED_UID && uid <= LAST_ISOLATED_UID)
-                || (uid >= FIRST_APP_ZYGOTE_ISOLATED_UID && uid <= LAST_APP_ZYGOTE_ISOLATED_UID);
+        return uid >= FIRST_ISOLATED_UID && uid <= LAST_ISOLATED_UID;
     }
 
     /**
@@ -688,7 +906,6 @@ public class Process {
      * @return the uid of the process, or -1 if the process is not running.
      * @hide pending API council review
      */
-    @UnsupportedAppUsage
     public static final int getUidForPid(int pid) {
         String[] procStatusLabels = { "Uid:" };
         long[] procStatusValues = new long[1];
@@ -703,7 +920,6 @@ public class Process {
      * @return the parent process id of the process, or -1 if the process is not running.
      * @hide
      */
-    @UnsupportedAppUsage
     public static final int getParentPid(int pid) {
         String[] procStatusLabels = { "PPid:" };
         long[] procStatusValues = new long[1];
@@ -757,7 +973,7 @@ public class Process {
      * @hide
      * @param tid The identifier of the thread to change.
      * @param group The target group for this thread from THREAD_GROUP_*.
-     *
+     * 
      * @throws IllegalArgumentException Throws IllegalArgumentException if
      * <var>tid</var> does not exist.
      * @throws SecurityException Throws SecurityException if your process does
@@ -770,21 +986,6 @@ public class Process {
      * libcutils::set_sched_policy().
      */
     public static final native void setThreadGroup(int tid, int group)
-            throws IllegalArgumentException, SecurityException;
-
-    /**
-     * Sets the scheduling group and the corresponding cpuset group
-     * @hide
-     * @param tid The identifier of the thread to change.
-     * @param group The target group for this thread from THREAD_GROUP_*.
-     *
-     * @throws IllegalArgumentException Throws IllegalArgumentException if
-     * <var>tid</var> does not exist.
-     * @throws SecurityException Throws SecurityException if your process does
-     * not have permission to modify the given thread, or to use the given
-     * priority.
-     */
-    public static final native void setThreadGroupAndCpuset(int tid, int group)
             throws IllegalArgumentException, SecurityException;
 
     /**
@@ -807,7 +1008,6 @@ public class Process {
      *
      * Always sets cpusets.
      */
-    @UnsupportedAppUsage
     public static final native void setProcessGroup(int pid, int group)
             throws IllegalArgumentException, SecurityException;
 
@@ -865,8 +1065,7 @@ public class Process {
     /**
      * Return the current priority of a thread, based on Linux priorities.
      * 
-     * @param tid The identifier of the thread/process. If tid equals zero, the priority of the
-     * calling process/thread will be returned.
+     * @param tid The identifier of the thread/process to change.
      * 
      * @return Returns the current priority, as a Linux priority level,
      * from -20 for highest scheduling priority to 19 for lowest scheduling
@@ -949,7 +1148,6 @@ public class Process {
      * 
      * {@hide}
      */
-    @UnsupportedAppUsage
     public static final native void setArgV0(String text);
 
     /**
@@ -1000,97 +1198,50 @@ public class Process {
     public static final native void sendSignalQuiet(int pid, int signal);
     
     /** @hide */
-    @UnsupportedAppUsage
     public static final native long getFreeMemory();
     
     /** @hide */
-    @UnsupportedAppUsage
     public static final native long getTotalMemory();
     
     /** @hide */
-    @UnsupportedAppUsage
     public static final native void readProcLines(String path,
             String[] reqFields, long[] outSizes);
     
     /** @hide */
-    @UnsupportedAppUsage
     public static final native int[] getPids(String path, int[] lastArray);
     
     /** @hide */
-    @UnsupportedAppUsage
     public static final int PROC_TERM_MASK = 0xff;
     /** @hide */
-    @UnsupportedAppUsage
     public static final int PROC_ZERO_TERM = 0;
     /** @hide */
-    @UnsupportedAppUsage
     public static final int PROC_SPACE_TERM = (int)' ';
     /** @hide */
-    @UnsupportedAppUsage
     public static final int PROC_TAB_TERM = (int)'\t';
     /** @hide */
-    public static final int PROC_NEWLINE_TERM = (int) '\n';
-    /** @hide */
-    @UnsupportedAppUsage
     public static final int PROC_COMBINE = 0x100;
     /** @hide */
-    @UnsupportedAppUsage
     public static final int PROC_PARENS = 0x200;
     /** @hide */
-    @UnsupportedAppUsage
     public static final int PROC_QUOTES = 0x400;
     /** @hide */
     public static final int PROC_CHAR = 0x800;
     /** @hide */
-    @UnsupportedAppUsage
     public static final int PROC_OUT_STRING = 0x1000;
     /** @hide */
-    @UnsupportedAppUsage
     public static final int PROC_OUT_LONG = 0x2000;
     /** @hide */
-    @UnsupportedAppUsage
     public static final int PROC_OUT_FLOAT = 0x4000;
-
-    /**
-     * Read and parse a {@code proc} file in the given format.
-     *
-     * <p>The format is a list of integers, where every integer describes a variable in the file. It
-     * specifies how the variable is syntactically terminated (e.g. {@link Process#PROC_SPACE_TERM},
-     * {@link Process#PROC_TAB_TERM}, {@link Process#PROC_ZERO_TERM}, {@link
-     * Process#PROC_NEWLINE_TERM}).
-     *
-     * <p>If the variable should be parsed and returned to the caller, the termination type should
-     * be binary OR'd with the type of output (e.g. {@link Process#PROC_OUT_STRING}, {@link
-     * Process#PROC_OUT_LONG}, {@link Process#PROC_OUT_FLOAT}.
-     *
-     * <p>If the variable is wrapped in quotation marks it should be binary OR'd with {@link
-     * Process#PROC_QUOTES}. If the variable is wrapped in parentheses it should be binary OR'd with
-     * {@link Process#PROC_PARENS}.
-     *
-     * <p>If the variable is not formatted as a string and should be cast directly from characters
-     * to a long, the {@link Process#PROC_CHAR} integer should be binary OR'd.
-     *
-     * <p>If the terminating character can be repeated, the {@link Process#PROC_COMBINE} integer
-     * should be binary OR'd.
-     *
-     * @param file the path of the {@code proc} file to read
-     * @param format the format of the file
-     * @param outStrings the parsed {@code String}s from the file
-     * @param outLongs the parsed {@code long}s from the file
-     * @param outFloats the parsed {@code float}s from the file
-     * @hide
-     */
-    @UnsupportedAppUsage
+    
+    /** @hide */
     public static final native boolean readProcFile(String file, int[] format,
             String[] outStrings, long[] outLongs, float[] outFloats);
-
+    
     /** @hide */
-    @UnsupportedAppUsage
     public static final native boolean parseProcLine(byte[] buffer, int startIndex, 
             int endIndex, int[] format, String[] outStrings, long[] outLongs, float[] outFloats);
 
     /** @hide */
-    @UnsupportedAppUsage
     public static final native int[] getPidsForCommands(String[] cmds);
 
     /**
@@ -1101,11 +1252,7 @@ public class Process {
      *  or -1 if the value cannot be determined 
      * @hide
      */
-    @UnsupportedAppUsage
     public static final native long getPss(int pid);
-
-    /** @hide */
-    public static final native long[] getRss(int pid);
 
     /**
      * Specifies the outcome of having started a process.

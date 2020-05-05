@@ -16,7 +16,6 @@
 
 package com.android.internal.widget;
 
-import android.annotation.UnsupportedAppUsage;
 import android.text.InputFilter;
 import android.text.Spanned;
 import android.widget.TextView;
@@ -39,13 +38,11 @@ public class TextViewInputDisabler {
             }
     };
 
-    @UnsupportedAppUsage
     public TextViewInputDisabler(TextView textView) {
         mTextView = textView;
         mDefaultFilters = mTextView.getFilters();
     }
 
-    @UnsupportedAppUsage
     public void setInputEnabled(boolean enabled) {
         mTextView.setFilters(enabled ? mDefaultFilters : mNoInputFilters);
     }

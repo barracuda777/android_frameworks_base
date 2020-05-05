@@ -170,23 +170,13 @@ public abstract class RecognitionService extends Service {
      * Checks whether the caller has sufficient permissions
      * 
      * @param listener to send the error message to in case of error
-     * @param forDataDelivery If the permission check is for delivering the sensitive data.
      * @return {@code true} if the caller has enough permissions, {@code false} otherwise
      */
-    private boolean checkPermissions(IRecognitionListener listener, boolean forDataDelivery) {
+    private boolean checkPermissions(IRecognitionListener listener) {
         if (DBG) Log.d(TAG, "checkPermissions");
-        if (forDataDelivery) {
-            if (PermissionChecker.checkCallingOrSelfPermissionForDataDelivery(this,
-                    android.Manifest.permission.RECORD_AUDIO)
-                             == PermissionChecker.PERMISSION_GRANTED) {
-                return true;
-            }
-        } else {
-            if (PermissionChecker.checkCallingOrSelfPermissionForPreflight(this,
-                    android.Manifest.permission.RECORD_AUDIO)
-                            == PermissionChecker.PERMISSION_GRANTED) {
-                return true;
-            }
+        if (PermissionChecker.checkCallingOrSelfPermission(this,
+                android.Manifest.permission.RECORD_AUDIO) == PermissionChecker.PERMISSION_GRANTED) {
+            return true;
         }
         try {
             Log.e(TAG, "call for recognition service without RECORD_AUDIO permissions");
@@ -352,7 +342,7 @@ public abstract class RecognitionService extends Service {
         public void startListening(Intent recognizerIntent, IRecognitionListener listener) {
             if (DBG) Log.d(TAG, "startListening called by:" + listener.asBinder());
             final RecognitionService service = mServiceRef.get();
-            if (service != null && service.checkPermissions(listener, true /*forDataDelivery*/)) {
+            if (service != null && service.checkPermissions(listener)) {
                 service.mHandler.sendMessage(Message.obtain(service.mHandler,
                         MSG_START_LISTENING, service.new StartListeningArgs(
                                 recognizerIntent, listener, Binder.getCallingUid())));
@@ -363,7 +353,7 @@ public abstract class RecognitionService extends Service {
         public void stopListening(IRecognitionListener listener) {
             if (DBG) Log.d(TAG, "stopListening called by:" + listener.asBinder());
             final RecognitionService service = mServiceRef.get();
-            if (service != null && service.checkPermissions(listener, false /*forDataDelivery*/)) {
+            if (service != null && service.checkPermissions(listener)) {
                 service.mHandler.sendMessage(Message.obtain(service.mHandler,
                         MSG_STOP_LISTENING, listener));
             }
@@ -373,7 +363,7 @@ public abstract class RecognitionService extends Service {
         public void cancel(IRecognitionListener listener) {
             if (DBG) Log.d(TAG, "cancel called by:" + listener.asBinder());
             final RecognitionService service = mServiceRef.get();
-            if (service != null && service.checkPermissions(listener, false /*forDataDelivery*/)) {
+            if (service != null && service.checkPermissions(listener)) {
                 service.mHandler.sendMessage(Message.obtain(service.mHandler,
                         MSG_CANCEL, listener));
             }

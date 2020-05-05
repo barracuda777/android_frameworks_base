@@ -19,9 +19,9 @@ package android.net;
 import com.android.org.conscrypt.ClientSessionContext;
 import com.android.org.conscrypt.SSLClientSessionCache;
 
-import junit.framework.TestCase;
+import com.google.testing.littlemock.LittleMock;
 
-import org.mockito.Mockito;
+import junit.framework.TestCase;
 
 import java.security.KeyManagementException;
 import java.security.SecureRandom;
@@ -39,22 +39,25 @@ public class SSLSessionCacheTest extends TestCase {
 
     public void testInstall_compatibleContext() throws Exception {
         final SSLContext ctx = SSLContext.getDefault();
-        final SSLClientSessionCache mock = Mockito.mock(SSLClientSessionCache.class);
+        final SSLClientSessionCache mock = LittleMock.mock(SSLClientSessionCache.class);
         final ClientSessionContext clientCtx = (ClientSessionContext) ctx.getClientSessionContext();
 
         try {
             SSLSessionCache.install(new SSLSessionCache(mock), ctx);
+            clientCtx.getSession("www.foogle.com", 443);
+            LittleMock.verify(mock).getSessionData(LittleMock.anyString(), LittleMock.anyInt());
         } finally {
             // Restore cacheless behaviour.
             SSLSessionCache.install(null, ctx);
-            Mockito.verifyNoMoreInteractions(mock);
+            clientCtx.getSession("www.foogle.com", 443);
+            LittleMock.verifyNoMoreInteractions(mock);
         }
     }
 
     public void testInstall_incompatibleContext() {
         try {
             SSLSessionCache.install(
-                    new SSLSessionCache(Mockito.mock(SSLClientSessionCache.class)),
+                    new SSLSessionCache(LittleMock.mock(SSLClientSessionCache.class)),
                     new FakeSSLContext());
             fail();
         } catch (IllegalArgumentException expected) {}
@@ -99,7 +102,7 @@ public class SSLSessionCacheTest extends TestCase {
 
         @Override
         protected SSLSessionContext engineGetClientSessionContext() {
-            return Mockito.mock(SSLSessionContext.class);
+            return LittleMock.mock(SSLSessionContext.class);
         }
     }
 }

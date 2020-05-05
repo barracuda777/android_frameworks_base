@@ -16,11 +16,9 @@
 
 package android.preference;
 
+import android.preference.ListPreference;
 import android.test.AndroidTestCase;
 
-import androidx.test.filters.LargeTest;
-
-@LargeTest
 public class ListPreferenceTest extends AndroidTestCase {
     public void testListPreferenceSummaryFromEntries() {
         String[] entries = { "one", "two", "three" };

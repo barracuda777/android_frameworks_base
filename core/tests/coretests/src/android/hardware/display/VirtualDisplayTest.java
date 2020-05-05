@@ -22,6 +22,8 @@ import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.graphics.drawable.ColorDrawable;
+import android.hardware.display.DisplayManager;
+import android.hardware.display.VirtualDisplay;
 import android.media.Image;
 import android.media.ImageReader;
 import android.os.Bundle;
@@ -37,8 +39,6 @@ import android.view.ViewGroup.LayoutParams;
 import android.view.WindowManager;
 import android.widget.ImageView;
 
-import androidx.test.filters.LargeTest;
-
 import java.nio.ByteBuffer;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -49,7 +49,6 @@ import java.util.concurrent.locks.ReentrantLock;
  * Contains additional tests that cannot be included in CTS because they require
  * system permissions.  See also the CTS version of VirtualDisplayTest.
  */
-@LargeTest
 public class VirtualDisplayTest extends AndroidTestCase {
     private static final String TAG = "VirtualDisplayTest";
 

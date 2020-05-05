@@ -16,7 +16,8 @@
 
 package com.android.server.notification;
 
-import static android.app.NotificationManager.IMPORTANCE_HIGH;
+import static android.service.notification.NotificationListenerService.Ranking.IMPORTANCE_HIGH;
+import static android.service.notification.NotificationListenerService.Ranking.importanceToLevel;
 
 import android.app.Notification;
 import android.content.ContentValues;
@@ -40,7 +41,6 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.PrintWriter;
-import java.lang.Math;
 import java.util.ArrayDeque;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
@@ -115,18 +115,6 @@ public class NotificationUsageStats {
     }
 
     /**
-     * Called when a notification wants to alert.
-     */
-    public synchronized boolean isAlertRateLimited(String packageName) {
-        AggregatedStats stats = getOrCreateAggregatedStatsLocked(packageName);
-        if (stats != null) {
-            return stats.isAlertRateLimited();
-        } else {
-            return false;
-        }
-    }
-
-    /**
      * Called when a notification is tentatively enqueued by an app, before rate checking.
      */
     public synchronized void registerEnqueuedByApp(String packageName) {
@@ -149,7 +137,6 @@ public class NotificationUsageStats {
             stats.numPostedByApp++;
             stats.updateInterarrivalEstimate(now);
             stats.countApiUse(notification);
-            stats.numUndecoratedRemoteViews += (notification.hasUndecoratedRemoteView() ? 1 : 0);
         }
         releaseAggregatedStatsLocked(aggregatedStatsArray);
         if (ENABLE_SQLITE_LOG) {
@@ -327,15 +314,6 @@ public class NotificationUsageStats {
         return dump;
     }
 
-    public PulledStats remoteViewStats(long startMs, boolean aggregate) {
-        if (ENABLE_SQLITE_LOG) {
-            if (aggregate) {
-                return mSQLiteLog.remoteViewAggStats(startMs);
-            }
-        }
-        return null;
-    }
-
     public synchronized void dump(PrintWriter pw, String indent, DumpFilter filter) {
         if (ENABLE_AGGREGATED_IN_MEMORY_STATS) {
             for (AggregatedStats as : mStats.values()) {
@@ -409,11 +387,8 @@ public class NotificationUsageStats {
         public ImportanceHistogram quietImportance;
         public ImportanceHistogram finalImportance;
         public RateEstimator enqueueRate;
-        public AlertRateLimiter alertRate;
         public int numRateViolations;
-        public int numAlertViolations;
         public int numQuotaViolations;
-        public int numUndecoratedRemoteViews;
         public long mLastAccessTime;
 
         public AggregatedStats(Context context, String key) {
@@ -424,7 +399,6 @@ public class NotificationUsageStats {
             quietImportance = new ImportanceHistogram(context, "note_imp_quiet_");
             finalImportance = new ImportanceHistogram(context, "note_importance_");
             enqueueRate = new RateEstimator();
-            alertRate = new AlertRateLimiter();
         }
 
         public AggregatedStats getPrevious() {
@@ -537,7 +511,6 @@ public class NotificationUsageStats {
             maybeCount("note_sub_text", (numWithSubText - previous.numWithSubText));
             maybeCount("note_info_text", (numWithInfoText - previous.numWithInfoText));
             maybeCount("note_over_rate", (numRateViolations - previous.numRateViolations));
-            maybeCount("note_over_alert_rate", (numAlertViolations - previous.numAlertViolations));
             maybeCount("note_over_quota", (numQuotaViolations - previous.numQuotaViolations));
             noisyImportance.maybeCount(previous.noisyImportance);
             quietImportance.maybeCount(previous.quietImportance);
@@ -570,7 +543,6 @@ public class NotificationUsageStats {
             previous.numWithSubText = numWithSubText;
             previous.numWithInfoText = numWithInfoText;
             previous.numRateViolations = numRateViolations;
-            previous.numAlertViolations = numAlertViolations;
             previous.numQuotaViolations = numQuotaViolations;
             noisyImportance.update(previous.noisyImportance);
             quietImportance.update(previous.quietImportance);
@@ -603,14 +575,6 @@ public class NotificationUsageStats {
 
         public void updateInterarrivalEstimate(long now) {
             enqueueRate.update(now);
-        }
-
-        public boolean isAlertRateLimited() {
-            boolean limited = alertRate.shouldRateLimitAlert(SystemClock.elapsedRealtime());
-            if (limited) {
-                numAlertViolations++;
-            }
-            return limited;
         }
 
         private String toStringWithIndent(String indent) {
@@ -671,17 +635,11 @@ public class NotificationUsageStats {
             output.append("numWithSubText=").append(numWithSubText).append("\n");
             output.append(indentPlusTwo);
             output.append("numWithInfoText=").append(numWithInfoText).append("\n");
-            output.append(indentPlusTwo);
             output.append("numRateViolations=").append(numRateViolations).append("\n");
-            output.append(indentPlusTwo);
-            output.append("numAlertViolations=").append(numAlertViolations).append("\n");
-            output.append(indentPlusTwo);
             output.append("numQuotaViolations=").append(numQuotaViolations).append("\n");
             output.append(indentPlusTwo).append(noisyImportance.toString()).append("\n");
             output.append(indentPlusTwo).append(quietImportance.toString()).append("\n");
             output.append(indentPlusTwo).append(finalImportance.toString()).append("\n");
-            output.append(indentPlusTwo);
-            output.append("numUndecorateRVs=").append(numUndecoratedRemoteViews).append("\n");
             output.append(indent).append("}");
             return output.toString();
         }
@@ -720,7 +678,6 @@ public class NotificationUsageStats {
             maybePut(dump, "numRateViolations", numRateViolations);
             maybePut(dump, "numQuotaLViolations", numQuotaViolations);
             maybePut(dump, "notificationEnqueueRate", getEnqueueRate());
-            maybePut(dump, "numAlertViolations", numAlertViolations);
             noisyImportance.maybePut(dump, previous.noisyImportance);
             quietImportance.maybePut(dump, previous.quietImportance);
             finalImportance.maybePut(dump, previous.finalImportance);
@@ -743,9 +700,9 @@ public class NotificationUsageStats {
 
     private static class ImportanceHistogram {
         // TODO define these somewhere else
-        private static final int NUM_IMPORTANCES = 6;
+        private static final int NUM_IMPORTANCES = 7;
         private static final String[] IMPORTANCE_NAMES =
-                {"none", "min", "low", "default", "high", "max"};
+                {"none", "min", "very-low", "low", "default", "high", "max"};
         private final Context mContext;
         private final String[] mCounterNames;
         private final String mPrefix;
@@ -762,8 +719,8 @@ public class NotificationUsageStats {
         }
 
         void increment(int imp) {
-            imp = Math.max(0, Math.min(imp, mCount.length - 1));
-            mCount[imp]++;
+            imp = imp < 0 ? 0 : imp > NUM_IMPORTANCES ? NUM_IMPORTANCES : imp;
+            mCount[imp] ++;
         }
 
         void maybeCount(ImportanceHistogram prev) {
@@ -929,13 +886,6 @@ public class NotificationUsageStats {
             updateVisiblyExpandedStats();
         }
 
-        /**
-         * Returns whether this notification has been visible and expanded at the same.
-         */
-        public boolean hasBeenVisiblyExpanded() {
-            return posttimeToFirstVisibleExpansionMs >= 0;
-        }
-
         private void updateVisiblyExpandedStats() {
             long elapsedNowMs = SystemClock.elapsedRealtime();
             if (isExpanded && isVisible) {
@@ -1040,7 +990,7 @@ public class NotificationUsageStats {
         private static final int MSG_DISMISS = 4;
 
         private static final String DB_NAME = "notification_log.db";
-        private static final int DB_VERSION = 7;
+        private static final int DB_VERSION = 5;
 
         /** Age in ms after which events are pruned from the DB. */
         private static final long HORIZON_MS = 7 * 24 * 60 * 60 * 1000L;  // 1 week
@@ -1073,16 +1023,12 @@ public class NotificationUsageStats {
         private static final String COL_FIRST_EXPANSIONTIME_MS = "first_expansion_time_ms";
         private static final String COL_AIRTIME_EXPANDED_MS = "expansion_airtime_ms";
         private static final String COL_EXPAND_COUNT = "expansion_count";
-        private static final String COL_UNDECORATED = "undecorated";
 
 
         private static final int EVENT_TYPE_POST = 1;
         private static final int EVENT_TYPE_CLICK = 2;
         private static final int EVENT_TYPE_REMOVE = 3;
         private static final int EVENT_TYPE_DISMISS = 4;
-
-        private static final int IDLE_CONNECTION_TIMEOUT_MS = 30000;
-
         private static long sLastPruneMs;
 
         private static long sNumWrites;
@@ -1099,20 +1045,12 @@ public class NotificationUsageStats {
                 "COUNT(*) AS cnt, " +
                 "SUM(" + COL_MUTED + ") as muted, " +
                 "SUM(" + COL_NOISY + ") as noisy, " +
-                "SUM(" + COL_DEMOTED + ") as demoted, " +
-                "SUM(" + COL_UNDECORATED + ") as undecorated " +
+                "SUM(" + COL_DEMOTED + ") as demoted " +
                 "FROM " + TAB_LOG + " " +
                 "WHERE " +
                 COL_EVENT_TYPE + "=" + EVENT_TYPE_POST +
                 " AND " + COL_EVENT_TIME + " > %d " +
                 " GROUP BY " + COL_EVENT_USER_ID + ", day, " + COL_PKG;
-        private static final String UNDECORATED_QUERY = "SELECT " +
-                COL_PKG + ", " +
-                "MAX(" + COL_EVENT_TIME + ") as max_time " +
-                "FROM " + TAB_LOG + " " +
-                "WHERE " + COL_UNDECORATED + "> 0 " +
-                " AND " + COL_EVENT_TIME + " > %d " +
-                "GROUP BY " + COL_PKG;
 
         public SQLiteLog(Context context) {
             HandlerThread backgroundThread = new HandlerThread("notification-sqlite-log",
@@ -1168,15 +1106,8 @@ public class NotificationUsageStats {
                             COL_AIRTIME_MS + " INT," +
                             COL_FIRST_EXPANSIONTIME_MS + " INT," +
                             COL_AIRTIME_EXPANDED_MS + " INT," +
-                            COL_EXPAND_COUNT + " INT," +
-                            COL_UNDECORATED + " INT" +
+                            COL_EXPAND_COUNT + " INT" +
                             ")");
-                }
-
-                @Override
-                public void onConfigure(SQLiteDatabase db) {
-                    // Memory optimization - close idle connections after 30s of inactivity
-                    setIdleConnectionTimeout(IDLE_CONNECTION_TIMEOUT_MS);
                 }
 
                 @Override
@@ -1279,7 +1210,6 @@ public class NotificationUsageStats {
             } else {
                 putPosttimeVisibility(r, cv);
             }
-            cv.put(COL_UNDECORATED, (r.hasUndecoratedRemoteView() ? 1 : 0));
             SQLiteDatabase db = mHelper.getWritableDatabase();
             if (db.insert(TAB_LOG, null, cv) < 0) {
                 Log.wtf(TAG, "Error while trying to insert values: " + cv);
@@ -1321,7 +1251,7 @@ public class NotificationUsageStats {
             outCv.put(COL_IMPORTANCE_FINAL, after);
             outCv.put(COL_DEMOTED, after < before ? 1 : 0);
             outCv.put(COL_NOISY, noisy);
-            if (noisy && after < IMPORTANCE_HIGH) {
+            if (noisy && importanceToLevel(after) < importanceToLevel(IMPORTANCE_HIGH)) {
                 outCv.put(COL_MUTED, 1);
             } else {
                 outCv.put(COL_MUTED, 0);
@@ -1355,23 +1285,6 @@ public class NotificationUsageStats {
                 // pass
             }
             return dump;
-        }
-
-        public PulledStats remoteViewAggStats(long startMs) {
-            PulledStats stats = new PulledStats(startMs);
-            SQLiteDatabase db = mHelper.getReadableDatabase();
-            String q = String.format(UNDECORATED_QUERY, startMs);
-            Cursor cursor = db.rawQuery(q, null);
-            try {
-                for (cursor.moveToFirst(); !cursor.isAfterLast(); cursor.moveToNext()) {
-                    String pkg = cursor.getString(0);
-                    long maxTimeMs = cursor.getLong(1);
-                    stats.addUndecoratedPackage(pkg, maxTimeMs);
-                }
-            } finally {
-                cursor.close();
-            }
-            return stats;
         }
     }
 }

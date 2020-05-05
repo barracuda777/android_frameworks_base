@@ -16,29 +16,25 @@
 
 package android.graphics.drawable;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
-import android.annotation.TestApi;
 import android.content.pm.ActivityInfo.Config;
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
-import android.content.res.Resources.Theme;
 import android.content.res.TypedArray;
-import android.graphics.BlendMode;
-import android.graphics.BlendModeColorFilter;
 import android.graphics.Canvas;
 import android.graphics.ColorFilter;
 import android.graphics.Outline;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuff.Mode;
+import android.graphics.PorterDuffColorFilter;
 import android.graphics.Rect;
 import android.graphics.Shader;
-import android.graphics.Xfermode;
 import android.graphics.drawable.shapes.Shape;
+import android.content.res.Resources.Theme;
 import android.util.AttributeSet;
 
 import com.android.internal.R;
-
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -73,15 +69,15 @@ import java.io.IOException;
  * @attr ref android.R.styleable#ShapeDrawable_height
  */
 public class ShapeDrawable extends Drawable {
-    private @NonNull ShapeState mShapeState;
-    private BlendModeColorFilter mBlendModeColorFilter;
+    private ShapeState mShapeState;
+    private PorterDuffColorFilter mTintFilter;
     private boolean mMutated;
 
     /**
      * ShapeDrawable constructor.
      */
     public ShapeDrawable() {
-        this(new ShapeState(), null);
+        this(new ShapeState(null), null);
     }
 
     /**
@@ -90,7 +86,7 @@ public class ShapeDrawable extends Drawable {
      * @param s the Shape that this ShapeDrawable should be
      */
     public ShapeDrawable(Shape s) {
-        this(new ShapeState(), null);
+        this(new ShapeState(null), null);
 
         mShapeState.mShape = s;
     }
@@ -237,8 +233,8 @@ public class ShapeDrawable extends Drawable {
         // only draw shape if it may affect output
         if (paint.getAlpha() != 0 || paint.getXfermode() != null || paint.hasShadowLayer()) {
             final boolean clearColorFilter;
-            if (mBlendModeColorFilter != null && paint.getColorFilter() == null) {
-                paint.setColorFilter(mBlendModeColorFilter);
+            if (mTintFilter != null && paint.getColorFilter() == null) {
+                paint.setColorFilter(mTintFilter);
                 clearColorFilter = true;
             } else {
                 clearColorFilter = false;
@@ -291,32 +287,20 @@ public class ShapeDrawable extends Drawable {
     @Override
     public void setTintList(ColorStateList tint) {
         mShapeState.mTint = tint;
-        mBlendModeColorFilter = updateBlendModeFilter(mBlendModeColorFilter, tint,
-                mShapeState.mBlendMode);
+        mTintFilter = updateTintFilter(mTintFilter, tint, mShapeState.mTintMode);
         invalidateSelf();
     }
 
     @Override
-    public void setTintBlendMode(@NonNull BlendMode blendMode) {
-        mShapeState.mBlendMode = blendMode;
-        mBlendModeColorFilter = updateBlendModeFilter(mBlendModeColorFilter, mShapeState.mTint,
-                blendMode);
+    public void setTintMode(PorterDuff.Mode tintMode) {
+        mShapeState.mTintMode = tintMode;
+        mTintFilter = updateTintFilter(mTintFilter, mShapeState.mTint, tintMode);
         invalidateSelf();
     }
 
     @Override
     public void setColorFilter(ColorFilter colorFilter) {
         mShapeState.mPaint.setColorFilter(colorFilter);
-        invalidateSelf();
-    }
-
-    /**
-     * @hide
-     */
-    @Override
-    @TestApi
-    public void setXfermode(@Nullable Xfermode mode) {
-        mShapeState.mPaint.setXfermode(mode);
         invalidateSelf();
     }
 
@@ -353,9 +337,8 @@ public class ShapeDrawable extends Drawable {
     @Override
     protected boolean onStateChange(int[] stateSet) {
         final ShapeState state = mShapeState;
-        if (state.mTint != null && state.mBlendMode != null) {
-            mBlendModeColorFilter = updateBlendModeFilter(mBlendModeColorFilter, state.mTint,
-                    state.mBlendMode);
+        if (state.mTint != null && state.mTintMode != null) {
+            mTintFilter = updateTintFilter(mTintFilter, state.mTint, state.mTintMode);
             return true;
         }
         return false;
@@ -365,12 +348,6 @@ public class ShapeDrawable extends Drawable {
     public boolean isStateful() {
         final ShapeState s = mShapeState;
         return super.isStateful() || (s.mTint != null && s.mTint.isStateful());
-    }
-
-    /** @hide */
-    @Override
-    public boolean hasFocusStateSpecified() {
-        return mShapeState.mTint != null && mShapeState.mTint.hasFocusStateSpecified();
     }
 
     /**
@@ -425,7 +402,7 @@ public class ShapeDrawable extends Drawable {
         }
 
         // Update local properties.
-        updateLocalState();
+        updateLocalState(r);
     }
 
     @Override
@@ -449,7 +426,7 @@ public class ShapeDrawable extends Drawable {
         }
 
         // Update local properties.
-        updateLocalState();
+        updateLocalState(t.getResources());
     }
 
     private void updateStateFromTypedArray(TypedArray a) {
@@ -470,14 +447,14 @@ public class ShapeDrawable extends Drawable {
         dither = a.getBoolean(R.styleable.ShapeDrawable_dither, dither);
         paint.setDither(dither);
 
-        state.mIntrinsicWidth = (int) a.getDimension(
-                R.styleable.ShapeDrawable_width, state.mIntrinsicWidth);
-        state.mIntrinsicHeight = (int) a.getDimension(
-                R.styleable.ShapeDrawable_height, state.mIntrinsicHeight);
+        setIntrinsicWidth((int) a.getDimension(
+                R.styleable.ShapeDrawable_width, state.mIntrinsicWidth));
+        setIntrinsicHeight((int) a.getDimension(
+                R.styleable.ShapeDrawable_height, state.mIntrinsicHeight));
 
         final int tintMode = a.getInt(R.styleable.ShapeDrawable_tintMode, -1);
         if (tintMode != -1) {
-            state.mBlendMode = Drawable.parseBlendMode(tintMode, BlendMode.SRC_IN);
+            state.mTintMode = Drawable.parseTintMode(tintMode, Mode.SRC_IN);
         }
 
         final ColorStateList tint = a.getColorStateList(R.styleable.ShapeDrawable_tint);
@@ -517,8 +494,21 @@ public class ShapeDrawable extends Drawable {
     @Override
     public Drawable mutate() {
         if (!mMutated && super.mutate() == this) {
-            mShapeState = new ShapeState(mShapeState);
-            updateLocalState();
+            if (mShapeState.mPaint != null) {
+                mShapeState.mPaint = new Paint(mShapeState.mPaint);
+            } else {
+                mShapeState.mPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            }
+            if (mShapeState.mPadding != null) {
+                mShapeState.mPadding = new Rect(mShapeState.mPadding);
+            } else {
+                mShapeState.mPadding = new Rect();
+            }
+            try {
+                mShapeState.mShape = mShapeState.mShape.clone();
+            } catch (CloneNotSupportedException e) {
+                return null;
+            }
             mMutated = true;
         }
         return this;
@@ -535,57 +525,34 @@ public class ShapeDrawable extends Drawable {
     /**
      * Defines the intrinsic properties of this ShapeDrawable's Shape.
      */
-    static final class ShapeState extends ConstantState {
-        final @NonNull Paint mPaint;
-
-        @Config int mChangingConfigurations;
+    final static class ShapeState extends ConstantState {
         int[] mThemeAttrs;
+        @Config int mChangingConfigurations;
+        Paint mPaint;
         Shape mShape;
-        ColorStateList mTint;
-        BlendMode mBlendMode = DEFAULT_BLEND_MODE;
+        ColorStateList mTint = null;
+        Mode mTintMode = DEFAULT_TINT_MODE;
         Rect mPadding;
         int mIntrinsicWidth;
         int mIntrinsicHeight;
         int mAlpha = 255;
         ShaderFactory mShaderFactory;
 
-        /**
-         * Constructs a new ShapeState.
-         */
-        ShapeState() {
-            mPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        }
-
-        /**
-         * Constructs a new ShapeState that contains a deep copy of the
-         * specified ShapeState.
-         *
-         * @param orig the state to create a deep copy of
-         */
-        ShapeState(@NonNull ShapeState orig) {
-            mChangingConfigurations = orig.mChangingConfigurations;
-            mPaint = new Paint(orig.mPaint);
-            mThemeAttrs = orig.mThemeAttrs;
-            if (orig.mShape != null) {
-                try {
-                    mShape = orig.mShape.clone();
-                } catch (CloneNotSupportedException e) {
-                    // Well, at least we tried.
-                    mShape = orig.mShape;
-                }
+        ShapeState(ShapeState orig) {
+            if (orig != null) {
+                mThemeAttrs = orig.mThemeAttrs;
+                mPaint = orig.mPaint;
+                mShape = orig.mShape;
+                mTint = orig.mTint;
+                mTintMode = orig.mTintMode;
+                mPadding = orig.mPadding;
+                mIntrinsicWidth = orig.mIntrinsicWidth;
+                mIntrinsicHeight = orig.mIntrinsicHeight;
+                mAlpha = orig.mAlpha;
+                mShaderFactory = orig.mShaderFactory;
+            } else {
+                mPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
             }
-            mTint = orig.mTint;
-            mBlendMode = orig.mBlendMode;
-            if (orig.mPadding != null) {
-                mPadding = new Rect(orig.mPadding);
-            }
-            mIntrinsicWidth = orig.mIntrinsicWidth;
-            mIntrinsicHeight = orig.mIntrinsicHeight;
-            mAlpha = orig.mAlpha;
-
-            // We don't have any way to clone a shader factory, so hopefully
-            // this class doesn't contain any local state.
-            mShaderFactory = orig.mShaderFactory;
         }
 
         @Override
@@ -596,12 +563,12 @@ public class ShapeDrawable extends Drawable {
 
         @Override
         public Drawable newDrawable() {
-            return new ShapeDrawable(new ShapeState(this), null);
+            return new ShapeDrawable(this, null);
         }
 
         @Override
         public Drawable newDrawable(Resources res) {
-            return new ShapeDrawable(new ShapeState(this), res);
+            return new ShapeDrawable(this, res);
         }
 
         @Override
@@ -618,7 +585,7 @@ public class ShapeDrawable extends Drawable {
     private ShapeDrawable(ShapeState state, Resources res) {
         mShapeState = state;
 
-        updateLocalState();
+        updateLocalState(res);
     }
 
     /**
@@ -626,9 +593,8 @@ public class ShapeDrawable extends Drawable {
      * after significant state changes, e.g. from the One True Constructor and
      * after inflating or applying a theme.
      */
-    private void updateLocalState() {
-        mBlendModeColorFilter = updateBlendModeFilter(mBlendModeColorFilter, mShapeState.mTint,
-                mShapeState.mBlendMode);
+    private void updateLocalState(Resources res) {
+        mTintFilter = updateTintFilter(mTintFilter, mShapeState.mTint, mShapeState.mTintMode);
     }
 
     /**
@@ -651,4 +617,8 @@ public class ShapeDrawable extends Drawable {
          */
         public abstract Shader resize(int width, int height);
     }
+
+    // other subclass could wack the Shader's localmatrix based on the
+    // resize params (e.g. scaletofit, etc.). This could be used to scale
+    // a bitmap to fill the bounds without needing any other special casing.
 }

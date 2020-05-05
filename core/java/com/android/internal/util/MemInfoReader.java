@@ -16,14 +16,12 @@
 
 package com.android.internal.util;
 
-import android.annotation.UnsupportedAppUsage;
 import android.os.Debug;
 import android.os.StrictMode;
 
 public final class MemInfoReader {
     final long[] mInfos = new long[Debug.MEMINFO_COUNT];
 
-    @UnsupportedAppUsage
     public void readMemInfo() {
         // Permit disk reads here, as /proc/meminfo isn't really "on
         // disk" and should be fast.  TODO: make BlockGuard ignore
@@ -39,7 +37,6 @@ public final class MemInfoReader {
     /**
      * Total amount of RAM available to the kernel.
      */
-    @UnsupportedAppUsage
     public long getTotalSize() {
         return mInfos[Debug.MEMINFO_TOTAL] * 1024;
     }
@@ -47,7 +44,6 @@ public final class MemInfoReader {
     /**
      * Amount of RAM that is not being used for anything.
      */
-    @UnsupportedAppUsage
     public long getFreeSize() {
         return mInfos[Debug.MEMINFO_FREE] * 1024;
     }
@@ -56,7 +52,6 @@ public final class MemInfoReader {
      * Amount of RAM that the kernel is being used for caches, not counting caches
      * that are mapped in to processes.
      */
-    @UnsupportedAppUsage
     public long getCachedSize() {
         return getCachedSizeKb() * 1024;
     }
@@ -87,7 +82,7 @@ public final class MemInfoReader {
      * that are mapped in to processes.
      */
     public long getCachedSizeKb() {
-        return mInfos[Debug.MEMINFO_BUFFERS] + mInfos[Debug.MEMINFO_SLAB_RECLAIMABLE]
+        return mInfos[Debug.MEMINFO_BUFFERS]
                 + mInfos[Debug.MEMINFO_CACHED] - mInfos[Debug.MEMINFO_MAPPED];
     }
 
@@ -95,7 +90,7 @@ public final class MemInfoReader {
      * Amount of RAM that is in use by the kernel for actual allocations.
      */
     public long getKernelUsedSizeKb() {
-        return mInfos[Debug.MEMINFO_SHMEM] + mInfos[Debug.MEMINFO_SLAB_UNRECLAIMABLE]
+        return mInfos[Debug.MEMINFO_SHMEM] + mInfos[Debug.MEMINFO_SLAB]
                 + mInfos[Debug.MEMINFO_VM_ALLOC_USED] + mInfos[Debug.MEMINFO_PAGE_TABLES]
                 + mInfos[Debug.MEMINFO_KERNEL_STACK];
     }
@@ -112,7 +107,6 @@ public final class MemInfoReader {
         return mInfos[Debug.MEMINFO_ZRAM_TOTAL];
     }
 
-    @UnsupportedAppUsage
     public long[] getRawInfo() {
         return mInfos;
     }

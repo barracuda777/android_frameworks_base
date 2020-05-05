@@ -16,8 +16,6 @@
 
 package android.media;
 
-import android.annotation.UnsupportedAppUsage;
-
 /**
  * The AudioGainConfig is used by APIs setting or getting values on a given gain
  * controller. It contains a valid configuration (value, channels...) for a gain controller
@@ -28,18 +26,12 @@ import android.annotation.UnsupportedAppUsage;
  */
 public class AudioGainConfig {
     AudioGain mGain;
-    @UnsupportedAppUsage
     private final int mIndex;
-    @UnsupportedAppUsage
     private final int mMode;
-    @UnsupportedAppUsage
     private final int mChannelMask;
-    @UnsupportedAppUsage
     private final int mValues[];
-    @UnsupportedAppUsage
     private final int mRampDurationMs;
 
-    @UnsupportedAppUsage
     AudioGainConfig(int index, AudioGain gain, int mode, int channelMask,
             int[] values, int rampDurationMs) {
         mIndex = index;

@@ -16,17 +16,12 @@
 
 package com.android.systemui.statusbar.policy;
 
-import android.annotation.Nullable;
-
 import com.android.systemui.DemoMode;
-import com.android.systemui.Dumpable;
-import com.android.systemui.statusbar.policy.BatteryController.BatteryStateChangeCallback;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 
-public interface BatteryController extends DemoMode, Dumpable,
-        CallbackController<BatteryStateChangeCallback> {
+public interface BatteryController extends DemoMode {
     /**
      * Prints the current state of the {@link BatteryController} to the given {@link PrintWriter}.
      */
@@ -42,42 +37,15 @@ public interface BatteryController extends DemoMode, Dumpable,
      */
     boolean isPowerSave();
 
-    /**
-     * Returns {@code true} if AOD was disabled by power saving policies.
-     */
-    boolean isAodPowerSave();
+    void addStateChangedCallback(BatteryStateChangeCallback cb);
+    void removeStateChangedCallback(BatteryStateChangeCallback cb);
 
     /**
-     * A listener that will be notified whenever a change in battery level or power save mode has
-     * occurred.
+     * A listener that will be notified whenever a change in battery level or power save mode
+     * has occurred.
      */
     interface BatteryStateChangeCallback {
-
-        default void onBatteryLevelChanged(int level, boolean pluggedIn, boolean charging) {
-        }
-
-        default void onPowerSaveChanged(boolean isPowerSave) {
-        }
-    }
-
-    /**
-     * If available, get the estimated battery time remaining as a string.
-     *
-     * @param completion A lambda that will be called with the result of fetching the estimate. The
-     * first time this method is called may need to be dispatched to a background thread. The
-     * completion is called on the main thread
-     */
-    default void getEstimatedTimeRemainingString(EstimateFetchCompletion completion) {}
-
-    /**
-     * Callback called when the estimated time remaining text is fetched.
-     */
-    public interface EstimateFetchCompletion {
-
-        /**
-         * The callback
-         * @param estimate the estimate
-         */
-        void onBatteryRemainingEstimateRetrieved(@Nullable String estimate);
+        void onBatteryLevelChanged(int level, boolean pluggedIn, boolean charging);
+        void onPowerSaveChanged(boolean isPowerSave);
     }
 }

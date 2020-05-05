@@ -22,6 +22,5 @@ import android.media.RemoteDisplayState;
  * {@hide}
  */
 oneway interface IRemoteDisplayCallback {
-    @UnsupportedAppUsage
     void onStateChanged(in RemoteDisplayState state);
 }

@@ -16,28 +16,29 @@
 
 package com.android.internal.location;
 
+import android.location.Location;
+import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.os.WorkSource;
 
-import com.android.internal.location.ILocationProviderManager;
+import com.android.internal.location.ProviderProperties;
 import com.android.internal.location.ProviderRequest;
 
 /**
- * Binder interface for services that implement location providers. Do not implement this directly,
- * extend {@link LocationProviderBase} instead.
+ * Binder interface for services that implement location providers.
+ * <p>Use {@link LocationProviderBase} as a helper to implement this
+ * interface.
  * @hide
  */
 interface ILocationProvider {
+    void enable();
+    void disable();
 
-    oneway void setLocationProviderManager(in ILocationProviderManager manager);
+    void setRequest(in ProviderRequest request, in WorkSource ws);
 
-    oneway void setRequest(in ProviderRequest request, in WorkSource ws);
-
-    oneway void sendExtraCommand(String command, in Bundle extras);
-
-    // --- deprecated and will be removed the future ---
-    @UnsupportedAppUsage
+    // --- deprecated (but still supported) ---
+    ProviderProperties getProperties();
     int getStatus(out Bundle extras);
-    @UnsupportedAppUsage
     long getStatusUpdateTime();
+    boolean sendExtraCommand(String command, inout Bundle extras);
 }

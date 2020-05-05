@@ -16,9 +16,6 @@
 
 package android.util;
 
-import android.annotation.UnsupportedAppUsage;
-import android.os.Build;
-
 import java.io.PrintWriter;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -111,7 +108,6 @@ public class DebugUtils {
     }
 
     /** @hide */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     public static void buildShortClassTag(Object cls, StringBuilder out) {
         if (cls == null) {
             out.append("null");
@@ -223,7 +219,7 @@ public class DebugUtils {
                     && field.getType().equals(int.class) && field.getName().startsWith(prefix)) {
                 try {
                     if (value == field.getInt(null)) {
-                        return constNameWithoutPrefix(prefix, field);
+                        return field.getName().substring(prefix.length());
                     }
                 } catch (IllegalAccessException ignored) {
                 }
@@ -240,7 +236,6 @@ public class DebugUtils {
      */
     public static String flagsToString(Class<?> clazz, String prefix, int flags) {
         final StringBuilder res = new StringBuilder();
-        boolean flagsWasZero = flags == 0;
 
         for (Field field : clazz.getDeclaredFields()) {
             final int modifiers = field.getModifiers();
@@ -248,12 +243,9 @@ public class DebugUtils {
                     && field.getType().equals(int.class) && field.getName().startsWith(prefix)) {
                 try {
                     final int value = field.getInt(null);
-                    if (value == 0 && flagsWasZero) {
-                        return constNameWithoutPrefix(prefix, field);
-                    }
-                    if ((flags & value) == value) {
+                    if ((flags & value) != 0) {
                         flags &= ~value;
-                        res.append(constNameWithoutPrefix(prefix, field)).append('|');
+                        res.append(field.getName().substring(prefix.length())).append('|');
                     }
                 } catch (IllegalAccessException ignored) {
                 }
@@ -265,9 +257,5 @@ public class DebugUtils {
             res.deleteCharAt(res.length() - 1);
         }
         return res.toString();
-    }
-
-    private static String constNameWithoutPrefix(String prefix, Field field) {
-        return field.getName().substring(prefix.length());
     }
 }

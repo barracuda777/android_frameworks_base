@@ -25,8 +25,6 @@ import android.test.AndroidTestCase;
 import android.util.AttributeSet;
 import android.util.SparseArray;
 
-import androidx.test.filters.LargeTest;
-
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlSerializer;
@@ -45,7 +43,6 @@ import java.util.Set;
 /**
  * Tests for {@link android.content.pm.RegisteredServicesCache}
  */
-@LargeTest
 public class RegisteredServicesCacheTest extends AndroidTestCase {
     private static final int U0 = 0;
     private static final int U1 = 1;

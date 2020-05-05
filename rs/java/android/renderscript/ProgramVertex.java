@@ -38,8 +38,6 @@
  **/
 package android.renderscript;
 
-import android.annotation.UnsupportedAppUsage;
-
 
 /**
  * @hide
@@ -92,7 +90,6 @@ public class ProgramVertex extends Program {
          *
          * @param rs Context to which the program will belong.
          */
-        @UnsupportedAppUsage
         public Builder(RenderScript rs) {
             super(rs);
         }
@@ -105,7 +102,6 @@ public class ProgramVertex extends Program {
          *          structure
          * @return  self
          */
-        @UnsupportedAppUsage
         public Builder addInput(Element e) throws IllegalStateException {
             // Should check for consistant and non-conflicting names...
             if(mInputCount >= MAX_INPUT) {
@@ -124,7 +120,6 @@ public class ProgramVertex extends Program {
          *
          * @return  ProgramVertex
          */
-        @UnsupportedAppUsage
         public ProgramVertex create() {
             mRS.validate();
             long[] tmp = new long[(mInputCount + mOutputCount + mConstantCount + mTextureCount) * 2];

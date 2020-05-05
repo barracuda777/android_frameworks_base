@@ -17,69 +17,67 @@
 #ifndef AAPT_IO_ZIPARCHIVE_H
 #define AAPT_IO_ZIPARCHIVE_H
 
-#include "ziparchive/zip_archive.h"
+#include "io/File.h"
+#include "util/StringPiece.h"
 
 #include <map>
-
-#include "androidfw/StringPiece.h"
-
-#include "io/File.h"
+#include <ziparchive/zip_archive.h>
 
 namespace aapt {
 namespace io {
 
-// An IFile representing a file within a ZIP archive. If the file is compressed, it is uncompressed
-// and copied into memory when opened. Otherwise it is mmapped from the ZIP archive.
+/**
+ * An IFile representing a file within a ZIP archive. If the file is compressed, it is uncompressed
+ * and copied into memory when opened. Otherwise it is mmapped from the ZIP archive.
+ */
 class ZipFile : public IFile {
- public:
-  ZipFile(::ZipArchiveHandle handle, const ::ZipEntry& entry, const Source& source);
+public:
+    ZipFile(ZipArchiveHandle handle, const ZipEntry& entry, const Source& source);
 
-  std::unique_ptr<IData> OpenAsData() override;
-  std::unique_ptr<io::InputStream> OpenInputStream() override;
-  const Source& GetSource() const override;
-  bool WasCompressed() override;
+    std::unique_ptr<IData> openAsData() override;
+    const Source& getSource() const override;
 
- private:
-  ::ZipArchiveHandle zip_handle_;
-  ::ZipEntry zip_entry_;
-  Source source_;
+private:
+    ZipArchiveHandle mZipHandle;
+    ZipEntry mZipEntry;
+    Source mSource;
 };
 
 class ZipFileCollection;
 
 class ZipFileCollectionIterator : public IFileCollectionIterator {
- public:
-  explicit ZipFileCollectionIterator(ZipFileCollection* collection);
+public:
+    ZipFileCollectionIterator(ZipFileCollection* collection);
 
-  bool HasNext() override;
-  io::IFile* Next() override;
+    bool hasNext() override;
+    io::IFile* next() override;
 
- private:
-  std::vector<std::unique_ptr<IFile>>::const_iterator current_, end_;
+private:
+    std::map<std::string, std::unique_ptr<IFile>>::const_iterator mCurrent, mEnd;
 };
 
-// An IFileCollection that represents a ZIP archive and the entries within it.
+/**
+ * An IFileCollection that represents a ZIP archive and the entries within it.
+ */
 class ZipFileCollection : public IFileCollection {
- public:
-  static std::unique_ptr<ZipFileCollection> Create(const android::StringPiece& path,
-                                                   std::string* outError);
+public:
+    static std::unique_ptr<ZipFileCollection> create(const StringPiece& path,
+                                                     std::string* outError);
 
-  io::IFile* FindFile(const android::StringPiece& path) override;
-  std::unique_ptr<IFileCollectionIterator> Iterator() override;
-  char GetDirSeparator() override;
+    io::IFile* findFile(const StringPiece& path) override;
+    std::unique_ptr<IFileCollectionIterator> iterator() override;
 
-  ~ZipFileCollection() override;
+    ~ZipFileCollection() override;
 
- private:
-  friend class ZipFileCollectionIterator;
-  ZipFileCollection();
+private:
+    friend class ZipFileCollectionIterator;
+    ZipFileCollection();
 
-  ZipArchiveHandle handle_;
-  std::vector<std::unique_ptr<IFile>> files_;
-  std::map<std::string, IFile*> files_by_name_;
+    ZipArchiveHandle mHandle;
+    std::map<std::string, std::unique_ptr<IFile>> mFiles;
 };
 
-}  // namespace io
-}  // namespace aapt
+} // namespace io
+} // namespace aapt
 
 #endif /* AAPT_IO_ZIPARCHIVE_H */

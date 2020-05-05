@@ -16,11 +16,8 @@
 
 package android.text.method;
 
-import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
+import android.graphics.Canvas;
+import android.graphics.Paint;
 import android.text.Editable;
 import android.text.Spannable;
 import android.text.SpannableString;
@@ -60,6 +57,19 @@ public class EditorState {
     public int mSelectionEnd = -1;
 
     public EditorState() {
+    }
+
+    /**
+     * A mocked {@link android.text.style.ReplacementSpan} for testing purpose.
+     */
+    private static class MockReplacementSpan extends ReplacementSpan {
+        public int getSize(Paint paint, CharSequence text, int start, int end,
+                Paint.FontMetricsInt fm) {
+            return 0;
+        }
+        public void draw(Canvas canvas, CharSequence text, int start, int end, float x, int top,
+                int y, int bottom, Paint paint) {
+        }
     }
 
     // Returns true if the code point is ASCII and graph.
@@ -159,14 +169,7 @@ public class EditorState {
                 throw new IllegalArgumentException(
                         "ReplacementSpan start position appears after end position.");
             }
-
-            ReplacementSpan mockReplacementSpan = mock(ReplacementSpan.class);
-            when(mockReplacementSpan.getSize(any(), any(), any(), any(), any()))
-                .thenReturn(0);
-            doNothing().when(mockReplacementSpan)
-                .draw(any(), any(), any(), any(), any(), any(), any(), any(), any());
-
-            spannable.setSpan(mockReplacementSpan, replacementSpanStart, replacementSpanEnd,
+            spannable.setSpan(new MockReplacementSpan(), replacementSpanStart, replacementSpanEnd,
                     Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
         mText = Editable.Factory.getInstance().newEditable(spannable);

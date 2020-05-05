@@ -19,60 +19,47 @@ package android.app.admin;
 import android.os.Parcel;
 import android.os.Parcelable;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-
 /**
- * A class that represents a TCP connect event initiated through the standard network stack.
- *
- * <p>It contains information about the originating app as well as the remote TCP endpoint.
- *
- * <p>Support both IPv4 and IPv6 connections.
+ * A class that represents a connect library call event.
+ * @hide
  */
 public final class ConnectEvent extends NetworkEvent implements Parcelable {
 
     /** The destination IP address. */
-    private final String mIpAddress;
+    private final String ipAddress;
 
     /** The destination port number. */
-    private final int mPort;
+    private final int port;
 
     /** @hide */
     public ConnectEvent(String ipAddress, int port, String packageName, long timestamp) {
         super(packageName, timestamp);
-        this.mIpAddress = ipAddress;
-        this.mPort = port;
+        this.ipAddress = ipAddress;
+        this.port = port;
     }
 
     private ConnectEvent(Parcel in) {
-        this.mIpAddress = in.readString();
-        this.mPort = in.readInt();
-        this.mPackageName = in.readString();
-        this.mTimestamp = in.readLong();
-        this.mId = in.readLong();
+        this.ipAddress = in.readString();
+        this.port = in.readInt();
+        this.packageName = in.readString();
+        this.timestamp = in.readLong();
     }
 
-    public InetAddress getInetAddress() {
-        try {
-            // ipAddress is already an address, not a host name, no DNS resolution will happen.
-            return InetAddress.getByName(mIpAddress);
-        } catch (UnknownHostException e) {
-            // Should never happen as we aren't passing a host name.
-            return InetAddress.getLoopbackAddress();
-        }
+    public String getIpAddress() {
+        return ipAddress;
     }
 
     public int getPort() {
-        return mPort;
+        return port;
     }
 
     @Override
     public String toString() {
-        return String.format("ConnectEvent(%d, %s, %d, %d, %s)", mId, mIpAddress, mPort, mTimestamp,
-                mPackageName);
+        return String.format("ConnectEvent(%s, %d, %d, %s)", ipAddress, port, timestamp,
+                packageName);
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<ConnectEvent> CREATOR
+    public static final Parcelable.Creator<ConnectEvent> CREATOR
             = new Parcelable.Creator<ConnectEvent>() {
         @Override
         public ConnectEvent createFromParcel(Parcel in) {
@@ -97,10 +84,10 @@ public final class ConnectEvent extends NetworkEvent implements Parcelable {
     public void writeToParcel(Parcel out, int flags) {
         // write parcel token first
         out.writeInt(PARCEL_TOKEN_CONNECT_EVENT);
-        out.writeString(mIpAddress);
-        out.writeInt(mPort);
-        out.writeString(mPackageName);
-        out.writeLong(mTimestamp);
-        out.writeLong(mId);
+        out.writeString(ipAddress);
+        out.writeInt(port);
+        out.writeString(packageName);
+        out.writeLong(timestamp);
     }
 }
+

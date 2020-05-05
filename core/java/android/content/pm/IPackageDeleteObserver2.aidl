@@ -21,6 +21,5 @@ import android.content.Intent;
 /** {@hide} */
 oneway interface IPackageDeleteObserver2 {
     void onUserActionRequired(in Intent intent);
-    @UnsupportedAppUsage
     void onPackageDeleted(String packageName, int returnCode, String msg);
 }

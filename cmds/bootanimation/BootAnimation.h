@@ -22,7 +22,6 @@
 
 #include <androidfw/AssetManager.h>
 #include <utils/Thread.h>
-#include <binder/IBinder.h>
 
 #include <EGL/egl.h>
 #include <GLES/gl.h>
@@ -40,6 +39,35 @@ class SurfaceControl;
 class BootAnimation : public Thread, public IBinder::DeathRecipient
 {
 public:
+                BootAnimation();
+    virtual     ~BootAnimation();
+
+    sp<SurfaceComposerClient> session() const;
+
+private:
+    virtual bool        threadLoop();
+    virtual status_t    readyToRun();
+    virtual void        onFirstRef();
+    virtual void        binderDied(const wp<IBinder>& who);
+
+    bool                updateIsTimeAccurate();
+
+    class TimeCheckThread : public Thread {
+    public:
+        TimeCheckThread(BootAnimation* bootAnimation);
+        virtual ~TimeCheckThread();
+    private:
+        virtual status_t    readyToRun();
+        virtual bool        threadLoop();
+        bool                doThreadLoop();
+        void                addTimeDirWatch();
+
+        int mInotifyFd;
+        int mSystemWd;
+        int mTimeWd;
+        BootAnimation* mBootAnimation;
+    };
+
     struct Texture {
         GLint   w;
         GLint   h;
@@ -94,55 +122,6 @@ public:
         Font clockFont;
     };
 
-    // All callbacks will be called from this class's internal thread.
-    class Callbacks : public RefBase {
-    public:
-        // Will be called during initialization after we have loaded
-        // the animation and be provided with all parts in animation.
-        virtual void init(const Vector<Animation::Part>& /*parts*/) {}
-
-        // Will be called while animation is playing before each part is
-        // played. It will be provided with the part and play count for it.
-        // It will be provided with the partNumber for the part about to be played,
-        // as well as a reference to the part itself. It will also be provided with
-        // which play of that part is about to start, some parts are repeated
-        // multiple times.
-        virtual void playPart(int /*partNumber*/, const Animation::Part& /*part*/,
-                              int /*playNumber*/) {}
-
-        // Will be called when animation is done and thread is shutting down.
-        virtual void shutdown() {}
-    };
-
-    explicit BootAnimation(sp<Callbacks> callbacks);
-    virtual ~BootAnimation();
-
-    sp<SurfaceComposerClient> session() const;
-
-private:
-    virtual bool        threadLoop();
-    virtual status_t    readyToRun();
-    virtual void        onFirstRef();
-    virtual void        binderDied(const wp<IBinder>& who);
-
-    bool                updateIsTimeAccurate();
-
-    class TimeCheckThread : public Thread {
-    public:
-        explicit TimeCheckThread(BootAnimation* bootAnimation);
-        virtual ~TimeCheckThread();
-    private:
-        virtual status_t    readyToRun();
-        virtual bool        threadLoop();
-        bool                doThreadLoop();
-        void                addTimeDirWatch();
-
-        int mInotifyFd;
-        int mSystemWd;
-        int mTimeWd;
-        BootAnimation* mBootAnimation;
-    };
-
     status_t initTexture(Texture* texture, AssetManager& asset, const char* name);
     status_t initTexture(FileMap* map, int* width, int* height);
     status_t initFont(Font* font, const char* fallback);
@@ -156,36 +135,28 @@ private:
     void releaseAnimation(Animation*) const;
     bool parseAnimationDesc(Animation&);
     bool preloadZip(Animation &animation);
-    void findBootAnimationFile();
-    bool preloadAnimation();
+    bool playSoundsAllowed() const;
 
     void checkExit();
-
-    void handleViewport(nsecs_t timestep);
 
     sp<SurfaceComposerClient>       mSession;
     AssetManager mAssets;
     Texture     mAndroid[2];
     int         mWidth;
     int         mHeight;
-    int         mCurrentInset;
-    int         mTargetInset;
     bool        mUseNpotTextures = false;
     EGLDisplay  mDisplay;
     EGLDisplay  mContext;
     EGLDisplay  mSurface;
-    sp<IBinder> mDisplayToken;
     sp<SurfaceControl> mFlingerSurfaceControl;
     sp<Surface> mFlingerSurface;
     bool        mClockEnabled;
     bool        mTimeIsAccurate;
     bool        mTimeFormat12Hour;
-    bool        mShuttingDown;
+    bool        mSystemBoot;
     String8     mZipFileName;
     SortedVector<String8> mLoadedFiles;
-    sp<TimeCheckThread> mTimeCheckThread = nullptr;
-    sp<Callbacks> mCallbacks;
-    Animation* mAnimation = nullptr;
+    sp<TimeCheckThread> mTimeCheckThread;
 };
 
 // ---------------------------------------------------------------------------

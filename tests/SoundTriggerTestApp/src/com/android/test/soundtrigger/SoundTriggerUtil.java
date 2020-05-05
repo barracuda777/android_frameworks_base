@@ -99,6 +99,7 @@ public class SoundTriggerUtil {
      * @param modelId The model ID to look-up the sound model for.
      * @return {@code true} if the call succeeds, {@code false} otherwise.
      */
+    @Nullable
     public boolean deleteSoundModel(UUID modelId) {
         try {
             mSoundTriggerService.deleteSoundModel(new ParcelUuid(modelId));

@@ -20,8 +20,6 @@
 
 #include <string.h>
 
-#include "BootAnimation.h"
-
 namespace audioplay {
 
 // Initializes the engine with an example of the type of WAV clip to play.
@@ -33,9 +31,6 @@ bool create(const uint8_t* exampleClipBuf, int exampleClipBufSize);
 bool playClip(const uint8_t* buf, int size);
 void setPlaying(bool isPlaying);
 void destroy();
-
-// Generates callbacks to integrate the audioplay system with the BootAnimation.
-android::sp<android::BootAnimation::Callbacks> createAnimationCallbacks();
 
 }
 

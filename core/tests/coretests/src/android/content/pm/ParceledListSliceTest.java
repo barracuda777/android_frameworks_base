@@ -1,33 +1,12 @@
-/*
- * Copyright (C) 2014 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package android.content.pm;
 
 import android.os.Parcel;
 import android.os.Parcelable;
-
-import androidx.test.filters.LargeTest;
-
 import junit.framework.TestCase;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
-@LargeTest
 public class ParceledListSliceTest extends TestCase {
 
     public void testSmallList() throws Exception {
@@ -111,43 +90,6 @@ public class ParceledListSliceTest extends TestCase {
             assertEquals((i * 5) + 4, slice.getList().get(i).mFieldE);
         }
     }
-
-    private void sendParcelStringList(List<String> list) {
-        StringParceledListSlice slice;
-        Parcel parcel = Parcel.obtain();
-
-        try {
-            parcel.writeParcelable(new StringParceledListSlice(list), 0);
-            parcel.setDataPosition(0);
-            slice = parcel.readParcelable(getClass().getClassLoader());
-        } finally {
-            parcel.recycle();
-        }
-
-        assertNotNull(slice);
-        assertNotNull(slice.getList());
-        assertEquals(list, slice.getList());
-    }
-
-    public void testStringList() throws Exception {
-        final int objectCount = 400;
-        List<String> list = new ArrayList<String>();
-        for (long i = 0; i < objectCount; i++) {
-            list.add(Long.toString(i * (6 - i)));
-        }
-
-        sendParcelStringList(list);
-    }
-
-    public void testLargeStringList() throws Exception {
-        final int thresholdBytes = 256 * 1024;
-        final String value = Long.toString(Long.MAX_VALUE);
-        final int objectCount = 2 * thresholdBytes / value.length();
-        final List<String> list = Collections.nCopies(objectCount, value);
-
-        sendParcelStringList(list);
-    }
-
 
     /**
      * Test that only homogeneous elements may be unparceled.

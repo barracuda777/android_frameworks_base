@@ -22,7 +22,7 @@ import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
-import androidx.appcompat.app.AppCompatActivity;
+import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 import android.widget.GridLayout;
 import android.widget.ImageView;
@@ -94,7 +94,7 @@ public class ActivityTransition extends AppCompatActivity {
         setupHero();
 
         // Ensure that all images are visible regardless of orientation.
-        GridLayout gridLayout = findViewById(R.id.transition_grid_layout);
+        GridLayout gridLayout = (GridLayout) findViewById(R.id.transition_grid_layout);
         boolean isPortrait =
                 getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT;
         gridLayout.setRowCount(isPortrait ? 4 : 2);
@@ -105,7 +105,7 @@ public class ActivityTransition extends AppCompatActivity {
         String name = getIntent().getStringExtra(KEY_ID);
         mHero = null;
         if (name != null) {
-            mHero = findViewById(getIdForKey(name));
+            mHero = (ImageView) findViewById(getIdForKey(name));
             setEnterSharedElementCallback(new SharedElementCallback() {
                 @Override
                 public void onMapSharedElements(List<String> names,

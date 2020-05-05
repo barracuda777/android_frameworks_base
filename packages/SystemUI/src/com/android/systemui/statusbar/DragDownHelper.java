@@ -29,8 +29,7 @@ import com.android.systemui.ExpandHelper;
 import com.android.systemui.Gefingerpoken;
 import com.android.systemui.Interpolators;
 import com.android.systemui.R;
-import com.android.systemui.plugins.FalsingManager;
-import com.android.systemui.statusbar.notification.row.ExpandableView;
+import com.android.systemui.classifier.FalsingManager;
 
 /**
  * A utility class to enable the downward swipe on the lockscreen to go to the full shade and expand
@@ -58,15 +57,14 @@ public class DragDownHelper implements Gefingerpoken {
     private FalsingManager mFalsingManager;
 
     public DragDownHelper(Context context, View host, ExpandHelper.Callback callback,
-            DragDownCallback dragDownCallback,
-            FalsingManager falsingManager) {
+            DragDownCallback dragDownCallback) {
         mMinDragDistance = context.getResources().getDimensionPixelSize(
                 R.dimen.keyguard_drag_down_min_distance);
         mTouchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
         mCallback = callback;
         mDragDownCallback = dragDownCallback;
         mHost = host;
-        mFalsingManager = falsingManager;
+        mFalsingManager = FalsingManager.getInstance(context);
     }
 
     @Override
@@ -92,7 +90,7 @@ public class DragDownHelper implements Gefingerpoken {
                     mInitialTouchY = y;
                     mInitialTouchX = x;
                     mDragDownCallback.onTouchSlopExceeded();
-                    return mStartingChild != null || mDragDownCallback.isDragDownAnywhereEnabled();
+                    return true;
                 }
                 break;
         }
@@ -129,14 +127,12 @@ public class DragDownHelper implements Gefingerpoken {
                 }
                 return true;
             case MotionEvent.ACTION_UP:
-                if (!mFalsingManager.isUnlockingDisabled() && !isFalseTouch()
-                        && mDragDownCallback.onDraggedDown(mStartingChild,
+                if (!isFalseTouch() && mDragDownCallback.onDraggedDown(mStartingChild,
                         (int) (y - mInitialTouchY))) {
                     if (mStartingChild == null) {
-                        cancelExpansion();
+                        mDragDownCallback.setEmptyDragAmount(0f);
                     } else {
                         mCallback.setUserLockedChild(mStartingChild, false);
-                        mStartingChild = null;
                     }
                     mDraggingDown = false;
                 } else {
@@ -152,9 +148,6 @@ public class DragDownHelper implements Gefingerpoken {
     }
 
     private boolean isFalseTouch() {
-        if (!mDragDownCallback.isFalsingCheckNeeded()) {
-            return false;
-        }
         return mFalsingManager.isFalseTouch() || !mDraggedFarEnough;
     }
 
@@ -162,11 +155,7 @@ public class DragDownHelper implements Gefingerpoken {
         if (mStartingChild == null) {
             mStartingChild = findView(x, y);
             if (mStartingChild != null) {
-                if (mDragDownCallback.isDragDownEnabledForView(mStartingChild)) {
-                    mCallback.setUserLockedChild(mStartingChild, true);
-                } else {
-                    mStartingChild = null;
-                }
+                mCallback.setUserLockedChild(mStartingChild, true);
             }
         }
     }
@@ -212,8 +201,11 @@ public class DragDownHelper implements Gefingerpoken {
         ValueAnimator anim = ValueAnimator.ofFloat(mLastHeight, 0);
         anim.setInterpolator(Interpolators.FAST_OUT_SLOW_IN);
         anim.setDuration(SPRING_BACK_ANIMATION_LENGTH_MS);
-        anim.addUpdateListener(animation -> {
-            mDragDownCallback.setEmptyDragAmount((Float) animation.getAnimatedValue());
+        anim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator animation) {
+                mDragDownCallback.setEmptyDragAmount((Float) animation.getAnimatedValue());
+            }
         });
         anim.start();
     }
@@ -222,7 +214,6 @@ public class DragDownHelper implements Gefingerpoken {
         mFalsingManager.onNotificatonStopDraggingDown();
         if (mStartingChild != null) {
             cancelExpansion(mStartingChild);
-            mStartingChild = null;
         } else {
             cancelExpansion();
         }
@@ -235,14 +226,6 @@ public class DragDownHelper implements Gefingerpoken {
         x += mTemp2[0];
         y += mTemp2[1];
         return mCallback.getChildAtRawPosition(x, y);
-    }
-
-    public boolean isDraggingDown() {
-        return mDraggingDown;
-    }
-
-    public boolean isDragDownEnabled() {
-        return mDragDownCallback.isDragDownEnabledForView(null);
     }
 
     public interface DragDownCallback {
@@ -260,17 +243,5 @@ public class DragDownHelper implements Gefingerpoken {
         void onCrossedThreshold(boolean above);
         void onTouchSlopExceeded();
         void setEmptyDragAmount(float amount);
-        boolean isFalsingCheckNeeded();
-
-        /**
-         * Is dragging down enabled on a given view
-         * @param view The view to check or {@code null} to check if it's enabled at all
-         */
-        boolean isDragDownEnabledForView(ExpandableView view);
-
-        /**
-         * @return if drag down is enabled anywhere, not just on selected views.
-         */
-        boolean isDragDownAnywhereEnabled();
     }
 }

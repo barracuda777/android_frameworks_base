@@ -22,10 +22,7 @@ import android.os.Bundle;
  * @hide
  */
 oneway interface IAccountAuthenticatorResponse {
-    @UnsupportedAppUsage
     void onResult(in Bundle value);
-    @UnsupportedAppUsage
     void onRequestContinued();
-    @UnsupportedAppUsage
     void onError(int errorCode, String errorMessage);
 }

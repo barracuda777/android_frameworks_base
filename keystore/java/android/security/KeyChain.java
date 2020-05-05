@@ -17,8 +17,6 @@ package android.security;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.SdkConstant;
-import android.annotation.SdkConstant.SdkConstantType;
 import android.annotation.WorkerThread;
 import android.app.Activity;
 import android.app.PendingIntent;
@@ -28,22 +26,16 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.net.Uri;
-import android.os.Binder;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Process;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.security.keystore.AndroidKeyStoreProvider;
-import android.security.keystore.KeyPermanentlyInvalidatedException;
 import android.security.keystore.KeyProperties;
-
-import com.android.org.conscrypt.TrustedCertificateStore;
 
 import java.io.ByteArrayInputStream;
 import java.io.Closeable;
-import java.io.Serializable;
-import java.security.KeyPair;
 import java.security.Principal;
 import java.security.PrivateKey;
 import java.security.UnrecoverableKeyException;
@@ -58,7 +50,7 @@ import java.util.Locale;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import javax.security.auth.x500.X500Principal;
+import com.android.org.conscrypt.TrustedCertificateStore;
 
 /**
  * The {@code KeyChain} class provides access to private keys and
@@ -145,18 +137,6 @@ public final class KeyChain {
     public static final String EXTRA_SENDER = "sender";
 
     /**
-     * Extra for use with {@link #ACTION_CHOOSER}
-     * @hide Also used by KeyChainActivity implementation
-     */
-    public static final String EXTRA_KEY_TYPES = "key_types";
-
-    /**
-     * Extra for use with {@link #ACTION_CHOOSER}
-     * @hide Also used by KeyChainActivity implementation
-     */
-    public static final String EXTRA_ISSUERS = "issuers";
-
-    /**
      * Action to bring up the CertInstaller.
      */
     private static final String ACTION_INSTALL = "android.credentials.INSTALL";
@@ -200,6 +180,7 @@ public final class KeyChain {
     // Compatible with old android.security.Credentials.PKCS12
     public static final String EXTRA_PKCS12 = "PKCS12";
 
+
     /**
      * Broadcast Action: Indicates the trusted storage has changed. Sent when
      * one of this happens:
@@ -211,136 +192,8 @@ public final class KeyChain {
      * <li>trusted storage is reset (all user certs are cleared),
      * <li>when permission to access a private key is changed.
      * </ul>
-     *
-     * @deprecated Use {@link #ACTION_KEYCHAIN_CHANGED}, {@link #ACTION_TRUST_STORE_CHANGED} or
-     * {@link #ACTION_KEY_ACCESS_CHANGED}. Apps that target a version higher than
-     * {@link android.os.Build.VERSION_CODES#N_MR1} will only receive this broadcast if they
-     * register for it at runtime.
      */
-    @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION)
     public static final String ACTION_STORAGE_CHANGED = "android.security.STORAGE_CHANGED";
-
-    /**
-     * Broadcast Action: Indicates the contents of the keychain has changed. Sent when a KeyChain
-     * entry is added, modified or removed.
-     */
-    @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION)
-    public static final String ACTION_KEYCHAIN_CHANGED = "android.security.action.KEYCHAIN_CHANGED";
-
-    /**
-     * Broadcast Action: Indicates the contents of the trusted certificate store has changed. Sent
-     * when one the following occurs:
-     *
-     * <ul>
-     * <li>A pre-installed CA is disabled or re-enabled</li>
-     * <li>A CA is added or removed from the trust store</li>
-     * </ul>
-     */
-    @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION)
-    public static final String ACTION_TRUST_STORE_CHANGED =
-            "android.security.action.TRUST_STORE_CHANGED";
-
-    /**
-     * Broadcast Action: Indicates that the access permissions for a private key have changed.
-     *
-     */
-    @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION)
-    public static final String ACTION_KEY_ACCESS_CHANGED =
-            "android.security.action.KEY_ACCESS_CHANGED";
-
-    /**
-     * Used as a String extra field in {@link #ACTION_KEY_ACCESS_CHANGED} to supply the alias of
-     * the key.
-     */
-    public static final String EXTRA_KEY_ALIAS = "android.security.extra.KEY_ALIAS";
-
-    /**
-     * Used as a boolean extra field in {@link #ACTION_KEY_ACCESS_CHANGED} to supply if the key is
-     * accessible to the application.
-     */
-    public static final String EXTRA_KEY_ACCESSIBLE = "android.security.extra.KEY_ACCESSIBLE";
-
-    /**
-     * Indicates that a call to {@link #generateKeyPair} was successful.
-     * @hide
-     */
-    public static final int KEY_GEN_SUCCESS = 0;
-
-    /**
-     * An alias was missing from the key specifications when calling {@link #generateKeyPair}.
-     * @hide
-     */
-    public static final int KEY_GEN_MISSING_ALIAS = 1;
-
-    /**
-     * A key attestation challenge was provided to {@link #generateKeyPair}, but it shouldn't
-     * have been provided.
-     * @hide
-     */
-    public static final int KEY_GEN_SUPERFLUOUS_ATTESTATION_CHALLENGE = 2;
-
-    /**
-     * Algorithm not supported by {@link #generateKeyPair}
-     * @hide
-     */
-    public static final int KEY_GEN_NO_SUCH_ALGORITHM = 3;
-
-    /**
-     * Invalid algorithm parameters when calling {@link #generateKeyPair}
-     * @hide
-     */
-    public static final int KEY_GEN_INVALID_ALGORITHM_PARAMETERS = 4;
-
-    /**
-     * Keystore is not available when calling {@link #generateKeyPair}
-     * @hide
-     */
-    public static final int KEY_GEN_NO_KEYSTORE_PROVIDER = 5;
-
-    /**
-     * StrongBox unavailable when calling {@link #generateKeyPair}
-     * @hide
-     */
-    public static final int KEY_GEN_STRONGBOX_UNAVAILABLE = 6;
-
-    /**
-     * General failure while calling {@link #generateKeyPair}
-     * @hide
-     */
-    public static final int KEY_GEN_FAILURE = 7;
-
-    /**
-     * Successful call to {@link #attestKey}
-     * @hide
-     */
-    public static final int KEY_ATTESTATION_SUCCESS = 0;
-
-    /**
-     * Attestation challenge missing when calling {@link #attestKey}
-     * @hide
-     */
-    public static final int KEY_ATTESTATION_MISSING_CHALLENGE = 1;
-
-    /**
-     * The caller requested Device ID attestation when calling {@link #attestKey}, but has no
-     * permissions to get device identifiers.
-     * @hide
-     */
-    public static final int KEY_ATTESTATION_CANNOT_COLLECT_DATA = 2;
-
-    /**
-     * The underlying hardware does not support Device ID attestation or cannot attest to the
-     * identifiers that are stored on the device. This indicates permanent inability
-     * to get attestation records on the device.
-     * @hide
-     */
-    public static final int KEY_ATTESTATION_CANNOT_ATTEST_IDS = 3;
-
-    /**
-     * General failure when calling {@link #attestKey}
-     * @hide
-     */
-    public static final int KEY_ATTESTATION_FAILURE = 4;
 
     /**
      * Returns an {@code Intent} that can be used for credential
@@ -373,22 +226,18 @@ public final class KeyChain {
      * selected alias or null will be returned via the
      * KeyChainAliasCallback callback.
      *
-     * <p>A device policy controller (as a device or profile owner) can
-     * intercept the request before the activity is shown, to pick a
-     * specific private key alias by implementing
-     * {@link android.app.admin.DeviceAdminReceiver#onChoosePrivateKeyAlias
-     * onChoosePrivateKeyAlias}.
+     * <p>The device or profile owner can intercept this before the activity
+     * is shown, to pick a specific private key alias.
      *
      * <p>{@code keyTypes} and {@code issuers} may be used to
-     * narrow down suggested choices to the user. If either {@code keyTypes}
-     * or {@code issuers} is specified and non-empty, and there are no
-     * matching certificates in the KeyChain, then the certificate
-     * selection prompt would be suppressed entirely.
+     * highlight suggested choices to the user, although to cope with
+     * sometimes erroneous values provided by servers, the user may be
+     * able to override these suggestions.
      *
      * <p>{@code host} and {@code port} may be used to give the user
      * more context about the server requesting the credentials.
      *
-     * <p>{@code alias} allows the caller to preselect an existing
+     * <p>{@code alias} allows the chooser to preselect an existing
      * alias which will still be subject to user confirmation.
      *
      * @param activity The {@link Activity} context to use for
@@ -396,9 +245,9 @@ public final class KeyChain {
      *     a private key; used only to call startActivity(); must not
      *     be null.
      * @param response Callback to invoke when the request completes;
-     *     must not be null.
+     *     must not be null
      * @param keyTypes The acceptable types of asymmetric keys such as
-     *     "RSA", "EC" or null.
+     *     "RSA" or "DSA", or a null array.
      * @param issuers The acceptable certificate issuers for the
      *     certificate matching the private key, or null.
      * @param host The host name of the server requesting the
@@ -410,8 +259,7 @@ public final class KeyChain {
      */
     public static void choosePrivateKeyAlias(@NonNull Activity activity,
             @NonNull KeyChainAliasCallback response,
-            @Nullable @KeyProperties.KeyAlgorithmEnum String[] keyTypes,
-            @Nullable Principal[] issuers,
+            @KeyProperties.KeyAlgorithmEnum String[] keyTypes, Principal[] issuers,
             @Nullable String host, int port, @Nullable String alias) {
         Uri uri = null;
         if (host != null) {
@@ -428,22 +276,18 @@ public final class KeyChain {
      * selected alias or null will be returned via the
      * KeyChainAliasCallback callback.
      *
-     * <p>A device policy controller (as a device or profile owner) can
-     * intercept the request before the activity is shown, to pick a
-     * specific private key alias by implementing
-     * {@link android.app.admin.DeviceAdminReceiver#onChoosePrivateKeyAlias
-     * onChoosePrivateKeyAlias}.
+     * <p>The device or profile owner can intercept this before the activity
+     * is shown, to pick a specific private key alias.</p>
      *
      * <p>{@code keyTypes} and {@code issuers} may be used to
-     * narrow down suggested choices to the user. If either {@code keyTypes}
-     * or {@code issuers} is specified and non-empty, and there are no
-     * matching certificates in the KeyChain, then the certificate
-     * selection prompt would be suppressed entirely.
+     * highlight suggested choices to the user, although to cope with
+     * sometimes erroneous values provided by servers, the user may be
+     * able to override these suggestions.
      *
-     * <p>{@code uri} may be used to give the user more context about
-     * the server requesting the credentials.
+     * <p>{@code host} and {@code port} may be used to give the user
+     * more context about the server requesting the credentials.
      *
-     * <p>{@code alias} allows the caller to preselect an existing
+     * <p>{@code alias} allows the chooser to preselect an existing
      * alias which will still be subject to user confirmation.
      *
      * @param activity The {@link Activity} context to use for
@@ -451,39 +295,35 @@ public final class KeyChain {
      *     a private key; used only to call startActivity(); must not
      *     be null.
      * @param response Callback to invoke when the request completes;
-     *     must not be null.
+     *     must not be null
      * @param keyTypes The acceptable types of asymmetric keys such as
-     *     "RSA", "EC" or null.
+     *     "EC" or "RSA", or a null array.
      * @param issuers The acceptable certificate issuers for the
      *     certificate matching the private key, or null.
      * @param uri The full URI the server is requesting the certificate
      *     for, or null if unavailable.
      * @param alias The alias to preselect if available, or null if
      *     unavailable.
-     * @throws IllegalArgumentException if the specified issuers are not
-     *     of type {@code X500Principal}.
      */
     public static void choosePrivateKeyAlias(@NonNull Activity activity,
             @NonNull KeyChainAliasCallback response,
-            @Nullable @KeyProperties.KeyAlgorithmEnum String[] keyTypes,
-            @Nullable Principal[] issuers,
+            @KeyProperties.KeyAlgorithmEnum String[] keyTypes, Principal[] issuers,
             @Nullable Uri uri, @Nullable String alias) {
         /*
-         * Specifying keyTypes excludes certificates with different key types
-         * from the list of certificates presented to the user.
-         * In practice today, most servers would require RSA or EC
-         * certificates.
+         * TODO currently keyTypes, issuers are unused. They are meant
+         * to follow the semantics and purpose of X509KeyManager
+         * method arguments.
          *
-         * Specifying issuers narrows down the list by filtering out
-         * certificates with issuers which are not matching the provided ones.
-         * This has been reported to Chrome several times (crbug.com/731769).
-         * There's no concrete description on what to do when the client has no
-         * certificates that match the provided issuers.
-         * To be conservative, Android will not present the user with any
-         * certificates to choose from.
-         * If the list of issuers is empty then the client may send any
-         * certificate, see:
-         * https://tools.ietf.org/html/rfc5246#section-7.4.4
+         * keyTypes would allow the list to be filtered and typically
+         * will be set correctly by the server. In practice today,
+         * most all users will want only RSA or EC, and usually
+         * only a small number of certs will be available.
+         *
+         * issuers is typically not useful. Some servers historically
+         * will send the entire list of public CAs known to the
+         * server. Others will send none. If this is used, if there
+         * are no matches after applying the constraint, it should be
+         * ignored.
          */
         if (activity == null) {
             throw new NullPointerException("activity == null");
@@ -496,26 +336,6 @@ public final class KeyChain {
         intent.putExtra(EXTRA_RESPONSE, new AliasResponse(response));
         intent.putExtra(EXTRA_URI, uri);
         intent.putExtra(EXTRA_ALIAS, alias);
-        intent.putExtra(EXTRA_KEY_TYPES, keyTypes);
-        ArrayList<byte[]> issuersList = new ArrayList();
-        if (issuers != null) {
-            for (Principal issuer: issuers) {
-                // In a TLS client context (like Chrome), issuers would only
-                // be specified as X500Principals. No other use cases for
-                // specifying principals have been brought up. Under these
-                // circumstances, only allow issuers specified as
-                // X500Principals.
-                if (!(issuer instanceof X500Principal)) {
-                    throw new IllegalArgumentException(String.format(
-                            "Issuer %s is of type %s, not X500Principal",
-                            issuer.toString(), issuer.getClass()));
-                }
-                // Pass the DER-encoded issuer as that's the most accurate
-                // representation and what is sent over the wire.
-                issuersList.add(((X500Principal) issuer).getEncoded());
-            }
-        }
-        intent.putExtra(EXTRA_ISSUERS, (Serializable) issuersList);
         // the PendingIntent is used to get calling package name
         intent.putExtra(EXTRA_SENDER, PendingIntent.getActivity(activity, 0, new Intent(), 0));
         activity.startActivity(intent);
@@ -532,23 +352,14 @@ public final class KeyChain {
     }
 
     /**
-     * Returns the {@code PrivateKey} for the requested alias, or null if the alias does not exist
-     * or the caller has no permission to access it (see note on exceptions below).
+     * Returns the {@code PrivateKey} for the requested alias, or null
+     * if there is no result.
      *
      * <p> This method may block while waiting for a connection to another process, and must never
      * be called from the main thread.
      * <p> As {@link Activity} and {@link Service} contexts are short-lived and can be destroyed
      * at any time from the main thread, it is safer to rely on a long-lived context such as one
      * returned from {@link Context#getApplicationContext()}.
-     *
-     * <p> If the caller provides a valid alias to which it was not granted access, then the
-     * caller must invoke {@link #choosePrivateKeyAlias} again to get another valid alias
-     * or a grant to access the same alias.
-     * <p>On Android versions prior to Q, when a key associated with the specified alias is
-     * unavailable, the method will throw a {@code KeyChainException} rather than return null.
-     * If the exception's cause (as obtained by calling {@code KeyChainException.getCause()})
-     * is a throwable of type {@code IllegalStateException} then the caller lacks a grant
-     * to access the key and certificates associated with this alias.
      *
      * @param alias The alias of the desired private key, typically returned via
      *              {@link KeyChainAliasCallback#alias}.
@@ -558,52 +369,33 @@ public final class KeyChain {
     @Nullable @WorkerThread
     public static PrivateKey getPrivateKey(@NonNull Context context, @NonNull String alias)
             throws KeyChainException, InterruptedException {
-        KeyPair keyPair = getKeyPair(context, alias);
-        if (keyPair != null) {
-            return keyPair.getPrivate();
-        }
-
-        return null;
-    }
-
-    /** @hide */
-    @Nullable @WorkerThread
-    public static KeyPair getKeyPair(@NonNull Context context, @NonNull String alias)
-            throws KeyChainException, InterruptedException {
         if (alias == null) {
             throw new NullPointerException("alias == null");
         }
-        if (context == null) {
-            throw new NullPointerException("context == null");
-        }
-
-        final String keyId;
-        try (KeyChainConnection keyChainConnection = bind(context.getApplicationContext())) {
-            keyId = keyChainConnection.getService().requestPrivateKey(alias);
+        KeyChainConnection keyChainConnection = bind(context.getApplicationContext());
+        try {
+            final IKeyChainService keyChainService = keyChainConnection.getService();
+            final String keyId = keyChainService.requestPrivateKey(alias);
+            if (keyId == null) {
+                return null;
+            }
+            return AndroidKeyStoreProvider.loadAndroidKeyStorePrivateKeyFromKeystore(
+                    KeyStore.getInstance(), keyId, KeyStore.UID_SELF);
         } catch (RemoteException e) {
             throw new KeyChainException(e);
         } catch (RuntimeException e) {
             // only certain RuntimeExceptions can be propagated across the IKeyChainService call
             throw new KeyChainException(e);
-        }
-
-        if (keyId == null) {
-            return null;
-        } else {
-            try {
-                return AndroidKeyStoreProvider.loadAndroidKeyStoreKeyPairFromKeystore(
-                        KeyStore.getInstance(), keyId, KeyStore.UID_SELF);
-            } catch (RuntimeException | UnrecoverableKeyException | KeyPermanentlyInvalidatedException e) {
-                throw new KeyChainException(e);
-            }
+        } catch (UnrecoverableKeyException e) {
+            throw new KeyChainException(e);
+        } finally {
+            keyChainConnection.close();
         }
     }
 
     /**
-     * Returns the {@code X509Certificate} chain for the requested alias, or null if the alias
-     * does not exist or the caller has no permission to access it (see note on exceptions
-     * in {@link #getPrivateKey}).
-     *
+     * Returns the {@code X509Certificate} chain for the requested
+     * alias, or null if there is no result.
      * <p>
      * <strong>Note:</strong> If a certificate chain was explicitly specified when the alias was
      * installed, this method will return that chain. If only the client certificate was specified
@@ -615,9 +407,6 @@ public final class KeyChain {
      * <p> As {@link Activity} and {@link Service} contexts are short-lived and can be destroyed
      * at any time from the main thread, it is safer to rely on a long-lived context such as one
      * returned from {@link Context#getApplicationContext()}.
-     * <p> In case the caller specifies an alias for which it lacks a grant, it must call
-     * {@link #choosePrivateKeyAlias} again. See {@link #getPrivateKey} for more details on
-     * coping with this scenario.
      *
      * @param alias The alias of the desired certificate chain, typically
      * returned via {@link KeyChainAliasCallback#alias}.
@@ -630,25 +419,16 @@ public final class KeyChain {
         if (alias == null) {
             throw new NullPointerException("alias == null");
         }
-
-        final byte[] certificateBytes;
-        final byte[] certChainBytes;
-        try (KeyChainConnection keyChainConnection = bind(context.getApplicationContext())) {
+        KeyChainConnection keyChainConnection = bind(context.getApplicationContext());
+        try {
             IKeyChainService keyChainService = keyChainConnection.getService();
-            certificateBytes = keyChainService.getCertificate(alias);
+
+            final byte[] certificateBytes = keyChainService.getCertificate(alias);
             if (certificateBytes == null) {
                 return null;
             }
-            certChainBytes = keyChainService.getCaCertificates(alias);
-        } catch (RemoteException e) {
-            throw new KeyChainException(e);
-        } catch (RuntimeException e) {
-            // only certain RuntimeExceptions can be propagated across the IKeyChainService call
-            throw new KeyChainException(e);
-        }
-
-        try {
             X509Certificate leafCert = toCertificate(certificateBytes);
+            final byte[] certChainBytes = keyChainService.getCaCertificates(alias);
             // If the keypair is installed with a certificate chain by either
             // DevicePolicyManager.installKeyPair or CertInstaller, return that chain.
             if (certChainBytes != null && certChainBytes.length != 0) {
@@ -672,8 +452,15 @@ public final class KeyChain {
                 List<X509Certificate> chain = store.getCertificateChain(leafCert);
                 return chain.toArray(new X509Certificate[chain.size()]);
             }
-        } catch (CertificateException | RuntimeException e) {
+        } catch (CertificateException e) {
             throw new KeyChainException(e);
+        } catch (RemoteException e) {
+            throw new KeyChainException(e);
+        } catch (RuntimeException e) {
+            // only certain RuntimeExceptions can be propagated across the IKeyChainService call
+            throw new KeyChainException(e);
+        } finally {
+            keyChainConnection.close();
         }
     }
 
@@ -752,13 +539,13 @@ public final class KeyChain {
      * @hide for reuse by CertInstaller and Settings.
      * @see KeyChain#bind
      */
-    public static class KeyChainConnection implements Closeable {
+    public final static class KeyChainConnection implements Closeable {
         private final Context context;
         private final ServiceConnection serviceConnection;
         private final IKeyChainService service;
-        protected KeyChainConnection(Context context,
-                                     ServiceConnection serviceConnection,
-                                     IKeyChainService service) {
+        private KeyChainConnection(Context context,
+                                   ServiceConnection serviceConnection,
+                                   IKeyChainService service) {
             this.context = context;
             this.serviceConnection = serviceConnection;
             this.service = service;
@@ -798,7 +585,7 @@ public final class KeyChain {
                 if (!mConnectedAtLeastOnce) {
                     mConnectedAtLeastOnce = true;
                     try {
-                        q.put(IKeyChainService.Stub.asInterface(Binder.allowBlocking(service)));
+                        q.put(IKeyChainService.Stub.asInterface(service));
                     } catch (InterruptedException e) {
                         // will never happen, since the queue starts with one available slot
                     }

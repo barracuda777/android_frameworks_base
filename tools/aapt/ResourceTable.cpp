@@ -18,10 +18,13 @@
 #include <utils/TypeHelpers.h>
 #include <stdarg.h>
 
+// SSIZE: mingw does not have signed size_t == ssize_t.
 // STATUST: mingw does seem to redefine UNKNOWN_ERROR from our enum value, so a cast is necessary.
 #if !defined(_WIN32)
+#  define SSIZE(x) x
 #  define STATUST(x) x
 #else
+#  define SSIZE(x) (signed size_t)x
 #  define STATUST(x) (status_t)x
 #endif
 
@@ -75,17 +78,6 @@ status_t compileXmlFile(const Bundle* bundle,
                         ResourceTable* table,
                         int options)
 {
-    if (table->versionForCompat(bundle, resourceName, target, root)) {
-        // The file was versioned, so stop processing here.
-        // The resource entry has already been removed and the new one added.
-        // Remove the assets entry.
-        sp<AaptDir> resDir = assets->getDirs().valueFor(String8("res"));
-        sp<AaptDir> dir = resDir->getDirs().valueFor(target->getGroupEntry().toDirName(
-                target->getResourceType()));
-        dir->removeFile(target->getPath().getPathLeaf());
-        return NO_ERROR;
-    }
-
     if ((options&XML_COMPILE_STRIP_WHITESPACE) != 0) {
         root->removeWhitespace(true, NULL);
     } else  if ((options&XML_COMPILE_COMPACT_WHITESPACE) != 0) {
@@ -1470,6 +1462,11 @@ status_t compileResourceFile(Bundle* bundle,
                     }
                 }
             } else if (strcmp16(block.getElementName(&len), string_array16.string()) == 0) {
+                // Note the existence and locale of every string array we process
+                char rawLocale[RESTABLE_MAX_LOCALE_LEN];
+                curParams.getBcp47Locale(rawLocale);
+                String8 locale(rawLocale);
+                String16 name;
                 // Check whether these strings need valid formats.
                 // (simplified form of what string16 does above)
                 bool isTranslatable = false;
@@ -1480,7 +1477,9 @@ status_t compileResourceFile(Bundle* bundle,
                 for (size_t i = 0; i < n; i++) {
                     size_t length;
                     const char16_t* attr = block.getAttributeName(i, &length);
-                    if (strcmp16(attr, formatted16.string()) == 0) {
+                    if (strcmp16(attr, name16.string()) == 0) {
+                        name.setTo(block.getAttributeStringValue(i, &length));
+                    } else if (strcmp16(attr, formatted16.string()) == 0) {
                         const char16_t* value = block.getAttributeStringValue(i, &length);
                         if (strcmp16(value, false16.string()) == 0) {
                             curIsFormatted = false;
@@ -1489,6 +1488,15 @@ status_t compileResourceFile(Bundle* bundle,
                         const char16_t* value = block.getAttributeStringValue(i, &length);
                         if (strcmp16(value, false16.string()) == 0) {
                             isTranslatable = false;
+                            // Untranslatable string arrays must only exist
+                            // in the default [empty] locale
+                            if (locale.size() > 0) {
+                                SourcePos(in->getPrintableSource(), block.getLineNumber()).warning(
+                                        "string-array '%s' marked untranslatable but exists"
+                                        " in locale '%s'\n", String8(name).string(),
+                                        locale.string());
+                                // hasErrors = localHasErrors = true;
+                            }
                         }
                     }
                 }
@@ -1756,7 +1764,7 @@ status_t compileResourceFile(Bundle* bundle,
     return hasErrors ? STATUST(UNKNOWN_ERROR) : NO_ERROR;
 }
 
-ResourceTable::ResourceTable(Bundle* bundle, const String16& assetsPackage, ResourceTable::PackageType type)
+ResourceTable::ResourceTable(Bundle* bundle, const String16& assetsPackage, ResourceTable::PackageType type, ssize_t pkgIdOverride)
     : mAssetsPackage(assetsPackage)
     , mPackageType(type)
     , mTypeIdOffset(0)
@@ -1782,6 +1790,11 @@ ResourceTable::ResourceTable(Bundle* bundle, const String16& assetsPackage, Reso
             assert(0);
             break;
     }
+
+    if (pkgIdOverride != 0) {
+        packageId = pkgIdOverride;
+    }
+
     sp<Package> package = new Package(mAssetsPackage, packageId);
     mPackages.add(assetsPackage, package);
     mOrderedPackages.add(package);
@@ -2212,10 +2225,8 @@ uint32_t ResourceTable::getResId(const String16& package,
                            package.string(), package.size(),
                            &specFlags);
     if (rid != 0) {
-        if (onlyPublic && (specFlags & ResTable_typeSpec::SPEC_PUBLIC) == 0) {
-            // If this is a feature split and the resource has the same
-            // package name as us, then everything is public.
-            if (mPackageType != AppFeature || mAssetsPackage != package) {
+        if (onlyPublic) {
+            if ((specFlags & ResTable_typeSpec::SPEC_PUBLIC) == 0) {
                 return 0;
             }
         }
@@ -2895,7 +2906,7 @@ status_t ResourceTable::flatten(Bundle* bundle, const sp<const ResourceFilter>& 
         String16 packageName(table.getBasePackageName(i));
         if (packageId > 0x01 && packageId != 0x7f && packageId != 0x3f &&
                 packageName != String16("android")
-                && packageName != String16("lineageos.platform")) {
+                && packageName != String16("cyanogenmod.platform")) {
             libraryPackages.add(sp<Package>(new Package(packageName, packageId)));
         }
     }
@@ -3038,7 +3049,7 @@ status_t ResourceTable::flatten(Bundle* bundle, const sp<const ResourceFilter>& 
         sp<AaptFile> strFile = p->getTypeStringsData();
         ssize_t amt = data->writeData(strFile->getData(), strFile->getSize());
         if (kPrintStringMetrics) {
-            fprintf(stderr, "**** type strings: %zd\n", amt);
+            fprintf(stderr, "**** type strings: %zd\n", SSIZE(amt));
         }
         strAmt += amt;
         if (amt < 0) {
@@ -3048,7 +3059,7 @@ status_t ResourceTable::flatten(Bundle* bundle, const sp<const ResourceFilter>& 
         strFile = p->getKeyStringsData();
         amt = data->writeData(strFile->getData(), strFile->getSize());
         if (kPrintStringMetrics) {
-            fprintf(stderr, "**** key strings: %zd\n", amt);
+            fprintf(stderr, "**** key strings: %zd\n", SSIZE(amt));
         }
         strAmt += amt;
         if (amt < 0) {
@@ -3320,8 +3331,8 @@ status_t ResourceTable::flatten(Bundle* bundle, const sp<const ResourceFilter>& 
     ssize_t amt = (dest->getSize()-strStart);
     strAmt += amt;
     if (kPrintStringMetrics) {
-        fprintf(stderr, "**** value strings: %zd\n", amt);
-        fprintf(stderr, "**** total strings: %zd\n", amt);
+        fprintf(stderr, "**** value strings: %zd\n", SSIZE(amt));
+        fprintf(stderr, "**** total strings: %zd\n", SSIZE(strAmt));
     }
 
     for (pi=0; pi<flatPackages.size(); pi++) {
@@ -4092,7 +4103,7 @@ status_t ResourceTable::Type::applyPublicEntryOrder()
     
     j = 0;
     for (i=0; i<N; i++) {
-        const sp<ConfigList>& e = origOrder.itemAt(i);
+        sp<ConfigList> e = origOrder.itemAt(i);
         // There will always be enough room for the remaining entries.
         while (mOrderedConfigs.itemAt(j) != NULL) {
             j++;
@@ -4214,7 +4225,7 @@ status_t ResourceTable::Package::applyPublicTypeOrder()
 
     size_t j=0;
     for (i=0; i<N; i++) {
-        const sp<Type>& t = origOrder.itemAt(i);
+        sp<Type> t = origOrder.itemAt(i);
         // There will always be enough room for the remaining types.
         while (mOrderedTypes.itemAt(j) != NULL) {
             j++;
@@ -4647,7 +4658,7 @@ status_t ResourceTable::modifyForCompat(const Bundle* bundle) {
                         c->getEntries();
                 const size_t entryCount = entries.size();
                 for (size_t ei = 0; ei < entryCount; ei++) {
-                    const sp<Entry>& e = entries.valueAt(ei);
+                    sp<Entry> e = entries.valueAt(ei);
                     if (e == NULL || e->getType() != Entry::TYPE_BAG) {
                         continue;
                     }
@@ -4741,112 +4752,12 @@ status_t ResourceTable::modifyForCompat(const Bundle* bundle) {
     return NO_ERROR;
 }
 
-const String16 kTransitionElements[] = {
-    String16("fade"),
-    String16("changeBounds"),
-    String16("slide"),
-    String16("explode"),
-    String16("changeImageTransform"),
-    String16("changeTransform"),
-    String16("changeClipBounds"),
-    String16("autoTransition"),
-    String16("recolor"),
-    String16("changeScroll"),
-    String16("transitionSet"),
-    String16("transition"),
-    String16("transitionManager"),
-};
-
-static bool IsTransitionElement(const String16& name) {
-    for (int i = 0, size = sizeof(kTransitionElements) / sizeof(kTransitionElements[0]);
-         i < size; ++i) {
-        if (name == kTransitionElements[i]) {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool ResourceTable::versionForCompat(const Bundle* bundle, const String16& resourceName,
-                                         const sp<AaptFile>& target, const sp<XMLNode>& root) {
-    XMLNode* node = root.get();
-    while (node->getType() != XMLNode::TYPE_ELEMENT) {
-        // We're assuming the root element is what we're looking for, which can only be under a
-        // bunch of namespace declarations.
-        if (node->getChildren().size() != 1) {
-          // Not sure what to do, bail.
-          return false;
-        }
-        node = node->getChildren().itemAt(0).get();
-    }
-
-    if (node->getElementNamespace().size() != 0) {
-        // Not something we care about.
-        return false;
-    }
-
-    int versionedSdk = 0;
-    if (node->getElementName() == String16("adaptive-icon")) {
-        versionedSdk = SDK_O;
-    }
-
-    const int minSdkVersion = getMinSdkVersion(bundle);
-    const ConfigDescription config(target->getGroupEntry().toParams());
-    if (versionedSdk <= minSdkVersion || versionedSdk <= config.sdkVersion) {
-        return false;
-    }
-
-    sp<ConfigList> cl = getConfigList(String16(mAssets->getPackage()),
-            String16(target->getResourceType()), resourceName);
-    if (!shouldGenerateVersionedResource(cl, config, versionedSdk)) {
-        return false;
-    }
-
-    // Remove the original entry.
-    cl->removeEntry(config);
-
-    // We need to wholesale version this file.
-    ConfigDescription newConfig(config);
-    newConfig.sdkVersion = versionedSdk;
-    sp<AaptFile> newFile = new AaptFile(target->getSourceFile(),
-            AaptGroupEntry(newConfig), target->getResourceType());
-    String8 resPath = String8::format("res/%s/%s.xml",
-            newFile->getGroupEntry().toDirName(target->getResourceType()).string(),
-            String8(resourceName).string());
-    resPath.convertToResPath();
-
-    // Add a resource table entry.
-    addEntry(SourcePos(),
-            String16(mAssets->getPackage()),
-            String16(target->getResourceType()),
-            resourceName,
-            String16(resPath),
-            NULL,
-            &newConfig);
-
-    // Schedule this to be compiled.
-    CompileResourceWorkItem item;
-    item.resourceName = resourceName;
-    item.resPath = resPath;
-    item.file = newFile;
-    item.xmlRoot = root->clone();
-    item.needsCompiling = true;
-    mWorkQueue.push(item);
-
-    // Now mark the old entry as deleted.
-    return true;
-}
-
 status_t ResourceTable::modifyForCompat(const Bundle* bundle,
                                         const String16& resourceName,
                                         const sp<AaptFile>& target,
                                         const sp<XMLNode>& root) {
     const String16 vector16("vector");
     const String16 animatedVector16("animated-vector");
-    const String16 pathInterpolator16("pathInterpolator");
-    const String16 objectAnimator16("objectAnimator");
-    const String16 gradient16("gradient");
-    const String16 animatedSelector16("animated-selector");
 
     const int minSdk = getMinSdkVersion(bundle);
     if (minSdk >= SDK_LOLLIPOP_MR1) {
@@ -4872,17 +4783,8 @@ status_t ResourceTable::modifyForCompat(const Bundle* bundle,
         nodesToVisit.pop();
 
         if (bundle->getNoVersionVectors() && (node->getElementName() == vector16 ||
-                    node->getElementName() == animatedVector16 ||
-                    node->getElementName() == objectAnimator16 ||
-                    node->getElementName() == pathInterpolator16 ||
-                    node->getElementName() == gradient16 ||
-                    node->getElementName() == animatedSelector16)) {
+                    node->getElementName() == animatedVector16)) {
             // We were told not to version vector tags, so skip the children here.
-            continue;
-        }
-
-        if (bundle->getNoVersionTransitions() && (IsTransitionElement(node->getElementName()))) {
-            // We were told not to version transition tags, so skip the children here.
             continue;
         }
 

@@ -22,7 +22,6 @@ import android.os.ParcelFileDescriptor;
 import android.app.IWallpaperManagerCallback;
 import android.app.WallpaperInfo;
 import android.content.ComponentName;
-import android.app.WallpaperColors;
 
 /** @hide */
 interface IWallpaperManager {
@@ -55,14 +54,12 @@ interface IWallpaperManager {
     /**
      * Set the live wallpaper. This only affects the system wallpaper.
      */
-    @UnsupportedAppUsage
     void setWallpaperComponent(in ComponentName name);
 
     /**
      * Get the wallpaper for a given user.
      */
-    @UnsupportedAppUsage
-    ParcelFileDescriptor getWallpaper(String callingPkg, IWallpaperManagerCallback cb, int which,
+    ParcelFileDescriptor getWallpaper(IWallpaperManagerCallback cb, int which,
             out Bundle outParams, int userId);
 
     /**
@@ -75,7 +72,6 @@ interface IWallpaperManager {
      * information about that wallpaper.  Otherwise, if it is a static image,
      * simply return null.
      */
-    @UnsupportedAppUsage
     WallpaperInfo getWallpaperInfo(int userId);
 
     /**
@@ -86,31 +82,28 @@ interface IWallpaperManager {
     /**
      * Return whether the current system wallpaper has the given name.
      */
-    @UnsupportedAppUsage
     boolean hasNamedWallpaper(String name);
 
     /**
      * Sets the dimension hint for the wallpaper. These hints indicate the desired
-     * minimum width and height for the wallpaper in a particular display.
+     * minimum width and height for the wallpaper.
      */
-    void setDimensionHints(in int width, in int height, in String callingPackage, int displayId);
+    void setDimensionHints(in int width, in int height, in String callingPackage);
 
     /**
-     * Returns the desired minimum width for the wallpaper in a particular display.
+     * Returns the desired minimum width for the wallpaper.
      */
-    @UnsupportedAppUsage
-    int getWidthHint(int displayId);
+    int getWidthHint();
 
     /**
-     * Returns the desired minimum height for the wallpaper in a particular display.
+     * Returns the desired minimum height for the wallpaper.
      */
-    @UnsupportedAppUsage
-    int getHeightHint(int displayId);
+    int getHeightHint();
 
     /**
      * Sets extra padding that we would like the wallpaper to have outside of the display.
      */
-    void setDisplayPadding(in Rect padding, in String callingPackage, int displayId);
+    void setDisplayPadding(in Rect padding, in String callingPackage);
 
     /**
      * Returns the name of the wallpaper. Private API.
@@ -142,29 +135,4 @@ interface IWallpaperManager {
      * wallpaper content has changed.
      */
     boolean setLockWallpaperCallback(IWallpaperManagerCallback cb);
-
-    /**
-     * Returns the colors used by the lock screen or system wallpaper.
-     *
-     * @param which either {@link WallpaperManager#FLAG_LOCK}
-     * or {@link WallpaperManager#FLAG_SYSTEM}
-     * @param displayId Which display is interested
-     * @return colors of chosen wallpaper
-     */
-    WallpaperColors getWallpaperColors(int which, int userId, int displayId);
-
-    /**
-     * Register a callback to receive color updates from a display
-     */
-    void registerWallpaperColorsCallback(IWallpaperManagerCallback cb, int userId, int displayId);
-
-    /**
-     * Unregister a callback that was receiving color updates from a display
-     */
-    void unregisterWallpaperColorsCallback(IWallpaperManagerCallback cb, int userId, int displayId);
-
-    /**
-     * Called from SystemUI when it shows the AoD UI.
-     */
-    oneway void setInAmbientMode(boolean inAmbientMode, long animationDuration);
 }

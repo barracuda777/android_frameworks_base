@@ -32,8 +32,9 @@ import java.util.List;
 /**
  * PanProfile handles Bluetooth PAN profile (NAP and PANU).
  */
-public class PanProfile implements LocalBluetoothProfile {
+public final class PanProfile implements LocalBluetoothProfile {
     private static final String TAG = "PanProfile";
+    private static boolean V = true;
 
     private BluetoothPan mService;
     private boolean mIsProfileReady;
@@ -52,11 +53,13 @@ public class PanProfile implements LocalBluetoothProfile {
             implements BluetoothProfile.ServiceListener {
 
         public void onServiceConnected(int profile, BluetoothProfile proxy) {
+            if (V) Log.d(TAG,"Bluetooth service connected");
             mService = (BluetoothPan) proxy;
             mIsProfileReady=true;
         }
 
         public void onServiceDisconnected(int profile) {
+            if (V) Log.d(TAG,"Bluetooth service disconnected");
             mIsProfileReady=false;
         }
     }
@@ -65,17 +68,13 @@ public class PanProfile implements LocalBluetoothProfile {
         return mIsProfileReady;
     }
 
-    @Override
-    public int getProfileId() {
-        return BluetoothProfile.PAN;
-    }
-
     PanProfile(Context context) {
-        BluetoothAdapter.getDefaultAdapter().getProfileProxy(context, new PanServiceListener(),
-            BluetoothProfile.PAN);
+        BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+        adapter.getProfileProxy(context, new PanServiceListener(),
+                BluetoothProfile.PAN);
     }
 
-    public boolean accessProfileEnabled() {
+    public boolean isConnectable() {
         return true;
     }
 
@@ -148,12 +147,12 @@ public class PanProfile implements LocalBluetoothProfile {
                 }
 
             default:
-                return BluetoothUtils.getConnectionStateSummary(state);
+                return Utils.getConnectionStateSummary(state);
         }
     }
 
     public int getDrawableResource(BluetoothClass btClass) {
-        return com.android.internal.R.drawable.ic_bt_network_pan;
+        return R.drawable.ic_bt_network_pan;
     }
 
     // Tethering direction determines UI strings.
@@ -170,7 +169,7 @@ public class PanProfile implements LocalBluetoothProfile {
     }
 
     protected void finalize() {
-        Log.d(TAG, "finalize()");
+        if (V) Log.d(TAG, "finalize()");
         if (mService != null) {
             try {
                 BluetoothAdapter.getDefaultAdapter().closeProfileProxy(BluetoothProfile.PAN, mService);

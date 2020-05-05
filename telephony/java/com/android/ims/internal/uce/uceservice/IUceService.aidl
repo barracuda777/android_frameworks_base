@@ -38,7 +38,6 @@ interface IUceService
      * Service status is returned in setStatus callback in IUceListener.
      * @hide
      */
-    @UnsupportedAppUsage
     boolean startService(IUceListener uceListener);
 
     /**
@@ -46,7 +45,6 @@ interface IUceService
      * @return boolean true if the service stop request is processed successfully, FALSE otherwise.
      * @hide
      */
-    @UnsupportedAppUsage
     boolean stopService();
 
 
@@ -56,7 +54,6 @@ interface IUceService
      * @return boolean true if service started else false.
      * @hide
      */
-    @UnsupportedAppUsage
     boolean isServiceStarted();
 
     /**
@@ -69,31 +66,10 @@ interface IUceService
      * service the client created.
      *
      * @return  optionsServiceHandle
-     *
      * @hide
-     *
-     * @deprecated This is replaced with new API createOptionsServiceForSubscription()
      */
-    @UnsupportedAppUsage
     int createOptionsService(IOptionsListener optionsListener,
                              inout UceLong optionsServiceListenerHdl);
-    /**
-     * Creates a options service for Capability Discovery.
-     * @param optionsListener IOptionsListener object.
-     * @param optionsServiceListenerHdl wrapper for client's listener handle to be stored.
-     * @param iccId the ICC-ID derived from SubscriptionInfo for the Service requested
-     *
-     * The service will fill UceLong.mUceLong with presenceListenerHandle allocated and
-     * used to validate callbacks received in IPresenceListener are indeed from the
-     * service the client created.
-     *
-     * @return  optionsServiceHandle
-     *
-     * @hide
-     */
-    int createOptionsServiceForSubscription(IOptionsListener optionsListener,
-                             inout UceLong optionsServiceListenerHdl,
-                             in String iccId);
 
     /**
      * Destroys a Options service.
@@ -101,7 +77,6 @@ interface IUceService
      *        in IOptionsListener
      * @hide
      */
-    @UnsupportedAppUsage
     void destroyOptionsService(int optionsServiceHandle);
 
     /**
@@ -114,98 +89,39 @@ interface IUceService
      * service the client created.
      *
      * @return  presenceServiceHdl
-     *
      * @hide
-     *
-     * @deprecated This is replaced with new API createPresenceServiceForSubscription()
      */
-    @UnsupportedAppUsage
     int createPresenceService(IPresenceListener presenceServiceListener,
                               inout UceLong presenceServiceListenerHdl);
-    /**
-     * Creates a presence service.
-     * @param presenceServiceListener IPresenceListener object
-     * @param presenceServiceListenerHdl wrapper for client's listener handle to be stored.
-     * @param iccId the ICC-ID derived from SubscriptionInfo for the Service requested
-     *
-     * The service will fill UceLong.mUceLong with presenceListenerHandle allocated and
-     * used to validate callbacks received in IPresenceListener are indeed from the
-     * service the client created.
-     *
-     * @return  presenceServiceHdl
-     *
-     * @hide
-     */
-    int createPresenceServiceForSubscription(IPresenceListener presenceServiceListener,
-                              inout UceLong presenceServiceListenerHdl,
-                              in String iccId);
 
     /**
      * Destroys a presence service.
-     *
      * @param presenceServiceHdl handle returned during createPresenceService()
-     *
      * @hide
      */
-    @UnsupportedAppUsage
     void destroyPresenceService(int presenceServiceHdl);
 
 
 
     /**
      * Query the UCE Service for information to know whether the is registered.
-     *
      * @return boolean, true if Registered to for network events else false.
-     *
      * @hide
      */
-    @UnsupportedAppUsage
     boolean getServiceStatus();
 
     /**
      * Query the UCE Service for presence Service.
-     *
      * @return IPresenceService object.
-     *
      * @hide
-     *
-     * @deprecated use API getPresenceServiceForSubscription()
      */
-    @UnsupportedAppUsage
     IPresenceService getPresenceService();
 
     /**
-     * Query the UCE Service for presence Service.
-     *
-     * @param iccId the ICC-ID derived from SubscriptionInfo for the Service requested
-     *
-     * @return IPresenceService object.
-     *
-     * @hide
-     */
-    IPresenceService getPresenceServiceForSubscription(in String iccId);
-
-    /**
      * Query the UCE Service for options service object.
-     *
      * @return IOptionsService object.
-     *
-     * @deprecated use API getOptionsServiceForSubscription()
-     *
      * @hide
      */
-    @UnsupportedAppUsage
     IOptionsService getOptionsService();
-
-    /**
-     * Query the UCE Service for options service object.
-     *
-     * @param iccId the ICC-ID derived from SubscriptionInfo for the Service requested
-     *
-     * @return IOptionsService object.
-     *
-     * @hide
-     */
-    IOptionsService getOptionsServiceForSubscription(in String iccId);
 
 }

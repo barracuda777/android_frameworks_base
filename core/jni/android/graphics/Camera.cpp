@@ -96,12 +96,10 @@ static void Camera_getMatrix(JNIEnv* env, jobject obj, jlong matrixHandle) {
 }
 
 static void Camera_applyToCanvas(JNIEnv* env, jobject obj, jlong canvasHandle) {
-    android::Canvas* canvas = reinterpret_cast<android::Canvas*>(canvasHandle);
+    SkCanvas* canvas = reinterpret_cast<android::Canvas*>(canvasHandle)->asSkCanvas();
     jlong viewHandle = env->GetLongField(obj, gNativeInstanceFieldID);
     Sk3DView* v = reinterpret_cast<Sk3DView*>(viewHandle);
-    SkMatrix matrix;
-    v->getMatrix(&matrix);
-    canvas->concat(matrix);
+    v->applyToCanvas(canvas);
 }
 
 static jfloat Camera_dotWithNormal(JNIEnv* env, jobject obj,

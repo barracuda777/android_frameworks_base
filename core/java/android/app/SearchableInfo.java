@@ -20,7 +20,6 @@ import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
 import android.annotation.StringRes;
-import android.annotation.UnsupportedAppUsage;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
@@ -250,7 +249,6 @@ public final class SearchableInfo implements Parcelable {
      * @return Returns a context related to the searchable activity
      * @hide
      */
-    @UnsupportedAppUsage
     public Context getActivityContext(Context context) {
         return createActivityContext(context, mSearchActivity);
     }
@@ -280,7 +278,6 @@ public final class SearchableInfo implements Parcelable {
      * @return Returns a context related to the suggestion provider
      * @hide
      */
-    @UnsupportedAppUsage
     public Context getProviderContext(Context context, Context activityContext) {
         Context theirContext = null;
         if (mSearchActivity.getPackageName().equals(mSuggestProviderPackage)) {
@@ -310,7 +307,6 @@ public final class SearchableInfo implements Parcelable {
      * @param cName The component name of the searchable activity
      * @throws IllegalArgumentException if the searchability info is invalid or insufficient
      */
-    @UnsupportedAppUsage
     private SearchableInfo(Context activityContext, AttributeSet attr, final ComponentName cName) {
         mSearchActivity = cName;
         
@@ -454,7 +450,6 @@ public final class SearchableInfo implements Parcelable {
          * Gets the action message to use for queries.
          * @see android.R.styleable#SearchableActionKey_queryActionMsg
          */
-        @UnsupportedAppUsage
         public String getQueryActionMsg() {
             return mQueryActionMsg;
         }
@@ -463,7 +458,6 @@ public final class SearchableInfo implements Parcelable {
          * Gets the action message to use for suggestions.
          * @see android.R.styleable#SearchableActionKey_suggestActionMsg
          */
-        @UnsupportedAppUsage
         public String getSuggestActionMsg() {
             return mSuggestActionMsg;
         }
@@ -472,7 +466,6 @@ public final class SearchableInfo implements Parcelable {
          * Gets the name of the column to get the suggestion action message from.
          * @see android.R.styleable#SearchableActionKey_suggestActionMsgColumn
          */
-        @UnsupportedAppUsage
         public String getSuggestActionMsgColumn() {
             return mSuggestActionMsgColumn;
         }
@@ -497,7 +490,6 @@ public final class SearchableInfo implements Parcelable {
      *
      * @hide ActionKeyInfo is hidden
      */
-    @UnsupportedAppUsage
     public ActionKeyInfo findActionKey(int keyCode) {
         if (mActionKeys == null) {
             return null;
@@ -631,7 +623,6 @@ public final class SearchableInfo implements Parcelable {
      *
      * @hide deprecated functionality
      */
-    @UnsupportedAppUsage
     public int getLabelId() {
         return mLabelId;
     }
@@ -656,7 +647,6 @@ public final class SearchableInfo implements Parcelable {
      *
      * @hide deprecated functionality
      */
-    @UnsupportedAppUsage
     public int getIconId() {
         return mIconId;
     }
@@ -800,7 +790,7 @@ public final class SearchableInfo implements Parcelable {
     /**
      * Support for parcelable and aidl operations.
      */
-    public static final @android.annotation.NonNull Parcelable.Creator<SearchableInfo> CREATOR
+    public static final Parcelable.Creator<SearchableInfo> CREATOR
     = new Parcelable.Creator<SearchableInfo>() {
         public SearchableInfo createFromParcel(Parcel in) {
             return new SearchableInfo(in);

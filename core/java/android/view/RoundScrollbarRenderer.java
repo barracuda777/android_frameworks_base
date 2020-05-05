@@ -19,8 +19,8 @@ package android.view;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.Rect;
 import android.graphics.RectF;
+import android.graphics.Rect;
 
 /**
  * Helper class for drawing round scroll bars on round Wear devices.
@@ -31,14 +31,13 @@ class RoundScrollbarRenderer {
     private static final int MAX_SCROLLBAR_ANGLE_SWIPE = 16;
     private static final int MIN_SCROLLBAR_ANGLE_SWIPE = 6;
     private static final float WIDTH_PERCENTAGE = 0.02f;
-    private static final int DEFAULT_THUMB_COLOR = 0xFFE8EAED;
-    private static final int DEFAULT_TRACK_COLOR = 0x4CFFFFFF;
+    private static final int DEFAULT_THUMB_COLOR = 0x4CFFFFFF;
+    private static final int DEFAULT_TRACK_COLOR = 0x26FFFFFF;
 
     private final Paint mThumbPaint = new Paint();
     private final Paint mTrackPaint = new Paint();
     private final RectF mRect = new RectF();
     private final View mParent;
-    private final int mMaskThickness;
 
     public RoundScrollbarRenderer(View parent) {
         // Paints for the round scrollbar.
@@ -53,12 +52,6 @@ class RoundScrollbarRenderer {
         mTrackPaint.setStyle(Paint.Style.STROKE);
 
         mParent = parent;
-
-        // Fetch the resource indicating the thickness of CircularDisplayMask, rounding in the same
-        // way WindowManagerService.showCircularMask does. The scroll bar is inset by this amount so
-        // that it doesn't get clipped.
-        mMaskThickness = parent.getContext().getResources().getDimensionPixelSize(
-                com.android.internal.R.dimen.circular_display_mask_thickness);
     }
 
     public void drawRoundScrollbars(Canvas canvas, float alpha, Rect bounds) {
@@ -89,13 +82,13 @@ class RoundScrollbarRenderer {
         startAngle = clamp(startAngle, -SCROLLBAR_ANGLE_RANGE / 2,
                 SCROLLBAR_ANGLE_RANGE / 2 - sweepAngle);
 
-        // Draw the track and the thumb.
-        float inset = thumbWidth / 2 + mMaskThickness;
+        // Draw the track and the scroll bar.
         mRect.set(
-                bounds.left + inset,
-                bounds.top + inset,
-                bounds.right - inset,
-                bounds.bottom - inset);
+                bounds.left - thumbWidth / 2,
+                bounds.top,
+                bounds.right - thumbWidth / 2,
+                bounds.bottom);
+
         canvas.drawArc(mRect, -SCROLLBAR_ANGLE_RANGE / 2, SCROLLBAR_ANGLE_RANGE, false,
                 mTrackPaint);
         canvas.drawArc(mRect, startAngle, sweepAngle, false, mThumbPaint);

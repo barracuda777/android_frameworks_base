@@ -25,7 +25,6 @@ import android.hardware.camera2.ICameraDeviceCallbacks;
 import android.hardware.camera2.ICameraDeviceUser;
 import android.hardware.camera2.impl.CameraMetadataNative;
 import android.hardware.camera2.impl.CaptureResultExtras;
-import android.hardware.camera2.impl.PhysicalCaptureResultInfo;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.RemoteException;
@@ -117,8 +116,8 @@ public class CameraBinderTest extends AndroidTestCase {
     @SmallTest
     public void testSupportsCamera2Api() throws Exception {
         for (int cameraId = 0; cameraId < mUtils.getGuessedNumCameras(); ++cameraId) {
-            boolean supports = mUtils.getCameraService().supportsCameraApi(
-                String.valueOf(cameraId), API_VERSION_2);
+
+            boolean supports = mUtils.getCameraService().supportsCameraApi(cameraId, API_VERSION_2);
 
             Log.v(TAG, "Camera " + cameraId + " supports api2: " + supports);
         }
@@ -129,8 +128,7 @@ public class CameraBinderTest extends AndroidTestCase {
     public void testSupportsCamera1Api() throws Exception {
         for (int cameraId = 0; cameraId < mUtils.getGuessedNumCameras(); ++cameraId) {
 
-            boolean supports = mUtils.getCameraService().supportsCameraApi(
-                String.valueOf(cameraId), API_VERSION_1);
+            boolean supports = mUtils.getCameraService().supportsCameraApi(cameraId, API_VERSION_1);
             assertTrue(
                     "Camera service returned false when queried if it supports camera1 api " +
                     " for camera ID " + cameraId, supports);
@@ -231,8 +229,8 @@ public class CameraBinderTest extends AndroidTestCase {
          * android.hardware.camera2.CaptureResultExtras)
          */
         @Override
-        public void onResultReceived(CameraMetadataNative result, CaptureResultExtras resultExtras,
-                PhysicalCaptureResultInfo physicalResults[]) throws RemoteException {
+        public void onResultReceived(CameraMetadataNative result, CaptureResultExtras resultExtras)
+                throws RemoteException {
             // TODO Auto-generated method stub
 
         }
@@ -259,20 +257,10 @@ public class CameraBinderTest extends AndroidTestCase {
 
         /*
          * (non-Javadoc)
-         * @see android.hardware.camera2.ICameraDeviceCallbacks#onRequestQueueEmpty()
-         */
-        @Override
-        public void onRequestQueueEmpty() throws RemoteException {
-            // TODO Auto-generated method stub
-
-        }
-
-        /*
-         * (non-Javadoc)
          * @see android.hardware.camera2.ICameraDeviceCallbacks#onRepeatingRequestError()
          */
         @Override
-        public void onRepeatingRequestError(long lastFrameNumber, int repeatingRequestId) {
+        public void onRepeatingRequestError(long lastFrameNumber) {
             // TODO Auto-generated method stub
         }
     }
@@ -287,7 +275,7 @@ public class CameraBinderTest extends AndroidTestCase {
 
             ICameraDeviceUser cameraUser =
                     mUtils.getCameraService().connectDevice(
-                        dummyCallbacks, String.valueOf(cameraId),
+                        dummyCallbacks, cameraId,
                         clientPackageName,
                         ICameraService.USE_CALLING_UID);
             assertNotNull(String.format("Camera %s was null", cameraId), cameraUser);
@@ -300,18 +288,14 @@ public class CameraBinderTest extends AndroidTestCase {
 
     static class DummyCameraServiceListener extends ICameraServiceListener.Stub {
         @Override
-        public void onStatusChanged(int status, String cameraId)
+        public void onStatusChanged(int status, int cameraId)
                 throws RemoteException {
-            Log.v(TAG, String.format("Camera %s has status changed to 0x%x", cameraId, status));
+            Log.v(TAG, String.format("Camera %d has status changed to 0x%x", cameraId, status));
         }
         public void onTorchStatusChanged(int status, String cameraId)
                 throws RemoteException {
             Log.v(TAG, String.format("Camera %s has torch status changed to 0x%x",
                     cameraId, status));
-        }
-        @Override
-        public void onCameraAccessPrioritiesChanged() {
-            Log.v(TAG, "Camera access permission change");
         }
     }
 

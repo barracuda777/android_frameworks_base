@@ -16,7 +16,6 @@
 
 package com.android.internal.policy;
 
-import android.annotation.UnsupportedAppUsage;
 import android.app.KeyguardManager;
 import android.app.SearchManager;
 import android.content.ActivityNotFoundException;
@@ -24,7 +23,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.media.AudioManager;
-import android.media.session.MediaSessionManager;
+import android.media.session.MediaSessionLegacyHelper;
 import android.os.UserHandle;
 import android.provider.Settings;
 import android.telephony.TelephonyManager;
@@ -42,18 +41,14 @@ public class PhoneFallbackEventHandler implements FallbackEventHandler {
     private static String TAG = "PhoneFallbackEventHandler";
     private static final boolean DEBUG = false;
 
-    @UnsupportedAppUsage
     Context mContext;
-    @UnsupportedAppUsage
     View mView;
 
     AudioManager mAudioManager;
     KeyguardManager mKeyguardManager;
     SearchManager mSearchManager;
     TelephonyManager mTelephonyManager;
-    MediaSessionManager mMediaSessionManager;
 
-    @UnsupportedAppUsage
     public PhoneFallbackEventHandler(Context context) {
         mContext = context;
     }
@@ -78,7 +73,6 @@ public class PhoneFallbackEventHandler implements FallbackEventHandler {
         }
     }
 
-    @UnsupportedAppUsage
     boolean onKeyDown(int keyCode, KeyEvent event) {
         /* ****************************************************************************
          * HOW TO DECIDE WHERE YOUR KEY HANDLING GOES.
@@ -90,7 +84,7 @@ public class PhoneFallbackEventHandler implements FallbackEventHandler {
             case KeyEvent.KEYCODE_VOLUME_UP:
             case KeyEvent.KEYCODE_VOLUME_DOWN:
             case KeyEvent.KEYCODE_VOLUME_MUTE: {
-                handleVolumeKeyEvent(event);
+                MediaSessionLegacyHelper.getHelper(mContext).sendVolumeKeyEvent(event, false);
                 return true;
             }
 
@@ -117,7 +111,7 @@ public class PhoneFallbackEventHandler implements FallbackEventHandler {
             }
 
             case KeyEvent.KEYCODE_CALL: {
-                if (isNotInstantAppAndKeyguardRestricted(dispatcher)) {
+                if (getKeyguardManager().inKeyguardRestrictedInputMode() || dispatcher == null) {
                     break;
                 }
                 if (event.getRepeatCount() == 0) {
@@ -144,19 +138,32 @@ public class PhoneFallbackEventHandler implements FallbackEventHandler {
             }
 
             case KeyEvent.KEYCODE_CAMERA: {
-                if (isNotInstantAppAndKeyguardRestricted(dispatcher)) {
+                if (getKeyguardManager().inKeyguardRestrictedInputMode() || dispatcher == null) {
                     break;
                 }
                 if (event.getRepeatCount() == 0) {
                     dispatcher.startTracking(event, this);
                 } else if (event.isLongPress() && dispatcher.isTracking(event)) {
                     dispatcher.performedLongPress(event);
+                    if (isUserSetupComplete()) {
+                        mView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+                        sendCloseSystemWindows();
+                        // Broadcast an intent that the Camera button was longpressed
+                        Intent intent = new Intent(Intent.ACTION_CAMERA_BUTTON, null);
+                        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+                        intent.putExtra(Intent.EXTRA_KEY_EVENT, event);
+                        mContext.sendOrderedBroadcastAsUser(intent, UserHandle.CURRENT_OR_SELF,
+                                null, null, null, 0, null, null);
+                    } else {
+                        Log.i(TAG, "Not dispatching CAMERA long press because user "
+                                + "setup is in progress.");
+                    }
                 }
                 return true;
             }
 
             case KeyEvent.KEYCODE_SEARCH: {
-                if (isNotInstantAppAndKeyguardRestricted(dispatcher)) {
+                if (getKeyguardManager().inKeyguardRestrictedInputMode() || dispatcher == null) {
                     break;
                 }
                 if (event.getRepeatCount() == 0) {
@@ -194,12 +201,6 @@ public class PhoneFallbackEventHandler implements FallbackEventHandler {
         return false;
     }
 
-    private boolean isNotInstantAppAndKeyguardRestricted(KeyEvent.DispatcherState dispatcher) {
-        return !mContext.getPackageManager().isInstantApp()
-                && (getKeyguardManager().inKeyguardRestrictedInputMode() || dispatcher == null);
-    }
-
-    @UnsupportedAppUsage
     boolean onKeyUp(int keyCode, KeyEvent event) {
         if (DEBUG) {
             Log.d(TAG, "up " + keyCode);
@@ -214,7 +215,7 @@ public class PhoneFallbackEventHandler implements FallbackEventHandler {
             case KeyEvent.KEYCODE_VOLUME_DOWN:
             case KeyEvent.KEYCODE_VOLUME_MUTE: {
                 if (!event.isCanceled()) {
-                    handleVolumeKeyEvent(event);
+                    MediaSessionLegacyHelper.getHelper(mContext).sendVolumeKeyEvent(event, false);
                 }
                 return true;
             }
@@ -236,7 +237,7 @@ public class PhoneFallbackEventHandler implements FallbackEventHandler {
             }
 
             case KeyEvent.KEYCODE_CAMERA: {
-                if (isNotInstantAppAndKeyguardRestricted(dispatcher)) {
+                if (getKeyguardManager().inKeyguardRestrictedInputMode()) {
                     break;
                 }
                 if (event.isTracking() && !event.isCanceled()) {
@@ -246,7 +247,7 @@ public class PhoneFallbackEventHandler implements FallbackEventHandler {
             }
 
             case KeyEvent.KEYCODE_CALL: {
-                if (isNotInstantAppAndKeyguardRestricted(dispatcher)) {
+                if (getKeyguardManager().inKeyguardRestrictedInputMode()) {
                     break;
                 }
                 if (event.isTracking() && !event.isCanceled()) {
@@ -263,7 +264,6 @@ public class PhoneFallbackEventHandler implements FallbackEventHandler {
         return false;
     }
 
-    @UnsupportedAppUsage
     void startCallActivity() {
         sendCloseSystemWindows();
         Intent intent = new Intent(Intent.ACTION_CALL_BUTTON);
@@ -304,25 +304,12 @@ public class PhoneFallbackEventHandler implements FallbackEventHandler {
         return mAudioManager;
     }
 
-    MediaSessionManager getMediaSessionManager() {
-        if (mMediaSessionManager == null) {
-            mMediaSessionManager =
-                    (MediaSessionManager) mContext.getSystemService(Context.MEDIA_SESSION_SERVICE);
-        }
-        return mMediaSessionManager;
-    }
-
     void sendCloseSystemWindows() {
         PhoneWindow.sendCloseSystemWindows(mContext, null);
     }
 
-    private void handleVolumeKeyEvent(KeyEvent keyEvent) {
-        getMediaSessionManager().dispatchVolumeKeyEventAsSystemService(keyEvent,
-                AudioManager.USE_DEFAULT_STREAM_TYPE);
-    }
-
     private void handleMediaKeyEvent(KeyEvent keyEvent) {
-        getMediaSessionManager().dispatchMediaKeyEventAsSystemService(keyEvent);
+        MediaSessionLegacyHelper.getHelper(mContext).sendMediaButtonEvent(keyEvent, false);
     }
 
     private boolean isUserSetupComplete() {

@@ -16,41 +16,35 @@
 
 package com.android.systemui.statusbar.policy;
 
-import android.app.NotificationManager;
 import android.content.ComponentName;
 import android.net.Uri;
 import android.service.notification.Condition;
 import android.service.notification.ZenModeConfig;
 import android.service.notification.ZenModeConfig.ZenRule;
 
-import com.android.systemui.statusbar.policy.ZenModeController.Callback;
-
-public interface ZenModeController extends CallbackController<Callback> {
+public interface ZenModeController {
+    void addCallback(Callback callback);
+    void removeCallback(Callback callback);
     void setZen(int zen, Uri conditionId, String reason);
     int getZen();
-    boolean areAlarmsAllowedInPriority();
     ZenRule getManualRule();
     ZenModeConfig getConfig();
-    /** Gets consolidated zen policy that will apply when DND is on in priority only mode */
-    NotificationManager.Policy getConsolidatedPolicy();
     long getNextAlarm();
+    void setUserId(int userId);
     boolean isZenAvailable();
     ComponentName getEffectsSuppressor();
     boolean isCountdownConditionSupported();
     int getCurrentUser();
     boolean isVolumeRestricted();
-    boolean areNotificationsHiddenInShade();
 
-    public static interface Callback {
-        default void onZenChanged(int zen) {}
-        default void onConditionsChanged(Condition[] conditions) {}
-        default void onNextAlarmChanged() {}
-        default void onZenAvailableChanged(boolean available) {}
-        default void onEffectsSupressorChanged() {}
-        default void onManualRuleChanged(ZenRule rule) {}
-        default void onConfigChanged(ZenModeConfig config) {}
-        /** Called when the consolidated zen policy changes */
-        default void onConsolidatedPolicyChanged(NotificationManager.Policy policy) {}
+    public static class Callback {
+        public void onZenChanged(int zen) {}
+        public void onConditionsChanged(Condition[] conditions) {}
+        public void onNextAlarmChanged() {}
+        public void onZenAvailableChanged(boolean available) {}
+        public void onEffectsSupressorChanged() {}
+        public void onManualRuleChanged(ZenRule rule) {}
+        public void onConfigChanged(ZenModeConfig config) {}
     }
 
 }

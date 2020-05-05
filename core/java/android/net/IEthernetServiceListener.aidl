@@ -19,5 +19,5 @@ package android.net;
 /** @hide */
 oneway interface IEthernetServiceListener
 {
-    void onAvailabilityChanged(String iface, boolean isAvailable);
+    void onAvailabilityChanged(boolean isAvailable);
 }

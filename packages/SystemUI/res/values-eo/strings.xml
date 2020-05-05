@@ -22,7 +22,6 @@
     <string name="battery_low_why">Agordoj</string>
     <string name="status_bar_settings_settings_button">Agordoj</string>
     <string name="status_bar_settings_notifications">Sciigoj</string>
-    <string name="screenrecord_cancel_label">Nuligi</string>
     <string name="accessibility_search_light">Serĉi</string>
     <string name="accessibility_phone_button">Telefono</string>
     <string name="cancel">Nuligi</string>
@@ -35,6 +34,7 @@
     <string name="quick_settings_user_label">Mi</string>
     <string name="quick_settings_user_title">Uzanto</string>
     <string name="quick_settings_notifications_label">Sciigoj</string>
+    <string-array name="recents_blacklist_array"/>
     <string name="description_target_search">Serĉi</string>
     <string name="user_new_user_name">Nova uzanto</string>
     <string name="guest_nickname">Gasto</string>
@@ -44,10 +44,5 @@
     <string name="guest_notification_remove_action">FORIGI GASTON</string>
     <string name="user_remove_user_remove">Forigi</string>
     <string name="status_bar_airplane">Aviadila reĝimo</string>
-    <string name="notification_header_default_channel">Sciigoj</string>
-    <string name="notification_appops_settings">Agordoj</string>
     <string name="keyboard_shortcut_group_system_notifications">Sciigoj</string>
-    <string name="pip_phone_close">Fermi</string>
-    <string name="pip_phone_settings">Agordoj</string>
-    <string name="open_saver_setting_action">Agordoj</string>
 </resources>

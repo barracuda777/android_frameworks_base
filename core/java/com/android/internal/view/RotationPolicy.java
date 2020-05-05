@@ -21,9 +21,6 @@ import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.database.ContentObserver;
 import android.graphics.Point;
-import android.hardware.configstore.V1_1.DisplayOrientation;
-import android.hardware.configstore.V1_1.ISurfaceFlingerConfigs;
-import android.hardware.configstore.V1_1.OptionalDisplayOrientation;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Handler;
@@ -39,16 +36,14 @@ import android.view.WindowManagerGlobal;
 
 import com.android.internal.R;
 
-import java.util.NoSuchElementException;
-
 /**
  * Provides helper functions for configuring the display rotation policy.
  */
 public final class RotationPolicy {
     private static final String TAG = "RotationPolicy";
     private static final int CURRENT_ROTATION = -1;
-
-    private static int sNaturalRotation = -1;
+    private static final int NATURAL_ROTATION =
+            SystemProperties.getInt("persist.panel.orientation", Surface.ROTATION_0) / 90;
 
     private RotationPolicy() {
     }
@@ -83,11 +78,7 @@ public final class RotationPolicy {
             final Point size = new Point();
             final IWindowManager wm = WindowManagerGlobal.getWindowManagerService();
             try {
-                final Display display = context.getDisplay();
-                final int displayId = display != null
-                        ? display.getDisplayId()
-                        : Display.DEFAULT_DISPLAY;
-                wm.getInitialDisplaySize(displayId, size);
+                wm.getInitialDisplaySize(Display.DEFAULT_DISPLAY, size);
                 return size.x < size.y ?
                         Configuration.ORIENTATION_PORTRAIT : Configuration.ORIENTATION_LANDSCAPE;
             } catch (RemoteException e) {
@@ -119,20 +110,12 @@ public final class RotationPolicy {
      * Enables or disables rotation lock from the system UI toggle.
      */
     public static void setRotationLock(Context context, final boolean enabled) {
-        final int rotation = isCurrentRotationAllowed(context)
-                ? CURRENT_ROTATION : getNaturalRotation();
-        setRotationLockAtAngle(context, enabled, rotation);
-    }
-
-    /**
-     * Enables or disables rotation lock at a specific rotation from system UI.
-     */
-    public static void setRotationLockAtAngle(Context context, final boolean enabled,
-            final int rotation) {
         Settings.System.putIntForUser(context.getContentResolver(),
                 Settings.System.HIDE_ROTATION_LOCK_TOGGLE_FOR_ACCESSIBILITY, 0,
                 UserHandle.USER_CURRENT);
 
+        final int rotation = isCurrentRotationAllowed(context)
+                ? CURRENT_ROTATION : NATURAL_ROTATION;
         setRotationLock(enabled, rotation);
     }
 
@@ -146,7 +129,7 @@ public final class RotationPolicy {
                 Settings.System.HIDE_ROTATION_LOCK_TOGGLE_FOR_ACCESSIBILITY, enabled ? 1 : 0,
                         UserHandle.USER_CURRENT);
 
-        setRotationLock(enabled, getNaturalRotation());
+        setRotationLock(enabled, NATURAL_ROTATION);
     }
 
     public static boolean isRotationAllowed(int rotation,
@@ -177,10 +160,9 @@ public final class RotationPolicy {
                 com.android.internal.R.bool.config_allowAllRotations);
         final IWindowManager wm = WindowManagerGlobal.getWindowManagerService();
         try {
-            return isRotationAllowed(wm.getDefaultDisplayRotation(), userRotationAngles,
-                    allowAllRotations);
+            return isRotationAllowed(wm.getRotation(), userRotationAngles, allowAllRotations);
         } catch (RemoteException exc) {
-            Log.w(TAG, "Unable to getWindowManagerService.getDefaultDisplayRotation()");
+            Log.w(TAG, "Unable to getWindowManagerService.getRotation()");
         }
         return false;
     }
@@ -231,46 +213,6 @@ public final class RotationPolicy {
     public static void unregisterRotationPolicyListener(Context context,
             RotationPolicyListener listener) {
         context.getContentResolver().unregisterContentObserver(listener.mObserver);
-    }
-
-    public static int getNaturalRotation() {
-        if (sNaturalRotation == -1) {
-            sNaturalRotation = getNaturalRotationConfig();
-        }
-        return sNaturalRotation;
-    }
-
-    private static int getNaturalRotationConfig() {
-        String primaryDisplayOrientation =
-                SystemProperties.get("ro.surface_flinger.primary_display_orientation");
-        if (primaryDisplayOrientation == "ORIENTATION_90") {
-            return Surface.ROTATION_90;
-        }
-        if (primaryDisplayOrientation == "ORIENTATION_180") {
-            return Surface.ROTATION_180;
-        }
-        if (primaryDisplayOrientation == "ORIENTATION_270") {
-            return Surface.ROTATION_270;
-        }
-
-        OptionalDisplayOrientation orientation;
-
-        try {
-            orientation =
-                    ISurfaceFlingerConfigs.getService().primaryDisplayOrientation();
-            switch (orientation.value) {
-                case DisplayOrientation.ORIENTATION_90:
-                    return Surface.ROTATION_90;
-                case DisplayOrientation.ORIENTATION_180:
-                    return Surface.ROTATION_180;
-                case DisplayOrientation.ORIENTATION_270:
-                    return Surface.ROTATION_270;
-            }
-        } catch (RemoteException | NoSuchElementException e) {
-            // do nothing
-        }
-
-        return Surface.ROTATION_0;
     }
 
     /**

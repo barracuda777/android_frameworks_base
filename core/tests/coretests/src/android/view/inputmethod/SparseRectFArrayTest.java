@@ -16,26 +16,15 @@
 
 package android.view.inputmethod;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-
 import android.graphics.RectF;
 import android.os.Parcel;
+import android.test.InstrumentationTestCase;
+import android.test.suitebuilder.annotation.SmallTest;
 import android.view.inputmethod.SparseRectFArray.SparseRectFArrayBuilder;
-
-import androidx.test.filters.SmallTest;
-import androidx.test.runner.AndroidJUnit4;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
 
 import java.util.Objects;
 
-@SmallTest
-@RunWith(AndroidJUnit4.class)
-public class SparseRectFArrayTest {
+public class SparseRectFArrayTest extends InstrumentationTestCase {
     // A test data for {@link SparseRectFArray}. null represents the gap of indices.
     private static final RectF[] MANY_RECTS = new RectF[] {
             null,
@@ -60,7 +49,7 @@ public class SparseRectFArrayTest {
             new RectF(118.0f, 218.0f, 318.0f, 418.0f),
     };
 
-    @Test
+    @SmallTest
     public void testBuilder() throws Exception {
         final RectF TEMP_RECT = new RectF(10.0f, 20.0f, 30.0f, 40.0f);
         final int TEMP_FLAGS = 0x1234;
@@ -139,7 +128,7 @@ public class SparseRectFArrayTest {
         assertNull(builder.build().get(0));
     }
 
-    @Test
+    @SmallTest
     public void testEquality() throws Exception {
         // Empty array should be equal.
         assertEqualRects(new SparseRectFArrayBuilder().build(),
@@ -236,7 +225,7 @@ public class SparseRectFArrayTest {
                         .build());
     }
 
-    @Test
+    @SmallTest
     public void testBuilderAppend() throws Exception {
         // Key should be appended in ascending order.
         try {

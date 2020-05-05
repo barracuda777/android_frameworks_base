@@ -16,12 +16,13 @@
 
 package android.view.menu;
 
-import android.test.ActivityInstrumentationTestCase;
 import android.util.KeyUtils;
+import com.android.internal.view.menu.IconMenuView;
+import com.android.internal.view.menu.MenuBuilder;
 
-import androidx.test.filters.LargeTest;
+import android.content.pm.ActivityInfo;
+import android.test.ActivityInstrumentationTestCase;
 
-@LargeTest
 public class MenuLayoutLandscapeTest extends ActivityInstrumentationTestCase<MenuLayoutLandscape> {
     private static final String LONG_TITLE = "Really really really really really really really really really really long title";
     private static final String SHORT_TITLE = "Item";

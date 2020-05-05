@@ -17,7 +17,6 @@
 
 package android.filterfw.core;
 
-import android.annotation.UnsupportedAppUsage;
 import android.filterfw.core.Frame;
 import android.filterfw.core.FrameFormat;
 import android.filterfw.core.FrameManager;
@@ -224,7 +223,6 @@ public class GLFrame extends Frame {
     }
 
     @Override
-    @UnsupportedAppUsage
     public void setBitmap(Bitmap bitmap) {
         assertFrameMutable();
         assertGLEnvValid();
@@ -285,7 +283,6 @@ public class GLFrame extends Frame {
         setNativeViewport(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top);
     }
 
-    @UnsupportedAppUsage
     public void generateMipMap() {
         assertFrameMutable();
         assertGLEnvValid();
@@ -294,7 +291,6 @@ public class GLFrame extends Frame {
         }
     }
 
-    @UnsupportedAppUsage
     public void setTextureParameter(int param, int value) {
         assertFrameMutable();
         assertGLEnvValid();
@@ -304,7 +300,6 @@ public class GLFrame extends Frame {
         }
     }
 
-    @UnsupportedAppUsage
     public int getTextureId() {
         return getNativeTextureId();
     }

@@ -16,7 +16,7 @@
 
 #include "DamageAccumulator.h"
 
-#include <log/log.h>
+#include <cutils/log.h>
 
 #include "RenderNode.h"
 #include "utils/MathUtils.h"
@@ -57,18 +57,17 @@ static void computeTransformImpl(const DirtyStack* currentFrame, Matrix4* outMat
         computeTransformImpl(currentFrame->prev, outMatrix);
     }
     switch (currentFrame->type) {
-        case TransformRenderNode:
-            currentFrame->renderNode->applyViewPropertyTransforms(*outMatrix);
-            break;
-        case TransformMatrix4:
-            outMatrix->multiply(*currentFrame->matrix4);
-            break;
-        case TransformNone:
-            // nothing to be done
-            break;
-        default:
-            LOG_ALWAYS_FATAL("Tried to compute transform with an invalid type: %d",
-                             currentFrame->type);
+    case TransformRenderNode:
+        currentFrame->renderNode->applyViewPropertyTransforms(*outMatrix);
+        break;
+    case TransformMatrix4:
+        outMatrix->multiply(*currentFrame->matrix4);
+        break;
+    case TransformNone:
+        // nothing to be done
+        break;
+    default:
+        LOG_ALWAYS_FATAL("Tried to compute transform with an invalid type: %d", currentFrame->type);
     }
 }
 
@@ -105,17 +104,17 @@ void DamageAccumulator::popTransform() {
     DirtyStack* dirtyFrame = mHead;
     mHead = mHead->prev;
     switch (dirtyFrame->type) {
-        case TransformRenderNode:
-            applyRenderNodeTransform(dirtyFrame);
-            break;
-        case TransformMatrix4:
-            applyMatrix4Transform(dirtyFrame);
-            break;
-        case TransformNone:
-            mHead->pendingDirty.join(dirtyFrame->pendingDirty);
-            break;
-        default:
-            LOG_ALWAYS_FATAL("Tried to pop an invalid type: %d", dirtyFrame->type);
+    case TransformRenderNode:
+        applyRenderNodeTransform(dirtyFrame);
+        break;
+    case TransformMatrix4:
+        applyMatrix4Transform(dirtyFrame);
+        break;
+    case TransformNone:
+        mHead->pendingDirty.join(dirtyFrame->pendingDirty);
+        break;
+    default:
+        LOG_ALWAYS_FATAL("Tried to pop an invalid type: %d", dirtyFrame->type);
     }
 }
 
@@ -169,7 +168,8 @@ static DirtyStack* findProjectionReceiver(DirtyStack* frame) {
     if (frame) {
         while (frame->prev != frame) {
             frame = frame->prev;
-            if (frame->type == TransformRenderNode && frame->renderNode->hasProjectionReceiver()) {
+            if (frame->type == TransformRenderNode
+                    && frame->renderNode->hasProjectionReceiver()) {
                 return frame;
             }
         }
@@ -233,8 +233,7 @@ void DamageAccumulator::peekAtDirty(SkRect* dest) const {
 }
 
 void DamageAccumulator::finish(SkRect* totalDirty) {
-    LOG_ALWAYS_FATAL_IF(mHead->prev != mHead, "Cannot finish, mismatched push/pop calls! %p vs. %p",
-                        mHead->prev, mHead);
+    LOG_ALWAYS_FATAL_IF(mHead->prev != mHead, "Cannot finish, mismatched push/pop calls! %p vs. %p", mHead->prev, mHead);
     // Root node never has a transform, so this is the fully mapped dirty rect
     *totalDirty = mHead->pendingDirty;
     totalDirty->roundOut(totalDirty);

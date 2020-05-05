@@ -16,8 +16,6 @@
 
 package android.graphics;
 
-import android.annotation.UnsupportedAppUsage;
-
 /**
  * @hide
  */
@@ -34,7 +32,6 @@ public class TableMaskFilter extends MaskFilter {
         native_instance = ni;
     }
     
-    @UnsupportedAppUsage
     public static TableMaskFilter CreateClipTable(int min, int max) {
         return new TableMaskFilter(nativeNewClip(min, max));
     }

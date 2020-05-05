@@ -13,22 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#pragma once
-
-#include <gui/Surface.h>
-#include <utils/StrongPointer.h>
+#ifndef TESTS_TESTSCENE_H
+#define TESTS_TESTSCENE_H
 
 #include <string>
 #include <unordered_map>
 
 namespace android {
-
-class Canvas;
-
 namespace uirenderer {
 class RenderNode;
+
+#if HWUI_NEW_OPS
 class RecordingCanvas;
+typedef RecordingCanvas TestCanvas;
+#else
+class DisplayListCanvas;
+typedef DisplayListCanvas TestCanvas;
+#endif
 
 namespace test {
 
@@ -37,8 +38,6 @@ public:
     struct Options {
         int count = 0;
         int reportFrametimeWeight = 0;
-        bool renderOffscreen = true;
-        int renderAhead = 0;
     };
 
     template <class T>
@@ -56,8 +55,9 @@ public:
 
     class Registrar {
     public:
-        explicit Registrar(const TestScene::Info& info) { TestScene::registerScene(info); }
-
+        Registrar(const TestScene::Info& info) {
+            TestScene::registerScene(info);
+        }
     private:
         Registrar() = delete;
         Registrar(const Registrar&) = delete;
@@ -65,15 +65,15 @@ public:
     };
 
     virtual ~TestScene() {}
-    virtual void createContent(int width, int height, Canvas& renderer) = 0;
+    virtual void createContent(int width, int height, TestCanvas& renderer) = 0;
     virtual void doFrame(int frameNr) = 0;
 
     static std::unordered_map<std::string, Info>& testMap();
     static void registerScene(const Info& info);
-
-    sp<Surface> renderTarget;
 };
 
-}  // namespace test
-}  // namespace uirenderer
-}  // namespace android
+} // namespace test
+} // namespace uirenderer
+} // namespace android
+
+#endif /* TESTS_TESTSCENE_H */

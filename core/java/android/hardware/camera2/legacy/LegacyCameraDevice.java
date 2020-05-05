@@ -23,7 +23,6 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.impl.CameraDeviceImpl;
 import android.hardware.camera2.impl.CaptureResultExtras;
-import android.hardware.camera2.impl.PhysicalCaptureResultInfo;
 import android.hardware.camera2.ICameraDeviceCallbacks;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.hardware.camera2.utils.ArrayUtils;
@@ -109,11 +108,11 @@ public class LegacyCameraDevice implements AutoCloseable {
         }
         if (holder == null) {
             return new CaptureResultExtras(ILLEGAL_VALUE, ILLEGAL_VALUE, ILLEGAL_VALUE,
-                    ILLEGAL_VALUE, ILLEGAL_VALUE, ILLEGAL_VALUE, ILLEGAL_VALUE, null);
+                    ILLEGAL_VALUE, ILLEGAL_VALUE, ILLEGAL_VALUE, ILLEGAL_VALUE);
         }
         return new CaptureResultExtras(holder.getRequestId(), holder.getSubsequeceId(),
                 /*afTriggerId*/0, /*precaptureTriggerId*/0, holder.getFrameNumber(),
-                /*partialResultCount*/1, errorStreamId, null);
+                /*partialResultCount*/1, errorStreamId);
     }
 
     /**
@@ -224,25 +223,6 @@ public class LegacyCameraDevice implements AutoCloseable {
         }
 
         @Override
-        public void onRequestQueueEmpty() {
-            mResultHandler.post(new Runnable() {
-                @Override
-                public void run() {
-                    if (DEBUG) {
-                        Log.d(TAG, "doing onRequestQueueEmpty callback");
-                    }
-                    try {
-                        mDeviceCallbacks.onRequestQueueEmpty();
-                    } catch (RemoteException e) {
-                        throw new IllegalStateException(
-                                "Received remote exception during onRequestQueueEmpty callback: ",
-                                e);
-                    }
-                }
-            });
-        }
-
-        @Override
         public void onCaptureResult(final CameraMetadataNative result, final RequestHolder holder) {
             final CaptureResultExtras extras = getExtrasFromRequest(holder);
 
@@ -254,8 +234,7 @@ public class LegacyCameraDevice implements AutoCloseable {
                                 holder.getRequestId());
                     }
                     try {
-                        mDeviceCallbacks.onResultReceived(result, extras,
-                                new PhysicalCaptureResultInfo[0]);
+                        mDeviceCallbacks.onResultReceived(result, extras);
                     } catch (RemoteException e) {
                         throw new IllegalStateException(
                                 "Received remote exception during onCameraError callback: ", e);
@@ -265,8 +244,7 @@ public class LegacyCameraDevice implements AutoCloseable {
         }
 
         @Override
-        public void onRepeatingRequestError(final long lastFrameNumber,
-                final int repeatingRequestId) {
+        public void onRepeatingRequestError(final long lastFrameNumber) {
             mResultHandler.post(new Runnable() {
                 @Override
                 public void run() {
@@ -274,8 +252,7 @@ public class LegacyCameraDevice implements AutoCloseable {
                         Log.d(TAG, "doing onRepeatingRequestError callback.");
                     }
                     try {
-                        mDeviceCallbacks.onRepeatingRequestError(lastFrameNumber,
-                                repeatingRequestId);
+                        mDeviceCallbacks.onRepeatingRequestError(lastFrameNumber);
                     } catch (RemoteException e) {
                         throw new IllegalStateException(
                                 "Received remote exception during onRepeatingRequestError " +
@@ -346,25 +323,6 @@ public class LegacyCameraDevice implements AutoCloseable {
      *          on success.
      */
     public int configureOutputs(SparseArray<Surface> outputs) {
-        return configureOutputs(outputs, /*validateSurfacesOnly*/false);
-    }
-
-    /**
-     * Configure the device with a set of output surfaces.
-     *
-     * <p>Using empty or {@code null} {@code outputs} is the same as unconfiguring.</p>
-     *
-     * <p>Every surface in {@code outputs} must be non-{@code null}.</p>
-     *
-     * @param outputs a list of surfaces to set. LegacyCameraDevice will take ownership of this
-     *          list; it must not be modified by the caller once it's passed in.
-     * @param validateSurfacesOnly If set it will only check whether the outputs are supported
-     *                             and avoid any device configuration.
-     * @return an error code for this binder operation, or {@link NO_ERROR}
-     *          on success.
-     * @hide
-     */
-    public int configureOutputs(SparseArray<Surface> outputs, boolean validateSurfacesOnly) {
         List<Pair<Surface, Size>> sizedSurfaces = new ArrayList<>();
         if (outputs != null) {
             int count = outputs.size();
@@ -390,7 +348,9 @@ public class LegacyCameraDevice implements AutoCloseable {
 
                     Size[] sizes = streamConfigurations.getOutputSizes(surfaceType);
                     if (sizes == null) {
-                        if (surfaceType == ImageFormat.PRIVATE) {
+                        // WAR: Override default format to IMPLEMENTATION_DEFINED for b/9487482
+                        if ((surfaceType >= LegacyMetadataMapper.HAL_PIXEL_FORMAT_RGBA_8888 &&
+                            surfaceType <= LegacyMetadataMapper.HAL_PIXEL_FORMAT_BGRA_8888)) {
 
                             // YUV_420_888 is always present in LEGACY for all
                             // IMPLEMENTATION_DEFINED output sizes, and is publicly visible in the
@@ -416,19 +376,13 @@ public class LegacyCameraDevice implements AutoCloseable {
                         sizedSurfaces.add(new Pair<>(output, s));
                     }
                     // Lock down the size before configuration
-                    if (!validateSurfacesOnly) {
-                        setSurfaceDimens(output, s.getWidth(), s.getHeight());
-                    }
+                    setSurfaceDimens(output, s.getWidth(), s.getHeight());
                 } catch (BufferQueueAbandonedException e) {
                     Log.e(TAG, "Surface bufferqueue is abandoned, cannot configure as output: ", e);
                     return BAD_VALUE;
                 }
 
             }
-        }
-
-        if (validateSurfacesOnly) {
-            return LegacyExceptionUtils.NO_ERROR;
         }
 
         boolean success = false;
@@ -695,16 +649,7 @@ public class LegacyCameraDevice implements AutoCloseable {
      */
     public static int detectSurfaceType(Surface surface) throws BufferQueueAbandonedException {
         checkNotNull(surface);
-        int surfaceType = nativeDetectSurfaceType(surface);
-
-        // TODO: remove this override since the default format should be
-        // ImageFormat.PRIVATE. b/9487482
-        if ((surfaceType >= LegacyMetadataMapper.HAL_PIXEL_FORMAT_RGBA_8888 &&
-                surfaceType <= LegacyMetadataMapper.HAL_PIXEL_FORMAT_BGRA_8888)) {
-            surfaceType = ImageFormat.PRIVATE;
-        }
-
-        return LegacyExceptionUtils.throwOnError(surfaceType);
+        return LegacyExceptionUtils.throwOnError(nativeDetectSurfaceType(surface));
     }
 
     /**
@@ -755,7 +700,7 @@ public class LegacyCameraDevice implements AutoCloseable {
         LegacyExceptionUtils.throwOnError(nativeSetSurfaceDimens(surface, width, height));
     }
 
-    public static long getSurfaceId(Surface surface) throws BufferQueueAbandonedException {
+    static long getSurfaceId(Surface surface) throws BufferQueueAbandonedException {
         checkNotNull(surface);
         try {
             return nativeGetSurfaceId(surface);

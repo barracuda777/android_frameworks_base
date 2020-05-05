@@ -47,12 +47,16 @@ public class PseudoGridView extends ViewGroup {
         final int N = a.getIndexCount();
         for (int i = 0; i < N; i++) {
             int attr = a.getIndex(i);
-            if (attr == R.styleable.PseudoGridView_numColumns) {
-                mNumColumns = a.getInt(attr, 3);
-            } else if (attr == R.styleable.PseudoGridView_verticalSpacing) {
-                mVerticalSpacing = a.getDimensionPixelSize(attr, 0);
-            } else if (attr == R.styleable.PseudoGridView_horizontalSpacing) {
-                mHorizontalSpacing = a.getDimensionPixelSize(attr, 0);
+            switch (attr) {
+                case R.styleable.PseudoGridView_numColumns:
+                    mNumColumns = a.getInt(attr, 3);
+                    break;
+                case R.styleable.PseudoGridView_verticalSpacing:
+                    mVerticalSpacing = a.getDimensionPixelSize(attr, 0);
+                    break;
+                case R.styleable.PseudoGridView_horizontalSpacing:
+                    mHorizontalSpacing = a.getDimensionPixelSize(attr, 0);
+                    break;
             }
         }
 

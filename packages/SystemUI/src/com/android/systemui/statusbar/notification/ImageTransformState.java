@@ -25,8 +25,7 @@ import com.android.systemui.Interpolators;
 import com.android.systemui.R;
 import com.android.systemui.statusbar.CrossFadeHelper;
 import com.android.systemui.statusbar.TransformableView;
-import com.android.systemui.statusbar.notification.row.HybridNotificationView;
-import com.android.systemui.statusbar.notification.stack.StackStateAnimator;
+import com.android.systemui.statusbar.stack.StackStateAnimator;
 
 /**
  * A transform state of a image view.
@@ -40,8 +39,8 @@ public class ImageTransformState extends TransformState {
     private Icon mIcon;
 
     @Override
-    public void initFrom(View view, TransformInfo transformInfo) {
-        super.initFrom(view, transformInfo);
+    public void initFrom(View view) {
+        super.initFrom(view);
         if (view instanceof ImageView) {
             mIcon = (Icon) view.getTag(ICON_TAG);
         }
@@ -49,13 +48,10 @@ public class ImageTransformState extends TransformState {
 
     @Override
     protected boolean sameAs(TransformState otherState) {
-        if (super.sameAs(otherState)) {
-            return true;
-        }
         if (otherState instanceof ImageTransformState) {
             return mIcon != null && mIcon.sameAs(((ImageTransformState) otherState).getIcon());
         }
-        return false;
+        return super.sameAs(otherState);
     }
 
     @Override
@@ -117,16 +113,14 @@ public class ImageTransformState extends TransformState {
     }
 
     @Override
-    protected boolean transformScale(TransformState otherState) {
-        return sameAs(otherState);
+    protected boolean transformScale() {
+        return true;
     }
 
     @Override
     public void recycle() {
         super.recycle();
-        if (getClass() == ImageTransformState.class) {
-            sInstancePool.release(this);
-        }
+        sInstancePool.release(this);
     }
 
     @Override

@@ -16,20 +16,13 @@
 
 #pragma once
 
-#include "Matrix.h"
-#include "Rect.h"
 #include "renderthread/RenderThread.h"
 
 #include <SkBitmap.h>
+#include <gui/Surface.h>
 
 namespace android {
-class Bitmap;
-class GraphicBuffer;
-class Surface;
 namespace uirenderer {
-
-class DeferredLayerUpdater;
-class Layer;
 
 // Keep in sync with PixelCopy.java codes
 enum class CopyResult {
@@ -43,25 +36,9 @@ enum class CopyResult {
 
 class Readback {
 public:
-    explicit Readback(renderthread::RenderThread& thread) : mRenderThread(thread) {}
-    /**
-     * Copies the surface's most recently queued buffer into the provided bitmap.
-     */
-    CopyResult copySurfaceInto(Surface& surface, const Rect& srcRect, SkBitmap* bitmap);
-
-    CopyResult copyHWBitmapInto(Bitmap* hwBitmap, SkBitmap* bitmap);
-
-    CopyResult copyLayerInto(DeferredLayerUpdater* layer, SkBitmap* bitmap);
-
-private:
-    CopyResult copyImageInto(const sk_sp<SkImage>& image, Matrix4& texTransform,
-                             const Rect& srcRect, SkBitmap* bitmap);
-
-    bool copyLayerInto(Layer* layer, const SkRect* srcRect, const SkRect* dstRect,
-                       SkBitmap* bitmap);
-
-    renderthread::RenderThread& mRenderThread;
+    static CopyResult copySurfaceInto(renderthread::RenderThread& renderThread,
+            Surface& surface, SkBitmap* bitmap);
 };
 
-}  // namespace uirenderer
-}  // namespace android
+} // namespace uirenderer
+} // namespace android

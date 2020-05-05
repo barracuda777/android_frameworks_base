@@ -16,19 +16,9 @@
 
 package android.net;
 
-import static junit.framework.Assert.assertEquals;
-import static junit.framework.Assert.assertFalse;
-import static junit.framework.Assert.assertTrue;
-
+import android.net.SntpClient;
 import android.util.Log;
-
-import androidx.test.runner.AndroidJUnit4;
-
 import libcore.util.HexEncoding;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -36,9 +26,10 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.util.Arrays;
+import junit.framework.TestCase;
 
-@RunWith(AndroidJUnit4.class)
-public class SntpClientTest {
+
+public class SntpClientTest extends TestCase {
     private static final String TAG = "SntpClientTest";
 
     private static final int ORIGINATE_TIME_OFFSET = 24;
@@ -67,50 +58,36 @@ public class SntpClientTest {
             "d9ca945194bd3fff" +
             "d9ca945194bd4001";
 
-    private SntpTestServer mServer;
-    private SntpClient mClient;
-    private Network mNetwork;
+    private final SntpTestServer mServer = new SntpTestServer();
+    private final SntpClient mClient = new SntpClient();
 
-    @Before
-    public void setUp() throws Exception {
-        // NETID_UNSET allows the test to run, with a loopback server, even w/o external networking
-        mNetwork = new Network(ConnectivityManager.NETID_UNSET);
-        mServer = new SntpTestServer();
-        mClient = new SntpClient();
-    }
-
-    @Test
     public void testBasicWorkingSntpClientQuery() throws Exception {
         mServer.setServerReply(HexEncoding.decode(WORKING_VERSION4.toCharArray(), false));
-        assertTrue(mClient.requestTime(mServer.getAddress(), mServer.getPort(), 500, mNetwork));
+        assertTrue(mClient.requestTime(mServer.getAddress(), mServer.getPort(), 500));
         assertEquals(1, mServer.numRequestsReceived());
         assertEquals(1, mServer.numRepliesSent());
     }
 
-    @Test
     public void testDnsResolutionFailure() throws Exception {
-        assertFalse(mClient.requestTime("ntp.server.doesnotexist.example", 5000, mNetwork));
+        assertFalse(mClient.requestTime("ntp.server.doesnotexist.example", 5000));
     }
 
-    @Test
     public void testTimeoutFailure() throws Exception {
         mServer.clearServerReply();
-        assertFalse(mClient.requestTime(mServer.getAddress(), mServer.getPort(), 500, mNetwork));
+        assertFalse(mClient.requestTime(mServer.getAddress(), mServer.getPort(), 500));
         assertEquals(1, mServer.numRequestsReceived());
         assertEquals(0, mServer.numRepliesSent());
     }
 
-    @Test
     public void testIgnoreLeapNoSync() throws Exception {
         final byte[] reply = HexEncoding.decode(WORKING_VERSION4.toCharArray(), false);
         reply[0] |= (byte) 0xc0;
         mServer.setServerReply(reply);
-        assertFalse(mClient.requestTime(mServer.getAddress(), mServer.getPort(), 500, mNetwork));
+        assertFalse(mClient.requestTime(mServer.getAddress(), mServer.getPort(), 500));
         assertEquals(1, mServer.numRequestsReceived());
         assertEquals(1, mServer.numRepliesSent());
     }
 
-    @Test
     public void testAcceptOnlyServerAndBroadcastModes() throws Exception {
         final byte[] reply = HexEncoding.decode(WORKING_VERSION4.toCharArray(), false);
         for (int i = 0; i <= 7; i++) {
@@ -118,8 +95,7 @@ public class SntpClientTest {
             reply[0] &= (byte) 0xf8;
             reply[0] |= (byte) i;
             mServer.setServerReply(reply);
-            final boolean rval = mClient.requestTime(mServer.getAddress(), mServer.getPort(), 500,
-                    mNetwork);
+            final boolean rval = mClient.requestTime(mServer.getAddress(), mServer.getPort(), 500);
             switch (i) {
                 case NTP_MODE_SERVER:
                 case NTP_MODE_BROADCAST:
@@ -134,7 +110,6 @@ public class SntpClientTest {
         }
     }
 
-    @Test
     public void testAcceptableStrataOnly() throws Exception {
         final int STRATUM_MIN = 1;
         final int STRATUM_MAX = 15;
@@ -144,8 +119,7 @@ public class SntpClientTest {
             final String logMsg = "stratum: " + i;
             reply[1] = (byte) i;
             mServer.setServerReply(reply);
-            final boolean rval = mClient.requestTime(mServer.getAddress(), mServer.getPort(), 500,
-                    mNetwork);
+            final boolean rval = mClient.requestTime(mServer.getAddress(), mServer.getPort(), 500);
             if (STRATUM_MIN <= i && i <= STRATUM_MAX) {
                 assertTrue(logMsg, rval);
             } else {
@@ -156,12 +130,11 @@ public class SntpClientTest {
         }
     }
 
-    @Test
     public void testZeroTransmitTime() throws Exception {
         final byte[] reply = HexEncoding.decode(WORKING_VERSION4.toCharArray(), false);
         Arrays.fill(reply, TRANSMIT_TIME_OFFSET, TRANSMIT_TIME_OFFSET + 8, (byte) 0x00);
         mServer.setServerReply(reply);
-        assertFalse(mClient.requestTime(mServer.getAddress(), mServer.getPort(), 500, mNetwork));
+        assertFalse(mClient.requestTime(mServer.getAddress(), mServer.getPort(), 500));
         assertEquals(1, mServer.numRequestsReceived());
         assertEquals(1, mServer.numRepliesSent());
     }

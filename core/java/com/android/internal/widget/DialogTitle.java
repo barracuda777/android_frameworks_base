@@ -16,7 +16,6 @@
 
 package com.android.internal.widget;
 
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.text.Layout;
@@ -38,7 +37,6 @@ public class DialogTitle extends TextView {
         super(context, attrs, defStyleAttr);
     }
 
-    @UnsupportedAppUsage
     public DialogTitle(Context context, AttributeSet attrs) {
         super(context, attrs);
     }

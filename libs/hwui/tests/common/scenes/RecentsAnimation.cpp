@@ -20,35 +20,37 @@
 class RecentsAnimation;
 
 static TestScene::Registrar _Recents(TestScene::Info{
-        "recents",
-        "A recents-like scrolling list of textures. "
-        "Consists of updating a texture every frame",
-        TestScene::simpleCreateScene<RecentsAnimation>});
+    "recents",
+    "A recents-like scrolling list of textures. "
+    "Consists of updating a texture every frame",
+    TestScene::simpleCreateScene<RecentsAnimation>
+});
 
 class RecentsAnimation : public TestScene {
 public:
-    void createContent(int width, int height, Canvas& renderer) override {
+    void createContent(int width, int height, TestCanvas& renderer) override {
         static SkColor COLORS[] = {
-                Color::Red_500, Color::Purple_500, Color::Blue_500, Color::Green_500,
+                Color::Red_500,
+                Color::Purple_500,
+                Color::Blue_500,
+                Color::Green_500,
         };
 
         thumbnailSize = std::min(std::min(width, height) / 2, 720);
         int cardsize = std::min(width, height) - dp(64);
 
-        renderer.drawColor(Color::White, SkBlendMode::kSrcOver);
+        renderer.drawColor(Color::White, SkXfermode::kSrcOver_Mode);
         renderer.insertReorderBarrier(true);
 
         int x = dp(32);
         for (int i = 0; i < 4; i++) {
             int y = (height / 4) * i;
-            SkBitmap bitmap;
-            sk_sp<Bitmap> thumb(TestUtils::createBitmap(thumbnailSize, thumbnailSize, &bitmap));
-
-            bitmap.eraseColor(COLORS[i]);
-            sp<RenderNode> card = createCard(x, y, cardsize, cardsize, *thumb);
+            SkBitmap thumb = TestUtils::createSkBitmap(thumbnailSize, thumbnailSize);
+            thumb.eraseColor(COLORS[i]);
+            sp<RenderNode> card = createCard(x, y, cardsize, cardsize, thumb);
             card->mutateStagingProperties().setElevation(i * dp(8));
             renderer.drawRenderNode(card.get());
-            mThumbnail = bitmap;
+            mThumbnail = thumb;
             mCards.push_back(card);
         }
 
@@ -61,26 +63,26 @@ public:
             mCards[ci]->mutateStagingProperties().setTranslationY(curFrame);
             mCards[ci]->setPropertyFieldsDirty(RenderNode::Y);
         }
-        mThumbnail.eraseColor(TestUtils::interpolateColor(curFrame / 150.0f, Color::Green_500,
-                                                          Color::DeepOrange_500));
+        mThumbnail.eraseColor(TestUtils::interpolateColor(
+                curFrame / 150.0f, Color::Green_500, Color::DeepOrange_500));
     }
 
 private:
-    sp<RenderNode> createCard(int x, int y, int width, int height, Bitmap& thumb) {
-        return TestUtils::createNode(
-                x, y, x + width, y + height,
-                [&thumb, width, height](RenderProperties& props, Canvas& canvas) {
-                    props.setElevation(dp(16));
-                    props.mutableOutline().setRoundRect(0, 0, width, height, dp(10), 1);
-                    props.mutableOutline().setShouldClip(true);
+    sp<RenderNode> createCard(int x, int y, int width, int height,
+            const SkBitmap& thumb) {
+        return TestUtils::createNode(x, y, x + width, y + height,
+                [&thumb, width, height](RenderProperties& props, TestCanvas& canvas) {
+            props.setElevation(dp(16));
+            props.mutableOutline().setRoundRect(0, 0, width, height, dp(10), 1);
+            props.mutableOutline().setShouldClip(true);
 
-                    canvas.drawColor(Color::Grey_200, SkBlendMode::kSrcOver);
-                    canvas.drawBitmap(thumb, 0, 0, thumb.width(), thumb.height(), 0, 0, width,
-                                      height, nullptr);
-                });
+            canvas.drawColor(Color::Grey_200, SkXfermode::kSrcOver_Mode);
+            canvas.drawBitmap(thumb, 0, 0, thumb.width(), thumb.height(),
+                    0, 0, width, height, nullptr);
+        });
     }
 
     SkBitmap mThumbnail;
-    std::vector<sp<RenderNode> > mCards;
+    std::vector< sp<RenderNode> > mCards;
     int thumbnailSize;
 };

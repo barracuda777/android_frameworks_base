@@ -39,7 +39,7 @@ using android::Surface;
 
 class NativeWindowHandle : public WindowHandle {
   public:
-    explicit NativeWindowHandle(ANativeWindow* window) : window_(window) {
+    NativeWindowHandle(ANativeWindow* window) : window_(window) {
     }
 
     virtual ~NativeWindowHandle() {
@@ -63,8 +63,7 @@ class NativeWindowHandle : public WindowHandle {
 };
 
 jboolean Java_android_filterfw_core_GLEnvironment_nativeAllocate(JNIEnv* env, jobject thiz) {
-  std::unique_ptr<GLEnv> glEnv(new GLEnv());
-  return ToJBool(WrapOwnedObjectInJava(std::move(glEnv), env, thiz, true));
+  return ToJBool(WrapObjectInJava(new GLEnv(), env, thiz, true));
 }
 
 jboolean Java_android_filterfw_core_GLEnvironment_nativeDeallocate(JNIEnv* env, jobject thiz) {

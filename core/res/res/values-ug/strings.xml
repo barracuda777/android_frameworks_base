@@ -20,10 +20,13 @@
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="byteShort">B</string>
+    <string name="kilobyteShort">KB</string>
     <string name="megabyteShort">MB</string>
     <string name="gigabyteShort">GB</string>
     <string name="terabyteShort">TB</string>
     <string name="petabyteShort">PB</string>
+    <string name="fileSizeSuffix"><xliff:g id="NUMBER">%1$s</xliff:g> <xliff:g id="UNIT">%2$s</xliff:g></string>
+    <string name="durationDays"><xliff:g id="days">%1$d</xliff:g> كۈن</string>
     <string name="untitled">&lt;ماۋزۇسىز&gt;</string>
     <string name="emptyPhoneNumber">(تېلېفون نومۇرى يوق)</string>
     <string name="defaultVoiceMailAlphaTag">ئۈنخەت</string>
@@ -66,7 +69,14 @@
     <string name="CLIRDefaultOffNextCallOff">كۆڭۈلدىكى ئەھۋالدا يەرلىك نومۇرنى كۆرسىتىدۇ كېيىنكى قېتىملىق سۆزلىشىشتىمۇ كۆرسىتىدۇ.</string>
     <string name="serviceNotProvisioned">مۇلازىمەت تەمىنلەنمىگەن</string>
     <string name="CLIRPermanent">چاقىرغۇچى كىملىك تەڭشىكىنى ئۆزگەرتەلمەيسىز</string>
-    <string name="notification_channel_call_forward">كەلگەن تېلېفوننى ئۇلاپ يەتكۈزۈش</string>
+    <string name="RestrictedOnData">سانلىق مەلۇمات مۇلازىمىتى چەكلەندى.</string>
+    <string name="RestrictedOnEmergency">جىددىي مۇلازىمەت چەكلەندى.</string>
+    <string name="RestrictedOnNormal">ئاۋاز مۇلازىمىتى چەكلەندى.</string>
+    <string name="RestrictedOnAllVoice">بارلىق ئاۋاز مۇلازىمىتى چەكلەندى.</string>
+    <string name="RestrictedOnSms">قىسقا ئۇچۇر مۇلازىمىتى توختىتىلدى.</string>
+    <string name="RestrictedOnVoiceData">ئاۋاز/سانلىق مەلۇمات مۇلازىمىتى توختىتىلدى.</string>
+    <string name="RestrictedOnVoiceSms">ئاۋاز/قىسقا ئۇچۇر مۇلازىمىتى توختىتىلدى.</string>
+    <string name="RestrictedOnAll">بارلىق ئاۋاز/سانلىق مەلۇمات/قىسقا ئۇچۇر مۇلازىمىتى توختىتىلدى.</string>
     <string name="serviceClassVoice">ئاۋاز</string>
     <string name="serviceClassData">سانلىق مەلۇمات</string>
     <string name="serviceClassFAX">فاكس</string>
@@ -89,7 +99,6 @@
     <string name="roamingText11">كەزمە لەۋھە ئوچۇق</string>
     <string name="roamingText12">كەزمە لەۋھە تاقاق</string>
     <string name="roamingTextSearching">مۇلازىمەت ئىزدەۋاتىدۇ</string>
-    <string name="wfcSpnFormat_wifi">Wi-Fi</string>
     <string name="cfTemplateNotForwarded"><xliff:g id="BEARER_SERVICE_CODE">{0}</xliff:g>:ئۇلاپ يۆتكىيەلمىدى</string>
     <string name="cfTemplateForwarded"><xliff:g id="BEARER_SERVICE_CODE">{0}</xliff:g>：<xliff:g id="DIALING_NUMBER">{1}</xliff:g></string>
     <string name="cfTemplateForwardedTime"><xliff:g id="BEARER_SERVICE_CODE">{0}</xliff:g>: <xliff:g id="DIALING_NUMBER">{1}</xliff:g> دىن <xliff:g id="TIME_DELAY">{2}</xliff:g> سېكۇنت كېيىن</string>
@@ -115,6 +124,8 @@
     <string name="httpErrorTooManyRequests">بىر تەرەپ قىلىۋاتقان ئىلتىماس بەك كۆپ. سەل تۇرۇپ قايتا سىناڭ.</string>
     <string name="notification_title"><xliff:g id="ACCOUNT">%1$s</xliff:g> نىڭ تىزىمغا كىرىش خاتالىقى</string>
     <string name="contentServiceSync">قەدەمداش</string>
+    <string name="contentServiceSyncNotificationTitle">قەدەمداش</string>
+    <string name="contentServiceTooManyDeletesNotificationDesc">نۇرغۇن <xliff:g id="CONTENT_TYPE">%s</xliff:g> ئۆچۈرۈش.</string>
     <string name="low_memory" product="tablet">تاختا كومپيۇتېر ساقلىغۇچىسى توشتى. بەزى ھۆججەتلەرنى ئۆچۈرۈپ بوشلۇق بىكارلاڭ.</string>
     <string name="low_memory" product="default">تېلېفون ساقلىغۇچىسى توشتى. بەزى ھۆججەتلەرنى ئۆچۈرۈپ بوشلۇق بىكارلاڭ.</string>
     <string name="ssl_ca_cert_noti_by_unknown">يوچۇن ئۈچىنچى تەرەپنىڭ نازارىتىدە</string>
@@ -143,7 +154,7 @@
     <string name="global_action_lock">ئېكران قۇلۇپلا</string>
     <string name="global_action_power_off">تاقا</string>
     <string name="global_action_bug_report">خاتالىق دوكلاتى</string>
-    <string name="bugreport_title">خاتالىق دوكلاتى</string>
+    <string name="bugreport_title">خاتالىق دوكلاتى يوللاش</string>
     <string name="bugreport_message">نۆۋەتتىكى ئۈسكۈنىڭىزنىڭ ھالىتىگە ئائىت ئۇچۇرلارنى توپلاپ، تورخەت ئۇچۇرى يوللايدۇ. يوللاشقا لازىملىق خاتالىق دوكلاتىنى قوزغىتىپ تەييارلاشقا بىر ئاز ۋاقىت كېتىشى مۇمكىن. سەۋرىچانلىق بىلەن كۈتۈڭ.</string>
     <string name="global_action_toggle_silent_mode">ئۈنسىز ھالەت</string>
     <string name="global_action_silent_mode_on_status">ئاۋاز تاقاق</string>
@@ -156,14 +167,18 @@
     <string name="android_system_label">Android سىستېما</string>
     <string name="permgrouplab_calendar">يىلنامە</string>
     <string name="permgrouplab_sms">قىسقا ئۇچۇر</string>
+    <string name="permgroupdesc_sms">قىسقا ئۇچۇر</string>
     <string name="permgrouplab_storage">ساقلىغۇچ</string>
     <string name="permgrouplab_microphone">مىكروفون</string>
     <string name="permgroupdesc_microphone">ئاۋاز ئېلىش</string>
     <string name="permgrouplab_camera">كامېرا</string>
     <string name="permgrouplab_phone">تېلېفون</string>
+    <string name="permgroupdesc_phone">تېلېفون</string>
     <string name="capability_title_canRetrieveWindowContent">كۆزنەك مەزمۇنىنى ئىزدەيدۇ</string>
     <string name="capability_desc_canRetrieveWindowContent">سىز ئۆزئارا تەسىرلىشىۋاتقان كۆزنەكنىڭ مەزمۇنىنى تەكشۈرىدۇ.</string>
     <string name="capability_title_canRequestTouchExploration">چېكىلگەندىكى كۆرگۈنى قوزغىتىدۇ</string>
+    <string name="capability_title_canRequestEnhancedWebAccessibility">تور بەت قوشۇمچە كۈچەيتىلگەن ئىقتىدارنى ئاچ</string>
+    <string name="capability_desc_canRequestEnhancedWebAccessibility">ئەپ مەزمۇنىنى زىيارەت قىلىشقا قولايلىق بولۇشى ئۈچۈن قوليازما ئورنىتىدۇ.</string>
     <string name="capability_title_canRequestFilterKeyEvents">كىرگۈزگەن تېكىستىڭىزنى كۆزىتىدۇ</string>
     <string name="capability_desc_canRequestFilterKeyEvents">ئىناۋەتلىك كارتا نومۇرى ۋە ئىمغا ئوخشاش شەخسىي ئۇچۇرلارنىمۇ ئۆز ئىچىگە ئالىدۇ.</string>
     <string name="permlab_statusBar">ھالەت بالداقنى چەكلەش ياكى ئۆزگەرتىش.</string>
@@ -184,8 +199,10 @@
     <string name="permlab_readCellBroadcasts">ئىجتىمائى رايون تارقاتقان ئۇچۇرلارنى ئوقۇيدۇ</string>
     <string name="permlab_subscribedFeedsRead">مۇشتەرى بولغان خەۋەر بېتىنى ئوقۇيدۇ</string>
     <string name="permdesc_subscribedFeedsRead">ئەپنىڭ نۆۋەتتە قەدەمداشلانغان خەۋەر بېتىگە مۇناسىۋەتلىك تەپسىلىي ئۇچۇرىنى ئوقۇشىغا يول قويىدۇ.</string>
+    <string name="permlab_sendSms">قىسقا ئۇچۇر يوللايدۇ</string>
     <string name="permdesc_sendSms">ئەپنىڭ  ئۇچۇر يوللىشىغا يول قويىدۇ. زەھەرخەندە ئەپلەر رۇخسىتىڭىزسىز ئۇچۇر يوللاپ، سىزنى چىقىم قىلدۇرىدۇ.</string>
-    <string name="permlab_readSms">تېكىست ئۇچۇرىڭىزنى ئوقۇيدۇ (قىسقا ئۇچۇر ياكى كۆپ ۋاستە ئۇچۇر)</string>
+    <string name="permdesc_readSms" product="tablet">ئەپنىڭ  تاختا كومپيۇتېر ياكى SIM كارتىدىكى ئۇچۇرلارنى ئۇقۇشىغا يول قويىدۇ. بۇ ھوقۇق ئارقىلىق ئەپ بارلىق قىسقا ئۇچۇرلارنى ئوقۇۋالالايدۇ، قىسقا ئۇچۇر مەزمۇنى ياكى مەخپىيەتلىكنى ئويلاشمايدۇ.</string>
+    <string name="permdesc_readSms" product="default">ئەپنىڭ  تېلېفون ياكى SIM كارتىدىكى ئۇچۇرلارنى ئۇقۇشىغا يول قويىدۇ. بۇ ھوقۇق ئارقىلىق ئەپ بارلىق قىسقا ئۇچۇرلارنى ئوقۇۋالالايدۇ، قىسقا ئۇچۇر مەزمۇنى ياكى مەخپىيەتلىكنى ئويلاشمايدۇ.</string>
     <string name="permlab_receiveWapPush">تېكىست ئۇچۇر قوبۇللايدۇ (WAP)</string>
     <string name="permdesc_receiveWapPush">ئەپنىڭ WAP ئۇچۇر قۇبۇل قىلىشى ۋە بىر تەرەپ قىلىشىغا يول قويىدۇ. بۇ ئىقتىداردا ئەپلەر ئۇچۇرلىرىڭىزنى نازارەت قىلىشى ياكى سىزگە كۆرسەتمەي ئۆچۈرۈۋېتىشى مۇمكىن.</string>
     <string name="permlab_getTasks">ئىجرا قىلىنىۋاتقان ئەپلەرنى ئىزدەيدۇ</string>
@@ -196,6 +213,8 @@
     <string name="permdesc_enableCarMode">ئەپنىڭ ماشىنىدا يۈرۈش ھالىتىنى قوزغىتىشىغا يول قويىدۇ.</string>
     <string name="permlab_killBackgroundProcesses">باشقا ئەپلەرنى تاقايدۇ</string>
     <string name="permdesc_killBackgroundProcesses">ئەپنىڭ ئارقا سۇپىدا ئىجرا قىلىنىۋاتقان باشقا ئەپلەرنى ئاخىرلاشتۇرۇشىغا يول قويىدۇ. بۇ ھوقۇق باشقا ئەپلەرنىڭ ئىجرا قىلىنىشىنى توختىتىشنى كەلتۈرۈپ چىقىرىدۇ.</string>
+    <string name="permlab_systemAlertWindow">باشقا ئەپلەرنىڭ ئۈستىدە كۆرسىتىدىغان مەزمۇن</string>
+    <string name="permdesc_systemAlertWindow">بۇ ئەپنىڭ باشقا ئەپنىڭ ئۈستىدە ياكى ئىشلەتكۈچى ئارايۈزىنىڭ مۇئەييەن بۆلىكىگە سىزىشىغا يول قويىدۇ. بۇنداق بولغاندا بارلىق ئەپلەرنىڭ ئارايۈزىگە كاشىلا قىلىشى ياكى سىز باشقا ئەپلەردە كۆرگەن مەزمۇن ئۆزگىرىپ كېتىشى مۇمكىن.</string>
     <string name="permlab_persistentActivity">ئەپنى ھەمىشە ئىجرا قىلدۇرىدۇ</string>
     <string name="permdesc_persistentActivity" product="tablet">ئەپنىڭ مەلۇم بۆلىكىنىڭ ئەسلەكتە داۋاملىق ئىجرا قىلىنىشىغا يول قويىدۇ. بۇنداق بولغاندا باشقا ئەپلەر ئىشلىتىدىغان ئەسلەكنى چەكلەپ، تاختا كومپيۇتېرنىڭ ئىجرا قىلىش سۈرئىتىنى ئاستىلىتىۋېتىدۇ.</string>
     <string name="permdesc_persistentActivity" product="default">ئەپنىڭ مەلۇم بۆلىكىنىڭ ئەسلەكتە داۋاملىق ئىجرا قىلىنىشىغا يول قويىدۇ. بۇنداق بولغاندا باشقا ئەپلەر ئىشلىتىدىغان ئەسلەكنى چەكلەپ، تېلېفوننىڭ ئىجرا قىلىش سۈرئىتىنى ئاستىلىتىۋېتىدۇ.</string>
@@ -212,22 +231,28 @@
     <string name="permlab_readContacts">ئالاقەداشلىرىڭىزنى ئوقۇيدۇ</string>
     <string name="permdesc_readContacts" product="tablet">ئەپنىڭ تاختا كومپيۇتېردا ساقلانغان ئالاقەداشلىرىڭىزنىڭ مۇناسىۋەتلىك ئۇچۇرلىرىنى ئوقۇشىغا يول قويىدۇ، تېلېفون، تورخەت ياكى باشقا ئۇسۇلدا مەلۇم كىشى بىلەن ئالاقە قىلىش چاستوتىڭىزنىمۇ ئۆز ئىچىگە ئالىدۇ. بۇ ھوقۇق ئارقىلىق ئەپلەر ئالاقەداشلىرىڭىزنىڭ سانلىق مەلۇماتىنى ساقلىيالايدۇ، زەھەرخەندە ئەپلەر سىز بىخەۋەر ھالدا ئالاقەداش سانلىق مەلۇماتلىرىڭىزنى ھەمبەھىر قىلىۋېتىشى مۇمكىن.\"</string>
     <string name="permdesc_readContacts" product="default">ئەپنىڭ تېلېفوندا ساقلانغان ئالاقەداشلىرىڭىزنىڭ مۇناسىۋەتلىك ئۇچۇرلىرىنى ئوقۇشىغا يول قويىدۇ، تېلېفون، تورخەت ياكى باشقا ئۇسۇلدا مەلۇم كىشى بىلەن ئالاقە قىلىش چاستوتىڭىزنىمۇ ئۆز ئىچىگە ئالىدۇ. بۇ ھوقۇق ئارقىلىق ئەپلەر ئالاقەداشلىرىڭىزنىڭ سانلىق مەلۇماتىنى ساقلىيالايدۇ، زەھەرخەندە ئەپلەر سىز بىخەۋەر ھالدا ئالاقەداش سانلىق مەلۇماتلىرىڭىزنى ھەمبەھىر قىلىۋېتىشى مۇمكىن.</string>
-    <string name="permlab_writeContacts">ئالاقەداشلىرىڭىزنى تەھرىرلەيدۇ</string>
     <string name="permdesc_writeContacts" product="tablet">ئەپنىڭ تاختا كومپيۇتېردا ساقلانغان ئالاقەداشلىرىڭىزنىڭ مۇناسىۋەتلىك ئۇچۇرلىرىنى ئۆزگەرتىشىگە يول قويىدۇ، تېلېفون، تورخەت ياكى باشقا ئۇسۇلدا مەلۇم كىشى بىلەن ئالاقە قىلىش چاستوتىڭىزنىمۇ ئۆز ئىچىگە ئالىدۇ. بۇ ھوقۇق ئارقىلىق ئەپلەر ئالاقەداشلىرىڭىزنىڭ سانلىق مەلۇماتىنى ئۆچۈرۈۋېتەلەيدۇ.</string>
     <string name="permdesc_writeContacts" product="default">ئەپنىڭ تېلېفوندا ساقلانغان ئالاقەداشلىرىڭىزنىڭ مۇناسىۋەتلىك ئۇچۇرلىرىنى ئۆزگەرتىشىگە يول قويىدۇ، تېلېفون، تورخەت ياكى باشقا ئۇسۇلدا مەلۇم كىشى بىلەن ئالاقە قىلىش چاستوتىڭىزنىمۇ ئۆز ئىچىگە ئالىدۇ. بۇ ھوقۇق ئارقىلىق ئەپلەر ئالاقەداشلىرىڭىزنىڭ سانلىق مەلۇماتىنى ئۆچۈرۈۋېتەلەيدۇ.</string>
     <string name="permlab_readCallLog">چاقىرىش خاتىرىسىنى ئوقۇيدۇ</string>
-    <string name="permlab_writeCallLog">چاقىرىش خاتىرىسىنى يازىدۇ</string>
+    <string name="permdesc_readCallLog" product="tablet">ئەپنىڭ تاختا كومپيۇتېردا ساقلانغان چاقىرىش خاتىرىسىنى ئوقۇشىغا يول قويىدۇ، چاقىرغان ۋە چاقىرىلغان تېلېفون ئۇچۇرلىرىنىمۇ ئۆز ئىچىگە ئالىدۇ. بۇ ھوقۇق ئارقىلىق ئەپلەر چاقىرىش خاتىرىسى سانلىق مەلۇماتىنى ساقلىيالايدۇ، زەھەرخەندە ئەپلەر سىز بىخەۋەر ھالدا چاقىرىش خاتىرە سانلىق مەلۇماتلىرىڭىزنى ھەمبەھىر قىلىۋېتىشى مۇمكىن.</string>
+    <string name="permdesc_readCallLog" product="default">ئەپنىڭ تېلېفوندا ساقلانغان چاقىرىش خاتىرىسىنى ئوقۇشىغا يول قويىدۇ، چاقىرغان ۋە چاقىرىلغان تېلېفون ئۇچۇرلىرىنىمۇ ئۆز ئىچىگە ئالىدۇ. بۇ ھوقۇق ئارقىلىق ئەپلەر چاقىرىش خاتىرىسى سانلىق مەلۇماتىنى ساقلىيالايدۇ، زەھەرخەندە ئەپلەر سىز بىخەۋەر ھالدا چاقىرىش خاتىرە سانلىق مەلۇماتلىرىڭىزنى ھەمبەھىر قىلىۋېتىشى مۇمكىن.</string>
     <string name="permdesc_writeCallLog" product="tablet">ئەپنىڭ تاختا كومپيۇتېردا ساقلانغان چاقىرىش خاتىرىسىنى ئۆزگەرتىشىگە يول قويىدۇ، چاقىرغان ۋە چاقىرىلغان تېلېفون ئۇچۇرلىرىنىمۇ ئۆز ئىچىگە ئالىدۇ. زەھەرخەندە ئەپلەر سىز بىخەۋەر ھالدا چاقىرىش خاتىرە سانلىق مەلۇماتلىرىڭىزنى ئۆزگەرتىۋېتىشى مۇمكىن.</string>
     <string name="permdesc_writeCallLog" product="default">ئەپنىڭ تېلېفوندا ساقلانغان چاقىرىش خاتىرىسىنى ئۆزگەرتىشىگە يول قويىدۇ، چاقىرغان ۋە چاقىرىلغان تېلېفون ئۇچۇرلىرىنىمۇ ئۆز ئىچىگە ئالىدۇ. زەھەرخەندە ئەپلەر سىز بىخەۋەر ھالدا چاقىرىش خاتىرە سانلىق مەلۇماتلىرىڭىزنى ئۆزگەرتىۋېتىشى مۇمكىن.</string>
+    <string name="permlab_readCalendar">يىلنامەدىكى پائالىيەت ۋە مەخپىي ئۇچۇرلارنى ئوقۇيدۇ</string>
+    <string name="permdesc_readCalendar" product="tablet">ئەپنىڭ  تاختا كومپيۇتېردا ساقلانغان يىلنامەدىكى پائالىيەت ئۇچۇرلىرىنى ئۇقۇشىغا يول قويىدۇ، دوست ياكى ئىشداشلىرىڭىزنىڭ پائالىيەتلىرىنىمۇ ئۆز ئىچىگە ئالىدۇ. بۇ ھوقۇق ئارقىلىق ئەپ يىنامە سانلىق مەلۇماتلىرىڭىزنى ھەمبەھىرلەپ ياكى ساقلىيالايدۇ، بۇ ئۇچۇرلار مەزمۇنى ياكى مەخپىيەتلىكنى ئويلاشمايدۇ.</string>
+    <string name="permdesc_readCalendar" product="default">ئەپنىڭ  تېلېفوندا ساقلانغان يىلنامەدىكى پائالىيەت ئۇچۇرلىرىنى ئۇقۇشىغا يول قويىدۇ، دوست ياكى ئىشداشلىرىڭىزنىڭ پائالىيەتلىرىنىمۇ ئۆز ئىچىگە ئالىدۇ. بۇ ھوقۇق ئارقىلىق ئەپ يىنامە سانلىق مەلۇماتلىرىڭىزنى ھەمبەھىرلەپ ياكى ساقلىيالايدۇ، بۇ ئۇچۇرلار مەزمۇنى ياكى مەخپىيەتلىكنى ئويلاشمايدۇ.</string>
     <string name="permlab_writeCalendar">يىلنامەدىكى پائالىيەتلىرىڭىزنى قوشۇپ ئۆزگەرتىدۇ ھەمدە ئىگىسى خەۋەرسىز ئەھۋالدا قارشى تەرەپنىڭ تورخەت يوللىشىنى ئىلتىماس قىلىدۇ.</string>
     <string name="permlab_accessLocationExtraCommands">زىيادە ئورۇن ئۇچۇرىغا ئېرىشىش پىروگرامما بۇيرۇق زىيارىتى</string>
+    <string name="permdesc_accessFineLocation">ئەپنىڭ يەرشارى ئورۇن بەلگىلەش سىستېمىسى (GPS) ياكى تارقىتىش مۇنارى ۋە Wi-Fi غا ئوخشاش تور ئورنى ئۇچۇر مەنبەسى ئارقىلىق دەل ئورنىڭىزنىڭ ئۇچۇرىغا ئېرىشىشىگە يول قويىدۇ. ئۈسكۈنىدە ئورۇن مۇلازىمىتىنى قوزغاتسىڭىز ئاندىن ئەپ سىزنىڭ ئورۇن ئۇچۇرىڭىزغا ئېرىشەلەيدۇ. ئەپ بۇ خىل مۇلازىمەت ئارقىلىق دەل ئورنىڭىزنى جەزملەيدۇ، بۇنداق بولغاندا ئەپ تېخىمۇ كۆپ توك سەرپ قىلىشى مۇمكىن.</string>
+    <string name="permdesc_accessCoarseLocation">ئەپنىڭ تارقىتىش مۇنارى ۋە Wi-Fi غا ئوخشاش تور ئورنى ئۇچۇر مەنبەسى ئارقىلىق تەخمىنىي ئورنىڭىزنىڭ ئۇچۇرىغا ئېرىشىشىگە يول قويىدۇ. ئۈسكۈنىدە ئورۇن مۇلازىمىتىنى قوزغاتسىڭىز ئاندىن ئەپ سىزنىڭ ئورۇن ئۇچۇرىڭىزغا ئېرىشەلەيدۇ. ئەپ بۇ خىل مۇلازىمەت ئارقىلىق تەخمىنىي ئورنىڭىزنى جەزملەيدۇ، بۇنداق بولغاندا ئەپ تېخىمۇ كۆپ توك سەرپ قىلىشى مۇمكىن.</string>
     <string name="permlab_modifyAudioSettings">ئاۋاز تەڭشىكىنى ئۆزگەرتىدۇ</string>
     <string name="permdesc_modifyAudioSettings">ئەپنىڭ سىستېمىنىڭ ئاۋاز كۈچى، ئاۋاز چىقىرىدىغان ياڭراتقۇ قاتارلىق بارلىق ئومۇمىيەت ئاۋاز تەڭشىكىنى ئۆزگەرتىشىگە يول قويىدۇ.</string>
     <string name="permlab_recordAudio">ئاۋاز ئېلىش</string>
+    <string name="permdesc_recordAudio">ئەپنىڭ مىكروفون ئارقىلىق ئاۋاز ئېلىشىغا يول قويىدۇ. بۇ ھوقۇق ئارقىلىق ئەپ سىز جەزملىمەي تۇرۇپلا خالىغان ۋاقىتتا ئاۋاز ئالالايدۇ.</string>
     <string name="permlab_camera">رەسىم تارتىپ ۋە سىنغا ئالىدۇ</string>
+    <string name="permdesc_camera">ئەپنىڭ كامېرا ئارقىلىق رەسىم تارتىشى ۋە سىنغا ئېلىشىغا يول قويىدۇ. بۇ ھوقۇق ئارقىلىق ئەپ سىز جەزملىمەي تۇرۇپلا خالىغان ۋاقىتتا كامېرانى ئىشلىتەلەيدۇ.</string>
     <string name="permlab_vibrate">تىترەتكۈچ تىزگىنى</string>
     <string name="permdesc_vibrate">ئەپنىڭ تىترەتكۈچنى باشقۇرۇشىغا يول قويىدۇ.</string>
-    <string name="permlab_callPhone">تېلېفون نۇمۇرىنى بىۋاستە بۇرايدۇ</string>
     <string name="permdesc_callPhone">ئەپنىڭ سىزنىڭ ۋاسىتىڭىزسىز تېلېفون ئۇرۇشىغا يول قويىدۇ. بۇ ھوقۇق ئارقىلىق ئەپ تېلېفون ئۇرۇشى ياكى تېلېفون ھەققىڭىزنى ئاشۇرۇۋېتىشى مۇمكىن. دىققەت: بۇ ھوقۇق پىروگراممىنىڭ جىددى قۇتقۇزۇش تېلېفۇنى ئۇرۇشىغا رۇخسەت قىلمايدۇ. زەھەرخەندە ئەپلەر سىز جەزملىمەي تۇرۇپمۇ تېلېفون ئۇرۇش ئارقىلىق مۇناسىپ ھەق كەلتۈرۈپ چىقىرىدۇ.</string>
     <string name="permlab_readPhoneState">تېلېفوننىڭ ھالىتى ۋە سالاھىيىتىنى ئوقۇيدۇ</string>
     <string name="permdesc_readPhoneState">ئەپنىڭ ئۈسكۈنىنىڭ تېلېفون ئىقتىدارىنى زىيارەت قىلىشىغا يول قويىدۇ. ئەپ تېلېفوننىڭ نۇمۇرىنى، رەت نۇمۇرىنى، تېلېفوننىڭ سۆزلىشىشۋاتقانلىقىنى، قارشى تەرەپنىڭ نۇمۇرىنى جەزملەش ھوقۇقى بولىدۇ. </string>
@@ -257,12 +282,10 @@
     <string name="permdesc_changeTetherState">ئەپنىڭ تور باغلىنىش ھالىتىنى ئۆزگەرتىشىگە يول قويىدۇ.</string>
     <string name="permlab_accessWifiState">بۇ Wi-Fi باغلىنىشلىرىنى كۆرسىتىدۇ</string>
     <string name="permdesc_accessWifiState">ئەپنىڭ Wi-FI ئۈسكۈنە ئاتى ۋە Wi-FI قوزغالغان ياكى قوزغالمىغانلىقىغا ئوخشاش Wi-FI تورىغا ئائىت ئۇچۇرلىرىنى كۆرۈشىگە يول قويىدۇ. </string>
-    <string name="permlab_changeWifiState">بۇ WiFi غا باغلاپ ۋە ئۈزىدۇ</string>
     <string name="permdesc_changeWifiState">ئەپنىڭ Wi-Fi ئېغىزىنى ئۇلاش ياكى ئۈزۈش ھەمدە Wi-Fi تورىنىڭ ئۈسكۈنە سەپلىمىسىنى ئۆزگەرتىشىگە يول قويىدۇ.</string>
     <string name="permlab_changeWifiMulticastState">Wi-Fi كۆپ قاناللىق ئاڭلىتىشقا يول قويىدۇ</string>
     <string name="permdesc_changeWifiMulticastState" product="tablet">ئەپنىڭ كۆپ قاناللىق ئاڭلىتىش ئارقىلىق Wi-FI تورىدىكى تاختا كومپيۇتېرىڭىزلا ئەمەس بەلكى ھەممە ئۈسكۈنىلەرنىڭ سانلىق مەلۇمات بوغچىسىنى قوبۇللاپ ۋە يوللاشقا يول قويىدۇ. بۇ مەشغۇلاتنىڭ توك سەرپىياتى كۆپ قاناللىق بولمىغان ئاڭلىتىشنىڭكىدىن يۇقىرى.</string>
     <string name="permdesc_changeWifiMulticastState" product="default">ئەپنىڭ كۆپ قاناللىق ئاڭلىتىش ئارقىلىق Wi-FI تورىدىكى تېلېفونىڭىزلا ئەمەس بەلكى ھەممە ئۈسكۈنىلەرنىڭ سانلىق مەلۇمات بوغچىسىنى قوبۇللاپ ۋە يوللاشقا يول قويىدۇ. بۇ مەشغۇلاتنىڭ توك سەرپىياتى كۆپ قاناللىق بولمىغان ئاڭلىتىشنىڭكىدىن يۇقىرى.</string>
-    <string name="permlab_bluetoothAdmin">كۆكچىش تەڭشەك زىيارىتى</string>
     <string name="permdesc_bluetoothAdmin" product="tablet">ئەپنىڭ تاختا كومپيۇتېر كۆكچىشنى سەپلىشىگە، قوشنا ئۈسكۈنىلەرنى بايقىشىغا ۋە يىراق مۇساپىلىق پەرلەشكە يول قويىدۇ.</string>
     <string name="permdesc_bluetoothAdmin" product="default">ئەپنىڭ تېلېفون كۆكچىشنى سەپلىشىگە، قوشنا ئۈسكۈنىلەرنى بايقىشىغا ۋە يىراق مۇساپىلىق پەرلەشكە يول قويىدۇ.</string>
     <string name="permlab_accessWimaxState">بۇ WiMAX كە باغلاپ ۋە ئۈزىدۇ</string>
@@ -278,14 +301,16 @@
     <string name="permdesc_disableKeyguard">ئەپنىڭ كۇنۇپكا قۇلۇپى ۋە ئىم بىلەن باغلانغان بىخەتەرلىك تەڭشىكىنى توختىتىشىغا يول قويىدۇ. مەسىلەن، تېلېفوندا كەلگەندە كۇنۇپكا قۇلۇپىنى توختىتىپ، سۆزلىشىش تاماملانغاندا كۇنۇپكا قۇلۇپىنى قايتا قوزغىتىدۇ.</string>
     <string-array name="fingerprint_acquired_vendor"/>
     <string-array name="fingerprint_error_vendor"/>
-    <string-array name="face_acquired_vendor"/>
-    <string-array name="face_error_vendor"/>
     <string name="permlab_readSyncSettings">قەدەمداش تەڭشىكىنى ئوقۇيدۇ</string>
     <string name="permdesc_readSyncSettings">ئەپنىڭ مەلۇم بىر ھېساباتنىڭ قەدەمداش تەڭشىكىنى ئوقۇشىغا يول قويىدۇ. مەسىلەن، بۇ ھوقۇق ئالاقەداش ئەپنىڭ مەلۇم ھېسابات بىلەن قەدەمداشلانغان ياكى قەدەمداشلانمىغانلىقىنى جەزملەيدۇ.</string>
     <string name="permlab_writeSyncSettings">قەدەمداشنى ئاچىدۇ ياكى ياپىدۇ</string>
     <string name="permdesc_writeSyncSettings">ئەپنىڭ مەلۇم بىر ھېساباتنىڭ قەدەمداش تەڭشىكىنى ئۆزگەرتىشىگە يول قويىدۇ. مەسىلەن، بۇ ھوقۇق ئالاقەداش ئەپنىڭ مەلۇم ھېسابات بىلەن قەدەمداشلاشنى قوزغىتىشقا ئىشلىتىلىدۇ.</string>
     <string name="permlab_readSyncStats">قەدەمداش سىتاتىستىكا ئۇچۇرىنى ئوقۇيدۇ</string>
     <string name="permdesc_readSyncStats">ئەپنىڭ مەلۇم بىر ھېساباتنىڭ قەدەمداش سىتاتىستىكا ئۇچۇرىنى ئوقۇشىغا يول قويىدۇ، ھەرىكەتچان تارىخ خاتىرىسى ۋە قەدەمداش سانلىق مەلۇمات مىقدارىنى قەدەمداشلاشنى ئۆز ئىچىگە ئالىدۇ.</string>
+    <string name="permlab_sdcardRead" product="default">سىزنىڭ SD كارتىڭىزدىكى مەزمۇنلارنى ئوقۇيدۇ</string>
+    <string name="permdesc_sdcardRead" product="default">ئەپنىڭ SD كارتىڭىزدىكى مەزمۇنلارنى ئوقۇشىغا يول قويىدۇ.</string>
+    <string name="permlab_sdcardWrite" product="default">SD كارتىڭىزدىكى مەزمۇنلارنى ئۆزگەرتىدۇ ياكى ئۆچۈرىدۇ.</string>
+    <string name="permdesc_sdcardWrite" product="default">ئەپنىڭ SD كارتىغا يېزىشىغا يول قويىدۇ.</string>
     <string name="permlab_readNetworkUsageHistory">تور ئىشلىتىش ئەھۋالىنىڭ تارىخىنى ئوقۇيدۇ</string>
     <string name="permdesc_readNetworkUsageHistory">ئەپنىڭ مۇئەييەن تور ۋە ئەپنىڭ تور ئىشلىتىش ئەھۋالىنىڭ تارىخىنى ئوقۇشىغا يول قويىدۇ.</string>
     <string name="permlab_manageNetworkPolicy">تور تەدبىرىنى باشقۇرىدۇ</string>
@@ -301,6 +326,7 @@
     <string name="permlab_accessNetworkConditions">تور ئەھۋالىنىڭ تەكشۈرۈش ئۇچۇرىنى تىڭشايدۇ</string>
     <string name="permdesc_accessNetworkConditions">ئەپنىڭ تور ئەھۋالىنىڭ تەكشۈرۈش ئۇچۇرىنى تىڭشىشىغا يول قويىدۇ. ئادەتتىكى ئەپلەر بۇ ھوقۇققا مۇھتاج بولمايدۇ.</string>
     <string name="policylab_limitPassword">ئىم قائىدە تەڭشىكى</string>
+    <string name="policylab_watchLogin">ئېكران قۇلۇپىنى ئېچىشنى سىناش قېتىم سانى نازارەتچىسى</string>
     <string name="policydesc_watchLogin" product="tablet">ئېكراننى قۇلۇپلاشتىن ئىلگىرى ئىم كىرگۈزۈش قېتىم سانىنى نازارەت قىلىدۇ؛ ئەگەر ئىم كىرگۈزۈش قېتىم سانى بەك كۆپ بولۇپ كەتسە تاختا كومپيۇتېرنى قۇلۇپلايدۇ ياكى تاختا كومپيۇتېردىكى ھەممە سانلىق مەلۇماتلارنى ئۆچۈرىدۇ.</string>
     <string name="policydesc_watchLogin" product="default">ئېكراننى قۇلۇپلاشتىن ئىلگىرى ئىم كىرگۈزۈش قېتىم سانىنى نازارەت قىلىدۇ؛ ئەگەر ئىم كىرگۈزۈش قېتىم سانى بەك كۆپ بولۇپ كەتسە تېلېفوننى قۇلۇپلايدۇ ياكى تېلېفوندىكى ھەممە سانلىق مەلۇماتلارنى ئۆچۈرىدۇ.</string>
     <string name="policylab_forceLock">ئېكراننى قۇلۇپلايدۇ</string>
@@ -637,7 +663,6 @@
     <string name="delete">ئۆچۈر</string>
     <string name="copyUrl">تور ئادرېس كۆچۈر</string>
     <string name="selectTextMode">تېكىست تاللا</string>
-    <string name="autofill">ئۆزلۈكىدىن تولدۇر</string>
     <string name="textSelectionCABTitle">تېكىست تاللاش</string>
     <string name="addToDictionary">لۇغەتكە قوش</string>
     <string name="deleteText">ئۆچۈر</string>
@@ -656,7 +681,6 @@
     <string name="capital_off">تاقاق</string>
     <string name="whichApplication">ئىشلىتىدىغان ئەپنى تاللاڭ</string>
     <string name="whichEditApplicationLabel">تەھرىر</string>
-    <string name="whichSendApplication">ھەمبەھىر</string>
     <string name="whichSendApplicationLabel">ھەمبەھىر</string>
     <string name="whichSendToApplicationLabel">يوللا</string>
     <string name="alwaysUse">كۆڭۈلدىكى ئەھۋالدا مۇشۇ خىل ئۇسۇلنى ئىشلىتىدۇ.</string>
@@ -676,13 +700,19 @@
     <string name="screen_compat_mode_show">ھەمىشە كۆرسەت</string>
     <string name="screen_compat_mode_hint">سىستېما تەڭشەكلەر &gt; ئەپلەر &gt; چۈشۈرگەنلەردىن بۇ ھالەتنى قايتا قوزغىتىدۇ.</string>
     <string name="unsupported_display_size_show">ھەمىشە كۆرسەت</string>
-    <string name="unsupported_compile_sdk_show">ھەمىشە كۆرسەت</string>
     <string name="smv_application"><xliff:g id="APPLICATION">%1$s</xliff:g> ئەپ (جەريان: <xliff:g id="PROCESS">%2$s</xliff:g>) ئۆزلۈكىدىن ئىجرا قىلىدىغان مەجبۇرىي ھالەت تەدبىرىگە خىلاپلىق قىلدى.</string>
     <string name="smv_process"><xliff:g id="PROCESS">%1$s</xliff:g> جەريان ئۆزلۈكىدىن ئىجرا قىلىدىغان مەجبۇرىي ھالەت تەدبىرىگە خىلاپلىق قىلدى</string>
+    <string name="android_upgrading_title">Android يۈكسىلىۋاتىدۇ…</string>
     <string name="android_upgrading_apk"><xliff:g id="NUMBER_1">%2$d</xliff:g> ئەپتىن <xliff:g id="NUMBER_0">%1$d</xliff:g> نى ئەلالاشتۇرۇۋاتىدۇ.</string>
     <string name="android_upgrading_starting_apps">ئەپنى قوزغىتىۋاتىدۇ.</string>
     <string name="android_upgrading_complete">قوزغىتىشنى تاماملاۋاتىدۇ.</string>
     <string name="heavy_weight_notification"><xliff:g id="APP">%1$s</xliff:g> ئىجرا قىلىنىۋاتىدۇ</string>
+    <string name="heavy_weight_switcher_title">ئەپ ئالماشتۇرامدۇ؟</string>
+    <string name="heavy_weight_switcher_text">باشقا بىر ئەپ ئىجرا قىلىنىۋاتىدۇ، يېڭى ئەپ ئىجرا قىلىش ئۈچۈن شۇ ئەپنى توختىتىشىڭىز كېرەك.</string>
+    <string name="old_app_action"><xliff:g id="OLD_APP">%1$s</xliff:g> غا قايت</string>
+    <string name="old_app_description">يېڭى ئەپنى قوزغاتما.</string>
+    <string name="new_app_action"><xliff:g id="OLD_APP">%1$s</xliff:g> نى قوزغات</string>
+    <string name="new_app_description">كونا ئەپنى ساقلىمايلا توختات.</string>
     <string name="sendText">تېكىستكە ئېلىپ بېرىلىدىغان مەشغۇلاتنى تاللاڭ</string>
     <string name="volume_ringtone">قوڭغۇراق ئاۋازى</string>
     <string name="volume_music">ۋاسىتە ئاۋازى</string>
@@ -699,18 +729,20 @@
     <string name="volume_icon_description_media">ۋاسىتە ئاۋازى</string>
     <string name="volume_icon_description_notification">ئۇقتۇرۇش ئاۋازى</string>
     <string name="ringtone_default">كۆڭۈلدىكى قوڭغۇراق ئاۋازى</string>
+    <string name="ringtone_default_with_actual">كۆڭۈلدىكى قوڭغۇراق ئاۋازى (<xliff:g id="ACTUAL_RINGTONE">%1$s</xliff:g>)</string>
     <string name="ringtone_silent">يوق</string>
     <string name="ringtone_picker_title">قوڭغۇراق ئاۋازى</string>
-    <string name="wifi_suggestion_action_allow_app">يول قوي</string>
+    <string name="ringtone_unknown">نامەلۇم قوڭغۇراق ئاۋازى</string>
     <string name="network_available_sign_in_detailed"><xliff:g id="network_ssid">%1$s</xliff:g></string>
     <string-array name="network_switch_type_name">
-        <item>mobile data</item>
+        <item>cellular data</item>
         <item>Wi-Fi</item>
         <item>كۆكچىش</item>
         <item>Ethernet</item>
         <item>VPN</item>
     </string-array>
     <string name="wifi_watchdog_network_disabled">Wi-Fi تورىغا باغلىنالمايدۇ</string>
+    <string name="wifi_watchdog_network_disabled_detailed"> ئىنتېرنېت باغلىنىشى ناچار</string>
     <string name="wifi_p2p_dialog_title">Wi-Fi Direct</string>
     <string name="wifi_p2p_turnon_message">Wi-Fi Direct مەشغۇلاتىنى قوزغات. بۇ مەشغۇلات Wi-Fi خېرىدارى/قىزىق نۇقتا مەشغۇلاتىنى تاقايدۇ.</string>
     <string name="wifi_p2p_failed_message">Wi-Fi Direct نى قوزغىتالمايدۇ</string>
@@ -750,6 +782,7 @@
     <string name="no_permissions">ھىچقانداق ھوقۇق كېرەك ئەمەس</string>
     <string name="perm_costs_money">بۇنىڭغا چىقىم پەيدا بولۇشى مۇمكىن</string>
     <string name="dlg_ok">جەزملە</string>
+    <string name="usb_accessory_notification_title">USB زاپچاس سۈپىتىدە باغلاندى</string>
     <string name="adb_active_notification_title">USB سازلاش ئۇلاندى</string>
     <string name="fast_scroll_alphabet"> ABCDEFGHIJKLMNOPQRSTUVWXYZ</string>
     <string name="fast_scroll_numeric_alphabet"> 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ</string>
@@ -783,10 +816,12 @@
     <string name="vpn_title_long">VPN نى <xliff:g id="APP">%s</xliff:g> ئاكتىپلىدى</string>
     <string name="vpn_lockdown_connecting">ھەمىشە ئوچۇق VPN غا باغلىنىۋاتىدۇ…</string>
     <string name="vpn_lockdown_connected">ھەمىشە ئوچۇق VPN غا باغلاندى</string>
+    <string name="vpn_lockdown_error">ھەمىشە ئوچۇق VPN خاتالىقى</string>
     <string name="upload_file">ھۆججەت تاللاڭ</string>
     <string name="no_file_chosen">ھۆججەت تاللانمىغان</string>
     <string name="reset">ئەسلىگە قايتۇر</string>
     <string name="submit">تاپشۇر</string>
+    <string name="car_mode_disable_notification_title">ماشىنا ھالىتى قوزغىتىلدى</string>
     <string name="tethered_notification_title">USB غا باغلاش ياكى قىزىق نۇقتىنى قوزغىتىش</string>
     <string name="back_button_label">قايت</string>
     <string name="next_button_label">كېيىنكى</string>
@@ -794,6 +829,8 @@
     <string name="no_matches">ماس كەلگىنى يوق</string>
     <string name="find_on_page">بەتتىن ئىزدە</string>
     <string name="action_mode_done">تامام</string>
+    <string name="progress_erasing" product="nosdcard">USB ساقلىغۇچنى ئۆچۈرۈۋاتىدۇ…</string>
+    <string name="progress_erasing" product="default">SD كارتىنى ئۆچۈرۈۋاتىدۇ…</string>
     <string name="share">ھەمبەھىر</string>
     <string name="find">ئىزدە</string>
     <string name="websearch">توردىن ئىزدە</string>
@@ -840,6 +877,8 @@
     <string name="shareactionprovider_share_with_application"><xliff:g id="APPLICATION_NAME">%s</xliff:g> ئىلە ھەمبەھىر</string>
     <string name="content_description_sliding_handle">"تۇتقۇچنى سۈرۈڭ. چېكىپ بېسىڭ."</string>
     <string name="description_target_unlock_tablet">سۈرۈلسە قۇلۇپ ئاچىدۇ.</string>
+    <string name="keyboard_headset_required_to_hear_password">قۇلاقلىق قىستۇرۇلغاندىلا ئاندىن ئىم ئاۋازىنى ئاڭلىغىلى بولىدۇ.</string>
+    <string name="keyboard_password_character_no_headset">چېكىت</string>
     <string name="action_bar_home_description">يولباشچى باش بەت</string>
     <string name="action_bar_up_description">ئۈستىگە يولباشچى</string>
     <string name="action_menu_overflow_description">تېخىمۇ كۆپ تاللانما</string>
@@ -848,6 +887,10 @@
     <string name="storage_sd_card">SD كارتا</string>
     <string name="storage_usb">USB ساقلىغۇچ</string>
     <string name="extract_edit_menu_button">تەھرىر</string>
+    <string name="data_usage_3g_limit_snoozed_title">2G-3G سانلىق مەلۇمات ئېقىمىدىن ئېشىپ كەتتى</string>
+    <string name="data_usage_4g_limit_snoozed_title">4G سانلىق مەلۇمات ئېقىمىدىن ئېشىپ كەتتى</string>
+    <string name="data_usage_wifi_limit_snoozed_title">Wi-Fi سانلىق مەلۇمات ئېقىمىدىن ئېشىپ كەتتى</string>
+    <string name="data_usage_limit_snoozed_body"><xliff:g id="SIZE">%s</xliff:g> بەلگىلەنگەن چەكتىن ئېشىپ كەتتى</string>
     <string name="data_usage_restricted_title">تەگلىك سانلىق مەلۇماتى چەكلىمىگە ئۇچرايدۇ</string>
     <string name="ssl_certificate">بىخەتەرلىك گۇۋاھنامىسى</string>
     <string name="ssl_certificate_is_valid">بۇ گۇۋاھنامە كۈچكە ئىگە.</string>
@@ -873,9 +916,9 @@
     <string name="activity_resolver_use_once">بىر قېتىملا</string>
     <string name="default_audio_route_name" product="tablet">تاختا كومپيۇتېر</string>
     <string name="default_audio_route_name" product="default">تېلېفون</string>
-    <string name="default_audio_route_name_dock_speakers">لەڭگەر ياڭراتقۇ</string>
-    <string name="default_audio_route_name_hdmi">HDMI</string>
     <string name="default_audio_route_name_headphones">تىڭشىغۇچ</string>
+    <string name="default_audio_route_name_dock_speakers">لەڭگەر ياڭراتقۇ</string>
+    <string name="default_media_route_name_hdmi">HDMI</string>
     <string name="default_audio_route_category_name">سىستېما</string>
     <string name="bluetooth_a2dp_audio_route_name">كۆكچىش ئاۋازى</string>
     <string name="wireless_display_route_description">سىمسىز كۆرسەتكۈچ</string>
@@ -898,6 +941,7 @@
     <string name="kg_wrong_pattern">ئەندىزە خاتا</string>
     <string name="kg_wrong_password">ئىم خاتا</string>
     <string name="kg_wrong_pin">بۇ PIN خاتا</string>
+    <string name="kg_too_many_failed_attempts_countdown"><xliff:g id="NUMBER">%d</xliff:g> سېكۇنتتىن كېيىن قايتا سىناڭ.</string>
     <string name="kg_pattern_instructions">قۇلۇپ ئاچىدىغان ئەندىزە سىزىڭ</string>
     <string name="kg_sim_pin_instructions">كىرگۈزىدىغىنىڭىز SIM PIN</string>
     <string name="kg_pin_instructions">كىرگۈزىدىغىنىڭىز PIN</string>
@@ -922,6 +966,9 @@
     <string name="kg_failed_attempts_now_wiping" product="default">سىز تېلېفون قۇلۇپىنى ئېچىشنى <xliff:g id="NUMBER">%d</xliff:g> قېتىم خاتا سىنىدىڭىز. تېلېفون زاۋۇتتىن چىققان ھالەتكە ئەسلىگە قايتىدۇ، </string>
     <string name="kg_text_message_separator" product="default">" — "</string>
     <string name="kg_reordering_delete_drop_target_text">چىقىرىۋەت</string>
+    <string name="continue_to_enable_accessibility">ئىككى بارماقنى بېسىپ تۇرغاندا قوشۇمچە ئىقتىدارنى قوزغىتىدۇ.</string>
+    <string name="accessibility_enabled">قوشۇمچە ئىقتىدار قوزغىتىلدى.</string>
+    <string name="enable_accessibility_canceled">قوشۇمچە ئىقتىدار بىكار قىلىندى.</string>
     <string name="user_switched">نۆۋەتتىكى ئىشلەتكۈچى <xliff:g id="NAME">%1$s</xliff:g>.</string>
     <string name="owner_name" msgid="3879126011135546571">ئىگىدار</string>
     <string name="error_message_title">خاتالىق</string>
@@ -1016,6 +1063,7 @@
     <string name="reason_service_unavailable">بېسىش مۇلازىمىتى قوزغىتىلمىغان</string>
     <string name="print_service_installed_title"><xliff:g id="NAME">%s</xliff:g> مۇلازىمىتى ئورنىتىلدى</string>
     <string name="print_service_installed_message">چېكىلسە قوزغىتىدۇ</string>
+    <string name="restr_pin_enter_admin_pin">باشقۇرغۇچى PIN نى كىرگۈزۈڭ</string>
     <string name="restr_pin_enter_pin">كىرگۈزىدىغىنىڭىز PIN</string>
     <string name="restr_pin_incorrect">خاتا</string>
     <string name="restr_pin_enter_old_pin">نۆۋەتتىكى PIN:</string>
@@ -1025,14 +1073,8 @@
     <string name="restr_pin_error_doesnt_match">PIN ماس كەلمىدى، قايتا سىناڭ.</string>
     <string name="restr_pin_error_too_short">PIN بەك قىسقا. ئاز دېگەندە 4 خانە سان بولۇشى كېرەك.</string>
     <string name="restr_pin_try_later">سەل تۇرۇپ قايتا سىناڭ</string>
-    <string name="confirm_battery_saver">جەزملە</string>
     <string name="zen_mode_feature_name">ئاۋارە قىلماڭ</string>
     <string name="floating_toolbar_open_overflow_description">تېخىمۇ كۆپ تاللانما</string>
     <string name="locale_search_menu">ئىزدە</string>
-    <string name="time_picker_hour_label">سائەت</string>
-    <string name="time_picker_header_text">ۋاقىت تەڭشەك</string>
-    <string name="screenshot_edit">تەھرىر</string>
-    <string name="notification_app_name_system">سىستېما</string>
-    <string name="notification_appops_camera_active">كامېرا</string>
-    <string name="notification_appops_microphone_active">مىكروفون</string>
+    <string name="demo_user_inactivity_timeout_left_button">ۋاز كەچ</string>
 </resources>

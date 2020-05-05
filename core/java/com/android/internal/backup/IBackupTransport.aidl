@@ -79,14 +79,14 @@ interface IBackupTransport {
     Intent dataManagementIntent();
 
     /**
-     * On demand, supply a short {@link CharSequence} that can be shown to the user as the label on
-     * an overflow menu item used to invoke the data management UI.
+     * On demand, supply a short string that can be shown to the user as the label
+     * on an overflow menu item used to invoked the data management UI.
      *
-     * @return A {@link CharSequence} to be used as the label for the transport's data management
+     * @return A string to be used as the label for the transport's data management
      *         affordance.  If the transport supplies a data management intent, this
      *         method must not return {@code null}.
      */
-    CharSequence dataManagementIntentLabel();
+    String dataManagementLabel();
 
     /**
      * Ask the transport where, on local device storage, to keep backup state blobs.
@@ -94,7 +94,7 @@ interface IBackupTransport {
      * "live" backup services without interfering with the live bookkeeping.  The
      * returned string should be a name that is expected to be unambiguous among all
      * available backup transports; the name of the class implementing the transport
-     * is a good choice.  This MUST be constant.
+     * is a good choice.
      *
      * @return A unique name, suitable for use as a file or directory name, that the
      *         Backup Manager could use to disambiguate state files associated with
@@ -306,13 +306,4 @@ interface IBackupTransport {
      *    operation will immediately be finished with no further attempts to restore app data.
      */
     int abortFullRestore();
-
-    /**
-     * Returns flags with additional information about the transport, which is accessible to the
-     * {@link android.app.backup.BackupAgent}. This allows the agent to decide what to backup or
-     * restore based on properties of the transport.
-     *
-     * <p>For supported flags see {@link android.app.backup.BackupAgent}.
-     */
-    int getTransportFlags();
 }

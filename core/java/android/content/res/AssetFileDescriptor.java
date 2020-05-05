@@ -16,7 +16,6 @@
 
 package android.content.res;
 
-import android.annotation.UnsupportedAppUsage;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.ParcelFileDescriptor;
@@ -41,11 +40,8 @@ public class AssetFileDescriptor implements Parcelable, Closeable {
      */
     public static final long UNKNOWN_LENGTH = -1;
     
-    @UnsupportedAppUsage
     private final ParcelFileDescriptor mFd;
-    @UnsupportedAppUsage
     private final long mStartOffset;
-    @UnsupportedAppUsage
     private final long mLength;
     private final Bundle mExtras;
 
@@ -199,7 +195,7 @@ public class AssetFileDescriptor implements Parcelable, Closeable {
     /**
      * An InputStream you can create on a ParcelFileDescriptor, which will
      * take care of calling {@link ParcelFileDescriptor#close
-     * ParcelFileDescriptor.close()} for you when the stream is closed.
+     * ParcelFileDescritor.close()} for you when the stream is closed.
      */
     public static class AutoCloseInputStream
             extends ParcelFileDescriptor.AutoCloseInputStream {
@@ -286,7 +282,7 @@ public class AssetFileDescriptor implements Parcelable, Closeable {
     /**
      * An OutputStream you can create on a ParcelFileDescriptor, which will
      * take care of calling {@link ParcelFileDescriptor#close
-     * ParcelFileDescriptor.close()} for you when the stream is closed.
+     * ParcelFileDescritor.close()} for you when the stream is closed.
      */
     public static class AutoCloseOutputStream
             extends ParcelFileDescriptor.AutoCloseOutputStream {
@@ -370,7 +366,7 @@ public class AssetFileDescriptor implements Parcelable, Closeable {
         }
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<AssetFileDescriptor> CREATOR
+    public static final Parcelable.Creator<AssetFileDescriptor> CREATOR
             = new Parcelable.Creator<AssetFileDescriptor>() {
         public AssetFileDescriptor createFromParcel(Parcel in) {
             return new AssetFileDescriptor(in);

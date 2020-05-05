@@ -17,8 +17,6 @@
 
 package android.filterfw.core;
 
-import android.annotation.UnsupportedAppUsage;
-
 /**
  * @hide
  */
@@ -52,7 +50,6 @@ public abstract class GraphRunner {
         mFilterContext = context;
     }
 
-    @UnsupportedAppUsage
     public abstract FilterGraph getGraph();
 
     public FilterContext getContext() {
@@ -84,15 +81,12 @@ public abstract class GraphRunner {
     }
 
     /** Starts running the graph. Will open the filters in the graph if they are not already open. */
-    @UnsupportedAppUsage
     public abstract void run();
 
-    @UnsupportedAppUsage
     public abstract void setDoneCallback(OnRunnerDoneListener listener);
     public abstract boolean isRunning();
 
     /** Stops graph execution. As part of stopping, also closes the graph nodes. */
-    @UnsupportedAppUsage
     public abstract void stop();
 
     /** Closes the filters in a graph. Can only be called if the graph is not running. */
@@ -102,6 +96,5 @@ public abstract class GraphRunner {
      * Returns the last exception that happened during an asynchronous run. Returns null if
      * there is nothing to report.
      */
-    @UnsupportedAppUsage
     public abstract Exception getError();
 }

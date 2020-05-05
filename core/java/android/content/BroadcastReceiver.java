@@ -16,12 +16,10 @@
 
 package android.content;
 
-import android.annotation.UnsupportedAppUsage;
-import android.app.ActivityManager;
+import android.app.ActivityManagerNative;
 import android.app.ActivityThread;
 import android.app.IActivityManager;
 import android.app.QueuedWork;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
@@ -45,7 +43,6 @@ import android.util.Slog;
  *
  */
 public abstract class BroadcastReceiver {
-    @UnsupportedAppUsage
     private PendingResult mPendingResult;
     private boolean mDebugUnregister;
 
@@ -72,32 +69,20 @@ public abstract class BroadcastReceiver {
         /** @hide */
         public static final int TYPE_UNREGISTERED = 2;
 
-        @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
         final int mType;
-        @UnsupportedAppUsage
         final boolean mOrderedHint;
-        @UnsupportedAppUsage
         final boolean mInitialStickyHint;
-        @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
         final IBinder mToken;
-        @UnsupportedAppUsage
         final int mSendingUser;
-        @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
         final int mFlags;
 
-        @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
         int mResultCode;
-        @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
         String mResultData;
-        @UnsupportedAppUsage
         Bundle mResultExtras;
-        @UnsupportedAppUsage
         boolean mAbortBroadcast;
-        @UnsupportedAppUsage
         boolean mFinished;
 
         /** @hide */
-        @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
         public PendingResult(int resultCode, String resultData, Bundle resultExtras, int type,
                 boolean ordered, boolean sticky, IBinder token, int userId, int flags) {
             mResultCode = resultCode;
@@ -217,7 +202,7 @@ public abstract class BroadcastReceiver {
          */
         public final void finish() {
             if (mType == TYPE_COMPONENT) {
-                final IActivityManager mgr = ActivityManager.getService();
+                final IActivityManager mgr = ActivityManagerNative.getDefault();
                 if (QueuedWork.hasPendingWork()) {
                     // If this is a broadcast component, we need to make sure any
                     // queued work is complete before telling AM we are done, so
@@ -226,16 +211,16 @@ public abstract class BroadcastReceiver {
                     // of the list to finish the broadcast, so we don't block this
                     // thread (which may be the main thread) to have it finished.
                     //
-                    // Note that we don't need to use QueuedWork.addFinisher() with the
+                    // Note that we don't need to use QueuedWork.add() with the
                     // runnable, since we know the AM is waiting for us until the
                     // executor gets to it.
-                    QueuedWork.queue(new Runnable() {
+                    QueuedWork.singleThreadExecutor().execute( new Runnable() {
                         @Override public void run() {
                             if (ActivityThread.DEBUG_BROADCAST) Slog.i(ActivityThread.TAG,
                                     "Finishing broadcast after work to component " + mToken);
                             sendFinished(mgr);
                         }
-                    }, false);
+                    });
                 } else {
                     if (ActivityThread.DEBUG_BROADCAST) Slog.i(ActivityThread.TAG,
                             "Finishing broadcast to component " + mToken);
@@ -244,7 +229,7 @@ public abstract class BroadcastReceiver {
             } else if (mOrderedHint && mType != TYPE_UNREGISTERED) {
                 if (ActivityThread.DEBUG_BROADCAST) Slog.i(ActivityThread.TAG,
                         "Finishing broadcast to " + mToken);
-                final IActivityManager mgr = ActivityManager.getService();
+                final IActivityManager mgr = ActivityManagerNative.getDefault();
                 sendFinished(mgr);
             }
         }
@@ -345,31 +330,9 @@ public abstract class BroadcastReceiver {
      * This can be called by an application in {@link #onReceive} to allow
      * it to keep the broadcast active after returning from that function.
      * This does <em>not</em> change the expectation of being relatively
-     * responsive to the broadcast, but does allow
+     * responsive to the broadcast (finishing it within 10s), but does allow
      * the implementation to move work related to it over to another thread
      * to avoid glitching the main UI thread due to disk IO.
-     *
-     * <p>As a general rule, broadcast receivers are allowed to run for up to 10 seconds
-     * before they system will consider them non-responsive and ANR the app.  Since these usually
-     * execute on the app's main thread, they are already bound by the ~5 second time limit
-     * of various operations that can happen there (not to mention just avoiding UI jank), so
-     * the receive limit is generally not of concern.  However, once you use {@code goAsync}, though
-     * able to be off the main thread, the broadcast execution limit still applies, and that
-     * includes the time spent between calling this method and ultimately
-     * {@link PendingResult#finish() PendingResult.finish()}.</p>
-     *
-     * <p>If you are taking advantage of this method to have more time to execute, it is useful
-     * to know that the available time can be longer in certain situations.  In particular, if
-     * the broadcast you are receiving is not a foreground broadcast (that is, the sender has not
-     * used {@link Intent#FLAG_RECEIVER_FOREGROUND}), then more time is allowed for the receivers
-     * to run, allowing them to execute for 30 seconds or even a bit more.  This is something that
-     * receivers should rarely take advantage of (long work should be punted to another system
-     * facility such as {@link android.app.job.JobScheduler}, {@link android.app.Service}, or
-     * see especially {@link android.support.v4.app.JobIntentService}), but can be useful in
-     * certain rare cases where it is necessary to do some work as soon as the broadcast is
-     * delivered.  Keep in mind that the work you do here will block further broadcasts until
-     * it completes, so taking advantage of this at all excessively can be counter-productive
-     * and cause later events to be received more slowly.</p>
      *
      * @return Returns a {@link PendingResult} representing the result of
      * the active broadcast.  The BroadcastRecord itself is no longer active;
@@ -398,7 +361,7 @@ public abstract class BroadcastReceiver {
      * for more information.
      */
     public IBinder peekService(Context myContext, Intent service) {
-        IActivityManager am = ActivityManager.getService();
+        IActivityManager am = ActivityManagerNative.getDefault();
         IBinder binder = null;
         try {
             service.prepareToLeaveProcess(myContext);
@@ -610,7 +573,6 @@ public abstract class BroadcastReceiver {
     /**
      * For internal use to set the result data that is active. @hide
      */
-    @UnsupportedAppUsage
     public final void setPendingResult(PendingResult result) {
         mPendingResult = result;
     }
@@ -618,7 +580,6 @@ public abstract class BroadcastReceiver {
     /**
      * For internal use to set the result data that is active. @hide
      */
-    @UnsupportedAppUsage
     public final PendingResult getPendingResult() {
         return mPendingResult;
     }

@@ -117,9 +117,6 @@
     <!-- Default rounded corner for controls -->
     <dimen name="control_corner_material">2dp</dimen>
 
-    <!-- Size of icon shown beside a preference locked by admin -->
-    <dimen name="restricted_icon_size_material">16dp</dimen>
-
     <dimen name="edit_text_inset_horizontal_material">4dp</dimen>
     <dimen name="edit_text_inset_top_material">10dp</dimen>
     <dimen name="edit_text_inset_bottom_material">7dp</dimen>
@@ -138,7 +135,6 @@
     <dimen name="seekbar_track_progress_height_material">2dp</dimen>
 
     <dimen name="progress_bar_height_material">4dp</dimen>
-    <dimen name="progress_bar_corner_material">0dp</dimen>
 
     <!-- Material time picker dimensions. -->
     <!-- Text size for the time picker header HH:MM label. This value is large
@@ -149,11 +145,10 @@
     <dimen name="timepicker_am_top_padding">4dp</dimen>
     <dimen name="timepicker_pm_top_padding">4dp</dimen>
     <dimen name="timepicker_separator_padding">2dp</dimen>
-    <dimen name="timepicker_header_height">100dp</dimen>
+    <dimen name="timepicker_header_height">96dp</dimen>
     <dimen name="timepicker_radial_picker_dimen">296dp</dimen>
     <dimen name="timepicker_radial_picker_top_margin">16dp</dimen>
     <dimen name="timepicker_radial_picker_horizontal_margin">16dp</dimen>
-    <dimen name="timepicker_edit_text_size">24sp</dimen>
 
     <!-- Used by RadialTimePicker in clock-style TimePicker. -->
     <dimen name="timepicker_selector_radius">20dp</dimen>

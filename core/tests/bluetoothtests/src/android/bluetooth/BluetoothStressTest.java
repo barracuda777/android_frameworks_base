@@ -256,13 +256,13 @@ public class BluetoothStressTest extends InstrumentationTestCase {
         mTestUtils.unpair(mAdapter, device);
         mTestUtils.pair(mAdapter, device, BluetoothTestRunner.sDevicePairPasskey,
                 BluetoothTestRunner.sDevicePairPin);
-        mTestUtils.disconnectProfile(mAdapter, device, BluetoothProfile.HID_HOST, null);
+        mTestUtils.disconnectProfile(mAdapter, device, BluetoothProfile.INPUT_DEVICE, null);
 
         for (int i = 0; i < iterations; i++) {
             mTestUtils.writeOutput("connectInput iteration " + (i + 1) + " of " + iterations);
-            mTestUtils.connectProfile(mAdapter, device, BluetoothProfile.HID_HOST,
+            mTestUtils.connectProfile(mAdapter, device, BluetoothProfile.INPUT_DEVICE,
                     String.format("connectInput(device=%s)", device));
-            mTestUtils.disconnectProfile(mAdapter, device, BluetoothProfile.HID_HOST,
+            mTestUtils.disconnectProfile(mAdapter, device, BluetoothProfile.INPUT_DEVICE,
                     String.format("disconnectInput(device=%s)", device));
         }
 

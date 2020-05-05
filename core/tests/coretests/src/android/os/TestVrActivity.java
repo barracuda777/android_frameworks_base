@@ -17,6 +17,7 @@
 package android.os;
 
 import android.app.Activity;
+import android.os.Bundle;
 import android.service.vr.VrListenerService;
 
 import java.util.concurrent.CountDownLatch;

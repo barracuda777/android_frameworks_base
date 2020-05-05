@@ -16,7 +16,6 @@
 
 package com.android.internal.widget;
 
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.graphics.Rect;
 import android.util.AttributeSet;
@@ -37,7 +36,6 @@ public class LinearLayoutWithDefaultTouchRecepient extends LinearLayout {
     private final Rect mTempRect = new Rect();
     private View mDefaultTouchRecepient;
 
-    @UnsupportedAppUsage
     public LinearLayoutWithDefaultTouchRecepient(Context context) {
         super(context);
     }
@@ -46,7 +44,6 @@ public class LinearLayoutWithDefaultTouchRecepient extends LinearLayout {
         super(context, attrs);
     }
 
-    @UnsupportedAppUsage
     public void setDefaultTouchRecepient(View defaultTouchRecepient) {
         mDefaultTouchRecepient = defaultTouchRecepient;
     }

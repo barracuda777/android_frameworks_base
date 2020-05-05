@@ -16,17 +16,15 @@
 
 package com.android.framework.permission.tests;
 
-import android.media.AudioAttributes;
+import junit.framework.TestCase;
+
+import android.media.AudioManager;
 import android.os.Binder;
 import android.os.IVibratorService;
 import android.os.Process;
 import android.os.RemoteException;
 import android.os.ServiceManager;
-import android.os.VibrationEffect;
 import android.test.suitebuilder.annotation.SmallTest;
-
-import junit.framework.TestCase;
-
 
 /**
  * Verify that Hardware apis cannot be called without required permissions.
@@ -50,14 +48,26 @@ public class VibratorServicePermissionTest extends TestCase {
      */
     public void testVibrate() throws RemoteException {
         try {
-            final VibrationEffect effect =
-                    VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE);
-            final AudioAttributes attrs = new AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ALARM)
-                    .build();
-            mVibratorService.vibrate(Process.myUid(), null, effect, attrs,
-                    "testVibrate", new Binder());
+            mVibratorService.vibrate(Process.myUid(), null, 2000, AudioManager.STREAM_ALARM,
+                    new Binder());
             fail("vibrate did not throw SecurityException as expected");
+        } catch (SecurityException e) {
+            // expected
+        }
+    }
+
+    /**
+     * Test that calling {@link android.os.IVibratorService#vibratePattern(long[],
+     * int, android.os.IBinder)} requires permissions.
+     * <p>Tests permission:
+     *   {@link android.Manifest.permission#VIBRATE}
+     * @throws RemoteException
+     */
+    public void testVibratePattern() throws RemoteException {
+        try {
+            mVibratorService.vibratePattern(Process.myUid(), null, new long[] {0}, 0,
+                    AudioManager.STREAM_ALARM, new Binder());
+            fail("vibratePattern did not throw SecurityException as expected");
         } catch (SecurityException e) {
             // expected
         }

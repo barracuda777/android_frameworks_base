@@ -15,156 +15,122 @@
  */
 
 #include "java/ManifestClassGenerator.h"
+#include "test/Builders.h"
+#include "test/Context.h"
 
-#include "io/StringStream.h"
-#include "test/Test.h"
-
-using ::aapt::io::StringOutputStream;
-using ::testing::HasSubstr;
-using ::testing::Not;
+#include <gtest/gtest.h>
 
 namespace aapt {
 
-static ::testing::AssertionResult GetManifestClassText(IAaptContext* context, xml::XmlResource* res,
-                                                       std::string* out_str);
+static ::testing::AssertionResult getManifestClassText(IAaptContext* context, xml::XmlResource* res,
+                                                       std::string* outStr) {
+    std::unique_ptr<ClassDefinition> manifestClass = generateManifestClass(
+            context->getDiagnostics(), res);
+    if (!manifestClass) {
+        return ::testing::AssertionFailure() << "manifestClass == nullptr";
+    }
+
+    std::stringstream out;
+    if (!manifestClass->writeJavaFile(manifestClass.get(), "android", true, &out)) {
+        return ::testing::AssertionFailure() << "failed to write java file";
+    }
+
+    *outStr = out.str();
+    return ::testing::AssertionSuccess();
+}
 
 TEST(ManifestClassGeneratorTest, NameIsProperlyGeneratedFromSymbol) {
-  std::unique_ptr<IAaptContext> context = test::ContextBuilder().Build();
-  std::unique_ptr<xml::XmlResource> manifest = test::BuildXmlDom(R"(
-      <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-        <permission android:name="android.permission.ACCESS_INTERNET" />
-        <permission android:name="android.DO_DANGEROUS_THINGS" />
-        <permission android:name="com.test.sample.permission.HUH" />
-        <permission-group android:name="foo.bar.PERMISSION" />
-      </manifest>)");
+    std::unique_ptr<IAaptContext> context = test::ContextBuilder().build();
+    std::unique_ptr<xml::XmlResource> manifest = test::buildXmlDom(R"EOF(
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+          <permission android:name="android.permission.ACCESS_INTERNET" />
+          <permission android:name="android.DO_DANGEROUS_THINGS" />
+          <permission android:name="com.test.sample.permission.HUH" />
+          <permission-group android:name="foo.bar.PERMISSION" />
+        </manifest>)EOF");
 
-  std::string actual;
-  ASSERT_TRUE(GetManifestClassText(context.get(), manifest.get(), &actual));
+    std::string actual;
+    ASSERT_TRUE(getManifestClassText(context.get(), manifest.get(), &actual));
 
-  ASSERT_THAT(actual, HasSubstr("public static final class permission {"));
-  ASSERT_THAT(actual, HasSubstr("public static final class permission_group {"));
+    const size_t permissionClassPos = actual.find("public static final class permission {");
+    const size_t permissionGroupClassPos =
+            actual.find("public static final class permission_group {");
+    ASSERT_NE(std::string::npos, permissionClassPos);
+    ASSERT_NE(std::string::npos, permissionGroupClassPos);
 
-  const size_t permission_start_pos = actual.find("public static final class permission {");
-  const size_t permission_group_start_pos =
-      actual.find("public static final class permission_group {");
+    //
+    // Make sure these permissions are in the permission class.
+    //
 
-  //
-  // Make sure these permissions are in the permission class.
-  //
-  const std::string permission_class =
-      actual.substr(permission_start_pos, permission_group_start_pos - permission_start_pos);
+    size_t pos = actual.find("public static final String ACCESS_INTERNET="
+                             "\"android.permission.ACCESS_INTERNET\";");
+    EXPECT_GT(pos, permissionClassPos);
+    EXPECT_LT(pos, permissionGroupClassPos);
 
-  EXPECT_THAT(
-      permission_class,
-      HasSubstr(
-          "public static final String ACCESS_INTERNET=\"android.permission.ACCESS_INTERNET\";"));
-  EXPECT_THAT(
-      permission_class,
-      HasSubstr("public static final String DO_DANGEROUS_THINGS=\"android.DO_DANGEROUS_THINGS\";"));
-  EXPECT_THAT(permission_class,
-              HasSubstr("public static final String HUH=\"com.test.sample.permission.HUH\";"));
+    pos = actual.find("public static final String DO_DANGEROUS_THINGS="
+                      "\"android.DO_DANGEROUS_THINGS\";");
+    EXPECT_GT(pos, permissionClassPos);
+    EXPECT_LT(pos, permissionGroupClassPos);
 
-  //
-  // Make sure these permissions are in the permission_group class
-  //
-  const std::string permission_group_class = actual.substr(permission_group_start_pos);
+    pos = actual.find("public static final String HUH=\"com.test.sample.permission.HUH\";");
+    EXPECT_GT(pos, permissionClassPos);
+    EXPECT_LT(pos, permissionGroupClassPos);
 
-  EXPECT_THAT(permission_group_class,
-              HasSubstr("public static final String PERMISSION=\"foo.bar.PERMISSION\";"));
+    //
+    // Make sure these permissions are in the permission_group class
+    //
+
+    pos = actual.find("public static final String PERMISSION="
+                      "\"foo.bar.PERMISSION\";");
+    EXPECT_GT(pos, permissionGroupClassPos);
+    EXPECT_LT(pos, std::string::npos);
 }
 
 TEST(ManifestClassGeneratorTest, CommentsAndAnnotationsArePresent) {
-  std::unique_ptr<IAaptContext> context = test::ContextBuilder().Build();
-  std::unique_ptr<xml::XmlResource> manifest = test::BuildXmlDom(R"(
-      <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-        <!-- Required to access the internet.
-             Added in API 1. -->
-        <permission android:name="android.permission.ACCESS_INTERNET" />
-        <!-- @deprecated This permission is for playing outside. -->
-        <permission android:name="android.permission.PLAY_OUTSIDE" />
-        <!-- This is a private permission for system only!
-             @hide
-             @SystemApi -->
-        <permission android:name="android.permission.SECRET" />
-        <!-- @TestApi This is a test only permission. -->
-        <permission android:name="android.permission.TEST_ONLY" />
-      </manifest>)");
+    std::unique_ptr<IAaptContext> context = test::ContextBuilder().build();
+    std::unique_ptr<xml::XmlResource> manifest = test::buildXmlDom(R"EOF(
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+          <!-- Required to access the internet.
+               Added in API 1. -->
+          <permission android:name="android.permission.ACCESS_INTERNET" />
+          <!-- @deprecated This permission is for playing outside. -->
+          <permission android:name="android.permission.PLAY_OUTSIDE" />
+          <!-- This is a private permission for system only!
+               @hide
+               @SystemApi -->
+          <permission android:name="android.permission.SECRET" />
+        </manifest>)EOF");
 
-  std::string actual;
-  ASSERT_TRUE(GetManifestClassText(context.get(), manifest.get(), &actual));
+    std::string actual;
+    ASSERT_TRUE(getManifestClassText(context.get(), manifest.get(), &actual));
 
-  const char* expected_access_internet = R"(    /**
+    const char* expectedAccessInternet =
+R"EOF(    /**
      * Required to access the internet.
      * Added in API 1.
      */
-    public static final String ACCESS_INTERNET="android.permission.ACCESS_INTERNET";)";
-  EXPECT_THAT(actual, HasSubstr(expected_access_internet));
+    public static final String ACCESS_INTERNET="android.permission.ACCESS_INTERNET";)EOF";
 
-  const char* expected_play_outside = R"(    /**
+    EXPECT_NE(std::string::npos, actual.find(expectedAccessInternet));
+
+    const char* expectedPlayOutside =
+R"EOF(    /**
      * @deprecated This permission is for playing outside.
      */
     @Deprecated
-    public static final String PLAY_OUTSIDE="android.permission.PLAY_OUTSIDE";)";
-  EXPECT_THAT(actual, HasSubstr(expected_play_outside));
+    public static final String PLAY_OUTSIDE="android.permission.PLAY_OUTSIDE";)EOF";
 
-  const char* expected_secret = R"(    /**
+    EXPECT_NE(std::string::npos, actual.find(expectedPlayOutside));
+
+    const char* expectedSecret =
+R"EOF(    /**
      * This is a private permission for system only!
      * @hide
      */
     @android.annotation.SystemApi
-    public static final String SECRET="android.permission.SECRET";)";
-  EXPECT_THAT(actual, HasSubstr(expected_secret));
+    public static final String SECRET="android.permission.SECRET";)EOF";
 
-  const char* expected_test = R"(    /**
-     * This is a test only permission.
-     */
-    @android.annotation.TestApi
-    public static final String TEST_ONLY="android.permission.TEST_ONLY";)";
-  EXPECT_THAT(actual, HasSubstr(expected_test));
+    EXPECT_NE(std::string::npos, actual.find(expectedSecret));
 }
 
-// This is bad but part of public API behaviour so we need to preserve it.
-TEST(ManifestClassGeneratorTest, LastSeenPermissionWithSameLeafNameTakesPrecedence) {
-  std::unique_ptr<IAaptContext> context = test::ContextBuilder().Build();
-  std::unique_ptr<xml::XmlResource> manifest = test::BuildXmlDom(R"(
-      <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-        <permission android:name="android.permission.ACCESS_INTERNET" />
-        <permission android:name="com.android.sample.ACCESS_INTERNET" />
-        <permission android:name="com.android.permission.UNRELATED_PERMISSION" />
-        <permission android:name="com.android.aapt.test.ACCESS_INTERNET" /> -->
-      </manifest>)");
-
-  std::string actual;
-  ASSERT_TRUE(GetManifestClassText(context.get(), manifest.get(), &actual));
-  EXPECT_THAT(actual, HasSubstr("ACCESS_INTERNET=\"com.android.aapt.test.ACCESS_INTERNET\";"));
-  EXPECT_THAT(actual, Not(HasSubstr("ACCESS_INTERNET=\"android.permission.ACCESS_INTERNET\";")));
-  EXPECT_THAT(actual, Not(HasSubstr("ACCESS_INTERNET=\"com.android.sample.ACCESS_INTERNET\";")));
-}
-
-TEST(ManifestClassGeneratorTest, NormalizePermissionNames) {
-  std::unique_ptr<IAaptContext> context = test::ContextBuilder().Build();
-  std::unique_ptr<xml::XmlResource> manifest = test::BuildXmlDom(R"(
-        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-          <permission android:name="android.permission.access-internet" />
-        </manifest>)");
-
-  std::string actual;
-  ASSERT_TRUE(GetManifestClassText(context.get(), manifest.get(), &actual));
-  EXPECT_THAT(actual, HasSubstr("access_internet=\"android.permission.access-internet\";"));
-}
-
-static ::testing::AssertionResult GetManifestClassText(IAaptContext* context, xml::XmlResource* res,
-                                                       std::string* out_str) {
-  std::unique_ptr<ClassDefinition> manifest_class =
-      GenerateManifestClass(context->GetDiagnostics(), res);
-  if (!manifest_class) {
-    return ::testing::AssertionFailure() << "manifest_class == nullptr";
-  }
-
-  StringOutputStream out(out_str);
-  manifest_class->WriteJavaFile(manifest_class.get(), "android", true, &out);
-  out.Flush();
-  return ::testing::AssertionSuccess();
-}
-
-}  // namespace aapt
+} // namespace aapt

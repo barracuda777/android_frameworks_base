@@ -16,10 +16,12 @@
 
 package android.view;
 
+import com.android.frameworks.coretests.R;
+
 import android.app.Activity;
 import android.os.Bundle;
-
-import com.android.frameworks.coretests.R;
+import android.view.ViewTreeObserver;
+import android.view.View;
 
 public class GlobalFocusChange extends Activity implements ViewTreeObserver.OnGlobalFocusChangeListener {
     public View mOldFocus;

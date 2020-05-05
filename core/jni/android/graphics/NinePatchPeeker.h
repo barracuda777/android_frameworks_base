@@ -20,7 +20,7 @@
 #include "SkPngChunkReader.h"
 #include <androidfw/ResourceTypes.h>
 
-#include <jni.h>
+class SkImageDecoder;
 
 using namespace android;
 
@@ -42,14 +42,9 @@ public:
 
     bool readChunk(const char tag[], const void* data, size_t length) override;
 
-    jobject createNinePatchInsets(JNIEnv*, float scale) const;
-    void getPadding(JNIEnv*, jobject outPadding) const;
-    void scale(float scaleX, float scaleY, int scaledWidth, int scaledHeight);
-
     Res_png_9patch* mPatch;
     size_t mPatchSize;
     bool mHasInsets;
-private:
     int32_t mOpticalInsets[4];
     int32_t mOutlineInsets[4];
     float mOutlineRadius;

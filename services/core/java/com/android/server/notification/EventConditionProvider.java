@@ -27,6 +27,7 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Looper;
 import android.os.Process;
 import android.os.UserHandle;
 import android.os.UserManager;
@@ -220,7 +221,7 @@ public class EventConditionProvider extends SystemConditionProviderService {
                     continue;
                 }
                 CheckEventResult result = null;
-                if (event.calName == null) { // any calendar
+                if (event.calendar == null) { // any calendar
                     // event could exist on any tracker
                     for (int i = 0; i < mTrackers.size(); i++) {
                         final CalendarTracker tracker = mTrackers.valueAt(i);

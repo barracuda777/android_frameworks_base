@@ -16,89 +16,6 @@
 
 package com.android.internal.policy;
 
-import static android.app.WindowConfiguration.PINNED_WINDOWING_MODE_ELEVATION_IN_DIP;
-import static android.app.WindowConfiguration.WINDOWING_MODE_FREEFORM;
-import static android.app.WindowConfiguration.WINDOWING_MODE_PINNED;
-import static android.content.res.Configuration.ORIENTATION_PORTRAIT;
-import static android.os.Build.VERSION_CODES.M;
-import static android.os.Build.VERSION_CODES.N;
-import static android.view.View.MeasureSpec.AT_MOST;
-import static android.view.View.MeasureSpec.EXACTLY;
-import static android.view.View.MeasureSpec.getMode;
-import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
-import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
-import static android.view.Window.DECOR_CAPTION_SHADE_DARK;
-import static android.view.Window.DECOR_CAPTION_SHADE_LIGHT;
-import static android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS;
-import static android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN;
-import static android.view.WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR;
-import static android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
-import static android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION;
-import static android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS;
-import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION;
-import static android.view.WindowManager.LayoutParams.TYPE_BASE_APPLICATION;
-import static android.view.WindowManager.LayoutParams.TYPE_DRAWN_APPLICATION;
-
-import static com.android.internal.policy.PhoneWindow.FEATURE_OPTIONS_PANEL;
-
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
-import android.animation.ObjectAnimator;
-import android.annotation.Nullable;
-import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
-import android.app.WindowConfiguration;
-import android.content.Context;
-import android.content.res.Configuration;
-import android.content.res.Resources;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Insets;
-import android.graphics.LinearGradient;
-import android.graphics.Outline;
-import android.graphics.Paint;
-import android.graphics.PixelFormat;
-import android.graphics.RecordingCanvas;
-import android.graphics.Rect;
-import android.graphics.Region;
-import android.graphics.Shader;
-import android.graphics.drawable.ColorDrawable;
-import android.graphics.drawable.Drawable;
-import android.graphics.drawable.InsetDrawable;
-import android.graphics.drawable.LayerDrawable;
-import android.util.DisplayMetrics;
-import android.util.Log;
-import android.util.Pair;
-import android.util.TypedValue;
-import android.view.ActionMode;
-import android.view.ContextThemeWrapper;
-import android.view.Gravity;
-import android.view.InputQueue;
-import android.view.KeyEvent;
-import android.view.KeyboardShortcutGroup;
-import android.view.LayoutInflater;
-import android.view.Menu;
-import android.view.MenuItem;
-import android.view.MotionEvent;
-import android.view.ThreadedRenderer;
-import android.view.View;
-import android.view.ViewGroup;
-import android.view.ViewOutlineProvider;
-import android.view.ViewRootImpl;
-import android.view.ViewStub;
-import android.view.ViewTreeObserver;
-import android.view.Window;
-import android.view.WindowCallbacks;
-import android.view.WindowInsets;
-import android.view.WindowManager;
-import android.view.accessibility.AccessibilityEvent;
-import android.view.accessibility.AccessibilityManager;
-import android.view.accessibility.AccessibilityNodeInfo;
-import android.view.animation.AnimationUtils;
-import android.view.animation.Interpolator;
-import android.widget.FrameLayout;
-import android.widget.PopupWindow;
-
 import com.android.internal.R;
 import com.android.internal.policy.PhoneWindow.PanelFeatureState;
 import com.android.internal.policy.PhoneWindow.PhoneWindowMenuCallback;
@@ -114,6 +31,80 @@ import com.android.internal.widget.FloatingToolbar;
 
 import java.util.List;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ObjectAnimator;
+import android.app.ActivityManager;
+import android.content.Context;
+import android.content.res.Configuration;
+import android.content.res.Resources;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.LinearGradient;
+import android.graphics.Paint;
+import android.graphics.PixelFormat;
+import android.graphics.Rect;
+import android.graphics.Region;
+import android.graphics.Shader;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
+import android.os.RemoteException;
+import android.util.DisplayMetrics;
+import android.util.Log;
+import android.util.TypedValue;
+import android.view.ActionMode;
+import android.view.ContextThemeWrapper;
+import android.view.DisplayListCanvas;
+import android.view.Gravity;
+import android.view.InputQueue;
+import android.view.KeyEvent;
+import android.view.KeyboardShortcutGroup;
+import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.MotionEvent;
+import android.view.ThreadedRenderer;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.ViewStub;
+import android.view.ViewTreeObserver;
+import android.view.Window;
+import android.view.WindowCallbacks;
+import android.view.WindowInsets;
+import android.view.WindowManager;
+import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityManager;
+import android.view.animation.AnimationUtils;
+import android.view.animation.Interpolator;
+import android.widget.FrameLayout;
+import android.widget.PopupWindow;
+
+import static android.app.ActivityManager.StackId;
+import static android.app.ActivityManager.StackId.FULLSCREEN_WORKSPACE_STACK_ID;
+import static android.app.ActivityManager.StackId.PINNED_STACK_ID;
+import static android.app.ActivityManager.StackId.INVALID_STACK_ID;
+import static android.content.res.Configuration.ORIENTATION_PORTRAIT;
+import static android.os.Build.VERSION_CODES.M;
+import static android.os.Build.VERSION_CODES.N;
+import static android.view.View.MeasureSpec.AT_MOST;
+import static android.view.View.MeasureSpec.EXACTLY;
+import static android.view.View.MeasureSpec.getMode;
+import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
+import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
+import static android.view.Window.DECOR_CAPTION_SHADE_DARK;
+import static android.view.Window.DECOR_CAPTION_SHADE_LIGHT;
+import static android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS;
+import static android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN;
+import static android.view.WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR;
+import static android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_OVERSCAN;
+import static android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
+import static android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION;
+import static android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS;
+import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION;
+import static android.view.WindowManager.LayoutParams.TYPE_BASE_APPLICATION;
+import static android.view.WindowManager.LayoutParams.TYPE_DRAWN_APPLICATION;
+import static com.android.internal.policy.PhoneWindow.FEATURE_OPTIONS_PANEL;
+
 /** @hide */
 public class DecorView extends FrameLayout implements RootViewSurfaceTaker, WindowCallbacks {
     private static final String TAG = "DecorView";
@@ -127,45 +118,12 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
     // The height of a window which has not in DIP.
     private final static int DECOR_SHADOW_UNFOCUSED_HEIGHT_IN_DIP = 5;
 
-    private static final int SCRIM_LIGHT = 0xe6ffffff; // 90% white
-
-    public static final ColorViewAttributes STATUS_BAR_COLOR_VIEW_ATTRIBUTES =
-            new ColorViewAttributes(SYSTEM_UI_FLAG_FULLSCREEN, FLAG_TRANSLUCENT_STATUS,
-                    Gravity.TOP, Gravity.LEFT, Gravity.RIGHT,
-                    Window.STATUS_BAR_BACKGROUND_TRANSITION_NAME,
-                    com.android.internal.R.id.statusBarBackground,
-                    FLAG_FULLSCREEN);
-
-    public static final ColorViewAttributes NAVIGATION_BAR_COLOR_VIEW_ATTRIBUTES =
-            new ColorViewAttributes(
-                    SYSTEM_UI_FLAG_HIDE_NAVIGATION, FLAG_TRANSLUCENT_NAVIGATION,
-                    Gravity.BOTTOM, Gravity.RIGHT, Gravity.LEFT,
-                    Window.NAVIGATION_BAR_BACKGROUND_TRANSITION_NAME,
-                    com.android.internal.R.id.navigationBarBackground,
-                    0 /* hideWindowFlag */);
-
-    // This is used to workaround an issue where the PiP shadow can be transparent if the window
-    // background is transparent
-    private static final ViewOutlineProvider PIP_OUTLINE_PROVIDER = new ViewOutlineProvider() {
-        @Override
-        public void getOutline(View view, Outline outline) {
-            outline.setRect(0, 0, view.getWidth(), view.getHeight());
-            outline.setAlpha(1f);
-        }
-    };
-
     // Cludge to address b/22668382: Set the shadow size to the maximum so that the layer
     // size calculation takes the shadow size into account. We set the elevation currently
     // to max until the first layout command has been executed.
     private boolean mAllowUpdateElevation = false;
 
     private boolean mElevationAdjustedForStack = false;
-
-    // Keeps track of the picture-in-picture mode for the view shadow
-    private boolean mIsInPictureInPictureMode;
-
-    // Stores the previous outline provider prior to applying PIP_OUTLINE_PROVIDER
-    private ViewOutlineProvider mLastOutlineProvider;
 
     int mDefaultOpacity = PixelFormat.OPAQUE;
 
@@ -200,37 +158,43 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
 
     // View added at runtime to draw under the status bar area
     private View mStatusGuard;
+    // View added at runtime to draw under the navigation bar area
+    private View mNavigationGuard;
 
-    private final ColorViewState mStatusColorViewState =
-            new ColorViewState(STATUS_BAR_COLOR_VIEW_ATTRIBUTES);
-    private final ColorViewState mNavigationColorViewState =
-            new ColorViewState(NAVIGATION_BAR_COLOR_VIEW_ATTRIBUTES);
+    private final ColorViewState mStatusColorViewState = new ColorViewState(
+            SYSTEM_UI_FLAG_FULLSCREEN, FLAG_TRANSLUCENT_STATUS,
+            Gravity.TOP, Gravity.LEFT, Gravity.RIGHT,
+            Window.STATUS_BAR_BACKGROUND_TRANSITION_NAME,
+            com.android.internal.R.id.statusBarBackground,
+            FLAG_FULLSCREEN);
+    private final ColorViewState mNavigationColorViewState = new ColorViewState(
+            SYSTEM_UI_FLAG_HIDE_NAVIGATION, FLAG_TRANSLUCENT_NAVIGATION,
+            Gravity.BOTTOM, Gravity.RIGHT, Gravity.LEFT,
+            Window.NAVIGATION_BAR_BACKGROUND_TRANSITION_NAME,
+            com.android.internal.R.id.navigationBarBackground,
+            0 /* hideWindowFlag */);
 
     private final Interpolator mShowInterpolator;
     private final Interpolator mHideInterpolator;
     private final int mBarEnterExitDuration;
-    final boolean mForceWindowDrawsBarBackgrounds;
-    private final int mSemiTransparentBarColor;
+    final boolean mForceWindowDrawsStatusBarBackground;
+    private final int mSemiTransparentStatusBarColor;
 
     private final BackgroundFallback mBackgroundFallback = new BackgroundFallback();
 
     private int mLastTopInset = 0;
-    @UnsupportedAppUsage
     private int mLastBottomInset = 0;
-    @UnsupportedAppUsage
     private int mLastRightInset = 0;
-    @UnsupportedAppUsage
     private int mLastLeftInset = 0;
     private boolean mLastHasTopStableInset = false;
     private boolean mLastHasBottomStableInset = false;
     private boolean mLastHasRightStableInset = false;
     private boolean mLastHasLeftStableInset = false;
     private int mLastWindowFlags = 0;
-    private boolean mLastShouldAlwaysConsumeSystemBars = false;
+    private boolean mLastShouldAlwaysConsumeNavBar = false;
 
     private int mRootScrollY = 0;
 
-    @UnsupportedAppUsage
     private PhoneWindow mWindow;
 
     ViewGroup mContentRoot;
@@ -241,13 +205,15 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
     // This is the caption view for the window, containing the caption and window control
     // buttons. The visibility of this decor depends on the workspace and the window type.
     // If the window type does not require such a view, this member might be null.
-    private DecorCaptionView mDecorCaptionView;
+    DecorCaptionView mDecorCaptionView;
+
+    // Stack window is currently in. Since querying and changing the stack is expensive,
+    // this is the stack value the window is currently set up for.
+    int mStackId;
 
     private boolean mWindowResizeCallbacksAdded = false;
     private Drawable.Callback mLastBackgroundDrawableCb = null;
     private BackdropFrameRenderer mBackdropFrameRenderer = null;
-    private Drawable mOriginalBackgroundDrawable;
-    private Drawable mLastOriginalBackgroundDrawable;
     private Drawable mResizingBackgroundDrawable;
     private Drawable mCaptionBackgroundDrawable;
     private Drawable mUserCaptionBackgroundDrawable;
@@ -263,10 +229,8 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
     private final int mResizeShadowSize;
     private final Paint mVerticalResizeShadowPaint = new Paint();
     private final Paint mHorizontalResizeShadowPaint = new Paint();
-    private final Paint mLegacyNavigationBarBackgroundPaint = new Paint();
-    private Insets mBackgroundInsets = Insets.NONE;
-    private Insets mLastBackgroundInsets = Insets.NONE;
-    private boolean mDrawLegacyNavigationBarBackground;
+
+    private boolean mIsAddedToWindow = false;
 
     DecorView(Context context, int featureId, PhoneWindow window,
             WindowManager.LayoutParams params) {
@@ -280,10 +244,10 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
 
         mBarEnterExitDuration = context.getResources().getInteger(
                 R.integer.dock_enter_exit_duration);
-        mForceWindowDrawsBarBackgrounds = context.getResources().getBoolean(
+        mForceWindowDrawsStatusBarBackground = context.getResources().getBoolean(
                 R.bool.config_forceWindowDrawsStatusBarBackground)
                 && context.getApplicationInfo().targetSdkVersion >= N;
-        mSemiTransparentBarColor = context.getResources().getColor(
+        mSemiTransparentStatusBarColor = context.getResources().getColor(
                 R.color.system_bar_background_semi_transparent, null /* theme */);
 
         updateAvailableWidth();
@@ -295,18 +259,11 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
         mResizeShadowSize = context.getResources().getDimensionPixelSize(
                 R.dimen.resize_shadow_size);
         initResizingPaints();
-
-        mLegacyNavigationBarBackgroundPaint.setColor(Color.BLACK);
     }
 
-    void setBackgroundFallback(@Nullable Drawable fallbackDrawable) {
-        mBackgroundFallback.setDrawable(fallbackDrawable);
+    void setBackgroundFallback(int resId) {
+        mBackgroundFallback.setDrawable(resId != 0 ? getContext().getDrawable(resId) : null);
         setWillNotDraw(getBackground() == null && !mBackgroundFallback.hasFallback());
-    }
-
-    @TestApi
-    public @Nullable Drawable getBackgroundFallback() {
-        return mBackgroundFallback.getDrawable();
     }
 
     @Override
@@ -332,9 +289,7 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
     @Override
     public void onDraw(Canvas c) {
         super.onDraw(c);
-
-        mBackgroundFallback.draw(this, mContentRoot, c, mWindow.mContentParent,
-                mStatusColorViewState.view, mNavigationColorViewState.view);
+        mBackgroundFallback.draw(mContentRoot, c, mWindow.mContentParent);
     }
 
     @Override
@@ -450,11 +405,7 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
             }
         }
 
-        if (super.dispatchKeyEvent(event)) {
-            return true;
-        }
-
-        return (getViewRootImpl() != null) && getViewRootImpl().dispatchUnhandledKeyEvent(event);
+        return super.dispatchKeyEvent(event);
     }
 
     public boolean superDispatchKeyShortcutEvent(KeyEvent event) {
@@ -635,8 +586,7 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
                 drawingBounds.bottom -= framePadding.bottom - frameOffsets.bottom;
             }
 
-            // Need to call super here as we pretend to be having the original background.
-            Drawable bg = super.getBackground();
+            Drawable bg = getBackground();
             if (bg != null) {
                 bg.setBounds(drawingBounds);
             }
@@ -796,9 +746,7 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
         updateElevation();
         mAllowUpdateElevation = true;
 
-        if (changed
-                && (mResizeMode == RESIZE_MODE_DOCKED_DIVIDER
-                    || mDrawLegacyNavigationBarBackground)) {
+        if (changed && mResizeMode == RESIZE_MODE_DOCKED_DIVIDER) {
             getViewRootImpl().requestInvalidateRootRenderNode();
         }
     }
@@ -963,15 +911,14 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
     }
 
     public void setWindowBackground(Drawable drawable) {
-        if (mOriginalBackgroundDrawable != drawable) {
-            mOriginalBackgroundDrawable = drawable;
-            updateBackgroundDrawable();
+        if (getBackground() != drawable) {
+            setBackgroundDrawable(drawable);
             if (drawable != null) {
                 mResizingBackgroundDrawable = enforceNonTranslucentBackground(drawable,
                         mWindow.isTranslucent() || mWindow.isShowingWallpaper());
             } else {
                 mResizingBackgroundDrawable = getResizingBackgroundDrawable(
-                        mWindow.mBackgroundDrawable, mWindow.mBackgroundFallbackDrawable,
+                        getContext(), 0, mWindow.mBackgroundFallbackResource,
                         mWindow.isTranslucent() || mWindow.isShowingWallpaper());
             }
             if (mResizingBackgroundDrawable != null) {
@@ -980,19 +927,6 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
                 mBackgroundPadding.setEmpty();
             }
             drawableChanged();
-        }
-    }
-
-    @Override
-    public void setBackgroundDrawable(Drawable background) {
-        // TODO: This should route through setWindowBackground, but late in the release to make this
-        // change.
-        if (mOriginalBackgroundDrawable != background) {
-            mOriginalBackgroundDrawable = background;
-            updateBackgroundDrawable();
-            if (!View.sBrokenWindowBackground) {
-                drawableChanged();
-            }
         }
     }
 
@@ -1011,11 +945,6 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
     @Override
     public void onWindowSystemUiVisibilityChanged(int visible) {
         updateColorViews(null /* insets */, true /* animate */);
-        updateDecorCaptionStatus(getResources().getConfiguration());
-
-        if (mStatusGuard != null && mStatusGuard.getVisibility() == VISIBLE) {
-            updateStatusGuardColor();
-        }
     }
 
     @Override
@@ -1030,19 +959,20 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
             if (attrs.height == WindowManager.LayoutParams.WRAP_CONTENT) {
                 mFloatingInsets.top = insets.getSystemWindowInsetTop();
                 mFloatingInsets.bottom = insets.getSystemWindowInsetBottom();
-                insets = insets.inset(0, insets.getSystemWindowInsetTop(),
-                        0, insets.getSystemWindowInsetBottom());
+                insets = insets.replaceSystemWindowInsets(insets.getSystemWindowInsetLeft(), 0,
+                        insets.getSystemWindowInsetRight(), 0);
             }
             if (mWindow.getAttributes().width == WindowManager.LayoutParams.WRAP_CONTENT) {
                 mFloatingInsets.left = insets.getSystemWindowInsetTop();
                 mFloatingInsets.right = insets.getSystemWindowInsetBottom();
-                insets = insets.inset(insets.getSystemWindowInsetLeft(), 0,
-                        insets.getSystemWindowInsetRight(), 0);
+                insets = insets.replaceSystemWindowInsets(0, insets.getSystemWindowInsetTop(),
+                        0, insets.getSystemWindowInsetBottom());
             }
         }
-        mFrameOffsets.set(insets.getSystemWindowInsetsAsRect());
+        mFrameOffsets.set(insets.getSystemWindowInsets());
         insets = updateColorViews(insets, true /* animate */);
         insets = updateStatusGuard(insets);
+        insets = updateNavigationGuard(insets);
         if (getForeground() != null) {
             drawableChanged();
         }
@@ -1054,61 +984,40 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
         return false;
     }
 
-    public static int getColorViewTopInset(int stableTop, int systemTop) {
+    static int getColorViewTopInset(int stableTop, int systemTop) {
         return Math.min(stableTop, systemTop);
     }
 
-    public static int getColorViewBottomInset(int stableBottom, int systemBottom) {
+    static int getColorViewBottomInset(int stableBottom, int systemBottom) {
         return Math.min(stableBottom, systemBottom);
     }
 
-    public static int getColorViewRightInset(int stableRight, int systemRight) {
+    static int getColorViewRightInset(int stableRight, int systemRight) {
         return Math.min(stableRight, systemRight);
     }
 
-    public static int getColorViewLeftInset(int stableLeft, int systemLeft) {
+    static int getColorViewLeftInset(int stableLeft, int systemLeft) {
         return Math.min(stableLeft, systemLeft);
     }
 
-    public static boolean isNavBarToRightEdge(int bottomInset, int rightInset) {
+    static boolean isNavBarToRightEdge(int bottomInset, int rightInset) {
         return bottomInset == 0 && rightInset > 0;
     }
 
-    public static boolean isNavBarToLeftEdge(int bottomInset, int leftInset) {
+    static boolean isNavBarToLeftEdge(int bottomInset, int leftInset) {
         return bottomInset == 0 && leftInset > 0;
     }
 
-    public static int getNavBarSize(int bottomInset, int rightInset, int leftInset) {
+    static int getNavBarSize(int bottomInset, int rightInset, int leftInset) {
         return isNavBarToRightEdge(bottomInset, rightInset) ? rightInset
                 : isNavBarToLeftEdge(bottomInset, leftInset) ? leftInset : bottomInset;
-    }
-
-    public static void getNavigationBarRect(int canvasWidth, int canvasHeight, Rect stableInsets,
-            Rect contentInsets, Rect outRect, float scale) {
-        final int bottomInset =
-                (int) (getColorViewBottomInset(stableInsets.bottom, contentInsets.bottom) * scale);
-        final int leftInset =
-                (int) (getColorViewLeftInset(stableInsets.left, contentInsets.left) * scale);
-        final int rightInset =
-                (int) (getColorViewLeftInset(stableInsets.right, contentInsets.right) * scale);
-        final int size = getNavBarSize(bottomInset, rightInset, leftInset);
-        if (isNavBarToRightEdge(bottomInset, rightInset)) {
-            outRect.set(canvasWidth - size, 0, canvasWidth, canvasHeight);
-        } else if (isNavBarToLeftEdge(bottomInset, leftInset)) {
-            outRect.set(0, 0, size, canvasHeight);
-        } else {
-            outRect.set(0, canvasHeight - size, canvasWidth, canvasHeight);
-        }
     }
 
     WindowInsets updateColorViews(WindowInsets insets, boolean animate) {
         WindowManager.LayoutParams attrs = mWindow.getAttributes();
         int sysUiVisibility = attrs.systemUiVisibility | getWindowSystemUiVisibility();
 
-        // IME is an exceptional floating window that requires color view.
-        final boolean isImeWindow =
-                mWindow.getAttributes().type == WindowManager.LayoutParams.TYPE_INPUT_METHOD;
-        if (!mWindow.mIsFloating || isImeWindow) {
+        if (!mWindow.mIsFloating && ActivityManager.isHighEndGfx()) {
             boolean disallowAnimate = !isLaidOut();
             disallowAnimate |= ((mLastWindowFlags ^ attrs.flags)
                     & FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS) != 0;
@@ -1143,26 +1052,16 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
                 disallowAnimate |= (hasLeftStableInset != mLastHasLeftStableInset);
                 mLastHasLeftStableInset = hasLeftStableInset;
 
-                mLastShouldAlwaysConsumeSystemBars = insets.shouldAlwaysConsumeSystemBars();
+                mLastShouldAlwaysConsumeNavBar = insets.shouldAlwaysConsumeNavBar();
             }
 
             boolean navBarToRightEdge = isNavBarToRightEdge(mLastBottomInset, mLastRightInset);
             boolean navBarToLeftEdge = isNavBarToLeftEdge(mLastBottomInset, mLastLeftInset);
             int navBarSize = getNavBarSize(mLastBottomInset, mLastRightInset, mLastLeftInset);
             updateColorViewInt(mNavigationColorViewState, sysUiVisibility,
-                    calculateNavigationBarColor(), mWindow.mNavigationBarDividerColor, navBarSize,
-                    navBarToRightEdge || navBarToLeftEdge, navBarToLeftEdge,
-                    0 /* sideInset */, animate && !disallowAnimate,
-                    mForceWindowDrawsBarBackgrounds);
-            boolean oldDrawLegacy = mDrawLegacyNavigationBarBackground;
-            mDrawLegacyNavigationBarBackground = mNavigationColorViewState.visible
-                    && (mWindow.getAttributes().flags & FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS) == 0;
-            if (oldDrawLegacy != mDrawLegacyNavigationBarBackground) {
-                ViewRootImpl vri = getViewRootImpl();
-                if (vri != null) {
-                    vri.requestInvalidateRootRenderNode();
-                }
-            }
+                    mWindow.mNavigationBarColor, navBarSize, navBarToRightEdge || navBarToLeftEdge,
+                    navBarToLeftEdge,
+                    0 /* sideInset */, animate && !disallowAnimate, false /* force */);
 
             boolean statusBarNeedsRightInset = navBarToRightEdge
                     && mNavigationColorViewState.present;
@@ -1171,44 +1070,29 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
             int statusBarSideInset = statusBarNeedsRightInset ? mLastRightInset
                     : statusBarNeedsLeftInset ? mLastLeftInset : 0;
             updateColorViewInt(mStatusColorViewState, sysUiVisibility,
-                    calculateStatusBarColor(), 0, mLastTopInset,
+                    calculateStatusBarColor(), mLastTopInset,
                     false /* matchVertical */, statusBarNeedsLeftInset, statusBarSideInset,
                     animate && !disallowAnimate,
-                    mForceWindowDrawsBarBackgrounds);
+                    mForceWindowDrawsStatusBarBackground);
         }
 
-        // When we expand the window with FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS or
-        // mForceWindowDrawsBarBackgrounds, we still need to ensure that the rest of the view
-        // hierarchy doesn't notice it, unless they've explicitly asked for it.
-        //
-        // Note: We don't need to check for IN_SCREEN or INSET_DECOR because unlike the status bar,
-        // these flags wouldn't make the window draw behind the navigation bar, unless
-        // LAYOUT_HIDE_NAVIGATION was set.
-        boolean hideNavigation = (sysUiVisibility & SYSTEM_UI_FLAG_HIDE_NAVIGATION) != 0;
-        boolean forceConsumingNavBar = (mForceWindowDrawsBarBackgrounds
-                        && (attrs.flags & FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS) == 0
-                        && (sysUiVisibility & SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION) == 0
-                        && !hideNavigation)
-                || (mLastShouldAlwaysConsumeSystemBars && hideNavigation);
-
+        // When we expand the window with FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS, we still need
+        // to ensure that the rest of the view hierarchy doesn't notice it, unless they've
+        // explicitly asked for it.
         boolean consumingNavBar =
-                ((attrs.flags & FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS) != 0
+                (attrs.flags & FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS) != 0
                         && (sysUiVisibility & SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION) == 0
-                        && !hideNavigation)
-                || forceConsumingNavBar;
+                        && (sysUiVisibility & SYSTEM_UI_FLAG_HIDE_NAVIGATION) == 0
+                || mLastShouldAlwaysConsumeNavBar;
 
         // If we didn't request fullscreen layout, but we still got it because of the
-        // mForceWindowDrawsBarBackgrounds flag, also consume top inset.
-        // If we should always consume system bars, only consume that if the app wanted to go to
-        // fullscreen, as othrewise we can expect the app to handle it.
-        boolean fullscreen = (sysUiVisibility & SYSTEM_UI_FLAG_FULLSCREEN) != 0
-                || (attrs.flags & FLAG_FULLSCREEN) != 0;
+        // mForceWindowDrawsStatusBarBackground flag, also consume top inset.
         boolean consumingStatusBar = (sysUiVisibility & SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN) == 0
+                && (sysUiVisibility & FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS) == 0
                 && (attrs.flags & FLAG_LAYOUT_IN_SCREEN) == 0
                 && (attrs.flags & FLAG_LAYOUT_INSET_DECOR) == 0
-                && mForceWindowDrawsBarBackgrounds
-                && mLastTopInset != 0
-                || (mLastShouldAlwaysConsumeSystemBars && fullscreen);
+                && mForceWindowDrawsStatusBarBackground
+                && mLastTopInset != 0;
 
         int consumedTop = consumingStatusBar ? mLastTopInset : 0;
         int consumedRight = consumingNavBar ? mLastRightInset : 0;
@@ -1233,16 +1117,13 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
                 }
             }
             if (insets != null) {
-                insets = insets.inset(consumedLeft, consumedTop, consumedRight, consumedBottom);
+                insets = insets.replaceSystemWindowInsets(
+                        insets.getSystemWindowInsetLeft() - consumedLeft,
+                        insets.getSystemWindowInsetTop() - consumedTop,
+                        insets.getSystemWindowInsetRight() - consumedRight,
+                        insets.getSystemWindowInsetBottom() - consumedBottom);
             }
         }
-
-        if (forceConsumingNavBar) {
-            mBackgroundInsets = Insets.of(mLastLeftInset, 0, mLastRightInset, mLastBottomInset);
-        } else {
-            mBackgroundInsets = Insets.NONE;
-        }
-        updateBackgroundDrawable();
 
         if (insets != null) {
             insets = insets.consumeStableInsets();
@@ -1250,76 +1131,11 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
         return insets;
     }
 
-    /**
-     * Updates the background drawable, applying padding to it in case we {@link #mBackgroundInsets}
-     * are set.
-     */
-    private void updateBackgroundDrawable() {
-        // Background insets can be null if super constructor calls setBackgroundDrawable.
-        if (mBackgroundInsets == null) {
-            mBackgroundInsets = Insets.NONE;
-        }
-        if (mBackgroundInsets.equals(mLastBackgroundInsets)
-                && mLastOriginalBackgroundDrawable == mOriginalBackgroundDrawable) {
-            return;
-        }
-        if (mOriginalBackgroundDrawable == null || mBackgroundInsets.equals(Insets.NONE)) {
-
-            // Call super since we are intercepting setBackground on this class.
-            super.setBackgroundDrawable(mOriginalBackgroundDrawable);
-        } else {
-
-            // Call super since we are intercepting setBackground on this class.
-            super.setBackgroundDrawable(new InsetDrawable(mOriginalBackgroundDrawable,
-                    mBackgroundInsets.left, mBackgroundInsets.top,
-                    mBackgroundInsets.right, mBackgroundInsets.bottom) {
-
-                /**
-                 * Return inner padding so we don't apply the padding again in
-                 * {@link DecorView#drawableChanged()}
-                 */
-                @Override
-                public boolean getPadding(Rect padding) {
-                    return getDrawable().getPadding(padding);
-                }
-            });
-        }
-        mLastBackgroundInsets = mBackgroundInsets;
-        mLastOriginalBackgroundDrawable = mOriginalBackgroundDrawable;
-    }
-
-    @Override
-    public Drawable getBackground() {
-        return mOriginalBackgroundDrawable;
-    }
-
     private int calculateStatusBarColor() {
-        return calculateBarColor(mWindow.getAttributes().flags, FLAG_TRANSLUCENT_STATUS,
-                mSemiTransparentBarColor, mWindow.mStatusBarColor,
-                getWindowSystemUiVisibility(), SYSTEM_UI_FLAG_LIGHT_STATUS_BAR,
-                mWindow.mEnsureStatusBarContrastWhenTransparent);
-    }
-
-    private int calculateNavigationBarColor() {
-        return calculateBarColor(mWindow.getAttributes().flags, FLAG_TRANSLUCENT_NAVIGATION,
-                mSemiTransparentBarColor, mWindow.mNavigationBarColor,
-                getWindowSystemUiVisibility(), SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR,
-                mWindow.mEnsureNavigationBarContrastWhenTransparent
-                        && getContext().getResources().getBoolean(R.bool.config_navBarNeedsScrim));
-    }
-
-    public static int calculateBarColor(int flags, int translucentFlag, int semiTransparentBarColor,
-            int barColor, int sysuiVis, int lightSysuiFlag, boolean scrimTransparent) {
-        if ((flags & translucentFlag) != 0) {
-            return semiTransparentBarColor;
-        } else if ((flags & FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS) == 0) {
-            return Color.BLACK;
-        } else if (scrimTransparent && Color.alpha(barColor) == 0) {
-            boolean light = (sysuiVis & lightSysuiFlag) != 0;
-            return light ? SCRIM_LIGHT : semiTransparentBarColor;
-        } else {
-            return barColor;
-        }
+        int flags = mWindow.getAttributes().flags;
+        return (flags & FLAG_TRANSLUCENT_STATUS) != 0 ? mSemiTransparentStatusBarColor
+                : (flags & FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS) != 0 ? mWindow.mStatusBarColor
+                : Color.BLACK;
     }
 
     private int getCurrentColor(ColorViewState state) {
@@ -1336,7 +1152,6 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
      * @param state the color view to update.
      * @param sysUiVis the current systemUiVisibility to apply.
      * @param color the current color to apply.
-     * @param dividerColor the current divider color to apply.
      * @param size the current size in the non-parent-matching dimension.
      * @param verticalBar if true the view is attached to a vertical edge, otherwise to a
      *                    horizontal edge,
@@ -1344,11 +1159,15 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
      * @param animate if true, the change will be animated.
      */
     private void updateColorViewInt(final ColorViewState state, int sysUiVis, int color,
-            int dividerColor, int size, boolean verticalBar, boolean seascape, int sideMargin,
+            int size, boolean verticalBar, boolean seascape, int sideMargin,
             boolean animate, boolean force) {
-        state.present = state.attributes.isPresent(sysUiVis, mWindow.getAttributes().flags, force);
-        boolean show = state.attributes.isVisible(state.present, color,
-                mWindow.getAttributes().flags, force);
+        state.present = (sysUiVis & state.systemUiHideFlag) == 0
+                && (mWindow.getAttributes().flags & state.hideWindowFlag) == 0
+                && ((mWindow.getAttributes().flags & FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS) != 0
+                        || force);
+        boolean show = state.present
+                && (color & Color.BLACK) != 0
+                && ((mWindow.getAttributes().flags & state.translucentFlag) == 0  || force);
         boolean showView = show && !isResizing() && size > 0;
 
         boolean visibilityChanged = false;
@@ -1357,15 +1176,15 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
         int resolvedHeight = verticalBar ? LayoutParams.MATCH_PARENT : size;
         int resolvedWidth = verticalBar ? size : LayoutParams.MATCH_PARENT;
         int resolvedGravity = verticalBar
-                ? (seascape ? state.attributes.seascapeGravity : state.attributes.horizontalGravity)
-                : state.attributes.verticalGravity;
+                ? (seascape ? state.seascapeGravity : state.horizontalGravity)
+                : state.verticalGravity;
 
         if (view == null) {
             if (showView) {
                 state.view = view = new View(mContext);
-                setColor(view, color, dividerColor, verticalBar, seascape);
-                view.setTransitionName(state.attributes.transitionName);
-                view.setId(state.attributes.id);
+                view.setBackgroundColor(color);
+                view.setTransitionName(state.transitionName);
+                view.setId(state.id);
                 visibilityChanged = true;
                 view.setVisibility(INVISIBLE);
                 state.targetVisibility = VISIBLE;
@@ -1398,7 +1217,7 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
                 view.setLayoutParams(lp);
             }
             if (showView) {
-                setColor(view, color, dividerColor, verticalBar, seascape);
+                view.setBackgroundColor(color);
             }
         }
         if (visibilityChanged) {
@@ -1431,34 +1250,6 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
         state.color = color;
     }
 
-    private static void setColor(View v, int color, int dividerColor, boolean verticalBar,
-            boolean seascape) {
-        if (dividerColor != 0) {
-            final Pair<Boolean, Boolean> dir = (Pair<Boolean, Boolean>) v.getTag();
-            if (dir == null || dir.first != verticalBar || dir.second != seascape) {
-                final int size = Math.round(
-                        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 1,
-                                v.getContext().getResources().getDisplayMetrics()));
-                // Use an inset to make the divider line on the side that faces the app.
-                final InsetDrawable d = new InsetDrawable(new ColorDrawable(color),
-                        verticalBar && !seascape ? size : 0,
-                        !verticalBar ? size : 0,
-                        verticalBar && seascape ? size : 0, 0);
-                v.setBackground(new LayerDrawable(new Drawable[] {
-                        new ColorDrawable(dividerColor), d }));
-                v.setTag(new Pair<>(verticalBar, seascape));
-            } else {
-                final LayerDrawable d = (LayerDrawable) v.getBackground();
-                final InsetDrawable inset = ((InsetDrawable) d.getDrawable(1));
-                ((ColorDrawable) inset.getDrawable()).setColor(color);
-                ((ColorDrawable) d.getDrawable(0)).setColor(dividerColor);
-            }
-        } else {
-            v.setTag(null);
-            v.setBackgroundColor(color);
-        }
-    }
-
     private void updateColorViewTranslations() {
         // Put the color views back in place when they get moved off the screen
         // due to the the ViewRootImpl panning.
@@ -1486,45 +1277,28 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
                     }
                     final Rect rect = mTempRect;
 
-                    // Apply the insets that have not been applied by the contentParent yet.
-                    WindowInsets innerInsets =
-                            mWindow.mContentParent.computeSystemWindowInsets(insets, rect);
-                    int newTopMargin = innerInsets.getSystemWindowInsetTop();
-                    int newLeftMargin = innerInsets.getSystemWindowInsetLeft();
-                    int newRightMargin = innerInsets.getSystemWindowInsetRight();
-
-                    // Must use root window insets for the guard, because the color views consume
-                    // the navigation bar inset if the window does not request LAYOUT_HIDE_NAV - but
-                    // the status guard is attached at the root.
-                    WindowInsets rootInsets = getRootWindowInsets();
-                    int newGuardLeftMargin = rootInsets.getSystemWindowInsetLeft();
-                    int newGuardRightMargin = rootInsets.getSystemWindowInsetRight();
-
-                    if (mlp.topMargin != newTopMargin || mlp.leftMargin != newLeftMargin
-                            || mlp.rightMargin != newRightMargin) {
+                    // If the parent doesn't consume the insets, manually
+                    // apply the default system window insets.
+                    mWindow.mContentParent.computeSystemWindowInsets(insets, rect);
+                    final int newMargin = rect.top == 0 ? insets.getSystemWindowInsetTop() : 0;
+                    if (mlp.topMargin != newMargin) {
                         mlpChanged = true;
-                        mlp.topMargin = newTopMargin;
-                        mlp.leftMargin = newLeftMargin;
-                        mlp.rightMargin = newRightMargin;
-                    }
+                        mlp.topMargin = insets.getSystemWindowInsetTop();
 
-                    if (newTopMargin > 0 && mStatusGuard == null) {
-                        mStatusGuard = new View(mContext);
-                        mStatusGuard.setVisibility(GONE);
-                        final LayoutParams lp = new LayoutParams(MATCH_PARENT,
-                                mlp.topMargin, Gravity.LEFT | Gravity.TOP);
-                        lp.leftMargin = newGuardLeftMargin;
-                        lp.rightMargin = newGuardRightMargin;
-                        addView(mStatusGuard, indexOfChild(mStatusColorViewState.view), lp);
-                    } else if (mStatusGuard != null) {
-                        final LayoutParams lp = (LayoutParams)
-                                mStatusGuard.getLayoutParams();
-                        if (lp.height != mlp.topMargin || lp.leftMargin != newGuardLeftMargin
-                                || lp.rightMargin != newGuardRightMargin) {
-                            lp.height = mlp.topMargin;
-                            lp.leftMargin = newGuardLeftMargin;
-                            lp.rightMargin = newGuardRightMargin;
-                            mStatusGuard.setLayoutParams(lp);
+                        if (mStatusGuard == null) {
+                            mStatusGuard = new View(mContext);
+                            mStatusGuard.setBackgroundColor(mContext.getColor(
+                                    R.color.input_method_navigation_guard));
+                            addView(mStatusGuard, indexOfChild(mStatusColorViewState.view),
+                                    new LayoutParams(LayoutParams.MATCH_PARENT,
+                                            mlp.topMargin, Gravity.START | Gravity.TOP));
+                        } else {
+                            final LayoutParams lp = (LayoutParams)
+                                    mStatusGuard.getLayoutParams();
+                            if (lp.height != mlp.topMargin) {
+                                lp.height = mlp.topMargin;
+                                mStatusGuard.setLayoutParams(lp);
+                            }
                         }
                     }
 
@@ -1532,23 +1306,17 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
                     // always show the status guard above it if we have one.
                     showStatusGuard = mStatusGuard != null;
 
-                    if (showStatusGuard && mStatusGuard.getVisibility() != VISIBLE) {
-                        // If it wasn't previously shown, the color may be stale
-                        updateStatusGuardColor();
-                    }
-
                     // We only need to consume the insets if the action
                     // mode is overlaid on the app content (e.g. it's
                     // sitting in a FrameLayout, see
                     // screen_simple_overlay_action_mode.xml).
                     final boolean nonOverlay = (mWindow.getLocalFeaturesPrivate()
                             & (1 << Window.FEATURE_ACTION_MODE_OVERLAY)) == 0;
-                    if (nonOverlay && showStatusGuard) {
-                        insets = insets.inset(0, insets.getSystemWindowInsetTop(), 0, 0);
-                    }
+                    insets = insets.consumeSystemWindowInsets(
+                            false, nonOverlay && showStatusGuard /* top */, false, false);
                 } else {
                     // reset top margin
-                    if (mlp.topMargin != 0 || mlp.leftMargin != 0 || mlp.rightMargin != 0) {
+                    if (mlp.topMargin != 0) {
                         mlpChanged = true;
                         mlp.topMargin = 0;
                     }
@@ -1559,52 +1327,54 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
             }
         }
         if (mStatusGuard != null) {
-            mStatusGuard.setVisibility(showStatusGuard ? VISIBLE : GONE);
+            mStatusGuard.setVisibility(showStatusGuard ? View.VISIBLE : View.GONE);
         }
         return insets;
     }
 
-    private void updateStatusGuardColor() {
-        boolean lightStatusBar =
-                (getWindowSystemUiVisibility() & SYSTEM_UI_FLAG_LIGHT_STATUS_BAR) != 0;
-        mStatusGuard.setBackgroundColor(lightStatusBar
-                ? mContext.getColor(R.color.decor_view_status_guard_light)
-                : mContext.getColor(R.color.decor_view_status_guard));
+    private WindowInsets updateNavigationGuard(WindowInsets insets) {
+        // IME windows lay out below the nav bar, but the content view must not (for back compat)
+        // Only make this adjustment if the window is not requesting layout in overscan
+        if (mWindow.getAttributes().type == WindowManager.LayoutParams.TYPE_INPUT_METHOD
+                && (mWindow.getAttributes().flags & FLAG_LAYOUT_IN_OVERSCAN) == 0) {
+            // prevent the content view from including the nav bar height
+            if (mWindow.mContentParent != null) {
+                if (mWindow.mContentParent.getLayoutParams() instanceof MarginLayoutParams) {
+                    MarginLayoutParams mlp =
+                            (MarginLayoutParams) mWindow.mContentParent.getLayoutParams();
+                    mlp.bottomMargin = insets.getSystemWindowInsetBottom();
+                    mWindow.mContentParent.setLayoutParams(mlp);
+                }
+            }
+            // position the navigation guard view, creating it if necessary
+            if (mNavigationGuard == null) {
+                mNavigationGuard = new View(mContext);
+                mNavigationGuard.setBackgroundColor(mContext.getColor(
+                        R.color.input_method_navigation_guard));
+                addView(mNavigationGuard, indexOfChild(mNavigationColorViewState.view),
+                        new LayoutParams(LayoutParams.MATCH_PARENT,
+                                insets.getSystemWindowInsetBottom(),
+                                Gravity.START | Gravity.BOTTOM));
+            } else {
+                LayoutParams lp = (LayoutParams) mNavigationGuard.getLayoutParams();
+                lp.height = insets.getSystemWindowInsetBottom();
+                mNavigationGuard.setLayoutParams(lp);
+            }
+            updateNavigationGuardColor();
+            insets = insets.consumeSystemWindowInsets(
+                    false, false, false, true /* bottom */);
+        }
+        return insets;
     }
 
-    /**
-     * Overrides the view outline when the activity enters picture-in-picture to ensure that it has
-     * an opaque shadow even if the window background is completely transparent. This only applies
-     * to activities that are currently the task root.
-     */
-    public void updatePictureInPictureOutlineProvider(boolean isInPictureInPictureMode) {
-        if (mIsInPictureInPictureMode == isInPictureInPictureMode) {
-            return;
+    void updateNavigationGuardColor() {
+        if (mNavigationGuard != null) {
+            // Make navigation bar guard invisible if the transparent color is specified.
+            // Only TRANSPARENT is sufficient for hiding the navigation bar if the no software
+            // keyboard is shown by IMS.
+            mNavigationGuard.setVisibility(mWindow.getNavigationBarColor() == Color.TRANSPARENT ?
+                    View.INVISIBLE : View.VISIBLE);
         }
-
-        if (isInPictureInPictureMode) {
-            final Window.WindowControllerCallback callback =
-                    mWindow.getWindowControllerCallback();
-            if (callback != null && callback.isTaskRoot()) {
-                // Call super implementation directly as we don't want to save the PIP outline
-                // provider to be restored
-                super.setOutlineProvider(PIP_OUTLINE_PROVIDER);
-            }
-        } else {
-            // Restore the previous outline provider
-            if (getOutlineProvider() != mLastOutlineProvider) {
-                setOutlineProvider(mLastOutlineProvider);
-            }
-        }
-        mIsInPictureInPictureMode = isInPictureInPictureMode;
-    }
-
-    @Override
-    public void setOutlineProvider(ViewOutlineProvider provider) {
-        super.setOutlineProvider(provider);
-
-        // Save the outline provider set to ensure that we can restore when the activity leaves PiP
-        mLastOutlineProvider = provider;
     }
 
     private void drawableChanged() {
@@ -1612,20 +1382,15 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
             return;
         }
 
-        // Fields can be null if super constructor calls setBackgroundDrawable.
-        Rect framePadding = mFramePadding != null ? mFramePadding : new Rect();
-        Rect backgroundPadding = mBackgroundPadding != null ? mBackgroundPadding : new Rect();
-
-        setPadding(framePadding.left + backgroundPadding.left,
-                framePadding.top + backgroundPadding.top,
-                framePadding.right + backgroundPadding.right,
-                framePadding.bottom + backgroundPadding.bottom);
+        setPadding(mFramePadding.left + mBackgroundPadding.left,
+                mFramePadding.top + mBackgroundPadding.top,
+                mFramePadding.right + mBackgroundPadding.right,
+                mFramePadding.bottom + mBackgroundPadding.bottom);
         requestLayout();
         invalidate();
 
         int opacity = PixelFormat.OPAQUE;
-        final WindowConfiguration winConfig = getResources().getConfiguration().windowConfiguration;
-        if (winConfig.hasWindowShadow()) {
+        if (StackId.hasWindowShadow(mStackId)) {
             // If the window has a shadow, it must be translucent.
             opacity = PixelFormat.TRANSLUCENT;
         } else{
@@ -1639,8 +1404,8 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
             if (bg != null) {
                 if (fg == null) {
                     opacity = bg.getOpacity();
-                } else if (framePadding.left <= 0 && framePadding.top <= 0
-                        && framePadding.right <= 0 && framePadding.bottom <= 0) {
+                } else if (mFramePadding.left <= 0 && mFramePadding.top <= 0
+                        && mFramePadding.right <= 0 && mFramePadding.bottom <= 0) {
                     // If the frame padding is zero, then we can be opaque
                     // if either the frame -or- the background is opaque.
                     int fop = fg.getOpacity();
@@ -1734,7 +1499,6 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
             // renderer about it.
             mBackdropFrameRenderer.onConfigurationChange();
         }
-        mWindow.onViewRootImplSet(getViewRootImpl());
     }
 
     @Override
@@ -1806,9 +1570,6 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
     @Override
     public void onRootViewScrollYChanged(int rootScrollY) {
         mRootScrollY = rootScrollY;
-        if (mDecorCaptionView != null) {
-            mDecorCaptionView.onRootViewScrollYChanged(rootScrollY);
-        }
         updateColorViewTranslations();
     }
 
@@ -1903,7 +1664,7 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
                     }
                 };
             } else {
-                ViewStub stub = findViewById(R.id.action_mode_bar_stub);
+                ViewStub stub = (ViewStub) findViewById(R.id.action_mode_bar_stub);
                 if (stub != null) {
                     mPrimaryActionModeView = (ActionBarContextView) stub.inflate();
                     mPrimaryActionModePopup = null;
@@ -1970,9 +1731,8 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
             mFloatingActionMode.finish();
         }
         cleanupFloatingActionModeViews();
-        mFloatingToolbar = new FloatingToolbar(mWindow);
         final FloatingActionMode mode =
-                new FloatingActionMode(mContext, callback, originatingView, mFloatingToolbar);
+                new FloatingActionMode(mContext, callback, originatingView);
         mFloatingActionModeOriginatingView = originatingView;
         mFloatingToolbarPreDrawListener =
             new ViewTreeObserver.OnPreDrawListener() {
@@ -1987,6 +1747,8 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
 
     private void setHandledFloatingActionMode(ActionMode mode) {
         mFloatingActionMode = mode;
+        mFloatingToolbar = new FloatingToolbar(mContext, mWindow);
+        ((FloatingActionMode) mFloatingActionMode).setFloatingToolbar(mFloatingToolbar);
         mFloatingActionMode.invalidate();  // Will show the floating toolbar if necessary.
         mFloatingActionModeOriginatingView.getViewTreeObserver()
             .addOnPreDrawListener(mFloatingToolbarPreDrawListener);
@@ -2016,64 +1778,37 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
     }
 
     @Override
-    public Resources getResources() {
-        // Make sure the Resources object is propogated from the Context since it can be updated in
-        // the Context object.
-        return getContext().getResources();
-    }
-
-    @Override
     protected void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-
-        updateDecorCaptionStatus(newConfig);
-
+        int workspaceId = getStackId();
+        if (mStackId != workspaceId) {
+            mStackId = workspaceId;
+            if (mDecorCaptionView == null && StackId.hasWindowDecor(mStackId)) {
+                // Configuration now requires a caption.
+                final LayoutInflater inflater = mWindow.getLayoutInflater();
+                mDecorCaptionView = createDecorCaptionView(inflater);
+                if (mDecorCaptionView != null) {
+                    if (mDecorCaptionView.getParent() == null) {
+                        addView(mDecorCaptionView, 0,
+                                new ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT));
+                    }
+                    removeView(mContentRoot);
+                    mDecorCaptionView.addView(mContentRoot,
+                            new ViewGroup.MarginLayoutParams(MATCH_PARENT, MATCH_PARENT));
+                }
+            } else if (mDecorCaptionView != null) {
+                // We might have to change the kind of surface before we do anything else.
+                mDecorCaptionView.onConfigurationChanged(StackId.hasWindowDecor(mStackId));
+                enableCaption(StackId.hasWindowDecor(workspaceId));
+            }
+        }
         updateAvailableWidth();
         initializeElevation();
     }
 
-    @Override
-    public void onMovedToDisplay(int displayId, Configuration config) {
-        super.onMovedToDisplay(displayId, config);
-        // Have to explicitly update displayId because it may use DecorContext
-        getContext().updateDisplay(displayId);
-    }
-
-    /**
-     * Determines if the workspace is entirely covered by the window.
-     * @return {@code true} when the window is filling the entire screen/workspace.
-     **/
-    private boolean isFillingScreen(Configuration config) {
-        final boolean isFullscreen = config.windowConfiguration.getWindowingMode()
-                == WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
-        return isFullscreen && (0 != ((getWindowSystemUiVisibility() | getSystemUiVisibility())
-                & View.SYSTEM_UI_FLAG_FULLSCREEN));
-    }
-
-    private void updateDecorCaptionStatus(Configuration config) {
-        final boolean displayWindowDecor = config.windowConfiguration.hasWindowDecorCaption()
-                && !isFillingScreen(config);
-        if (mDecorCaptionView == null && displayWindowDecor) {
-            // Configuration now requires a caption.
-            final LayoutInflater inflater = mWindow.getLayoutInflater();
-            mDecorCaptionView = createDecorCaptionView(inflater);
-            if (mDecorCaptionView != null) {
-                if (mDecorCaptionView.getParent() == null) {
-                    addView(mDecorCaptionView, 0,
-                            new ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT));
-                }
-                removeView(mContentRoot);
-                mDecorCaptionView.addView(mContentRoot,
-                        new ViewGroup.MarginLayoutParams(MATCH_PARENT, MATCH_PARENT));
-            }
-        } else if (mDecorCaptionView != null) {
-            // We might have to change the kind of surface before we do anything else.
-            mDecorCaptionView.onConfigurationChanged(displayWindowDecor);
-            enableCaption(displayWindowDecor);
-        }
-    }
-
     void onResourcesLoaded(LayoutInflater inflater, int layoutResource) {
+        mStackId = getStackId();
+
         if (mBackdropFrameRenderer != null) {
             loadBackgroundDrawablesIfNeeded();
             mBackdropFrameRenderer.onResourcesLoaded(
@@ -2102,9 +1837,9 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
 
     private void loadBackgroundDrawablesIfNeeded() {
         if (mResizingBackgroundDrawable == null) {
-            mResizingBackgroundDrawable = getResizingBackgroundDrawable(mWindow.mBackgroundDrawable,
-                    mWindow.mBackgroundFallbackDrawable, mWindow.isTranslucent()
-                    || mWindow.isShowingWallpaper());
+            mResizingBackgroundDrawable = getResizingBackgroundDrawable(getContext(),
+                    mWindow.mBackgroundResource, mWindow.mBackgroundFallbackResource,
+                    mWindow.isTranslucent() || mWindow.isShowingWallpaper());
             if (mResizingBackgroundDrawable == null) {
                 // We shouldn't really get here as the background fallback should be always
                 // available since it is defaulted by the system.
@@ -2135,9 +1870,8 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
         final WindowManager.LayoutParams attrs = mWindow.getAttributes();
         final boolean isApplication = attrs.type == TYPE_BASE_APPLICATION ||
                 attrs.type == TYPE_APPLICATION || attrs.type == TYPE_DRAWN_APPLICATION;
-        final WindowConfiguration winConfig = getResources().getConfiguration().windowConfiguration;
         // Only a non floating application window on one of the allowed workspaces can get a caption
-        if (!mWindow.isFloating() && isApplication && winConfig.hasWindowDecorCaption()) {
+        if (!mWindow.isFloating() && isApplication && StackId.hasWindowDecor(mStackId)) {
             // Dependent on the brightness of the used title we either use the
             // dark or the light button frame.
             if (decorCaptionView == null) {
@@ -2212,14 +1946,20 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
      * Returns the color used to fill areas the app has not rendered content to yet when the
      * user is resizing the window of an activity in multi-window mode.
      */
-    public static Drawable getResizingBackgroundDrawable(@Nullable Drawable backgroundDrawable,
-            @Nullable Drawable fallbackDrawable, boolean windowTranslucent) {
-        if (backgroundDrawable != null) {
-            return enforceNonTranslucentBackground(backgroundDrawable, windowTranslucent);
+    public static Drawable getResizingBackgroundDrawable(Context context, int backgroundRes,
+            int backgroundFallbackRes, boolean windowTranslucent) {
+        if (backgroundRes != 0) {
+            final Drawable drawable = context.getDrawable(backgroundRes);
+            if (drawable != null) {
+                return enforceNonTranslucentBackground(drawable, windowTranslucent);
+            }
         }
 
-        if (fallbackDrawable != null) {
-            return enforceNonTranslucentBackground(fallbackDrawable, windowTranslucent);
+        if (backgroundFallbackRes != 0) {
+            final Drawable fallbackDrawable = context.getDrawable(backgroundFallbackRes);
+            if (fallbackDrawable != null) {
+                return enforceNonTranslucentBackground(fallbackDrawable, windowTranslucent);
+            }
         }
         return new ColorDrawable(Color.BLACK);
     }
@@ -2244,6 +1984,28 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
         return drawable;
     }
 
+    /**
+     * Returns the Id of the stack which contains this window.
+     * Note that if no stack can be determined - which usually means that it was not
+     * created for an activity - the fullscreen stack ID will be returned.
+     * @return Returns the stack id which contains this window.
+     **/
+    private int getStackId() {
+        int workspaceId = INVALID_STACK_ID;
+        final Window.WindowControllerCallback callback = mWindow.getWindowControllerCallback();
+        if (callback != null) {
+            try {
+                workspaceId = callback.getWindowStackId();
+            } catch (RemoteException ex) {
+                Log.e(mLogTag, "Failed to get the workspace ID of a PhoneWindow.");
+            }
+        }
+        if (workspaceId == INVALID_STACK_ID) {
+            return FULLSCREEN_WORKSPACE_STACK_ID;
+        }
+        return workspaceId;
+    }
+
     void clearContentView() {
         if (mDecorCaptionView != null) {
             mDecorCaptionView.removeContentView();
@@ -2253,7 +2015,7 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
             for (int i = getChildCount() - 1; i >= 0; i--) {
                 View v = getChildAt(i);
                 if (v != mStatusColorViewState.view && v != mNavigationColorViewState.view
-                        && v != mStatusGuard) {
+                        && v != mStatusGuard && v != mNavigationGuard) {
                     removeViewAt(i);
                 }
             }
@@ -2279,14 +2041,14 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
         if (mBackdropFrameRenderer != null) {
             return;
         }
-        final ThreadedRenderer renderer = getThreadedRenderer();
+        final ThreadedRenderer renderer = getHardwareRenderer();
         if (renderer != null) {
             loadBackgroundDrawablesIfNeeded();
             mBackdropFrameRenderer = new BackdropFrameRenderer(this, renderer,
                     initialBounds, mResizingBackgroundDrawable, mCaptionBackgroundDrawable,
                     mUserCaptionBackgroundDrawable, getCurrentColor(mStatusColorViewState),
                     getCurrentColor(mNavigationColorViewState), fullscreen, systemInsets,
-                    stableInsets);
+                    stableInsets, resizeMode);
 
             // Get rid of the shadow while we are resizing. Shadow drawing takes considerable time.
             // If we want to get the shadow shown while resizing, we would need to elevate a new
@@ -2328,9 +2090,8 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
     }
 
     @Override
-    public void onPostDraw(RecordingCanvas canvas) {
+    public void onPostDraw(DisplayListCanvas canvas) {
         drawResizingShadowIfNeeded(canvas);
-        drawLegacyNavigationBarBackground(canvas);
     }
 
     private void initResizingPaints() {
@@ -2347,7 +2108,7 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
                 new float[] { 0f, 0.3f, 1f }, Shader.TileMode.CLAMP));
     }
 
-    private void drawResizingShadowIfNeeded(RecordingCanvas canvas) {
+    private void drawResizingShadowIfNeeded(DisplayListCanvas canvas) {
         if (mResizeMode != RESIZE_MODE_DOCKED_DIVIDER || mWindow.mIsFloating
                 || mWindow.isTranslucent()
                 || mWindow.isShowingWallpaper()) {
@@ -2361,18 +2122,6 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
         canvas.translate(getWidth() - mFrameOffsets.right, 0);
         canvas.drawRect(0, 0, mResizeShadowSize, getHeight(), mVerticalResizeShadowPaint);
         canvas.restore();
-    }
-
-    private void drawLegacyNavigationBarBackground(RecordingCanvas canvas) {
-        if (!mDrawLegacyNavigationBarBackground) {
-            return;
-        }
-        View v = mNavigationColorViewState.view;
-        if (v == null) {
-            return;
-        }
-        canvas.drawRect(v.getLeft(), v.getTop(), v.getRight(), v.getBottom(),
-                mLegacyNavigationBarBackgroundPaint);
     }
 
     /** Release the renderer thread which is usually done when the user stops resizing. */
@@ -2409,23 +2158,18 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
         final boolean wasAdjustedForStack = mElevationAdjustedForStack;
         // Do not use a shadow when we are in resizing mode (mBackdropFrameRenderer not null)
         // since the shadow is bound to the content size and not the target size.
-        final int windowingMode =
-                getResources().getConfiguration().windowConfiguration.getWindowingMode();
-        if ((windowingMode == WINDOWING_MODE_FREEFORM) && !isResizing()) {
+        if (StackId.hasWindowShadow(mStackId) && !isResizing()) {
             elevation = hasWindowFocus() ?
                     DECOR_SHADOW_FOCUSED_HEIGHT_IN_DIP : DECOR_SHADOW_UNFOCUSED_HEIGHT_IN_DIP;
             // Add a maximum shadow height value to the top level view.
             // Note that pinned stack doesn't have focus
             // so maximum shadow height adjustment isn't needed.
             // TODO(skuhne): Remove this if clause once b/22668382 got fixed.
-            if (!mAllowUpdateElevation) {
+            if (!mAllowUpdateElevation && mStackId != PINNED_STACK_ID) {
                 elevation = DECOR_SHADOW_FOCUSED_HEIGHT_IN_DIP;
             }
             // Convert the DP elevation into physical pixels.
             elevation = dipToPx(elevation);
-            mElevationAdjustedForStack = true;
-        } else if (windowingMode == WINDOWING_MODE_PINNED) {
-            elevation = dipToPx(PINNED_WINDOWING_MODE_ELEVATION_IN_DIP);
             mElevationAdjustedForStack = true;
         } else {
             mElevationAdjustedForStack = false;
@@ -2435,14 +2179,7 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
         // or it didn't change.
         if ((wasAdjustedForStack || mElevationAdjustedForStack)
                 && getElevation() != elevation) {
-            if (!isResizing()) {
-                mWindow.setElevation(elevation);
-            } else {
-                // Just suppress the shadow when resizing, don't adjust surface insets because it'll
-                // cause a flicker when drag resize for freeform window starts. #onContentDrawn()
-                // will compensate the offset when passing to BackdropFrameRenderer.
-                setElevation(elevation);
-            }
+            mWindow.setElevation(elevation);
         }
     }
 
@@ -2502,23 +2239,9 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
     @Override
     public void requestKeyboardShortcuts(List<KeyboardShortcutGroup> list, int deviceId) {
         final PanelFeatureState st = mWindow.getPanelState(FEATURE_OPTIONS_PANEL, false);
-        final Menu menu = st != null ? st.menu : null;
-        if (!mWindow.isDestroyed() && mWindow.getCallback() != null) {
-            mWindow.getCallback().onProvideKeyboardShortcuts(list, menu, deviceId);
+        if (!mWindow.isDestroyed() && st != null && mWindow.getCallback() != null) {
+            mWindow.getCallback().onProvideKeyboardShortcuts(list, st.menu, deviceId);
         }
-    }
-
-    @Override
-    public void dispatchPointerCaptureChanged(boolean hasCapture) {
-        super.dispatchPointerCaptureChanged(hasCapture);
-        if (!mWindow.isDestroyed() && mWindow.getCallback() != null) {
-            mWindow.getCallback().onPointerCaptureChanged(hasCapture);
-        }
-    }
-
-    @Override
-    public int getAccessibilityViewId() {
-        return AccessibilityNodeInfo.ROOT_ITEM_ID;
     }
 
     @Override
@@ -2534,15 +2257,6 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
         boolean visible;
         int color;
 
-        final ColorViewAttributes attributes;
-
-        ColorViewState(ColorViewAttributes attributes) {
-            this.attributes = attributes;
-        }
-    }
-
-    public static class ColorViewAttributes {
-
         final int id;
         final int systemUiHideFlag;
         final int translucentFlag;
@@ -2552,9 +2266,9 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
         final String transitionName;
         final int hideWindowFlag;
 
-        private ColorViewAttributes(int systemUiHideFlag, int translucentFlag, int verticalGravity,
-                int horizontalGravity, int seascapeGravity, String transitionName, int id,
-                int hideWindowFlag) {
+        ColorViewState(int systemUiHideFlag,
+                int translucentFlag, int verticalGravity, int horizontalGravity,
+                int seascapeGravity, String transitionName, int id, int hideWindowFlag) {
             this.id = id;
             this.systemUiHideFlag = systemUiHideFlag;
             this.translucentFlag = translucentFlag;
@@ -2563,24 +2277,6 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
             this.seascapeGravity = seascapeGravity;
             this.transitionName = transitionName;
             this.hideWindowFlag = hideWindowFlag;
-        }
-
-        public boolean isPresent(int sysUiVis, int windowFlags, boolean force) {
-            return (sysUiVis & systemUiHideFlag) == 0
-                    && (windowFlags & hideWindowFlag) == 0
-                    && ((windowFlags & FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS) != 0
-                    || force);
-        }
-
-        public boolean isVisible(boolean present, int color, int windowFlags, boolean force) {
-            return present
-                    && (color & Color.BLACK) != 0
-                    && ((windowFlags & translucentFlag) == 0  || force);
-        }
-
-        public boolean isVisible(int sysUiVis, int color, int windowFlags, boolean force) {
-            final boolean present = isPresent(sysUiVis, windowFlags, force);
-            return isVisible(present, color, windowFlags, force);
         }
     }
 
@@ -2661,7 +2357,6 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
                                         }
                                         lastActionModeView.killMode();
                                         mFadeAnim = null;
-                                        requestApplyInsets();
                                     }
                                 }
 
@@ -2701,5 +2396,18 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
                 super.onGetContentRect(mode, view, outRect);
             }
         }
+    }
+
+    public static void setAddedToWindow(View v) {
+        if (v instanceof DecorView) {
+            ((DecorView) v).mIsAddedToWindow = true;
+        }
+    }
+
+    public static boolean isAddedToWindow(View v) {
+        if (v instanceof DecorView) {
+            return ((DecorView) v).mIsAddedToWindow;
+        }
+        return false;
     }
 }

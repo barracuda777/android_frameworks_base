@@ -17,8 +17,7 @@
 package android.view;
 
 import android.test.ActivityInstrumentationTestCase;
-
-import androidx.test.filters.MediumTest;
+import android.test.suitebuilder.annotation.MediumTest;
 
 public class RunQueueTest extends ActivityInstrumentationTestCase<RunQueue> {
     public RunQueueTest() {

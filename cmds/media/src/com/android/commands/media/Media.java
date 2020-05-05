@@ -17,18 +17,18 @@
 
 package com.android.commands.media;
 
-import android.app.ActivityThread;
+import android.app.ActivityManager;
 import android.content.Context;
+import android.content.pm.ParceledListSlice;
 import android.media.MediaMetadata;
+import android.media.session.ISessionController;
+import android.media.session.ISessionControllerCallback;
 import android.media.session.ISessionManager;
-import android.media.session.MediaController;
-import android.media.session.MediaController.PlaybackInfo;
-import android.media.session.MediaSession.QueueItem;
-import android.media.session.MediaSessionManager;
+import android.media.session.ParcelableVolumeInfo;
 import android.media.session.PlaybackState;
 import android.os.Bundle;
 import android.os.HandlerThread;
-import android.os.Looper;
+import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.SystemClock;
@@ -46,10 +46,6 @@ import java.io.PrintStream;
 import java.util.List;
 
 public class Media extends BaseCommand {
-    // This doesn't belongs to any package. Setting the package name to empty string.
-    private static final String PACKAGE_NAME = "";
-    private static ActivityThread sThread;
-    private static MediaSessionManager sMediaSessionManager;
     private ISessionManager mSessionService;
 
     /**
@@ -61,34 +57,23 @@ public class Media extends BaseCommand {
         (new Media()).run(args);
     }
 
-    @Override
     public void onShowUsage(PrintStream out) {
         out.println(
                 "usage: media [subcommand] [options]\n" +
                 "       media dispatch KEY\n" +
                 "       media list-sessions\n" +
                 "       media monitor <tag>\n" +
-                "       media volume [options]\n" +
                 "\n" +
                 "media dispatch: dispatch a media key to the system.\n" +
                 "                KEY may be: play, pause, play-pause, mute, headsethook,\n" +
                 "                stop, next, previous, rewind, record, fast-forword.\n" +
                 "media list-sessions: print a list of the current sessions.\n" +
                         "media monitor: monitor updates to the specified session.\n" +
-                "                       Use the tag from list-sessions.\n" +
-                "media volume:  " + VolumeCtrl.USAGE
+                "                       Use the tag from list-sessions.\n"
         );
     }
 
-    @Override
     public void onRun() throws Exception {
-        if (sThread == null) {
-            Looper.prepareMainLooper();
-            sThread = ActivityThread.systemMain();
-            Context context = sThread.getSystemContext();
-            sMediaSessionManager =
-                    (MediaSessionManager) context.getSystemService(Context.MEDIA_SESSION_SERVICE);
-        }
         mSessionService = ISessionManager.Stub.asInterface(ServiceManager.checkService(
                 Context.MEDIA_SESSION_SERVICE));
         if (mSessionService == null) {
@@ -105,8 +90,6 @@ public class Media extends BaseCommand {
             runListSessions();
         } else if (op.equals("monitor")) {
             runMonitor();
-        } else if (op.equals("volume")) {
-            runVolume();
         } else {
             showError("Error: unknown command '" + op + "'");
             return;
@@ -115,7 +98,7 @@ public class Media extends BaseCommand {
 
     private void sendMediaKey(KeyEvent event) {
         try {
-            mSessionService.dispatchMediaKeyEvent(PACKAGE_NAME, false, event, false);
+            mSessionService.dispatchMediaKeyEvent(event, false);
         } catch (RemoteException e) {
         }
     }
@@ -126,11 +109,12 @@ public class Media extends BaseCommand {
             showError("Error: must include a session id");
             return;
         }
-
         boolean success = false;
         try {
-            List<MediaController> controllers = sMediaSessionManager.getActiveSessions(null);
-            for (MediaController controller : controllers) {
+            List<IBinder> sessions = mSessionService
+                    .getSessions(null, ActivityManager.getCurrentUser());
+            for (IBinder session : sessions) {
+                ISessionController controller = ISessionController.Stub.asInterface(session);
                 try {
                     if (controller != null && id.equals(controller.getTag())) {
                         ControllerMonitor monitor = new ControllerMonitor(controller);
@@ -179,6 +163,7 @@ public class Media extends BaseCommand {
             showError("Error: unknown dispatch code '" + cmd + "'");
             return;
         }
+
         final long now = SystemClock.uptimeMillis();
         sendMediaKey(new KeyEvent(now, now, KeyEvent.ACTION_DOWN, keycode, 0, 0,
                 KeyCharacterMap.VIRTUAL_KEYBOARD, 0, 0, InputDevice.SOURCE_KEYBOARD));
@@ -186,14 +171,21 @@ public class Media extends BaseCommand {
                 KeyCharacterMap.VIRTUAL_KEYBOARD, 0, 0, InputDevice.SOURCE_KEYBOARD));
     }
 
-    class ControllerCallback extends MediaController.Callback {
-        @Override
-        public void onSessionDestroyed() {
-            System.out.println("onSessionDestroyed. Enter q to quit.");
+    class ControllerMonitor extends ISessionControllerCallback.Stub {
+        private final ISessionController mController;
+
+        public ControllerMonitor(ISessionController controller) {
+            mController = controller;
         }
 
         @Override
-        public void onSessionEvent(String event, Bundle extras) {
+        public void onSessionDestroyed() {
+            System.out.println("onSessionDestroyed. Enter q to quit.");
+
+        }
+
+        @Override
+        public void onEvent(String event, Bundle extras) {
             System.out.println("onSessionEvent event=" + event + ", extras=" + extras);
         }
 
@@ -210,41 +202,51 @@ public class Media extends BaseCommand {
         }
 
         @Override
-        public void onQueueChanged(List<QueueItem> queue) {
+        public void onQueueChanged(ParceledListSlice queue) throws RemoteException {
             System.out.println("onQueueChanged, "
-                    + (queue == null ? "null queue" : " size=" + queue.size()));
+                    + (queue == null ? "null queue" : " size=" + queue.getList().size()));
         }
 
         @Override
-        public void onQueueTitleChanged(CharSequence title) {
+        public void onQueueTitleChanged(CharSequence title) throws RemoteException {
             System.out.println("onQueueTitleChange " + title);
         }
 
         @Override
-        public void onExtrasChanged(Bundle extras) {
+        public void onExtrasChanged(Bundle extras) throws RemoteException {
             System.out.println("onExtrasChanged " + extras);
         }
 
         @Override
-        public void onAudioInfoChanged(PlaybackInfo info) {
-            System.out.println("onAudioInfoChanged " + info);
+        public void onVolumeInfoChanged(ParcelableVolumeInfo info) throws RemoteException {
+            System.out.println("onVolumeInfoChanged " + info);
         }
-    }
 
-    private class ControllerMonitor {
-        private final MediaController mController;
-        private final ControllerCallback mControllerCallback;
+        @Override
+        public void onPlayItemResponse(boolean success) throws RemoteException {
+            System.out.println("onPlayItemResponse ");
+        }
 
-        ControllerMonitor(MediaController controller) {
-            mController = controller;
-            mControllerCallback = new ControllerCallback();
+        @Override
+        public void onUpdateNowPlayingEntries(long[] playList) throws RemoteException {
+            System.out.println("onUpdateNowPlayingEntries ");
+        }
+
+        @Override
+        public void onUpdateFolderInfoBrowsedPlayer(String stringUri) throws RemoteException {
+            System.out.println("onUpdateFolderInfoBrowsedPlayer ");
+        }
+
+        @Override
+        public void onUpdateNowPlayingContentChange() throws RemoteException {
+            System.out.println("onUpdateNowPlayingContentChange ");
         }
 
         void printUsageMessage() {
             try {
                 System.out.println("V2Monitoring session " + mController.getTag()
                         + "...  available commands: play, pause, next, previous");
-            } catch (RuntimeException e) {
+            } catch (RemoteException e) {
                 System.out.println("Error trying to monitor session!");
             }
             System.out.println("(q)uit: finish monitoring");
@@ -256,8 +258,8 @@ public class Media extends BaseCommand {
                 @Override
                 protected void onLooperPrepared() {
                     try {
-                        mController.registerCallback(mControllerCallback);
-                    } catch (RuntimeException e) {
+                        mController.registerCallbackListener(ControllerMonitor.this);
+                    } catch (RemoteException e) {
                         System.out.println("Error registering monitor callback");
                     }
                 }
@@ -276,13 +278,13 @@ public class Media extends BaseCommand {
                     } else if ("q".equals(line) || "quit".equals(line)) {
                         break;
                     } else if ("play".equals(line)) {
-                        dispatchKeyCode(KeyEvent.KEYCODE_MEDIA_PLAY);
+                        mController.play();
                     } else if ("pause".equals(line)) {
-                        dispatchKeyCode(KeyEvent.KEYCODE_MEDIA_PAUSE);
+                        mController.pause();
                     } else if ("next".equals(line)) {
-                        dispatchKeyCode(KeyEvent.KEYCODE_MEDIA_NEXT);
+                        mController.next();
                     } else if ("previous".equals(line)) {
-                        dispatchKeyCode(KeyEvent.KEYCODE_MEDIA_PREVIOUS);
+                        mController.previous();
                     } else {
                         System.out.println("Invalid command: " + line);
                     }
@@ -299,24 +301,10 @@ public class Media extends BaseCommand {
             } finally {
                 cbThread.getLooper().quit();
                 try {
-                    mController.unregisterCallback(mControllerCallback);
+                    mController.unregisterCallbackListener(this);
                 } catch (Exception e) {
                     // ignoring
                 }
-            }
-        }
-
-        private void dispatchKeyCode(int keyCode) {
-            final long now = SystemClock.uptimeMillis();
-            KeyEvent down = new KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0, 0,
-                    KeyCharacterMap.VIRTUAL_KEYBOARD, 0, 0, InputDevice.SOURCE_KEYBOARD);
-            KeyEvent up = new KeyEvent(now, now, KeyEvent.ACTION_UP, keyCode, 0, 0,
-                    KeyCharacterMap.VIRTUAL_KEYBOARD, 0, 0, InputDevice.SOURCE_KEYBOARD);
-            try {
-                mController.dispatchMediaButtonEvent(down);
-                mController.dispatchMediaButtonEvent(up);
-            } catch (RuntimeException e) {
-                System.out.println("Failed to dispatch " + keyCode);
             }
         }
     }
@@ -324,13 +312,16 @@ public class Media extends BaseCommand {
     private void runListSessions() {
         System.out.println("Sessions:");
         try {
-            List<MediaController> controllers = sMediaSessionManager.getActiveSessions(null);
-            for (MediaController controller : controllers) {
+            List<IBinder> sessions = mSessionService
+                    .getSessions(null, ActivityManager.getCurrentUser());
+            for (IBinder session : sessions) {
+
+                ISessionController controller = ISessionController.Stub.asInterface(session);
                 if (controller != null) {
                     try {
                         System.out.println("  tag=" + controller.getTag()
                                 + ", package=" + controller.getPackageName());
-                    } catch (RuntimeException e) {
+                    } catch (RemoteException e) {
                         // ignore
                     }
                 }
@@ -338,11 +329,5 @@ public class Media extends BaseCommand {
         } catch (Exception e) {
             System.out.println("***Error listing sessions***");
         }
-    }
-
-    //=================================
-    // "volume" command for stream volume control
-    private void runVolume() throws Exception {
-        VolumeCtrl.run(this);
     }
 }

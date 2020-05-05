@@ -1,4 +1,3 @@
-#!/system/bin/sh
 # Script to start "telecom" on the device
 #
 base=/system

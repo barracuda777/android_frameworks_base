@@ -16,13 +16,13 @@
 
 package android.text.style;
 
+import java.text.NumberFormat;
+import java.util.Locale;
+
 import android.os.Parcel;
 import android.os.PersistableBundle;
 import android.text.ParcelableSpan;
 import android.text.TextUtils;
-
-import java.text.NumberFormat;
-import java.util.Locale;
 
 /**
  * A span that supplies additional meta-data for the associated text intended
@@ -1082,7 +1082,7 @@ public class TtsSpan implements ParcelableSpan {
          * Sets the {@link #ARG_UNIT} argument.
          * @param unit The unit of the measure.
          * @return This instance.
-         * @see TtsSpan#ARG_UNIT
+         * @see TtsSpan.ARG_UNIT
          */
         public MeasureBuilder setUnit(String unit) {
             return setStringArgument(TtsSpan.ARG_UNIT, unit);

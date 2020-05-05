@@ -16,7 +16,6 @@
 
 package android.os;
 
-import android.annotation.UnsupportedAppUsage;
 import android.os.Handler;
 import android.os.Message;
 
@@ -25,7 +24,6 @@ import java.lang.ref.WeakReference;
 /** @hide */
 public class Registrant
 {
-    @UnsupportedAppUsage
     public
     Registrant(Handler h, int what, Object obj)
     {
@@ -34,7 +32,6 @@ public class Registrant
         userObj = obj;
     }
 
-    @UnsupportedAppUsage
     public void
     clear()
     {
@@ -42,14 +39,12 @@ public class Registrant
         userObj = null;
     }
 
-    @UnsupportedAppUsage
     public void
     notifyRegistrant()
     {
         internalNotifyRegistrant (null, null);
     }
     
-    @UnsupportedAppUsage
     public void
     notifyResult(Object result)
     {
@@ -65,7 +60,6 @@ public class Registrant
     /**
      * This makes a copy of @param ar
      */
-    @UnsupportedAppUsage
     public void
     notifyRegistrant(AsyncResult ar)
     {
@@ -94,7 +88,6 @@ public class Registrant
      * NOTE: May return null if weak reference has been collected
      */
 
-    @UnsupportedAppUsage
     public Message
     messageForRegistrant()
     {

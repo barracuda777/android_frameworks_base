@@ -17,7 +17,6 @@
 
 package android.filterfw.core;
 
-import android.annotation.UnsupportedAppUsage;
 import android.filterfw.core.KeyValueMap;
 import android.filterfw.core.MutableFrameFormat;
 
@@ -91,7 +90,6 @@ public class FrameFormat {
         return mBytesPerSample / bytesPerSampleOf(mBaseType);
     }
 
-    @UnsupportedAppUsage
     public int getTarget() {
         return mTarget;
     }
@@ -137,12 +135,10 @@ public class FrameFormat {
         return (mDimensions != null && mDimensions.length >= 1) ? mDimensions[0] : -1;
     }
 
-    @UnsupportedAppUsage
     public int getWidth() {
         return getLength();
     }
 
-    @UnsupportedAppUsage
     public int getHeight() {
         return (mDimensions != null && mDimensions.length >= 2) ? mDimensions[1] : -1;
     }
@@ -160,7 +156,6 @@ public class FrameFormat {
         return mObjectClass;
     }
 
-    @UnsupportedAppUsage
     public MutableFrameFormat mutableCopy() {
         MutableFrameFormat result = new MutableFrameFormat();
         result.setBaseType(getBaseType());

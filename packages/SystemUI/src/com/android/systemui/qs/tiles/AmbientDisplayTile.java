@@ -17,35 +17,28 @@
 
 package com.android.systemui.qs.tiles;
 
+import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.SystemProperties;
 import android.provider.Settings;
 import android.provider.Settings.Secure;
-import android.service.quicksettings.Tile;
 import android.text.TextUtils;
 
-import com.android.systemui.plugins.qs.QSTile.BooleanState;
-import com.android.systemui.qs.QSHost;
-import com.android.systemui.qs.tileimpl.QSTileImpl;
 import com.android.systemui.qs.SecureSetting;
+import com.android.systemui.qs.QSTile;
 import com.android.systemui.R;
 
-import org.lineageos.internal.logging.LineageMetricsLogger;
-
-import javax.inject.Inject;
+import org.cyanogenmod.internal.logging.CMMetricsLogger;
 
 /** Quick settings tile: Ambient Display **/
-public class AmbientDisplayTile extends QSTileImpl<BooleanState> {
-
-    private final Icon mIcon = ResourceIcon.get(R.drawable.ic_qs_ambient_display);
+public class AmbientDisplayTile extends QSTile<QSTile.BooleanState> {
 
     private static final Intent DISPLAY_SETTINGS = new Intent("android.settings.DISPLAY_SETTINGS");
 
     private final SecureSetting mSetting;
 
-    @Inject
-    public AmbientDisplayTile(QSHost host) {
+    public AmbientDisplayTile(Host host) {
         super(host);
 
         mSetting = new SecureSetting(mContext, mHandler, Secure.DOZE_ENABLED) {
@@ -77,8 +70,13 @@ public class AmbientDisplayTile extends QSTileImpl<BooleanState> {
     }
 
     @Override
+    protected void handleLongClick() {
+        mHost.startActivityDismissingKeyguard(DISPLAY_SETTINGS);
+    }
+
+    @Override
     public Intent getLongClickIntent() {
-        return DISPLAY_SETTINGS;
+        return null;
     }
 
     private void setEnabled(boolean enabled) {
@@ -89,19 +87,18 @@ public class AmbientDisplayTile extends QSTileImpl<BooleanState> {
 
     @Override
     protected void handleUpdateState(BooleanState state, Object arg) {
-        final int value = arg instanceof Integer ? (Integer) arg : mSetting.getValue();
+        final int value = arg instanceof Integer ? (Integer)arg : mSetting.getValue();
         final boolean enable = value != 0;
         state.value = enable;
         state.label = mContext.getString(R.string.quick_settings_ambient_display_label);
-        state.icon = mIcon;
         if (enable) {
+            state.icon = ResourceIcon.get(R.drawable.ic_qs_ambientdisplay_on);
             state.contentDescription =  mContext.getString(
                     R.string.accessibility_quick_settings_ambient_display_on);
-            state.state = Tile.STATE_ACTIVE;
         } else {
+            state.icon = ResourceIcon.get(R.drawable.ic_qs_ambientdisplay_off);
             state.contentDescription =  mContext.getString(
                     R.string.accessibility_quick_settings_ambient_display_off);
-            state.state = Tile.STATE_INACTIVE;
         }
     }
 
@@ -112,7 +109,7 @@ public class AmbientDisplayTile extends QSTileImpl<BooleanState> {
 
     @Override
     public int getMetricsCategory() {
-        return LineageMetricsLogger.TILE_AMBIENT_DISPLAY;
+        return CMMetricsLogger.TILE_AMBIENT_DISPLAY;
     }
 
     @Override
@@ -127,7 +124,7 @@ public class AmbientDisplayTile extends QSTileImpl<BooleanState> {
     }
 
     @Override
-    public void handleSetListening(boolean listening) {
+    public void setListening(boolean listening) {
         // Do nothing
     }
 }

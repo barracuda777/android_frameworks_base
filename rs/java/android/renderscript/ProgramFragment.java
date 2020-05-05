@@ -16,8 +16,6 @@
 
 package android.renderscript;
 
-import android.annotation.UnsupportedAppUsage;
-
 
 /**
  * @hide
@@ -52,7 +50,6 @@ public class ProgramFragment extends Program {
          *
          * @param rs Context to which the program will belong.
          */
-        @UnsupportedAppUsage
         public Builder(RenderScript rs) {
             super(rs);
         }
@@ -63,7 +60,6 @@ public class ProgramFragment extends Program {
          *
          * @return  ProgramFragment
          */
-        @UnsupportedAppUsage
         public ProgramFragment create() {
             mRS.validate();
             long[] tmp = new long[(mInputCount + mOutputCount + mConstantCount + mTextureCount) * 2];

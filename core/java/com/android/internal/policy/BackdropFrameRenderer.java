@@ -16,13 +16,13 @@
 
 package com.android.internal.policy;
 
-import android.graphics.RecordingCanvas;
 import android.graphics.Rect;
-import android.graphics.RenderNode;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Looper;
 import android.view.Choreographer;
+import android.view.DisplayListCanvas;
+import android.view.RenderNode;
 import android.view.ThreadedRenderer;
 
 /**
@@ -69,16 +69,16 @@ public class BackdropFrameRenderer extends Thread implements Choreographer.Frame
     private ColorDrawable mNavigationBarColor;
     private boolean mOldFullscreen;
     private boolean mFullscreen;
+    private final int mResizeMode;
     private final Rect mOldSystemInsets = new Rect();
     private final Rect mOldStableInsets = new Rect();
     private final Rect mSystemInsets = new Rect();
     private final Rect mStableInsets = new Rect();
-    private final Rect mTmpRect = new Rect();
 
     public BackdropFrameRenderer(DecorView decorView, ThreadedRenderer renderer, Rect initialBounds,
             Drawable resizingBackgroundDrawable, Drawable captionBackgroundDrawable,
             Drawable userCaptionBackgroundDrawable, int statusBarColor, int navigationBarColor,
-            boolean fullscreen, Rect systemInsets, Rect stableInsets) {
+            boolean fullscreen, Rect systemInsets, Rect stableInsets, int resizeMode) {
         setName("ResizeFrame");
 
         mRenderer = renderer;
@@ -99,6 +99,7 @@ public class BackdropFrameRenderer extends Thread implements Choreographer.Frame
         mStableInsets.set(stableInsets);
         mOldSystemInsets.set(systemInsets);
         mOldStableInsets.set(stableInsets);
+        mResizeMode = resizeMode;
 
         // Kick off our draw thread.
         start();
@@ -107,35 +108,33 @@ public class BackdropFrameRenderer extends Thread implements Choreographer.Frame
     void onResourcesLoaded(DecorView decorView, Drawable resizingBackgroundDrawable,
             Drawable captionBackgroundDrawableDrawable, Drawable userCaptionBackgroundDrawable,
             int statusBarColor, int navigationBarColor) {
-        synchronized (this) {
-            mDecorView = decorView;
-            mResizingBackgroundDrawable = resizingBackgroundDrawable != null
-                    && resizingBackgroundDrawable.getConstantState() != null
-                    ? resizingBackgroundDrawable.getConstantState().newDrawable()
-                    : null;
-            mCaptionBackgroundDrawable = captionBackgroundDrawableDrawable != null
-                    && captionBackgroundDrawableDrawable.getConstantState() != null
-                    ? captionBackgroundDrawableDrawable.getConstantState().newDrawable()
-                    : null;
-            mUserCaptionBackgroundDrawable = userCaptionBackgroundDrawable != null
-                    && userCaptionBackgroundDrawable.getConstantState() != null
-                    ? userCaptionBackgroundDrawable.getConstantState().newDrawable()
-                    : null;
-            if (mCaptionBackgroundDrawable == null) {
-                mCaptionBackgroundDrawable = mResizingBackgroundDrawable;
-            }
-            if (statusBarColor != 0) {
-                mStatusBarColor = new ColorDrawable(statusBarColor);
-                addSystemBarNodeIfNeeded();
-            } else {
-                mStatusBarColor = null;
-            }
-            if (navigationBarColor != 0) {
-                mNavigationBarColor = new ColorDrawable(navigationBarColor);
-                addSystemBarNodeIfNeeded();
-            } else {
-                mNavigationBarColor = null;
-            }
+        mDecorView = decorView;
+        mResizingBackgroundDrawable = resizingBackgroundDrawable != null
+                        && resizingBackgroundDrawable.getConstantState() != null
+                ? resizingBackgroundDrawable.getConstantState().newDrawable()
+                : null;
+        mCaptionBackgroundDrawable = captionBackgroundDrawableDrawable != null
+                        && captionBackgroundDrawableDrawable.getConstantState() != null
+                ? captionBackgroundDrawableDrawable.getConstantState().newDrawable()
+                : null;
+        mUserCaptionBackgroundDrawable = userCaptionBackgroundDrawable != null
+                        && userCaptionBackgroundDrawable.getConstantState() != null
+                ? userCaptionBackgroundDrawable.getConstantState().newDrawable()
+                : null;
+        if (mCaptionBackgroundDrawable == null) {
+            mCaptionBackgroundDrawable = mResizingBackgroundDrawable;
+        }
+        if (statusBarColor != 0) {
+            mStatusBarColor = new ColorDrawable(statusBarColor);
+            addSystemBarNodeIfNeeded();
+        } else {
+            mStatusBarColor = null;
+        }
+        if (navigationBarColor != 0) {
+            mNavigationBarColor = new ColorDrawable(navigationBarColor);
+            addSystemBarNodeIfNeeded();
+        } else {
+            mNavigationBarColor = null;
         }
     }
 
@@ -186,7 +185,7 @@ public class BackdropFrameRenderer extends Thread implements Choreographer.Frame
      * All resources of the renderer will be released. This function can be called from the
      * the UI thread as well as the renderer thread.
      */
-    void releaseRenderer() {
+    public void releaseRenderer() {
         synchronized (this) {
             if (mRenderer != null) {
                 // Invalidate the current content bounds.
@@ -268,7 +267,7 @@ public class BackdropFrameRenderer extends Thread implements Choreographer.Frame
      * @param ySize The height of the content.
      * @return true if a frame should be requested after the content is drawn; false otherwise.
      */
-    boolean onContentDrawn(int xOffset, int yOffset, int xSize, int ySize) {
+    public boolean onContentDrawn(int xOffset, int yOffset, int xSize, int ySize) {
         synchronized (this) {
             final boolean firstCall = mLastContentWidth == 0;
             // The current content buffer is drawn here.
@@ -291,7 +290,7 @@ public class BackdropFrameRenderer extends Thread implements Choreographer.Frame
         }
     }
 
-    void onRequestDraw(boolean reportNextDraw) {
+    public void onRequestDraw(boolean reportNextDraw) {
         synchronized (this) {
             mReportNextDraw = reportNextDraw;
             mOldTargetRect.set(0, 0, 0, 0);
@@ -329,8 +328,8 @@ public class BackdropFrameRenderer extends Thread implements Choreographer.Frame
             return;
         }
 
-        // Content may not be drawn at the surface origin, so we want to keep the offset when we're
-        // resizing it.
+        // Since the surface is spanning the entire screen, we have to add the start offset of
+        // the bounds to get to the surface location.
         final int left = mLastXOffset + newBounds.left;
         final int top = mLastYOffset + newBounds.top;
         final int width = newBounds.width();
@@ -339,7 +338,7 @@ public class BackdropFrameRenderer extends Thread implements Choreographer.Frame
         mFrameAndBackdropNode.setLeftTopRightBottom(left, top, left + width, top + height);
 
         // Draw the caption and content backdrops in to our render node.
-        RecordingCanvas canvas = mFrameAndBackdropNode.beginRecording(width, height);
+        DisplayListCanvas canvas = mFrameAndBackdropNode.start(width, height);
         final Drawable drawable = mUserCaptionBackgroundDrawable != null
                 ? mUserCaptionBackgroundDrawable : mCaptionBackgroundDrawable;
 
@@ -353,7 +352,7 @@ public class BackdropFrameRenderer extends Thread implements Choreographer.Frame
             mResizingBackgroundDrawable.setBounds(0, mLastCaptionHeight, left + width, top + height);
             mResizingBackgroundDrawable.draw(canvas);
         }
-        mFrameAndBackdropNode.endRecording();
+        mFrameAndBackdropNode.end(canvas);
 
         drawColorViews(left, top, width, height, fullscreen, systemInsets, stableInsets);
 
@@ -368,9 +367,15 @@ public class BackdropFrameRenderer extends Thread implements Choreographer.Frame
         if (mSystemBarBackgroundNode == null) {
             return;
         }
-        RecordingCanvas canvas = mSystemBarBackgroundNode.beginRecording(width, height);
+        DisplayListCanvas canvas = mSystemBarBackgroundNode.start(width, height);
         mSystemBarBackgroundNode.setLeftTopRightBottom(left, top, left + width, top + height);
         final int topInset = DecorView.getColorViewTopInset(mStableInsets.top, mSystemInsets.top);
+        final int bottomInset = DecorView.getColorViewBottomInset(stableInsets.bottom,
+                systemInsets.bottom);
+        final int rightInset = DecorView.getColorViewRightInset(stableInsets.right,
+                systemInsets.right);
+        final int leftInset = DecorView.getColorViewLeftInset(stableInsets.left,
+                systemInsets.left);
         if (mStatusBarColor != null) {
             mStatusBarColor.setBounds(0, 0, left + width, topInset);
             mStatusBarColor.draw(canvas);
@@ -380,11 +385,17 @@ public class BackdropFrameRenderer extends Thread implements Choreographer.Frame
         // don't want the navigation bar background be moving around when resizing in docked mode.
         // However, we need it for the transitions into/out of docked mode.
         if (mNavigationBarColor != null && fullscreen) {
-            DecorView.getNavigationBarRect(width, height, stableInsets, systemInsets, mTmpRect, 1f);
-            mNavigationBarColor.setBounds(mTmpRect);
+            final int size = DecorView.getNavBarSize(bottomInset, rightInset, leftInset);
+            if (DecorView.isNavBarToRightEdge(bottomInset, rightInset)) {
+                mNavigationBarColor.setBounds(width - size, 0, width, height);
+            } else if (DecorView.isNavBarToLeftEdge(bottomInset, leftInset)) {
+                mNavigationBarColor.setBounds(0, 0, size, height);
+            } else {
+                mNavigationBarColor.setBounds(0, height - size, width, height);
+            }
             mNavigationBarColor.draw(canvas);
         }
-        mSystemBarBackgroundNode.endRecording();
+        mSystemBarBackgroundNode.end(canvas);
         mRenderer.drawRenderNode(mSystemBarBackgroundNode);
     }
 
@@ -414,8 +425,6 @@ public class BackdropFrameRenderer extends Thread implements Choreographer.Frame
     }
 
     void setUserCaptionBackgroundDrawable(Drawable userCaptionBackgroundDrawable) {
-        synchronized (this) {
-            mUserCaptionBackgroundDrawable = userCaptionBackgroundDrawable;
-        }
+        mUserCaptionBackgroundDrawable = userCaptionBackgroundDrawable;
     }
 }

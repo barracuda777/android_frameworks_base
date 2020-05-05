@@ -16,7 +16,6 @@
 
 package com.android.preload.actions;
 
-import com.android.preload.Main;
 import java.awt.event.ActionEvent;
 
 import javax.swing.AbstractAction;
@@ -29,11 +28,7 @@ public abstract class AbstractThreadedAction extends AbstractAction implements R
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        if (Main.getUI().isSingleThreaded()) {
-            run();
-        } else {
-            new Thread(this).start();
-        }
+        new Thread(this).start();
     }
 
 }

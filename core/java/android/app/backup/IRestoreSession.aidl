@@ -18,7 +18,7 @@ package android.app.backup;
 
 import android.app.backup.RestoreSet;
 import android.app.backup.IRestoreObserver;
-import android.app.backup.IBackupManagerMonitor;
+
 /**
  * Binder interface used by clients who wish to manage a restore operation.  Every
  * method in this interface requires the android.permission.BACKUP permission.
@@ -31,11 +31,10 @@ interface IRestoreSession {
      *
      * @param observer This binder points to an object whose onRestoreSetsAvailable()
      *   method will be called to supply the results of the transport's lookup.
-     * @param monitor If non null the binder will send important events to this monitor.
      * @return Zero on success; nonzero on error.  The observer will only receive a
      *   result callback if this method returned zero.
      */
-    int getAvailableRestoreSets(IRestoreObserver observer, IBackupManagerMonitor monitor);
+    int getAvailableRestoreSets(IRestoreObserver observer);
 
     /**
      * Restore the given set onto the device, replacing the current data of any app
@@ -49,9 +48,8 @@ interface IRestoreSession {
      *   the restore set that should be used.
      * @param observer If non-null, this binder points to an object that will receive
      *   progress callbacks during the restore operation.
-     * @param monitor If non null the binder will send important events to this monitor.
      */
-    int restoreAll(long token, IRestoreObserver observer, IBackupManagerMonitor monitor);
+    int restoreAll(long token, IRestoreObserver observer);
 
     /**
      * Restore select packages from the given set onto the device, replacing the
@@ -69,10 +67,8 @@ interface IRestoreSession {
      * @param packages The set of packages for which to attempt a restore.  Regardless of
      *   the contents of the actual back-end dataset named by {@code token}, only
      *   applications mentioned in this list will have their data restored.
-     * @param monitor If non null the binder will send important events to this monitor.
      */
-    int restorePackages(long token, IRestoreObserver observer, in String[] packages,
-            IBackupManagerMonitor monitor);
+    int restoreSome(long token, IRestoreObserver observer, in String[] packages);
 
     /**
      * Restore a single application from backup.  The data will be restored from the
@@ -88,10 +84,8 @@ interface IRestoreSession {
      *   permission must be held.
      * @param observer If non-null, this binder points to an object that will receive
      *   progress callbacks during the restore operation.
-     * @param monitor If non null the binder will send important events to this monitor.
      */
-    int restorePackage(in String packageName, IRestoreObserver observer,
-          IBackupManagerMonitor monitor);
+    int restorePackage(in String packageName, IRestoreObserver observer);
 
     /**
      * End this restore session.  After this method is called, the IRestoreSession binder

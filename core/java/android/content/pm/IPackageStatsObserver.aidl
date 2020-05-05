@@ -26,6 +26,5 @@ import android.content.pm.PackageStats;
  */
 oneway interface IPackageStatsObserver {
     
-    @UnsupportedAppUsage
     void onGetStatsCompleted(in PackageStats pStats, boolean succeeded);
 }

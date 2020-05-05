@@ -17,8 +17,7 @@
 package android.view;
 
 import android.test.AndroidTestCase;
-
-import androidx.test.filters.SmallTest;
+import android.test.suitebuilder.annotation.SmallTest;
 
 public class HandlerActionQueueTest extends AndroidTestCase {
 

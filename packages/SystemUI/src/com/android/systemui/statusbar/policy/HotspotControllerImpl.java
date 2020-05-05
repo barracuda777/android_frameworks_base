@@ -16,13 +16,13 @@
 
 package com.android.systemui.statusbar.policy;
 
-import static com.android.systemui.Dependency.MAIN_HANDLER_NAME;
-
 import android.app.ActivityManager;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.net.ConnectivityManager;
 import android.net.wifi.WifiManager;
-import android.os.Handler;
 import android.os.UserManager;
 import android.util.Log;
 
@@ -30,37 +30,22 @@ import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 
-import javax.inject.Inject;
-import javax.inject.Named;
-import javax.inject.Singleton;
-
-/**
- */
-@Singleton
-public class HotspotControllerImpl implements HotspotController, WifiManager.SoftApCallback {
+public class HotspotControllerImpl implements HotspotController {
 
     private static final String TAG = "HotspotController";
     private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
 
-    private final ArrayList<Callback> mCallbacks = new ArrayList<>();
+    private final ArrayList<Callback> mCallbacks = new ArrayList<Callback>();
+    private final Receiver mReceiver = new Receiver();
     private final ConnectivityManager mConnectivityManager;
-    private final WifiManager mWifiManager;
-    private final Handler mMainHandler;
     private final Context mContext;
 
     private int mHotspotState;
-    private int mNumConnectedDevices;
-    private boolean mWaitingForTerminalState;
 
-    /**
-     */
-    @Inject
-    public HotspotControllerImpl(Context context, @Named(MAIN_HANDLER_NAME) Handler mainHandler) {
+    public HotspotControllerImpl(Context context) {
         mContext = context;
-        mConnectivityManager =
-                (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
-        mWifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
-        mMainHandler = mainHandler;
+        mConnectivityManager = (ConnectivityManager) context.getSystemService(
+                Context.CONNECTIVITY_SERVICE);
     }
 
     @Override
@@ -72,9 +57,7 @@ public class HotspotControllerImpl implements HotspotController, WifiManager.Sof
 
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
         pw.println("HotspotController state:");
-        pw.print("  mHotspotState="); pw.println(stateToString(mHotspotState));
-        pw.print("  mNumConnectedDevices="); pw.println(mNumConnectedDevices);
-        pw.print("  mWaitingForTerminalState="); pw.println(mWaitingForTerminalState);
+        pw.print("  mHotspotEnabled="); pw.println(stateToString(mHotspotState));
     }
 
     private static String stateToString(int hotspotState) {
@@ -93,28 +76,13 @@ public class HotspotControllerImpl implements HotspotController, WifiManager.Sof
         return null;
     }
 
-    /**
-     * Adds {@code callback} to the controller. The controller will update the callback on state
-     * changes. It will immediately trigger the callback added to notify current state.
-     * @param callback
-     */
     @Override
     public void addCallback(Callback callback) {
         synchronized (mCallbacks) {
             if (callback == null || mCallbacks.contains(callback)) return;
             if (DEBUG) Log.d(TAG, "addCallback " + callback);
             mCallbacks.add(callback);
-            if (mWifiManager != null) {
-                if (mCallbacks.size() == 1) {
-                    mWifiManager.registerSoftApCallback(this, mMainHandler);
-                } else {
-                    // mWifiManager#registerSoftApCallback triggers a call to onNumClientsChanged
-                    // on the Main Handler. In order to always update the callback on added, we
-                    // make this call when adding callbacks after the first.
-                    mMainHandler.post(() ->
-                            callback.onHotspotChanged(isHotspotEnabled(), mNumConnectedDevices));
-                }
-            }
+            mReceiver.setListening(!mCallbacks.isEmpty());
         }
     }
 
@@ -124,9 +92,7 @@ public class HotspotControllerImpl implements HotspotController, WifiManager.Sof
         if (DEBUG) Log.d(TAG, "removeCallback " + callback);
         synchronized (mCallbacks) {
             mCallbacks.remove(callback);
-            if (mCallbacks.isEmpty() && mWifiManager != null) {
-                mWifiManager.unregisterSoftApCallback(this);
-            }
+            mReceiver.setListening(!mCallbacks.isEmpty());
         }
     }
 
@@ -135,90 +101,59 @@ public class HotspotControllerImpl implements HotspotController, WifiManager.Sof
         return mHotspotState == WifiManager.WIFI_AP_STATE_ENABLED;
     }
 
-    @Override
-    public boolean isHotspotTransient() {
-        return mWaitingForTerminalState || (mHotspotState == WifiManager.WIFI_AP_STATE_ENABLING);
+    static final class OnStartTetheringCallback extends
+            ConnectivityManager.OnStartTetheringCallback {
+        @Override
+        public void onTetheringStarted() {}
+        @Override
+        public void onTetheringFailed() {
+          // TODO: Show error.
+        }
     }
 
     @Override
     public void setHotspotEnabled(boolean enabled) {
-        if (mWaitingForTerminalState) {
-            if (DEBUG) Log.d(TAG, "Ignoring setHotspotEnabled; waiting for terminal state.");
-            return;
-        }
         if (enabled) {
-            mWaitingForTerminalState = true;
-            if (DEBUG) Log.d(TAG, "Starting tethering");
-            mConnectivityManager.startTethering(ConnectivityManager.TETHERING_WIFI, false,
-                    new ConnectivityManager.OnStartTetheringCallback() {
-                        @Override
-                        public void onTetheringFailed() {
-                            if (DEBUG) Log.d(TAG, "onTetheringFailed");
-                            maybeResetSoftApState();
-                            fireHotspotChangedCallback();
-                        }
-                    });
+            OnStartTetheringCallback callback = new OnStartTetheringCallback();
+            mConnectivityManager.startTethering(
+                    ConnectivityManager.TETHERING_WIFI, false, callback);
         } else {
             mConnectivityManager.stopTethering(ConnectivityManager.TETHERING_WIFI);
         }
     }
 
-    @Override
-    public int getNumConnectedDevices() {
-        return mNumConnectedDevices;
-    }
-
-    /**
-     * Sends a hotspot changed callback.
-     * Be careful when calling over multiple threads, especially if one of them is the main thread
-     * (as it can be blocked).
-     */
-    private void fireHotspotChangedCallback() {
+    private void fireCallback(boolean isEnabled) {
         synchronized (mCallbacks) {
             for (Callback callback : mCallbacks) {
-                callback.onHotspotChanged(isHotspotEnabled(), mNumConnectedDevices);
+                callback.onHotspotChanged(isEnabled);
             }
         }
     }
 
-    @Override
-    public void onStateChanged(int state, int failureReason) {
-        // Update internal hotspot state for tracking before using any enabled/callback methods.
-        mHotspotState = state;
+    private final class Receiver extends BroadcastReceiver {
+        private boolean mRegistered;
 
-        maybeResetSoftApState();
-        if (!isHotspotEnabled()) {
-            // Reset num devices if the hotspot is no longer enabled so we don't get ghost
-            // counters.
-            mNumConnectedDevices = 0;
+        public void setListening(boolean listening) {
+            if (listening && !mRegistered) {
+                if (DEBUG) Log.d(TAG, "Registering receiver");
+                final IntentFilter filter = new IntentFilter();
+                filter.addAction(WifiManager.WIFI_AP_STATE_CHANGED_ACTION);
+                mContext.registerReceiver(this, filter);
+                mRegistered = true;
+            } else if (!listening && mRegistered) {
+                if (DEBUG) Log.d(TAG, "Unregistering receiver");
+                mContext.unregisterReceiver(this);
+                mRegistered = false;
+            }
         }
 
-        fireHotspotChangedCallback();
-    }
-
-    private void maybeResetSoftApState() {
-        if (!mWaitingForTerminalState) {
-            return; // Only reset soft AP state if enabled from this controller.
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (DEBUG) Log.d(TAG, "onReceive " + intent.getAction());
+            int state = intent.getIntExtra(
+                    WifiManager.EXTRA_WIFI_AP_STATE, WifiManager.WIFI_AP_STATE_FAILED);
+            mHotspotState = state;
+            fireCallback(mHotspotState == WifiManager.WIFI_AP_STATE_ENABLED);
         }
-        switch (mHotspotState) {
-            case WifiManager.WIFI_AP_STATE_FAILED:
-                // TODO(b/110697252): must be called to reset soft ap state after failure
-                mConnectivityManager.stopTethering(ConnectivityManager.TETHERING_WIFI);
-                // Fall through
-            case WifiManager.WIFI_AP_STATE_ENABLED:
-            case WifiManager.WIFI_AP_STATE_DISABLED:
-                mWaitingForTerminalState = false;
-                break;
-            case WifiManager.WIFI_AP_STATE_ENABLING:
-            case WifiManager.WIFI_AP_STATE_DISABLING:
-            default:
-                break;
-        }
-    }
-
-    @Override
-    public void onNumClientsChanged(int numConnectedDevices) {
-        mNumConnectedDevices = numConnectedDevices;
-        fireHotspotChangedCallback();
     }
 }

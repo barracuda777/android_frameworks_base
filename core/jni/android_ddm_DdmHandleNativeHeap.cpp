@@ -18,12 +18,9 @@
 #undef LOG_TAG
 #define LOG_TAG "DdmHandleNativeHeap"
 
-#include <nativehelper/JNIHelp.h>
+#include <JNIHelp.h>
 #include <jni.h>
 #include "core_jni_helpers.h"
-
-#include <android-base/logging.h>
-#include <bionic_malloc.h>
 
 #include <utils/Log.h>
 #include <utils/String8.h>
@@ -32,6 +29,11 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+
+extern "C" void get_malloc_leak_info(uint8_t** info, size_t* overallSize,
+                                     size_t* infoSize, size_t* totalMemory, size_t* backtraceSize);
+
+extern "C" void free_malloc_leak_info(uint8_t* info);
 
 #define DDMS_HEADER_SIGNATURE 0x812345dd
 #define DDMS_VERSION 2
@@ -52,7 +54,7 @@ struct Header {
 namespace android {
 
 static void ReadFile(const char* path, String8& s) {
-    int fd = open(path, O_RDONLY | O_CLOEXEC);
+    int fd = open(path, O_RDONLY);
     if (fd != -1) {
         char bytes[1024];
         ssize_t byteCount;
@@ -76,16 +78,9 @@ static jbyteArray DdmHandleNativeHeap_getLeakInfo(JNIEnv* env, jobject) {
     ReadFile("/proc/self/maps", maps);
     header.mapSize = maps.size();
 
-    android_mallopt_leak_info_t leak_info;
-    if (!android_mallopt(M_GET_MALLOC_LEAK_INFO, &leak_info, sizeof(leak_info))) {
-      PLOG(ERROR) << "*** Failed to get malloc leak info";
-      return nullptr;
-    }
-
-    header.allocSize = leak_info.overall_size;
-    header.allocInfoSize = leak_info.info_size;
-    header.totalMemory = leak_info.total_memory;
-    header.backtraceSize = leak_info.backtrace_size;
+    uint8_t* allocBytes;
+    get_malloc_leak_info(&allocBytes, &header.allocSize, &header.allocInfoSize,
+                         &header.totalMemory, &header.backtraceSize);
 
     ALOGD("*** mapSize: %zu allocSize: %zu allocInfoSize: %zu totalMemory: %zu",
           header.mapSize, header.allocSize, header.allocInfoSize, header.totalMemory);
@@ -103,10 +98,10 @@ static jbyteArray DdmHandleNativeHeap_getLeakInfo(JNIEnv* env, jobject) {
         env->SetByteArrayRegion(array, sizeof(header),
                                 maps.size(), reinterpret_cast<const jbyte*>(maps.string()));
         env->SetByteArrayRegion(array, sizeof(header) + maps.size(),
-                                header.allocSize, reinterpret_cast<jbyte*>(leak_info.buffer));
+                                header.allocSize, reinterpret_cast<jbyte*>(allocBytes));
     }
 
-    android_mallopt(M_FREE_MALLOC_LEAK_INFO, &leak_info, sizeof(leak_info));
+    free_malloc_leak_info(allocBytes);
     return array;
 }
 

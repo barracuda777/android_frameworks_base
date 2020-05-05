@@ -17,7 +17,8 @@
 -->
 <resources>
     <!-- Standard notification width + gravity -->
-    <dimen name="notification_panel_width">416dp</dimen>
+    <dimen name="notification_panel_width">@dimen/standard_notification_panel_width</dimen>
+    <integer name="notification_panel_layout_gravity">@integer/standard_notification_panel_layout_gravity</integer>
 
     <!-- Diameter of outer shape drawable shown in navbar search-->
     <dimen name="navbar_search_outerring_diameter">430dip</dimen>
@@ -38,9 +39,16 @@
     <!-- On tablets this is just the close_handle_height -->
     <dimen name="peek_height">@dimen/close_handle_height</dimen>
 
+    <!-- The fraction of the screen height where the clock on the Keyguard has its center. The
+         max value is used when no notifications are displaying, and the min value is when the
+         highest possible number of notifications are showing. -->
+    <fraction name="keyguard_clock_y_fraction_max">34%</fraction>
+    <fraction name="keyguard_clock_y_fraction_min">24%</fraction>
+
     <!-- The margin between the clock and the notifications on Keyguard. See
          keyguard_clock_height_fraction_* for the difference between min and max.-->
-    <dimen name="keyguard_clock_notifications_margin">44dp</dimen>
+    <dimen name="keyguard_clock_notifications_margin_min">44dp</dimen>
+    <dimen name="keyguard_clock_notifications_margin_max">44dp</dimen>
 
     <!-- Height of the status bar header bar when on Keyguard -->
     <dimen name="status_bar_header_height_keyguard">60dp</dimen>
@@ -88,4 +96,7 @@
 
     <!-- Keyboard shortcuts helper -->
     <dimen name="ksh_layout_width">488dp</dimen>
+
+    <!-- The offsets the tasks animate from when recents is launched while docking -->
+    <dimen name="recents_task_stack_animation_launched_while_docking_offset">192dp</dimen>
 </resources>

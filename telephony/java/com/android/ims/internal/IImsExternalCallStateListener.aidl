@@ -16,14 +16,14 @@
 
 package com.android.ims.internal;
 
-import android.telephony.ims.ImsExternalCallState;
+import com.android.ims.ImsExternalCallState;
 
 /**
  * A listener type for receiving notifications about DEP through IMS
  *
  * {@hide}
  */
-oneway interface IImsExternalCallStateListener {
+interface IImsExternalCallStateListener {
 
     /**
      * Notifies client when Dialog Event Package update is received

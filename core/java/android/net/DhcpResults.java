@@ -16,99 +16,52 @@
 
 package android.net;
 
-import android.annotation.UnsupportedAppUsage;
-import android.net.shared.InetAddressUtils;
+import android.net.NetworkUtils;
 import android.os.Parcel;
-import android.os.Parcelable;
 import android.text.TextUtils;
 import android.util.Log;
 
 import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 
 /**
  * A simple object for retrieving the results of a DHCP request.
  * Optimized (attempted) for that jni interface
- * TODO: remove this class and replace with other existing constructs
+ * TODO - remove when DhcpInfo is deprecated.  Move the remaining api to LinkProperties.
  * @hide
  */
-public final class DhcpResults implements Parcelable {
+public class DhcpResults extends StaticIpConfiguration {
     private static final String TAG = "DhcpResults";
 
-    @UnsupportedAppUsage
-    public LinkAddress ipAddress;
-
-    @UnsupportedAppUsage
-    public InetAddress gateway;
-
-    @UnsupportedAppUsage
-    public final ArrayList<InetAddress> dnsServers = new ArrayList<>();
-
-    @UnsupportedAppUsage
-    public String domains;
-
-    @UnsupportedAppUsage
     public Inet4Address serverAddress;
 
     /** Vendor specific information (from RFC 2132). */
-    @UnsupportedAppUsage
     public String vendorInfo;
 
-    @UnsupportedAppUsage
     public int leaseDuration;
 
     /** Link MTU option. 0 means unset. */
-    @UnsupportedAppUsage
     public int mtu;
-
-    public String serverHostName;
 
     public DhcpResults() {
         super();
     }
 
-    /**
-     * Create a {@link StaticIpConfiguration} based on the DhcpResults.
-     */
-    public StaticIpConfiguration toStaticIpConfiguration() {
-        return new StaticIpConfiguration.Builder()
-                .setIpAddress(ipAddress)
-                .setGateway(gateway)
-                .setDnsServers(dnsServers)
-                .setDomains(domains)
-                .build();
-    }
-
     public DhcpResults(StaticIpConfiguration source) {
-        if (source != null) {
-            ipAddress = source.getIpAddress();
-            gateway = source.getGateway();
-            dnsServers.addAll(source.getDnsServers());
-            domains = source.getDomains();
-        }
+        super(source);
     }
 
     /** copy constructor */
     public DhcpResults(DhcpResults source) {
-        this(source == null ? null : source.toStaticIpConfiguration());
+        super(source);
+
         if (source != null) {
+            // All these are immutable, so no need to make copies.
             serverAddress = source.serverAddress;
             vendorInfo = source.vendorInfo;
             leaseDuration = source.leaseDuration;
             mtu = source.mtu;
-            serverHostName = source.serverHostName;
         }
-    }
-
-    /**
-     * @see StaticIpConfiguration#getRoutes(String)
-     * @hide
-     */
-    public List<RouteInfo> getRoutes(String iface) {
-        return toStaticIpConfiguration().getRoutes(iface);
     }
 
     /**
@@ -124,15 +77,10 @@ public final class DhcpResults implements Parcelable {
     }
 
     public void clear() {
-        ipAddress = null;
-        gateway = null;
-        dnsServers.clear();
-        domains = null;
-        serverAddress = null;
+        super.clear();
         vendorInfo = null;
         leaseDuration = 0;
         mtu = 0;
-        serverHostName = null;
     }
 
     @Override
@@ -143,7 +91,6 @@ public final class DhcpResults implements Parcelable {
         str.append(" Vendor info ").append(vendorInfo);
         str.append(" lease ").append(leaseDuration).append(" seconds");
         if (mtu != 0) str.append(" MTU ").append(mtu);
-        str.append(" Servername ").append(serverHostName);
 
         return str.toString();
     }
@@ -156,21 +103,20 @@ public final class DhcpResults implements Parcelable {
 
         DhcpResults target = (DhcpResults)obj;
 
-        return toStaticIpConfiguration().equals(target.toStaticIpConfiguration())
-                && Objects.equals(serverAddress, target.serverAddress)
-                && Objects.equals(vendorInfo, target.vendorInfo)
-                && Objects.equals(serverHostName, target.serverHostName)
-                && leaseDuration == target.leaseDuration
-                && mtu == target.mtu;
+        return super.equals((StaticIpConfiguration) obj) &&
+                Objects.equals(serverAddress, target.serverAddress) &&
+                Objects.equals(vendorInfo, target.vendorInfo) &&
+                leaseDuration == target.leaseDuration &&
+                mtu == target.mtu;
     }
 
-    /**
-     * Implement the Parcelable interface
-     */
-    public static final @android.annotation.NonNull Creator<DhcpResults> CREATOR =
+    /** Implement the Parcelable interface */
+    public static final Creator<DhcpResults> CREATOR =
         new Creator<DhcpResults>() {
             public DhcpResults createFromParcel(Parcel in) {
-                return readFromParcel(in);
+                DhcpResults dhcpResults = new DhcpResults();
+                readFromParcel(dhcpResults, in);
+                return dhcpResults;
             }
 
             public DhcpResults[] newArray(int size) {
@@ -180,35 +126,26 @@ public final class DhcpResults implements Parcelable {
 
     /** Implement the Parcelable interface */
     public void writeToParcel(Parcel dest, int flags) {
-        toStaticIpConfiguration().writeToParcel(dest, flags);
+        super.writeToParcel(dest, flags);
         dest.writeInt(leaseDuration);
         dest.writeInt(mtu);
-        InetAddressUtils.parcelInetAddress(dest, serverAddress, flags);
+        NetworkUtils.parcelInetAddress(dest, serverAddress, flags);
         dest.writeString(vendorInfo);
-        dest.writeString(serverHostName);
     }
 
-    @Override
-    public int describeContents() {
-        return 0;
-    }
-
-    private static DhcpResults readFromParcel(Parcel in) {
-        final StaticIpConfiguration s = StaticIpConfiguration.CREATOR.createFromParcel(in);
-        final DhcpResults dhcpResults = new DhcpResults(s);
+    private static void readFromParcel(DhcpResults dhcpResults, Parcel in) {
+        StaticIpConfiguration.readFromParcel(dhcpResults, in);
         dhcpResults.leaseDuration = in.readInt();
         dhcpResults.mtu = in.readInt();
-        dhcpResults.serverAddress = (Inet4Address) InetAddressUtils.unparcelInetAddress(in);
+        dhcpResults.serverAddress = (Inet4Address) NetworkUtils.unparcelInetAddress(in);
         dhcpResults.vendorInfo = in.readString();
-        dhcpResults.serverHostName = in.readString();
-        return dhcpResults;
     }
 
     // Utils for jni population - false on success
     // Not part of the superclass because they're only used by the JNI iterface to the DHCP daemon.
     public boolean setIpAddress(String addrString, int prefixLength) {
         try {
-            Inet4Address addr = (Inet4Address) InetAddresses.parseNumericAddress(addrString);
+            Inet4Address addr = (Inet4Address) NetworkUtils.numericToInetAddress(addrString);
             ipAddress = new LinkAddress(addr, prefixLength);
         } catch (IllegalArgumentException|ClassCastException e) {
             Log.e(TAG, "setIpAddress failed with addrString " + addrString + "/" + prefixLength);
@@ -219,7 +156,7 @@ public final class DhcpResults implements Parcelable {
 
     public boolean setGateway(String addrString) {
         try {
-            gateway = InetAddresses.parseNumericAddress(addrString);
+            gateway = NetworkUtils.numericToInetAddress(addrString);
         } catch (IllegalArgumentException e) {
             Log.e(TAG, "setGateway failed with addrString " + addrString);
             return true;
@@ -230,7 +167,7 @@ public final class DhcpResults implements Parcelable {
     public boolean addDns(String addrString) {
         if (TextUtils.isEmpty(addrString) == false) {
             try {
-                dnsServers.add(InetAddresses.parseNumericAddress(addrString));
+                dnsServers.add(NetworkUtils.numericToInetAddress(addrString));
             } catch (IllegalArgumentException e) {
                 Log.e(TAG, "addDns failed with addrString " + addrString);
                 return true;
@@ -239,70 +176,25 @@ public final class DhcpResults implements Parcelable {
         return false;
     }
 
-    public LinkAddress getIpAddress() {
-        return ipAddress;
-    }
-
-    public void setIpAddress(LinkAddress ipAddress) {
-        this.ipAddress = ipAddress;
-    }
-
-    public InetAddress getGateway() {
-        return gateway;
-    }
-
-    public void setGateway(InetAddress gateway) {
-        this.gateway = gateway;
-    }
-
-    public List<InetAddress> getDnsServers() {
-        return dnsServers;
-    }
-
-    /**
-     * Add a DNS server to this configuration.
-     */
-    public void addDnsServer(InetAddress server) {
-        dnsServers.add(server);
-    }
-
-    public String getDomains() {
-        return domains;
-    }
-
-    public void setDomains(String domains) {
-        this.domains = domains;
-    }
-
-    public Inet4Address getServerAddress() {
-        return serverAddress;
-    }
-
-    public void setServerAddress(Inet4Address addr) {
-        serverAddress = addr;
-    }
-
-    public int getLeaseDuration() {
-        return leaseDuration;
+    public boolean setServerAddress(String addrString) {
+        try {
+            serverAddress = (Inet4Address) NetworkUtils.numericToInetAddress(addrString);
+        } catch (IllegalArgumentException|ClassCastException e) {
+            Log.e(TAG, "setServerAddress failed with addrString " + addrString);
+            return true;
+        }
+        return false;
     }
 
     public void setLeaseDuration(int duration) {
         leaseDuration = duration;
     }
 
-    public String getVendorInfo() {
-        return vendorInfo;
-    }
-
     public void setVendorInfo(String info) {
         vendorInfo = info;
     }
 
-    public int getMtu() {
-        return mtu;
-    }
-
-    public void setMtu(int mtu) {
-        this.mtu = mtu;
+    public void setDomains(String newDomains) {
+        domains = newDomains;
     }
 }

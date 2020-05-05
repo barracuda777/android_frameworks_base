@@ -18,7 +18,6 @@ package android.os;
 
 import com.google.android.collect.Maps;
 
-import android.annotation.UnsupportedAppUsage;
 import java.util.HashMap;
 import java.util.concurrent.TimeoutException;
 
@@ -59,13 +58,11 @@ public class SystemService {
     }
 
     /** Request that the init daemon start a named service. */
-    @UnsupportedAppUsage
     public static void start(String name) {
         SystemProperties.set("ctl.start", name);
     }
 
     /** Request that the init daemon stop a named service. */
-    @UnsupportedAppUsage
     public static void stop(String name) {
         SystemProperties.set("ctl.stop", name);
     }

@@ -13,13 +13,11 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-
 package com.android.internal.os;
 
 import android.os.BatteryStats;
 import android.os.Parcel;
-
-import androidx.test.filters.SmallTest;
+import android.support.test.filters.SmallTest;
 
 import junit.framework.TestCase;
 
@@ -148,8 +146,6 @@ public class BatteryStatsSamplingTimerTest extends TestCase {
         BatteryStatsImpl.SamplingTimer timer = new BatteryStatsImpl.SamplingTimer(clocks, timeBase);
 
         // Start running on battery.
-        // (Note that the wrong units are used in this class. setRunning is actually supposed to
-        // take us, not the ms that clocks uses.)
         timeBase.setRunning(true, clocks.uptimeMillis(), clocks.elapsedRealtime());
 
         // The first update on battery consumes the values as a way of starting cleanly.

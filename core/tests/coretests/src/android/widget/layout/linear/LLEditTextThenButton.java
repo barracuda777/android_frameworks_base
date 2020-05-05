@@ -16,13 +16,13 @@
 
 package android.widget.layout.linear;
 
+import com.android.frameworks.coretests.R;
+
 import android.app.Activity;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-
-import com.android.frameworks.coretests.R;
 
 public class LLEditTextThenButton extends Activity {
     private EditText mEditText;
@@ -36,9 +36,9 @@ public class LLEditTextThenButton extends Activity {
 
         setContentView(R.layout.linear_layout_edittext_then_button);
 
-        mLayout = findViewById(R.id.layout);
-        mEditText = findViewById(R.id.editText);
-        mButton = findViewById(R.id.button);
+        mLayout = (LinearLayout) findViewById(R.id.layout);
+        mEditText = (EditText) findViewById(R.id.editText);
+        mButton = (Button) findViewById(R.id.button);
     }
 
     public LinearLayout getLayout() {

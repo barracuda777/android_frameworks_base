@@ -16,7 +16,6 @@
 
 package com.android.internal.os;
 
-import android.annotation.UnsupportedAppUsage;
 import android.util.Log;
 
 /**
@@ -35,7 +34,6 @@ class AndroidPrintStream extends LoggingPrintStream {
      * @param priority from {@link android.util.Log}
      * @param tag to log
      */
-    @UnsupportedAppUsage
     public AndroidPrintStream(int priority, String tag) {
         if (tag == null) {
             throw new NullPointerException("tag");

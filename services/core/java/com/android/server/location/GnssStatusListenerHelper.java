@@ -16,26 +16,22 @@
 
 package com.android.server.location;
 
-import android.content.Context;
 import android.location.IGnssStatusListener;
 import android.os.Handler;
-import android.util.Log;
+import android.os.RemoteException;
 
 /**
  * Implementation of a handler for {@link IGnssStatusListener}.
  */
-public abstract class GnssStatusListenerHelper extends RemoteListenerHelper<IGnssStatusListener> {
-    private static final String TAG = "GnssStatusListenerHelper";
-    private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
-
-    protected GnssStatusListenerHelper(Context context, Handler handler) {
-        super(context, handler, TAG);
+abstract class GnssStatusListenerHelper extends RemoteListenerHelper<IGnssStatusListener> {
+    protected GnssStatusListenerHelper(Handler handler) {
+        super(handler, "GnssStatusListenerHelper");
         setSupported(GnssLocationProvider.isSupported());
     }
 
     @Override
-    protected int registerWithService() {
-        return RemoteListenerHelper.RESULT_SUCCESS;
+    protected boolean registerWithService() {
+        return true;
     }
 
     @Override
@@ -47,22 +43,33 @@ public abstract class GnssStatusListenerHelper extends RemoteListenerHelper<IGns
     }
 
     public void onStatusChanged(boolean isNavigating) {
+        Operation operation;
         if (isNavigating) {
-            foreach((IGnssStatusListener listener, CallerIdentity callerIdentity) -> {
-                listener.onGnssStarted();
-            });
+            operation = new Operation() {
+                @Override
+                public void execute(IGnssStatusListener listener) throws RemoteException {
+                    listener.onGnssStarted();
+                }
+            };
         } else {
-            foreach((IGnssStatusListener listener, CallerIdentity callerIdentity) -> {
-                listener.onGnssStopped();
-            });
+            operation = new Operation() {
+                @Override
+                public void execute(IGnssStatusListener listener) throws RemoteException {
+                    listener.onGnssStopped();
+                }
+            };
         }
+        foreach(operation);
     }
 
     public void onFirstFix(final int timeToFirstFix) {
-        foreach((IGnssStatusListener listener, CallerIdentity callerIdentity) -> {
-                    listener.onFirstFix(timeToFirstFix);
-                }
-        );
+        Operation operation = new Operation() {
+            @Override
+            public void execute(IGnssStatusListener listener) throws RemoteException {
+                listener.onFirstFix(timeToFirstFix);
+            }
+        };
+        foreach(operation);
     }
 
     public void onSvStatusChanged(
@@ -70,26 +77,30 @@ public abstract class GnssStatusListenerHelper extends RemoteListenerHelper<IGns
             final int[] prnWithFlags,
             final float[] cn0s,
             final float[] elevations,
-            final float[] azimuths,
-            final float[] carrierFreqs) {
-        foreach((IGnssStatusListener listener, CallerIdentity callerIdentity) -> {
-            if (!hasPermission(mContext, callerIdentity)) {
-                logPermissionDisabledEventNotReported(TAG, callerIdentity.mPackageName,
-                        "GNSS status");
-                return;
+            final float[] azimuths) {
+        Operation operation = new Operation() {
+            @Override
+            public void execute(IGnssStatusListener listener) throws RemoteException {
+                listener.onSvStatusChanged(
+                        svCount,
+                        prnWithFlags,
+                        cn0s,
+                        elevations,
+                        azimuths);
             }
-            listener.onSvStatusChanged(svCount, prnWithFlags, cn0s, elevations, azimuths,
-                    carrierFreqs);
-        });
+        };
+        foreach(operation);
     }
 
     public void onNmeaReceived(final long timestamp, final String nmea) {
-        foreach((IGnssStatusListener listener, CallerIdentity callerIdentity) -> {
-            if (!hasPermission(mContext, callerIdentity)) {
-                logPermissionDisabledEventNotReported(TAG, callerIdentity.mPackageName, "NMEA");
-                return;
+        Operation operation = new Operation() {
+            @Override
+            public void execute(IGnssStatusListener listener) throws RemoteException {
+                listener.onNmeaReceived(timestamp, nmea);
             }
-            listener.onNmeaReceived(timestamp, nmea);
-        });
+        };
+        foreach(operation);
     }
+
+    private interface Operation extends ListenerOperation<IGnssStatusListener> {}
 }

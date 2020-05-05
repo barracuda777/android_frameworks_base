@@ -16,8 +16,6 @@
 
 package android.hardware.camera2.utils;
 
-import android.annotation.UnsupportedAppUsage;
-
 /**
  * Provide hashing functions using the Modified Bernstein hash
  */
@@ -32,7 +30,6 @@ public final class HashCodeHelpers {
      *
      * @return the numeric hash code
      */
-    @UnsupportedAppUsage
     public static int hashCode(int... array) {
         if (array == null) {
             return 0;

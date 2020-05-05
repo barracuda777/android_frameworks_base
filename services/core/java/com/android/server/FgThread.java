@@ -17,11 +17,7 @@
 package com.android.server;
 
 import android.os.Handler;
-import android.os.HandlerExecutor;
-import android.os.Looper;
 import android.os.Trace;
-
-import java.util.concurrent.Executor;
 
 /**
  * Shared singleton foreground thread for the system.  This is a thread for regular
@@ -32,12 +28,8 @@ import java.util.concurrent.Executor;
  * to be delayed for a user-noticeable amount of time.
  */
 public final class FgThread extends ServiceThread {
-    private static final long SLOW_DISPATCH_THRESHOLD_MS = 100;
-    private static final long SLOW_DELIVERY_THRESHOLD_MS = 200;
-
     private static FgThread sInstance;
     private static Handler sHandler;
-    private static HandlerExecutor sHandlerExecutor;
 
     private FgThread() {
         super("android.fg", android.os.Process.THREAD_PRIORITY_DEFAULT, true /*allowIo*/);
@@ -47,33 +39,22 @@ public final class FgThread extends ServiceThread {
         if (sInstance == null) {
             sInstance = new FgThread();
             sInstance.start();
-            final Looper looper = sInstance.getLooper();
-            looper.setTraceTag(Trace.TRACE_TAG_SYSTEM_SERVER);
-            looper.setSlowLogThresholdMs(
-                    SLOW_DISPATCH_THRESHOLD_MS, SLOW_DELIVERY_THRESHOLD_MS);
+            sInstance.getLooper().setTraceTag(Trace.TRACE_TAG_ACTIVITY_MANAGER);
             sHandler = new Handler(sInstance.getLooper());
-            sHandlerExecutor = new HandlerExecutor(sHandler);
         }
     }
 
     public static FgThread get() {
-        synchronized (FgThread.class) {
+        synchronized (UiThread.class) {
             ensureThreadLocked();
             return sInstance;
         }
     }
 
     public static Handler getHandler() {
-        synchronized (FgThread.class) {
+        synchronized (UiThread.class) {
             ensureThreadLocked();
             return sHandler;
-        }
-    }
-
-    public static Executor getExecutor() {
-        synchronized (FgThread.class) {
-            ensureThreadLocked();
-            return sHandlerExecutor;
         }
     }
 }

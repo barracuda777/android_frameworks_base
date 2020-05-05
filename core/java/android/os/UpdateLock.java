@@ -16,7 +16,6 @@
 
 package android.os;
 
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.util.Log;
 
@@ -51,7 +50,6 @@ public class UpdateLock {
      * locker releases theirs.  The broadcast is sticky but is sent only to
      * registered receivers.
      */
-    @UnsupportedAppUsage
     public static final String UPDATE_LOCK_CHANGED = "android.os.UpdateLock.UPDATE_LOCK_CHANGED";
 
     /**
@@ -60,7 +58,6 @@ public class UpdateLock {
      * update operation.  True means that updates are okay right now; false indicates
      * that perhaps later would be a better time.
      */
-    @UnsupportedAppUsage
     public static final String NOW_IS_CONVENIENT = "nowisconvenient";
 
     /**
@@ -69,7 +66,6 @@ public class UpdateLock {
      * in the System.currentTimeMillis() time base, which may be non-monotonic especially
      * around reboots.
      */
-    @UnsupportedAppUsage
     public static final String TIMESTAMP = "timestamp";
 
     /**
@@ -94,7 +90,6 @@ public class UpdateLock {
     /**
      * Is this lock currently held?
      */
-    @UnsupportedAppUsage
     public boolean isHeld() {
         synchronized (mToken) {
             return mHeld;
@@ -104,7 +99,6 @@ public class UpdateLock {
     /**
      * Acquire an update lock.
      */
-    @UnsupportedAppUsage
     public void acquire() {
         if (DEBUG) {
             Log.v(TAG, "acquire() : " + this, new RuntimeException("here"));
@@ -131,7 +125,6 @@ public class UpdateLock {
     /**
      * Release this update lock.
      */
-    @UnsupportedAppUsage
     public void release() {
         if (DEBUG) Log.v(TAG, "release() : " + this, new RuntimeException("here"));
         checkService();

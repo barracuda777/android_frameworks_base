@@ -16,7 +16,6 @@
 
 package android.net;
 
-import android.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 import android.os.Parcelable;
 
@@ -111,7 +110,7 @@ public class LinkQualityInfo implements Parcelable {
     /**
      * @hide
      */
-    public static final @android.annotation.NonNull Creator<LinkQualityInfo> CREATOR =
+    public static final Creator<LinkQualityInfo> CREATOR =
             new Creator<LinkQualityInfo>() {
                 public LinkQualityInfo createFromParcel(Parcel in) {
                     int objectType = in.readInt();
@@ -190,7 +189,6 @@ public class LinkQualityInfo implements Parcelable {
     /**
      * @hide
      */
-    @UnsupportedAppUsage
     public void setPacketCount(long packetCount) {
         mPacketCount = packetCount;
     }
@@ -206,7 +204,6 @@ public class LinkQualityInfo implements Parcelable {
     /**
      * @hide
      */
-    @UnsupportedAppUsage
     public void setPacketErrorCount(long packetErrorCount) {
         mPacketErrorCount = packetErrorCount;
     }
@@ -268,7 +265,6 @@ public class LinkQualityInfo implements Parcelable {
     /**
      * @hide
      */
-    @UnsupportedAppUsage
     public void setLastDataSampleTime(long lastDataSampleTime) {
         mLastDataSampleTime = lastDataSampleTime;
     }
@@ -284,7 +280,6 @@ public class LinkQualityInfo implements Parcelable {
     /**
      * @hide
      */
-    @UnsupportedAppUsage
     public void setDataSampleDuration(int dataSampleDuration) {
         mDataSampleDuration = dataSampleDuration;
     }

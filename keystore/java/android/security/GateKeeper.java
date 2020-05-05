@@ -16,7 +16,6 @@
 
 package android.security;
 
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.os.RemoteException;
 import android.os.ServiceManager;
@@ -30,8 +29,6 @@ import android.service.gatekeeper.IGateKeeperService;
  */
 public abstract class GateKeeper {
 
-    public static final long INVALID_SECURE_USER_ID = 0;
-
     private GateKeeper() {}
 
     public static IGateKeeperService getService() {
@@ -43,7 +40,6 @@ public abstract class GateKeeper {
         return service;
     }
 
-    @UnsupportedAppUsage
     public static long getSecureUserId() throws IllegalStateException {
         try {
             return getService().getSecureUserId(UserHandle.myUserId());

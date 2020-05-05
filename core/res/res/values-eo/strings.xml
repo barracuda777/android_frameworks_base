@@ -20,16 +20,27 @@
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="byteShort">B</string>
+    <string name="kilobyteShort">kB</string>
     <string name="megabyteShort">MB</string>
     <string name="gigabyteShort">GB</string>
     <string name="terabyteShort">TB</string>
     <string name="petabyteShort">PB</string>
+    <string name="durationDays"><xliff:g id="days">%1$d</xliff:g> tagoj</string>
+    <string name="durationDayHours"><xliff:g id="days">%1$d</xliff:g> tago
+            <xliff:g id="hours">%2$d</xliff:g> horoj</string>
+    <string name="durationDayHour"><xliff:g id="days">%1$d</xliff:g> tago
+            <xliff:g id="hours">%2$d</xliff:g> horo</string>
+    <string name="durationHours"><xliff:g id="hours">%1$d</xliff:g> horoj</string>
     <string name="untitled">&lt;Sentitola&gt;</string>
     <string name="emptyPhoneNumber">(Neniu telefonnumero)</string>
     <string name="unknownName">Nekonata</string>
     <string name="passwordIncorrect">Malĝusta pasvorto.</string>
     <string name="imei">IMEI</string>
     <string name="meid">MEID</string>
+    <string-array name="wfcSpnFormats">
+        <item>%s</item>
+        <item>%s Wi-Fi Calling</item>
+    </string-array>
     <string name="me">Mi</string>
     <string name="global_actions_toggle_airplane_mode">Aviadila reĝimo</string>
     <string name="global_action_settings">Agordoj</string>
@@ -40,12 +51,11 @@
     <string name="permgrouplab_calendar">Kalendaro</string>
     <string name="permgrouplab_microphone">Mikrofono</string>
     <string name="permgrouplab_phone">Telefono</string>
+    <string name="permgroupdesc_phone">Telefono</string>
     <string name="permlab_killBackgroundProcesses">fermi aliajn aplikaĵojn</string>
     <string name="permlab_readContacts">legi viajn kontaktojn</string>
     <string-array name="fingerprint_acquired_vendor"/>
     <string-array name="fingerprint_error_vendor"/>
-    <string-array name="face_acquired_vendor"/>
-    <string-array name="face_error_vendor"/>
     <string name="phoneTypeCustom">Propra</string>
     <string name="eventTypeCustom">Propra</string>
     <string name="eventTypeBirthday">Naskiĝtago</string>
@@ -118,6 +128,10 @@
     <string name="weeks">semajnoj</string>
     <string name="year">jaro</string>
     <string name="years">jaroj</string>
+    <plurals name="duration_seconds">
+        <item quantity="one">1 sekundo</item>
+        <item quantity="other"><xliff:g id="count">%d</xliff:g> sekundoj</item>
+    </plurals>
     <string name="relative_time">"<xliff:g id="date" example="4 hours ago">%1$s</xliff:g>, <xliff:g id="time" example="11:00 am">%2$s</xliff:g>"</string>
     <string name="elapsed_time_short_format_mm_ss"><xliff:g id="minutes" example="1">%1$02d</xliff:g>:<xliff:g id="seconds" example="23">%2$02d</xliff:g></string>
     <string name="elapsed_time_short_format_h_mm_ss"><xliff:g id="hours" example="1">%1$d</xliff:g>:<xliff:g id="minutes" example="43">%2$02d</xliff:g>:<xliff:g id="seconds" example="33">%3$02d</xliff:g></string>
@@ -131,11 +145,8 @@
     <string name="loading">Ŝarĝado\u2026</string>
     <string name="whichViewApplication">Malfermi per</string>
     <string name="whichEditApplicationLabel">Redakti</string>
-    <string name="whichSendApplication">Konigi</string>
     <string name="whichSendApplicationLabel">Konigi</string>
     <string name="whichSendToApplicationLabel">Sendi</string>
-    <string name="ringtone_unknown">Nekonata</string>
-    <string name="wifi_suggestion_action_allow_app">Permesi</string>
     <string name="sms_control_yes">Permesi</string>
     <string name="sms_control_no">Malpermesi</string>
     <string name="sms_short_code_confirm_allow">Sendi</string>
@@ -160,7 +171,6 @@
     <string name="extract_edit_menu_button">Redakti</string>
     <string name="fingerprints">Fingrospuroj:</string>
     <string name="activity_resolver_use_always">Ĉiam</string>
-    <string name="activity_resolver_app_settings">Agordoj</string>
     <string name="default_audio_route_name" product="default">Telefono</string>
     <string name="default_audio_route_category_name">Sistemo</string>
     <string name="media_route_chooser_extended_settings">Agordoj</string>
@@ -172,9 +182,5 @@
     <string name="write_fail_reason_cancelled">Nuligita</string>
     <string name="reason_unknown">nekonata</string>
     <string name="locale_search_menu">Serĉi</string>
-    <string name="time_picker_hour_label">horo</string>
-    <string name="screenshot_edit">Redakti</string>
-    <string name="notification_app_name_system">Sistemo</string>
-    <string name="notification_app_name_settings">Agordoj</string>
-    <string name="notification_appops_microphone_active">Mikrofono</string>
+    <string name="demo_user_inactivity_timeout_left_button">Nuligi</string>
 </resources>

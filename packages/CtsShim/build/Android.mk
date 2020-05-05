@@ -32,9 +32,6 @@ LOCAL_PACKAGE_NAME := CtsShimPrivUpgrade
 
 LOCAL_MANIFEST_FILE := shim_priv_upgrade/AndroidManifest.xml
 
-LOCAL_MULTILIB := both
-LOCAL_JNI_SHARED_LIBRARIES := libshim_jni
-
 include $(BUILD_PACKAGE)
 my_shim_priv_upgrade_apk := $(LOCAL_BUILT_MODULE)
 
@@ -63,11 +60,6 @@ my_shim_priv_upgrade_apk :=
 
 LOCAL_FULL_MANIFEST_FILE := $(gen)
 
-LOCAL_MULTILIB := both
-LOCAL_JNI_SHARED_LIBRARIES := libshim_jni
-
-LOCAL_USE_AAPT2 := true
-
 include $(BUILD_PACKAGE)
 
 ###########################################################
@@ -88,9 +80,6 @@ LOCAL_PACKAGE_NAME := CtsShimPrivUpgradeWrongSHA
 
 LOCAL_MANIFEST_FILE := shim_priv_upgrade/AndroidManifest.xml
 
-LOCAL_MULTILIB := both
-LOCAL_JNI_SHARED_LIBRARIES := libshim_jni
-
 include $(BUILD_PACKAGE)
 
 
@@ -108,9 +97,5 @@ LOCAL_PACKAGE_NAME := CtsShim
 
 LOCAL_MANIFEST_FILE := shim/AndroidManifest.xml
 
-LOCAL_USE_AAPT2 := true
-
 include $(BUILD_PACKAGE)
 
-###########################################################
-include $(call all-makefiles-under,$(LOCAL_PATH))

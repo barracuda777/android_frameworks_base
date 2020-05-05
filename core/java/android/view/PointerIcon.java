@@ -17,28 +17,21 @@
 package android.view;
 
 import android.annotation.NonNull;
-import android.annotation.UnsupportedAppUsage;
+import android.util.SparseArray;
+import com.android.internal.util.XmlUtils;
+
 import android.annotation.XmlRes;
 import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.content.res.XmlResourceParser;
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Paint;
-import android.graphics.Rect;
-import android.graphics.RectF;
 import android.graphics.drawable.AnimationDrawable;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
-import android.hardware.display.DisplayManager;
-import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.util.Log;
-import android.util.SparseArray;
-
-import com.android.internal.util.XmlUtils;
 
 /**
  * Represents an icon that can be used as a mouse pointer.
@@ -145,31 +138,18 @@ public final class PointerIcon implements Parcelable {
     public static final int TYPE_DEFAULT = TYPE_ARROW;
 
     private static final PointerIcon gNullIcon = new PointerIcon(TYPE_NULL);
-    private static final SparseArray<SparseArray<PointerIcon>> gSystemIconsByDisplay =
-            new SparseArray<SparseArray<PointerIcon>>();
+    private static final SparseArray<PointerIcon> gSystemIcons = new SparseArray<PointerIcon>();
     private static boolean sUseLargeIcons = false;
 
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     private final int mType;
     private int mSystemIconResourceId;
-    @UnsupportedAppUsage
     private Bitmap mBitmap;
-    @UnsupportedAppUsage
     private float mHotSpotX;
-    @UnsupportedAppUsage
     private float mHotSpotY;
     // The bitmaps for the additional frame of animated pointer icon. Note that the first frame
     // will be stored in mBitmap.
-    @UnsupportedAppUsage
     private Bitmap mBitmapFrames[];
-    @UnsupportedAppUsage
     private int mDurationPerFrame;
-
-    /**
-     * Listener for displays lifecycle.
-     * @hide
-     */
-    private static DisplayManager.DisplayListener sDisplayListener;
 
     private PointerIcon(int type) {
         mType = type;
@@ -219,19 +199,7 @@ public final class PointerIcon implements Parcelable {
             return gNullIcon;
         }
 
-        if (sDisplayListener == null) {
-            registerDisplayListener(context);
-        }
-
-        final int displayId = context.getDisplayId();
-        SparseArray<PointerIcon> systemIcons = gSystemIconsByDisplay.get(displayId);
-        if (systemIcons == null) {
-            systemIcons = new SparseArray<>();
-            gSystemIconsByDisplay.put(displayId, systemIcons);
-        }
-
-        PointerIcon icon = systemIcons.get(type);
-        // Reload if not in the same display.
+        PointerIcon icon = gSystemIcons.get(type);
         if (icon != null) {
             return icon;
         }
@@ -260,7 +228,7 @@ public final class PointerIcon implements Parcelable {
         } else {
             icon.loadResource(context, context.getResources(), resourceId);
         }
-        systemIcons.append(type, icon);
+        gSystemIcons.append(type, icon);
         return icon;
     }
 
@@ -270,7 +238,7 @@ public final class PointerIcon implements Parcelable {
      */
     public static void setUseLargeIcons(boolean use) {
         sUseLargeIcons = use;
-        gSystemIconsByDisplay.clear();
+        gSystemIcons.clear();
     }
 
     /**
@@ -340,7 +308,6 @@ public final class PointerIcon implements Parcelable {
      * @throws IllegalArgumentException if context is null.
      * @hide
      */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     public PointerIcon load(@NonNull Context context) {
         if (context == null) {
             throw new IllegalArgumentException("context must not be null");
@@ -361,7 +328,7 @@ public final class PointerIcon implements Parcelable {
         return mType;
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<PointerIcon> CREATOR
+    public static final Parcelable.Creator<PointerIcon> CREATOR
             = new Parcelable.Creator<PointerIcon>() {
         public PointerIcon createFromParcel(Parcel in) {
             int type = in.readInt();
@@ -429,33 +396,6 @@ public final class PointerIcon implements Parcelable {
         return true;
     }
 
-    /**
-     *  Get the Bitmap from the Drawable.
-     *
-     *  If the Bitmap needed to be scaled up to account for density, BitmapDrawable
-     *  handles this at draw time. But this class doesn't actually draw the Bitmap;
-     *  it is just a holder for native code to access its SkBitmap. So this needs to
-     *  get a version that is scaled to account for density.
-     */
-    private Bitmap getBitmapFromDrawable(BitmapDrawable bitmapDrawable) {
-        Bitmap bitmap = bitmapDrawable.getBitmap();
-        final int scaledWidth  = bitmapDrawable.getIntrinsicWidth();
-        final int scaledHeight = bitmapDrawable.getIntrinsicHeight();
-        if (scaledWidth == bitmap.getWidth() && scaledHeight == bitmap.getHeight()) {
-            return bitmap;
-        }
-
-        Rect src = new Rect(0, 0, bitmap.getWidth(), bitmap.getHeight());
-        RectF dst = new RectF(0, 0, scaledWidth, scaledHeight);
-
-        Bitmap scaled = Bitmap.createBitmap(scaledWidth, scaledHeight, bitmap.getConfig());
-        Canvas canvas = new Canvas(scaled);
-        Paint paint = new Paint();
-        paint.setFilterBitmap(true);
-        canvas.drawBitmap(bitmap, src, dst, paint);
-        return scaled;
-    }
-
     private void loadResource(Context context, Resources resources, @XmlRes int resourceId) {
         final XmlResourceParser parser = resources.getXml(resourceId);
         final int bitmapRes;
@@ -512,8 +452,7 @@ public final class PointerIcon implements Parcelable {
                                 + "is different. All frames should have the exact same size and "
                                 + "share the same hotspot.");
                     }
-                    BitmapDrawable bitmapDrawableFrame = (BitmapDrawable) drawableFrame;
-                    mBitmapFrames[i - 1] = getBitmapFromDrawable(bitmapDrawableFrame);
+                    mBitmapFrames[i - 1] = ((BitmapDrawable)drawableFrame).getBitmap();
                 }
             }
         }
@@ -522,11 +461,8 @@ public final class PointerIcon implements Parcelable {
                     + "refer to a bitmap drawable.");
         }
 
-        BitmapDrawable bitmapDrawable = (BitmapDrawable) drawable;
-        final Bitmap bitmap = getBitmapFromDrawable(bitmapDrawable);
-        validateHotSpot(bitmap, hotSpotX, hotSpotY);
         // Set the properties now that we have successfully loaded the icon.
-        mBitmap = bitmap;
+        mBitmap = ((BitmapDrawable)drawable).getBitmap();
         mHotSpotX = hotSpotX;
         mHotSpotY = hotSpotY;
     }
@@ -596,30 +532,4 @@ public final class PointerIcon implements Parcelable {
                 return 0;
         }
     }
-
-    /**
-     * Manage system icon cache handled by display lifecycle.
-     * @param context The context.
-     */
-    private static void registerDisplayListener(@NonNull Context context) {
-        sDisplayListener = new DisplayManager.DisplayListener() {
-            @Override
-            public void onDisplayAdded(int displayId) {
-            }
-
-            @Override
-            public void onDisplayRemoved(int displayId) {
-                gSystemIconsByDisplay.remove(displayId);
-            }
-
-            @Override
-            public void onDisplayChanged(int displayId) {
-                gSystemIconsByDisplay.remove(displayId);
-            }
-        };
-
-        DisplayManager displayManager = context.getSystemService(DisplayManager.class);
-        displayManager.registerDisplayListener(sDisplayListener, null /* handler */);
-    }
-
 }

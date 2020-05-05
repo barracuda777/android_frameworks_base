@@ -21,4 +21,9 @@
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="screen_zoom_summary_smaller">Mindre</string>
     <string name="screen_zoom_summary_smallest">Minste</string>
+    <string name="profile_applist_title">Apper</string>
+    <string name="picker_activities">Aktiviteter</string>
+    <string name="select_custom_app_title">Velg egendefinert app</string>
+    <string name="select_custom_activity_title">Velg egendefinert aktivitet</string>
+    <string name="lockscreen_targets_message">Låseskjermsnarveier</string>
 </resources>

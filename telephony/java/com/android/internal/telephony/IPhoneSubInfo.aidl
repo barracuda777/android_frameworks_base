@@ -16,8 +16,6 @@
 
 package com.android.internal.telephony;
 
-import android.telephony.ImsiEncryptionInfo;
-
 /**
  * Interface used to retrieve various phone-related subscriber information.
  *
@@ -60,13 +58,17 @@ interface IPhoneSubInfo {
     /**
      * Retrieves the unique sbuscriber ID, e.g., IMSI for GSM phones.
      */
-    @UnsupportedAppUsage
     String getSubscriberId(String callingPackage);
 
     /**
      * Retrieves the unique subscriber ID of a given subId, e.g., IMSI for GSM phones.
      */
     String getSubscriberIdForSubscriber(int subId, String callingPackage);
+
+    /**
+     * Retrieves the Group Identifier Level1 for GSM phones.
+     */
+    String getGroupIdLevel1(String callingPackage);
 
     /**
      * Retrieves the Group Identifier Level1 for GSM phones of a subId.
@@ -76,7 +78,6 @@ interface IPhoneSubInfo {
     /**
      * Retrieves the serial number of the ICC, if applicable.
      */
-    @UnsupportedAppUsage
     String getIccSerialNumber(String callingPackage);
 
     /**
@@ -127,23 +128,14 @@ interface IPhoneSubInfo {
     String getVoiceMailNumberForSubscriber(int subId, String callingPackage);
 
     /**
-     * Retrieves the Carrier information used to encrypt IMSI and IMPI.
+     * Retrieves the complete voice mail number.
      */
-    ImsiEncryptionInfo getCarrierInfoForImsiEncryption(int subId, int keyType,
-    String callingPackage);
+    String getCompleteVoiceMailNumber();
 
     /**
-     * Stores the Carrier information used to encrypt IMSI and IMPI.
+     * Retrieves the complete voice mail number for particular subId
      */
-    void setCarrierInfoForImsiEncryption(int subId, String callingPackage,
-    in ImsiEncryptionInfo imsiEncryptionInfo);
-
-    /**
-     * Resets the Carrier Keys in the database. This involves 2 steps:
-     *  1. Delete the keys from the database.
-     *  2. Send an intent to download new Certificates.
-     */
-    void resetCarrierKeysForImsiEncryption(int subId, String callingPackage);
+    String getCompleteVoiceMailNumberForSubscriber(int subId);
 
     /**
      * Retrieves the alpha identifier associated with the voice mail number.
@@ -160,33 +152,41 @@ interface IPhoneSubInfo {
      * Returns the IMS private user identity (IMPI) that was loaded from the ISIM.
      * @return the IMPI, or null if not present or not loaded
      */
-    String getIsimImpi(int subId);
+    String getIsimImpi();
 
     /**
      * Returns the IMS home network domain name that was loaded from the ISIM.
      * @return the IMS domain name, or null if not present or not loaded
      */
-    String getIsimDomain(int subId);
+    String getIsimDomain();
 
     /**
      * Returns the IMS public user identities (IMPU) that were loaded from the ISIM.
      * @return an array of IMPU strings, with one IMPU per string, or null if
      *      not present or not loaded
      */
-    String[] getIsimImpu(int subId);
+    String[] getIsimImpu();
 
     /**
      * Returns the IMS Service Table (IST) that was loaded from the ISIM.
      * @return IMS Service Table or null if not present or not loaded
      */
-    String getIsimIst(int subId);
+    String getIsimIst();
 
     /**
      * Returns the IMS Proxy Call Session Control Function(PCSCF) that were loaded from the ISIM.
      * @return an array of PCSCF strings with one PCSCF per string, or null if
      *      not present or not loaded
      */
-    String[] getIsimPcscf(int subId);
+    String[] getIsimPcscf();
+
+    /**
+     * TODO: Deprecate and remove this interface. Superceded by getIccsimChallengeResponse.
+     * Returns the response of ISIM Authetification through RIL.
+     * @return the response of ISIM Authetification, or null if
+     *     the Authentification hasn't been successed or isn't present iphonesubinfo.
+     */
+    String getIsimChallengeResponse(String nonce);
 
     /**
      * Returns the response of the SIM application on the UICC to authentication

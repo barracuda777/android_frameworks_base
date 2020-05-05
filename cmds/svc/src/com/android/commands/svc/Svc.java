@@ -97,7 +97,5 @@ public class Svc {
             new WifiCommand(),
             new UsbCommand(),
             new NfcCommand(),
-            new BluetoothCommand(),
-            new SystemServerCommand(),
     };
 }

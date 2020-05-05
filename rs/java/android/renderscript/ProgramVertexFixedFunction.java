@@ -16,8 +16,6 @@
 
 package android.renderscript;
 
-import android.annotation.UnsupportedAppUsage;
-
 
 /**
  * @hide
@@ -40,7 +38,6 @@ public class ProgramVertexFixedFunction extends ProgramVertex {
      *
      * @param va allocation containing fixed function matrices
      */
-    @UnsupportedAppUsage
     public void bindConstants(Constants va) {
         mRS.validate();
         bindConstants(va.getAllocation(), 0);
@@ -121,7 +118,6 @@ public class ProgramVertexFixedFunction extends ProgramVertex {
          *
          * @param rs Context to which the program will belong.
          */
-        @UnsupportedAppUsage
         public Builder(RenderScript rs) {
             mRS = rs;
         }
@@ -174,7 +170,6 @@ public class ProgramVertexFixedFunction extends ProgramVertex {
          *
          * @return Fixed function emulation ProgramVertex
          */
-        @UnsupportedAppUsage
         public ProgramVertexFixedFunction create() {
             buildShaderString();
 
@@ -220,7 +215,6 @@ public class ProgramVertexFixedFunction extends ProgramVertex {
         *
         * @param rs Context to which the allocation will belong.
         **/
-        @UnsupportedAppUsage
         public Constants(RenderScript rs) {
             Type constInputType = ProgramVertexFixedFunction.Builder.getConstantInputType(rs);
             mAlloc = Allocation.createTyped(rs, constInputType);
@@ -274,7 +268,6 @@ public class ProgramVertexFixedFunction extends ProgramVertex {
         *
         * @param m projection matrix
         */
-        @UnsupportedAppUsage
         public void setProjection(Matrix4f m) {
             mProjection.load(m);
             addToBuffer(PROJECTION_OFFSET*4, m);

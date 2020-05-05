@@ -26,7 +26,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
-
 import com.android.internal.R;
 
 import java.lang.annotation.Retention;
@@ -147,7 +146,7 @@ public class Slide extends Visibility {
     /**
      * Constructor using the provided slide edge direction.
      */
-    public Slide(@GravityFlag int slideEdge) {
+    public Slide(int slideEdge) {
         setSlideEdge(slideEdge);
     }
 

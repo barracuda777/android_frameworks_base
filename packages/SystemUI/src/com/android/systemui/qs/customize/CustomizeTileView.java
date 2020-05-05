@@ -15,38 +15,48 @@
 package com.android.systemui.qs.customize;
 
 import android.content.Context;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.TextView;
-
-import com.android.systemui.plugins.qs.QSIconView;
-import com.android.systemui.plugins.qs.QSTile;
-import com.android.systemui.qs.tileimpl.QSTileView;
+import com.android.systemui.R;
+import com.android.systemui.qs.QSIconView;
+import com.android.systemui.qs.QSTileView;
+import libcore.util.Objects;
 
 public class CustomizeTileView extends QSTileView {
-    private boolean mShowAppLabel;
 
+    private TextView mAppLabel;
+    private int mLabelMinLines;
     public CustomizeTileView(Context context, QSIconView icon) {
         super(context, icon);
     }
 
-    public void setShowAppLabel(boolean showAppLabel) {
-        mShowAppLabel = showAppLabel;
-        mSecondLine.setVisibility(showAppLabel ? View.VISIBLE : View.GONE);
-        mLabel.setSingleLine(showAppLabel);
+    @Override
+    protected void createLabel() {
+        super.createLabel();
+        mLabelMinLines = mLabel.getMinLines();
+        View view = LayoutInflater.from(mContext).inflate(R.layout.qs_tile_label, null);
+        mAppLabel = (TextView) view.findViewById(R.id.tile_label);
+        mAppLabel.setAlpha(.6f);
+        mAppLabel.setSingleLine(true);
+        addView(view);
     }
 
-    @Override
-    protected void handleStateChanged(QSTile.State state) {
-        super.handleStateChanged(state);
-        mSecondLine.setVisibility(mShowAppLabel ? View.VISIBLE : View.GONE);
+    public void setShowAppLabel(boolean showAppLabel) {
+        mAppLabel.setVisibility(showAppLabel ? View.VISIBLE : View.GONE);
+        mLabel.setSingleLine(showAppLabel);
+        if (!showAppLabel) {
+            mLabel.setMinLines(mLabelMinLines);
+        }
+    }
+
+    public void setAppLabel(CharSequence label) {
+        if (!Objects.equal(label, mAppLabel.getText())) {
+            mAppLabel.setText(label);
+        }
     }
 
     public TextView getAppLabel() {
-        return mSecondLine;
-    }
-
-    @Override
-    protected boolean animationsEnabled() {
-        return false;
+        return mAppLabel;
     }
 }

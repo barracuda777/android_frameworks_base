@@ -16,7 +16,6 @@
 
 package android.app;
 
-import android.annotation.UnsupportedAppUsage;
 import android.content.Intent;
 import android.content.pm.IPackageInstallObserver2;
 import android.os.Bundle;
@@ -60,7 +59,6 @@ public class PackageInstallObserver {
      *            basic outcome
      * @hide
      */
-    @UnsupportedAppUsage
     public void onPackageInstalled(String basePackageName, int returnCode, String msg,
             Bundle extras) {
     }

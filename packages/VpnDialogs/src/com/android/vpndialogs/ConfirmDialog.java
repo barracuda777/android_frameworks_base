@@ -16,7 +16,7 @@
 
 package com.android.vpndialogs;
 
-import static android.view.WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS;
+import static android.view.WindowManager.LayoutParams.PRIVATE_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS;
 
 import android.content.Context;
 import android.content.DialogInterface;
@@ -31,7 +31,6 @@ import android.os.UserManager;
 import android.text.Html;
 import android.text.Html.ImageGetter;
 import android.util.Log;
-import android.util.TypedValue;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -81,7 +80,7 @@ public class ConfirmDialog extends AlertActivity
         setupAlert();
 
         getWindow().setCloseOnTouchOutside(false);
-        getWindow().addPrivateFlags(SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS);
+        getWindow().addPrivateFlags(PRIVATE_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS);
         Button button = mAlert.getButton(DialogInterface.BUTTON_POSITIVE);
         button.setFilterTouchesWhenObscured(true);
     }
@@ -115,16 +114,8 @@ public class ConfirmDialog extends AlertActivity
     @Override
     public Drawable getDrawable(String source) {
         // Should only reach this when fetching the VPN icon for the warning string.
-        final Drawable icon = getDrawable(R.drawable.ic_vpn_dialog);
+        Drawable icon = getDrawable(R.drawable.ic_vpn_dialog);
         icon.setBounds(0, 0, icon.getIntrinsicWidth(), icon.getIntrinsicHeight());
-
-        final TypedValue tv = new TypedValue();
-        if (getTheme().resolveAttribute(android.R.attr.textColorPrimary, tv, true)) {
-            icon.setTint(getColor(tv.resourceId));
-        } else {
-            Log.w(TAG, "Unable to resolve theme color");
-        }
-
         return icon;
     }
 

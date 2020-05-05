@@ -16,32 +16,21 @@
 
 package com.android.server.usage;
 
-import static android.app.usage.UsageEvents.Event.DEVICE_SHUTDOWN;
-import static android.app.usage.UsageEvents.Event.DEVICE_STARTUP;
-import static android.app.usage.UsageStatsManager.INTERVAL_BEST;
-import static android.app.usage.UsageStatsManager.INTERVAL_COUNT;
-import static android.app.usage.UsageStatsManager.INTERVAL_DAILY;
-import static android.app.usage.UsageStatsManager.INTERVAL_MONTHLY;
-import static android.app.usage.UsageStatsManager.INTERVAL_WEEKLY;
-import static android.app.usage.UsageStatsManager.INTERVAL_YEARLY;
-
 import android.app.usage.ConfigurationStats;
-import android.app.usage.EventList;
-import android.app.usage.EventStats;
 import android.app.usage.TimeSparseArray;
 import android.app.usage.UsageEvents;
 import android.app.usage.UsageEvents.Event;
 import android.app.usage.UsageStats;
 import android.app.usage.UsageStatsManager;
-import android.content.Context;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.os.SystemClock;
+import android.content.Context;
 import android.text.format.DateUtils;
 import android.util.ArrayMap;
 import android.util.ArraySet;
-import android.util.AtomicFile;
 import android.util.Slog;
-import android.util.SparseIntArray;
 
 import com.android.internal.util.IndentingPrintWriter;
 import com.android.server.usage.UsageStatsDatabase.StatCombiner;
@@ -74,7 +63,6 @@ class UserUsageStatsService {
     private final UnixCalendar mDailyExpiryDate;
     private final StatsUpdatedListener mListener;
     private final String mLogPrefix;
-    private String mLastBackgroundedPackage;
     private final int mUserId;
 
     private static final long[] INTERVAL_LENGTH = new long[] {
@@ -97,7 +85,7 @@ class UserUsageStatsService {
         mContext = context;
         mDailyExpiryDate = new UnixCalendar(0);
         mDatabase = new UsageStatsDatabase(usageStatsDir);
-        mCurrentStats = new IntervalStats[INTERVAL_COUNT];
+        mCurrentStats = new IntervalStats[UsageStatsManager.INTERVAL_COUNT];
         mListener = listener;
         mLogPrefix = "User[" + Integer.toString(userId) + "] ";
         mUserId = userId;
@@ -135,19 +123,20 @@ class UserUsageStatsService {
             updateRolloverDeadline();
         }
 
-        // During system reboot, add a DEVICE_SHUTDOWN event to the end of event list, the timestamp
-        // is last time UsageStatsDatabase is persisted to disk or the last event's time whichever
-        // is higher (because the file system timestamp is round down to integral seconds).
-        // Also add a DEVICE_STARTUP event with current system timestamp.
-        final IntervalStats currentDailyStats = mCurrentStats[INTERVAL_DAILY];
-        if (currentDailyStats != null) {
-            final Event shutdownEvent = new Event(DEVICE_SHUTDOWN,
-                    Math.max(currentDailyStats.lastTimeSaved, currentDailyStats.endTime));
-            shutdownEvent.mPackage = Event.DEVICE_EVENT_PACKAGE_NAME;
-            currentDailyStats.addEvent(shutdownEvent);
-            final Event startupEvent = new Event(DEVICE_STARTUP, System.currentTimeMillis());
-            startupEvent.mPackage = Event.DEVICE_EVENT_PACKAGE_NAME;
-            currentDailyStats.addEvent(startupEvent);
+        // Now close off any events that were open at the time this was saved.
+        for (IntervalStats stat : mCurrentStats) {
+            final int pkgCount = stat.packageStats.size();
+            for (int i = 0; i < pkgCount; i++) {
+                UsageStats pkgStats = stat.packageStats.valueAt(i);
+                if (pkgStats.mLastEvent == UsageEvents.Event.MOVE_TO_FOREGROUND ||
+                        pkgStats.mLastEvent == UsageEvents.Event.CONTINUE_PREVIOUS_DAY) {
+                    stat.update(pkgStats.mPackageName, stat.lastTimeSaved,
+                            UsageEvents.Event.END_OF_DAY);
+                    notifyStatsChanged();
+                }
+            }
+
+            stat.updateConfigurationStats(null, stat.lastTimeSaved);
         }
 
         if (mDatabase.isNewUpdate()) {
@@ -161,7 +150,7 @@ class UserUsageStatsService {
         loadActiveStats(newTime);
     }
 
-    void reportEvent(Event event) {
+    void reportEvent(UsageEvents.Event event) {
         if (DEBUG) {
             Slog.d(TAG, mLogPrefix + "Got usage event for " + event.mPackage
                     + "[" + event.mTimeStamp + "]: "
@@ -173,72 +162,29 @@ class UserUsageStatsService {
             rolloverStats(event.mTimeStamp);
         }
 
-        final IntervalStats currentDailyStats = mCurrentStats[INTERVAL_DAILY];
+        final IntervalStats currentDailyStats = mCurrentStats[UsageStatsManager.INTERVAL_DAILY];
 
         final Configuration newFullConfig = event.mConfiguration;
-        if (event.mEventType == Event.CONFIGURATION_CHANGE
-                && currentDailyStats.activeConfiguration != null) {
+        if (event.mEventType == UsageEvents.Event.CONFIGURATION_CHANGE &&
+                currentDailyStats.activeConfiguration != null) {
             // Make the event configuration a delta.
             event.mConfiguration = Configuration.generateDelta(
                     currentDailyStats.activeConfiguration, newFullConfig);
         }
 
-        if (event.mEventType != Event.SYSTEM_INTERACTION
-                // ACTIVITY_DESTROYED is a private event. If there is preceding ACTIVITY_STOPPED
-                // ACTIVITY_DESTROYED will be dropped. Otherwise it will be converted to
-                // ACTIVITY_STOPPED.
-                && event.mEventType != Event.ACTIVITY_DESTROYED
-                // FLUSH_TO_DISK is a private event.
-                && event.mEventType != Event.FLUSH_TO_DISK
-                // DEVICE_SHUTDOWN is added to event list after reboot.
-                && event.mEventType != Event.DEVICE_SHUTDOWN) {
-            currentDailyStats.addEvent(event);
+        // Add the event to the daily list.
+        if (currentDailyStats.events == null) {
+            currentDailyStats.events = new TimeSparseArray<>();
         }
-
-        boolean incrementAppLaunch = false;
-        if (event.mEventType == Event.ACTIVITY_RESUMED) {
-            if (event.mPackage != null && !event.mPackage.equals(mLastBackgroundedPackage)) {
-                incrementAppLaunch = true;
-            }
-        } else if (event.mEventType == Event.ACTIVITY_PAUSED) {
-            if (event.mPackage != null) {
-                mLastBackgroundedPackage = event.mPackage;
-            }
+        if (event.mEventType != UsageEvents.Event.SYSTEM_INTERACTION) {
+            currentDailyStats.events.put(event.mTimeStamp, event);
         }
 
         for (IntervalStats stats : mCurrentStats) {
-            switch (event.mEventType) {
-                case Event.CONFIGURATION_CHANGE: {
-                    stats.updateConfigurationStats(newFullConfig, event.mTimeStamp);
-                } break;
-                case Event.CHOOSER_ACTION: {
-                    stats.updateChooserCounts(event.mPackage, event.mContentType, event.mAction);
-                    String[] annotations = event.mContentAnnotations;
-                    if (annotations != null) {
-                        for (String annotation : annotations) {
-                            stats.updateChooserCounts(event.mPackage, annotation, event.mAction);
-                        }
-                    }
-                } break;
-                case Event.SCREEN_INTERACTIVE: {
-                    stats.updateScreenInteractive(event.mTimeStamp);
-                } break;
-                case Event.SCREEN_NON_INTERACTIVE: {
-                    stats.updateScreenNonInteractive(event.mTimeStamp);
-                } break;
-                case Event.KEYGUARD_SHOWN: {
-                    stats.updateKeyguardShown(event.mTimeStamp);
-                } break;
-                case Event.KEYGUARD_HIDDEN: {
-                    stats.updateKeyguardHidden(event.mTimeStamp);
-                } break;
-                default: {
-                    stats.update(event.mPackage, event.getClassName(),
-                            event.mTimeStamp, event.mEventType, event.mInstanceId);
-                    if (incrementAppLaunch) {
-                        stats.incrementAppLaunchCount(event.mPackage);
-                    }
-                } break;
+            if (event.mEventType == UsageEvents.Event.CONFIGURATION_CHANGE) {
+                stats.updateConfigurationStats(newFullConfig, event.mTimeStamp);
+            } else {
+                stats.update(event.mPackage, event.mTimeStamp, event.mEventType);
             }
         }
 
@@ -279,28 +225,19 @@ class UserUsageStatsService {
                 }
             };
 
-    private static final StatCombiner<EventStats> sEventStatsCombiner =
-            new StatCombiner<EventStats>() {
-                @Override
-                public void combine(IntervalStats stats, boolean mutable,
-                        List<EventStats> accResult) {
-                    stats.addEventStatsTo(accResult);
-                }
-            };
-
     /**
      * Generic query method that selects the appropriate IntervalStats for the specified time range
      * and bucket, then calls the {@link com.android.server.usage.UsageStatsDatabase.StatCombiner}
      * provided to select the stats to use from the IntervalStats object.
      */
     private <T> List<T> queryStats(int intervalType, final long beginTime, final long endTime,
-            StatCombiner<T> combiner) {
-        if (intervalType == INTERVAL_BEST) {
+            int flags, StatCombiner<T> combiner) {
+        if (intervalType == UsageStatsManager.INTERVAL_BEST) {
             intervalType = mDatabase.findBestFitBucket(beginTime, endTime);
             if (intervalType < 0) {
                 // Nothing saved to disk yet, so every stat is just as equal (no rollover has
                 // occurred.
-                intervalType = INTERVAL_DAILY;
+                intervalType = UsageStatsManager.INTERVAL_DAILY;
             }
         }
 
@@ -334,7 +271,7 @@ class UserUsageStatsService {
 
         // Get the stats from disk.
         List<T> results = mDatabase.queryUsageStats(intervalType, beginTime,
-                truncatedEndTime, combiner);
+                truncatedEndTime, flags, combiner);
         if (DEBUG) {
             Slog.d(TAG, "Got " + (results != null ? results.size() : 0) + " results from disk");
             Slog.d(TAG, "Current stats beginTime=" + currentStats.beginTime +
@@ -360,47 +297,42 @@ class UserUsageStatsService {
     }
 
     List<UsageStats> queryUsageStats(int bucketType, long beginTime, long endTime) {
-        return queryStats(bucketType, beginTime, endTime, sUsageStatsCombiner);
+        return queryStats(bucketType, beginTime, endTime,
+                UsageStatsDatabase.QUERY_FLAG_FETCH_PACKAGES, sUsageStatsCombiner);
     }
 
     List<ConfigurationStats> queryConfigurationStats(int bucketType, long beginTime, long endTime) {
-        return queryStats(bucketType, beginTime, endTime, sConfigStatsCombiner);
+        return queryStats(bucketType, beginTime, endTime,
+                UsageStatsDatabase.QUERY_FLAG_FETCH_CONFIGURATIONS, sConfigStatsCombiner);
     }
 
-    List<EventStats> queryEventStats(int bucketType, long beginTime, long endTime) {
-        return queryStats(bucketType, beginTime, endTime, sEventStatsCombiner);
-    }
-
-    UsageEvents queryEvents(final long beginTime, final long endTime,
-                            boolean obfuscateInstantApps) {
+    UsageEvents queryEvents(final long beginTime, final long endTime) {
         final ArraySet<String> names = new ArraySet<>();
-        List<Event> results = queryStats(INTERVAL_DAILY,
-                beginTime, endTime, new StatCombiner<Event>() {
+        List<UsageEvents.Event> results = queryStats(UsageStatsManager.INTERVAL_DAILY,
+                beginTime, endTime, UsageStatsDatabase.QUERY_FLAG_FETCH_EVENTS,
+                new StatCombiner<UsageEvents.Event>() {
                     @Override
                     public void combine(IntervalStats stats, boolean mutable,
-                            List<Event> accumulatedResult) {
-                        final int startIndex = stats.events.firstIndexOnOrAfter(beginTime);
+                            List<UsageEvents.Event> accumulatedResult) {
+                        if (stats.events == null) {
+                            return;
+                        }
+
+                        final int startIndex = stats.events.closestIndexOnOrAfter(beginTime);
+                        if (startIndex < 0) {
+                            return;
+                        }
+
                         final int size = stats.events.size();
                         for (int i = startIndex; i < size; i++) {
-                            if (stats.events.get(i).mTimeStamp >= endTime) {
+                            if (stats.events.keyAt(i) >= endTime) {
                                 return;
                             }
 
-                            Event event = stats.events.get(i);
-                            if (obfuscateInstantApps) {
-                                event = event.getObfuscatedIfInstantApp();
-                            }
-                            if (event.mPackage != null) {
-                                names.add(event.mPackage);
-                            }
+                            final UsageEvents.Event event = stats.events.valueAt(i);
+                            names.add(event.mPackage);
                             if (event.mClass != null) {
                                 names.add(event.mClass);
-                            }
-                            if (event.mTaskRootPackage != null) {
-                                names.add(event.mTaskRootPackage);
-                            }
-                            if (event.mTaskRootClass != null) {
-                                names.add(event.mTaskRootClass);
                             }
                             accumulatedResult.add(event);
                         }
@@ -413,46 +345,7 @@ class UserUsageStatsService {
 
         String[] table = names.toArray(new String[names.size()]);
         Arrays.sort(table);
-        return new UsageEvents(results, table, true);
-    }
-
-    UsageEvents queryEventsForPackage(final long beginTime, final long endTime,
-            final String packageName, boolean includeTaskRoot) {
-        final ArraySet<String> names = new ArraySet<>();
-        names.add(packageName);
-        final List<Event> results = queryStats(INTERVAL_DAILY,
-                beginTime, endTime, (stats, mutable, accumulatedResult) -> {
-                    final int startIndex = stats.events.firstIndexOnOrAfter(beginTime);
-                    final int size = stats.events.size();
-                    for (int i = startIndex; i < size; i++) {
-                        if (stats.events.get(i).mTimeStamp >= endTime) {
-                            return;
-                        }
-
-                        final Event event = stats.events.get(i);
-                        if (!packageName.equals(event.mPackage)) {
-                            continue;
-                        }
-                        if (event.mClass != null) {
-                            names.add(event.mClass);
-                        }
-                        if (includeTaskRoot && event.mTaskRootPackage != null) {
-                            names.add(event.mTaskRootPackage);
-                        }
-                        if (includeTaskRoot && event.mTaskRootClass != null) {
-                            names.add(event.mTaskRootClass);
-                        }
-                        accumulatedResult.add(event);
-                    }
-                });
-
-        if (results == null || results.isEmpty()) {
-            return null;
-        }
-
-        final String[] table = names.toArray(new String[names.size()]);
-        Arrays.sort(table);
-        return new UsageEvents(results, table, includeTaskRoot);
+        return new UsageEvents(results, table);
     }
 
     void persistActiveStats() {
@@ -473,73 +366,37 @@ class UserUsageStatsService {
         final long startTime = SystemClock.elapsedRealtime();
         Slog.i(TAG, mLogPrefix + "Rolling over usage stats");
 
-        // Finish any ongoing events with an END_OF_DAY or ROLLOVER_FOREGROUND_SERVICE event.
-        // Make a note of which components need a new CONTINUE_PREVIOUS_DAY or
-        // CONTINUING_FOREGROUND_SERVICE entry.
+        // Finish any ongoing events with an END_OF_DAY event. Make a note of which components
+        // need a new CONTINUE_PREVIOUS_DAY entry.
         final Configuration previousConfig =
-                mCurrentStats[INTERVAL_DAILY].activeConfiguration;
-        ArraySet<String> continuePkgs = new ArraySet<>();
-        ArrayMap<String, SparseIntArray> continueActivity =
-                new ArrayMap<>();
-        ArrayMap<String, ArrayMap<String, Integer>> continueForegroundService =
-                new ArrayMap<>();
+                mCurrentStats[UsageStatsManager.INTERVAL_DAILY].activeConfiguration;
+        ArraySet<String> continuePreviousDay = new ArraySet<>();
         for (IntervalStats stat : mCurrentStats) {
             final int pkgCount = stat.packageStats.size();
             for (int i = 0; i < pkgCount; i++) {
-                final UsageStats pkgStats = stat.packageStats.valueAt(i);
-                if (pkgStats.mActivities.size() > 0
-                        || !pkgStats.mForegroundServices.isEmpty()) {
-                    if (pkgStats.mActivities.size() > 0) {
-                        continueActivity.put(pkgStats.mPackageName,
-                                pkgStats.mActivities);
-                        stat.update(pkgStats.mPackageName, null,
-                                mDailyExpiryDate.getTimeInMillis() - 1,
-                                Event.END_OF_DAY, 0);
-                    }
-                    if (!pkgStats.mForegroundServices.isEmpty()) {
-                        continueForegroundService.put(pkgStats.mPackageName,
-                                pkgStats.mForegroundServices);
-                        stat.update(pkgStats.mPackageName, null,
-                                mDailyExpiryDate.getTimeInMillis() - 1,
-                                Event.ROLLOVER_FOREGROUND_SERVICE, 0);
-                    }
-                    continuePkgs.add(pkgStats.mPackageName);
+                UsageStats pkgStats = stat.packageStats.valueAt(i);
+                if (pkgStats.mLastEvent == UsageEvents.Event.MOVE_TO_FOREGROUND ||
+                        pkgStats.mLastEvent == UsageEvents.Event.CONTINUE_PREVIOUS_DAY) {
+                    continuePreviousDay.add(pkgStats.mPackageName);
+                    stat.update(pkgStats.mPackageName, mDailyExpiryDate.getTimeInMillis() - 1,
+                            UsageEvents.Event.END_OF_DAY);
                     notifyStatsChanged();
                 }
             }
 
-            stat.updateConfigurationStats(null,
-                    mDailyExpiryDate.getTimeInMillis() - 1);
-            stat.commitTime(mDailyExpiryDate.getTimeInMillis() - 1);
+            stat.updateConfigurationStats(null, mDailyExpiryDate.getTimeInMillis() - 1);
         }
 
         persistActiveStats();
         mDatabase.prune(currentTimeMillis);
         loadActiveStats(currentTimeMillis);
 
-        final int continueCount = continuePkgs.size();
+        final int continueCount = continuePreviousDay.size();
         for (int i = 0; i < continueCount; i++) {
-            String pkgName = continuePkgs.valueAt(i);
-            final long beginTime = mCurrentStats[INTERVAL_DAILY].beginTime;
+            String name = continuePreviousDay.valueAt(i);
+            final long beginTime = mCurrentStats[UsageStatsManager.INTERVAL_DAILY].beginTime;
             for (IntervalStats stat : mCurrentStats) {
-                if (continueActivity.containsKey(pkgName)) {
-                    final SparseIntArray eventMap =
-                            continueActivity.get(pkgName);
-                    final int size = eventMap.size();
-                    for (int j = 0; j < size; j++) {
-                        stat.update(pkgName, null, beginTime,
-                                eventMap.valueAt(j), eventMap.keyAt(j));
-                    }
-                }
-                if (continueForegroundService.containsKey(pkgName)) {
-                    final ArrayMap<String, Integer> eventMap =
-                            continueForegroundService.get(pkgName);
-                    final int size = eventMap.size();
-                    for (int j = 0; j < size; j++) {
-                        stat.update(pkgName, eventMap.keyAt(j), beginTime,
-                                eventMap.valueAt(j), 0);
-                    }
-                }
+                stat.update(name, beginTime, UsageEvents.Event.CONTINUE_PREVIOUS_DAY);
                 stat.updateConfigurationStats(previousConfig, beginTime);
                 notifyStatsChanged();
             }
@@ -565,8 +422,8 @@ class UserUsageStatsService {
     private void loadActiveStats(final long currentTimeMillis) {
         for (int intervalType = 0; intervalType < mCurrentStats.length; intervalType++) {
             final IntervalStats stats = mDatabase.getLatestUsageStats(intervalType);
-            if (stats != null
-                    && currentTimeMillis < stats.beginTime + INTERVAL_LENGTH[intervalType]) {
+            if (stats != null && currentTimeMillis - 500 >= stats.endTime &&
+                    currentTimeMillis < stats.beginTime + INTERVAL_LENGTH[intervalType]) {
                 if (DEBUG) {
                     Slog.d(TAG, mLogPrefix + "Loading existing stats @ " +
                             sDateFormat.format(stats.beginTime) + "(" + stats.beginTime +
@@ -596,7 +453,7 @@ class UserUsageStatsService {
 
     private void updateRolloverDeadline() {
         mDailyExpiryDate.setTimeInMillis(
-                mCurrentStats[INTERVAL_DAILY].beginTime);
+                mCurrentStats[UsageStatsManager.INTERVAL_DAILY].beginTime);
         mDailyExpiryDate.addDays(1);
         Slog.i(TAG, mLogPrefix + "Rollover scheduled @ " +
                 sDateFormat.format(mDailyExpiryDate.getTimeInMillis()) + "(" +
@@ -611,100 +468,25 @@ class UserUsageStatsService {
         mDatabase.checkinDailyFiles(new UsageStatsDatabase.CheckinAction() {
             @Override
             public boolean checkin(IntervalStats stats) {
-                printIntervalStats(pw, stats, false, false, null);
+                printIntervalStats(pw, stats, false);
                 return true;
             }
         });
     }
 
-    void dump(IndentingPrintWriter pw, String pkg) {
-        dump(pw, pkg, false);
-    }
-    void dump(IndentingPrintWriter pw, String pkg, boolean compact) {
-        printLast24HrEvents(pw, !compact, pkg);
+    void dump(IndentingPrintWriter pw) {
+        // This is not a check-in, only dump in-memory stats.
         for (int interval = 0; interval < mCurrentStats.length; interval++) {
             pw.print("In-memory ");
             pw.print(intervalToString(interval));
             pw.println(" stats");
-            printIntervalStats(pw, mCurrentStats[interval], !compact, true, pkg);
-        }
-        mDatabase.dump(pw, compact);
-    }
-
-    void dumpDatabaseInfo(IndentingPrintWriter ipw) {
-        mDatabase.dump(ipw, false);
-    }
-
-    void dumpFile(IndentingPrintWriter ipw, String[] args) {
-        if (args == null || args.length == 0) {
-            // dump all files for every interval for specified user
-            final int numIntervals = mDatabase.mSortedStatFiles.length;
-            for (int interval = 0; interval < numIntervals; interval++) {
-                ipw.println("interval=" + intervalToString(interval));
-                ipw.increaseIndent();
-                dumpFileDetailsForInterval(ipw, interval);
-                ipw.decreaseIndent();
-            }
-        } else {
-            final int interval;
-            try {
-                final int intervalValue = stringToInterval(args[0]);
-                if (intervalValue == -1) {
-                    interval = Integer.valueOf(args[0]);
-                } else {
-                    interval = intervalValue;
-                }
-            } catch (NumberFormatException nfe) {
-                ipw.println("invalid interval specified.");
-                return;
-            }
-            if (interval < 0 || interval >= mDatabase.mSortedStatFiles.length) {
-                ipw.println("the specified interval does not exist.");
-                return;
-            }
-            if (args.length == 1) {
-                // dump all files in the specified interval
-                dumpFileDetailsForInterval(ipw, interval);
-            } else {
-                // dump details only for the specified filename
-                final long filename;
-                try {
-                    filename = Long.valueOf(args[1]);
-                } catch (NumberFormatException nfe) {
-                    ipw.println("invalid filename specified.");
-                    return;
-                }
-                final IntervalStats stats = mDatabase.readIntervalStatsForFile(interval, filename);
-                if (stats == null) {
-                    ipw.println("the specified filename does not exist.");
-                    return;
-                }
-                dumpFileDetails(ipw, stats, Long.valueOf(args[1]));
-            }
+            printIntervalStats(pw, mCurrentStats[interval], true);
         }
     }
 
-    private void dumpFileDetailsForInterval(IndentingPrintWriter ipw, int interval) {
-        final TimeSparseArray<AtomicFile> files = mDatabase.mSortedStatFiles[interval];
-        final int numFiles = files.size();
-        for (int i = 0; i < numFiles; i++) {
-            final long filename = files.keyAt(i);
-            final IntervalStats stats = mDatabase.readIntervalStatsForFile(interval, filename);
-            dumpFileDetails(ipw, stats, filename);
-            ipw.println();
-        }
-    }
-
-    private void dumpFileDetails(IndentingPrintWriter ipw, IntervalStats stats, long filename) {
-        ipw.println("file=" + filename);
-        ipw.increaseIndent();
-        printIntervalStats(ipw, stats, false, false, null);
-        ipw.decreaseIndent();
-    }
-
-    static String formatDateTime(long dateTime, boolean pretty) {
+    private String formatDateTime(long dateTime, boolean pretty) {
         if (pretty) {
-            return "\"" + sDateFormat.format(dateTime)+ "\"";
+            return "\"" + DateUtils.formatDateTime(mContext, dateTime, sDateFormatFlags) + "\"";
         }
         return Long.toString(dateTime);
     }
@@ -716,109 +498,8 @@ class UserUsageStatsService {
         return Long.toString(elapsedTime);
     }
 
-
-    void printEvent(IndentingPrintWriter pw, Event event, boolean prettyDates) {
-        pw.printPair("time", formatDateTime(event.mTimeStamp, prettyDates));
-        pw.printPair("type", eventToString(event.mEventType));
-        pw.printPair("package", event.mPackage);
-        if (event.mClass != null) {
-            pw.printPair("class", event.mClass);
-        }
-        if (event.mConfiguration != null) {
-            pw.printPair("config", Configuration.resourceQualifierString(event.mConfiguration));
-        }
-        if (event.mShortcutId != null) {
-            pw.printPair("shortcutId", event.mShortcutId);
-        }
-        if (event.mEventType == Event.STANDBY_BUCKET_CHANGED) {
-            pw.printPair("standbyBucket", event.getStandbyBucket());
-            pw.printPair("reason", UsageStatsManager.reasonToString(event.getStandbyReason()));
-        } else if (event.mEventType == Event.ACTIVITY_RESUMED
-                || event.mEventType == Event.ACTIVITY_PAUSED
-                || event.mEventType == Event.ACTIVITY_STOPPED) {
-            pw.printPair("instanceId", event.getInstanceId());
-        }
-
-        if (event.getTaskRootPackageName() != null) {
-            pw.printPair("taskRootPackage", event.getTaskRootPackageName());
-        }
-
-        if (event.getTaskRootClassName() != null) {
-            pw.printPair("taskRootClass", event.getTaskRootClassName());
-        }
-
-        if (event.mNotificationChannelId != null) {
-            pw.printPair("channelId", event.mNotificationChannelId);
-        }
-        pw.printHexPair("flags", event.mFlags);
-        pw.println();
-    }
-
-    void printLast24HrEvents(IndentingPrintWriter pw, boolean prettyDates, final String pkg) {
-        final long endTime = System.currentTimeMillis();
-        UnixCalendar yesterday = new UnixCalendar(endTime);
-        yesterday.addDays(-1);
-
-        final long beginTime = yesterday.getTimeInMillis();
-
-        List<Event> events = queryStats(INTERVAL_DAILY,
-                beginTime, endTime, new StatCombiner<Event>() {
-                    @Override
-                    public void combine(IntervalStats stats, boolean mutable,
-                            List<Event> accumulatedResult) {
-                        final int startIndex = stats.events.firstIndexOnOrAfter(beginTime);
-                        final int size = stats.events.size();
-                        for (int i = startIndex; i < size; i++) {
-                            if (stats.events.get(i).mTimeStamp >= endTime) {
-                                return;
-                            }
-
-                            Event event = stats.events.get(i);
-                            if (pkg != null && !pkg.equals(event.mPackage)) {
-                                continue;
-                            }
-                            accumulatedResult.add(event);
-                        }
-                    }
-                });
-
-        pw.print("Last 24 hour events (");
-        if (prettyDates) {
-            pw.printPair("timeRange", "\"" + DateUtils.formatDateRange(mContext,
-                    beginTime, endTime, sDateFormatFlags) + "\"");
-        } else {
-            pw.printPair("beginTime", beginTime);
-            pw.printPair("endTime", endTime);
-        }
-        pw.println(")");
-        if (events != null) {
-            pw.increaseIndent();
-            for (Event event : events) {
-                printEvent(pw, event, prettyDates);
-            }
-            pw.decreaseIndent();
-        }
-    }
-
-    void printEventAggregation(IndentingPrintWriter pw, String label,
-            IntervalStats.EventTracker tracker, boolean prettyDates) {
-        if (tracker.count != 0 || tracker.duration != 0) {
-            pw.print(label);
-            pw.print(": ");
-            pw.print(tracker.count);
-            pw.print("x for ");
-            pw.print(formatElapsedTime(tracker.duration, prettyDates));
-            if (tracker.curStartTime != 0) {
-                pw.print(" (now running, started at ");
-                formatDateTime(tracker.curStartTime, prettyDates);
-                pw.print(")");
-            }
-            pw.println();
-        }
-    }
-
     void printIntervalStats(IndentingPrintWriter pw, IntervalStats stats,
-            boolean prettyDates, boolean skipEvents, String pkg) {
+            boolean prettyDates) {
         if (prettyDates) {
             pw.printPair("timeRange", "\"" + DateUtils.formatDateRange(mContext,
                     stats.beginTime, stats.endTime, sDateFormatFlags) + "\"");
@@ -834,188 +515,89 @@ class UserUsageStatsService {
         final int pkgCount = pkgStats.size();
         for (int i = 0; i < pkgCount; i++) {
             final UsageStats usageStats = pkgStats.valueAt(i);
-            if (pkg != null && !pkg.equals(usageStats.mPackageName)) {
-                continue;
-            }
             pw.printPair("package", usageStats.mPackageName);
-            pw.printPair("totalTimeUsed",
+            pw.printPair("totalTime",
                     formatElapsedTime(usageStats.mTotalTimeInForeground, prettyDates));
-            pw.printPair("lastTimeUsed", formatDateTime(usageStats.mLastTimeUsed, prettyDates));
-            pw.printPair("totalTimeVisible",
-                    formatElapsedTime(usageStats.mTotalTimeVisible, prettyDates));
-            pw.printPair("lastTimeVisible",
-                    formatDateTime(usageStats.mLastTimeVisible, prettyDates));
-            pw.printPair("totalTimeFS",
-                    formatElapsedTime(usageStats.mTotalTimeForegroundServiceUsed, prettyDates));
-            pw.printPair("lastTimeFS",
-                    formatDateTime(usageStats.mLastTimeForegroundServiceUsed, prettyDates));
-            pw.printPair("appLaunchCount", usageStats.mAppLaunchCount);
+            pw.printPair("lastTime", formatDateTime(usageStats.mLastTimeUsed, prettyDates));
             pw.println();
         }
         pw.decreaseIndent();
 
-        pw.println();
-        pw.println("ChooserCounts");
+        pw.println("configurations");
         pw.increaseIndent();
-        for (UsageStats usageStats : pkgStats.values()) {
-            if (pkg != null && !pkg.equals(usageStats.mPackageName)) {
-                continue;
-            }
-            pw.printPair("package", usageStats.mPackageName);
-            if (usageStats.mChooserCounts != null) {
-                final int chooserCountSize = usageStats.mChooserCounts.size();
-                for (int i = 0; i < chooserCountSize; i++) {
-                    final String action = usageStats.mChooserCounts.keyAt(i);
-                    final ArrayMap<String, Integer> counts = usageStats.mChooserCounts.valueAt(i);
-                    final int annotationSize = counts.size();
-                    for (int j = 0; j < annotationSize; j++) {
-                        final String key = counts.keyAt(j);
-                        final int count = counts.valueAt(j);
-                        if (count != 0) {
-                            pw.printPair("ChooserCounts", action + ":" + key + " is " +
-                                    Integer.toString(count));
-                            pw.println();
-                        }
-                    }
-                }
-            }
+        final ArrayMap<Configuration, ConfigurationStats> configStats = stats.configurations;
+        final int configCount = configStats.size();
+        for (int i = 0; i < configCount; i++) {
+            final ConfigurationStats config = configStats.valueAt(i);
+            pw.printPair("config", Configuration.resourceQualifierString(config.mConfiguration));
+            pw.printPair("totalTime", formatElapsedTime(config.mTotalTimeActive, prettyDates));
+            pw.printPair("lastTime", formatDateTime(config.mLastTimeActive, prettyDates));
+            pw.printPair("count", config.mActivationCount);
             pw.println();
         }
         pw.decreaseIndent();
 
-        if (pkg == null) {
-            pw.println("configurations");
-            pw.increaseIndent();
-            final ArrayMap<Configuration, ConfigurationStats> configStats = stats.configurations;
-            final int configCount = configStats.size();
-            for (int i = 0; i < configCount; i++) {
-                final ConfigurationStats config = configStats.valueAt(i);
-                pw.printPair("config", Configuration.resourceQualifierString(
-                        config.mConfiguration));
-                pw.printPair("totalTime", formatElapsedTime(config.mTotalTimeActive, prettyDates));
-                pw.printPair("lastTime", formatDateTime(config.mLastTimeActive, prettyDates));
-                pw.printPair("count", config.mActivationCount);
-                pw.println();
+        pw.println("events");
+        pw.increaseIndent();
+        final TimeSparseArray<UsageEvents.Event> events = stats.events;
+        final int eventCount = events != null ? events.size() : 0;
+        for (int i = 0; i < eventCount; i++) {
+            final UsageEvents.Event event = events.valueAt(i);
+            pw.printPair("time", formatDateTime(event.mTimeStamp, prettyDates));
+            pw.printPair("type", eventToString(event.mEventType));
+            pw.printPair("package", event.mPackage);
+            if (event.mClass != null) {
+                pw.printPair("class", event.mClass);
             }
-            pw.decreaseIndent();
-            pw.println("event aggregations");
-            pw.increaseIndent();
-            printEventAggregation(pw, "screen-interactive", stats.interactiveTracker,
-                    prettyDates);
-            printEventAggregation(pw, "screen-non-interactive", stats.nonInteractiveTracker,
-                    prettyDates);
-            printEventAggregation(pw, "keyguard-shown", stats.keyguardShownTracker,
-                    prettyDates);
-            printEventAggregation(pw, "keyguard-hidden", stats.keyguardHiddenTracker,
-                    prettyDates);
-            pw.decreaseIndent();
-        }
-
-        // The last 24 hours of events is already printed in the non checkin dump
-        // No need to repeat here.
-        if (!skipEvents) {
-            pw.println("events");
-            pw.increaseIndent();
-            final EventList events = stats.events;
-            final int eventCount = events != null ? events.size() : 0;
-            for (int i = 0; i < eventCount; i++) {
-                final Event event = events.get(i);
-                if (pkg != null && !pkg.equals(event.mPackage)) {
-                    continue;
-                }
-                printEvent(pw, event, prettyDates);
+            if (event.mConfiguration != null) {
+                pw.printPair("config", Configuration.resourceQualifierString(event.mConfiguration));
             }
-            pw.decreaseIndent();
+            if (event.mShortcutId != null) {
+                pw.printPair("shortcutId", event.mShortcutId);
+            }
+            pw.println();
         }
+        pw.decreaseIndent();
         pw.decreaseIndent();
     }
 
-    public static String intervalToString(int interval) {
+    private static String intervalToString(int interval) {
         switch (interval) {
-            case INTERVAL_DAILY:
+            case UsageStatsManager.INTERVAL_DAILY:
                 return "daily";
-            case INTERVAL_WEEKLY:
+            case UsageStatsManager.INTERVAL_WEEKLY:
                 return "weekly";
-            case INTERVAL_MONTHLY:
+            case UsageStatsManager.INTERVAL_MONTHLY:
                 return "monthly";
-            case INTERVAL_YEARLY:
+            case UsageStatsManager.INTERVAL_YEARLY:
                 return "yearly";
             default:
                 return "?";
         }
     }
 
-    private static int stringToInterval(String interval) {
-        switch (interval.toLowerCase()) {
-            case "daily":
-                return INTERVAL_DAILY;
-            case "weekly":
-                return INTERVAL_WEEKLY;
-            case "monthly":
-                return INTERVAL_MONTHLY;
-            case "yearly":
-                return INTERVAL_YEARLY;
-            default:
-                return -1;
-        }
-    }
-
     private static String eventToString(int eventType) {
         switch (eventType) {
-            case Event.NONE:
+            case UsageEvents.Event.NONE:
                 return "NONE";
-            case Event.ACTIVITY_PAUSED:
-                return "ACTIVITY_PAUSED";
-            case Event.ACTIVITY_RESUMED:
-                return "ACTIVITY_RESUMED";
-            case Event.FOREGROUND_SERVICE_START:
-                return "FOREGROUND_SERVICE_START";
-            case Event.FOREGROUND_SERVICE_STOP:
-                return "FOREGROUND_SERVICE_STOP";
-            case Event.ACTIVITY_STOPPED:
-                return "ACTIVITY_STOPPED";
-            case Event.END_OF_DAY:
+            case UsageEvents.Event.MOVE_TO_BACKGROUND:
+                return "MOVE_TO_BACKGROUND";
+            case UsageEvents.Event.MOVE_TO_FOREGROUND:
+                return "MOVE_TO_FOREGROUND";
+            case UsageEvents.Event.END_OF_DAY:
                 return "END_OF_DAY";
-            case Event.ROLLOVER_FOREGROUND_SERVICE:
-                return "ROLLOVER_FOREGROUND_SERVICE";
-            case Event.CONTINUE_PREVIOUS_DAY:
+            case UsageEvents.Event.CONTINUE_PREVIOUS_DAY:
                 return "CONTINUE_PREVIOUS_DAY";
-            case Event.CONTINUING_FOREGROUND_SERVICE:
-                return "CONTINUING_FOREGROUND_SERVICE";
-            case Event.CONFIGURATION_CHANGE:
+            case UsageEvents.Event.CONFIGURATION_CHANGE:
                 return "CONFIGURATION_CHANGE";
-            case Event.SYSTEM_INTERACTION:
+            case UsageEvents.Event.SYSTEM_INTERACTION:
                 return "SYSTEM_INTERACTION";
-            case Event.USER_INTERACTION:
+            case UsageEvents.Event.USER_INTERACTION:
                 return "USER_INTERACTION";
-            case Event.SHORTCUT_INVOCATION:
+            case UsageEvents.Event.SHORTCUT_INVOCATION:
                 return "SHORTCUT_INVOCATION";
-            case Event.CHOOSER_ACTION:
-                return "CHOOSER_ACTION";
-            case Event.NOTIFICATION_SEEN:
-                return "NOTIFICATION_SEEN";
-            case Event.STANDBY_BUCKET_CHANGED:
-                return "STANDBY_BUCKET_CHANGED";
-            case Event.NOTIFICATION_INTERRUPTION:
-                return "NOTIFICATION_INTERRUPTION";
-            case Event.SLICE_PINNED:
-                return "SLICE_PINNED";
-            case Event.SLICE_PINNED_PRIV:
-                return "SLICE_PINNED_PRIV";
-            case Event.SCREEN_INTERACTIVE:
-                return "SCREEN_INTERACTIVE";
-            case Event.SCREEN_NON_INTERACTIVE:
-                return "SCREEN_NON_INTERACTIVE";
-            case Event.KEYGUARD_SHOWN:
-                return "KEYGUARD_SHOWN";
-            case Event.KEYGUARD_HIDDEN:
-                return "KEYGUARD_HIDDEN";
-            case Event.DEVICE_SHUTDOWN:
-                return "DEVICE_SHUTDOWN";
-            case Event.DEVICE_STARTUP:
-                return "DEVICE_STARTUP";
             default:
-                return "UNKNOWN_TYPE_" + eventType;
+                return "UNKNOWN";
         }
     }
 

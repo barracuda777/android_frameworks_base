@@ -16,7 +16,6 @@
 
 package android.webkit;
 
-import android.annotation.UnsupportedAppUsage;
 import java.io.InputStream;
 import java.util.Map;
 
@@ -70,7 +69,6 @@ public final class PluginData {
      * deprecated, so is this class.
      */
     @Deprecated
-    @UnsupportedAppUsage
     public PluginData(
             InputStream stream,
             long length,
@@ -92,7 +90,6 @@ public final class PluginData {
      * deprecated, so is this class.
      */
     @Deprecated
-    @UnsupportedAppUsage
     public InputStream getInputStream() {
         return mStream;
     }
@@ -107,7 +104,6 @@ public final class PluginData {
      * deprecated, so is this class.
      */
     @Deprecated
-    @UnsupportedAppUsage
     public long getContentLength() {
         return mContentLength;
     }
@@ -125,7 +121,6 @@ public final class PluginData {
      * deprecated, so is this class.
      */
     @Deprecated
-    @UnsupportedAppUsage
     public Map<String, String[]> getHeaders() {
         return mHeaders;
     }
@@ -140,7 +135,6 @@ public final class PluginData {
      * deprecated, so is this class.
      */
     @Deprecated
-    @UnsupportedAppUsage
     public int getStatusCode() {
         return mStatusCode;
     }

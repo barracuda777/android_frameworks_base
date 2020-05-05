@@ -19,13 +19,14 @@
     android:layout_height="fill_parent">
 
     <ImageView
-        android:layout_width="120dp"
-        android:layout_height="110dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="36dip"
         android:layout_gravity="center"
-        android:src="@*android:drawable/ic_print"
-        android:scaleType="fitCenter"
-        android:alpha="0.1"
-        android:tint="@android:color/black"
-        android:importantForAccessibility="no" />
+        android:src="@drawable/ic_grayedout_printer"
+        android:contentDescription="@null"
+        android:scaleType="centerInside"
+        android:adjustViewBounds="true">
+    </ImageView>
 
 </FrameLayout>

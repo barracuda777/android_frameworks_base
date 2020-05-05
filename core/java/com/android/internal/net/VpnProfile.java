@@ -16,13 +16,10 @@
 
 package com.android.internal.net;
 
-import android.annotation.UnsupportedAppUsage;
-import android.os.Build;
-import android.net.ProxyInfo;
-import android.net.Uri;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.text.TextUtils;
+import android.util.Log;
 
 import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
@@ -48,20 +45,11 @@ public class VpnProfile implements Cloneable, Parcelable {
     public static final int TYPE_IPSEC_HYBRID_RSA = 5;
     public static final int TYPE_MAX = 5;
 
-    // Match these constants with R.array.vpn_proxy_settings.
-    public static final int PROXY_NONE = 0;
-    public static final int PROXY_MANUAL = 1;
-
     // Entity fields.
-    @UnsupportedAppUsage
     public final String key;           // -1
-    @UnsupportedAppUsage
     public String name = "";           // 0
-    @UnsupportedAppUsage
     public int type = TYPE_PPTP;       // 1
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     public String server = "";         // 2
-    @UnsupportedAppUsage
     public String username = "";       // 3
     public String password = "";       // 4
     public String dnsServers = "";     // 5
@@ -74,17 +62,14 @@ public class VpnProfile implements Cloneable, Parcelable {
     public String ipsecUserCert = "";  // 12
     public String ipsecCaCert = "";    // 13
     public String ipsecServerCert = "";// 14
-    public ProxyInfo proxy = null;     // 15~18
 
     // Helper fields.
-    @UnsupportedAppUsage
     public boolean saveLogin = false;
 
     public VpnProfile(String key) {
         this.key = key;
     }
 
-    @UnsupportedAppUsage
     public VpnProfile(Parcel in) {
         key = in.readString();
         name = in.readString();
@@ -103,7 +88,6 @@ public class VpnProfile implements Cloneable, Parcelable {
         ipsecCaCert = in.readString();
         ipsecServerCert = in.readString();
         saveLogin = in.readInt() != 0;
-        proxy = in.readParcelable(null);
     }
 
     @Override
@@ -125,10 +109,8 @@ public class VpnProfile implements Cloneable, Parcelable {
         out.writeString(ipsecCaCert);
         out.writeString(ipsecServerCert);
         out.writeInt(saveLogin ? 1 : 0);
-        out.writeParcelable(proxy, flags);
     }
 
-    @UnsupportedAppUsage
     public static VpnProfile decode(String key, byte[] value) {
         try {
             if (key == null) {
@@ -136,8 +118,8 @@ public class VpnProfile implements Cloneable, Parcelable {
             }
 
             String[] values = new String(value, StandardCharsets.UTF_8).split("\0", -1);
-            // There can be 14 - 19 Bytes in values.length.
-            if (values.length < 14 || values.length > 19) {
+            // There can be 14 or 15 values in ICS MR1.
+            if (values.length < 14 || values.length > 15) {
                 return null;
             }
 
@@ -153,25 +135,14 @@ public class VpnProfile implements Cloneable, Parcelable {
             profile.dnsServers = values[5];
             profile.searchDomains = values[6];
             profile.routes = values[7];
-            profile.mppe = Boolean.parseBoolean(values[8]);
+            profile.mppe = Boolean.valueOf(values[8]);
             profile.l2tpSecret = values[9];
             profile.ipsecIdentifier = values[10];
             profile.ipsecSecret = values[11];
             profile.ipsecUserCert = values[12];
             profile.ipsecCaCert = values[13];
             profile.ipsecServerCert = (values.length > 14) ? values[14] : "";
-            if (values.length > 15) {
-                String host = (values.length > 15) ? values[15] : "";
-                String port = (values.length > 16) ? values[16] : "";
-                String exclList = (values.length > 17) ? values[17] : "";
-                String pacFileUrl = (values.length > 18) ? values[18] : "";
-                if (pacFileUrl.isEmpty()) {
-                    profile.proxy = new ProxyInfo(host, port.isEmpty() ?
-                            0 : Integer.parseInt(port), exclList);
-                } else {
-                    profile.proxy = new ProxyInfo(pacFileUrl);
-                }
-            } // else profle.proxy = null
+
             profile.saveLogin = !profile.username.isEmpty() || !profile.password.isEmpty();
             return profile;
         } catch (Exception e) {
@@ -196,62 +167,38 @@ public class VpnProfile implements Cloneable, Parcelable {
         builder.append('\0').append(ipsecUserCert);
         builder.append('\0').append(ipsecCaCert);
         builder.append('\0').append(ipsecServerCert);
-        if (proxy != null) {
-            builder.append('\0').append(proxy.getHost() != null ? proxy.getHost() : "");
-            builder.append('\0').append(proxy.getPort());
-            builder.append('\0').append(proxy.getExclusionListAsString() != null ?
-                    proxy.getExclusionListAsString() : "");
-            builder.append('\0').append(proxy.getPacFileUrl().toString());
-        }
         return builder.toString().getBytes(StandardCharsets.UTF_8);
     }
 
     /**
-     * Tests if profile is valid for lockdown, which requires IPv4 address for
+     * Test if profile is valid for lockdown, which requires IPv4 address for
      * both server and DNS. Server hostnames would require using DNS before
      * connection.
      */
     public boolean isValidLockdownProfile() {
-        return isTypeValidForLockdown()
-                && isServerAddressNumeric()
-                && hasDns()
-                && areDnsAddressesNumeric();
-    }
+        // b/7064069: lockdown firewall blocks ports that would be used for PPTP
+        if (type == TYPE_PPTP) {
+            return false;
+        }
 
-    /** Returns {@code true} if the VPN type is valid for lockdown. */
-    public boolean isTypeValidForLockdown() {
-        // b/7064069: lockdown firewall blocks ports used for PPTP
-        return type != TYPE_PPTP;
-    }
-
-    /** Returns {@code true} if the server address is numeric, e.g. 8.8.8.8 */
-    public boolean isServerAddressNumeric() {
         try {
             InetAddress.parseNumericAddress(server);
-        } catch (IllegalArgumentException e) {
-            return false;
-        }
-        return true;
-    }
 
-    /** Returns {@code true} if one or more DNS servers are specified. */
-    public boolean hasDns() {
-        return !TextUtils.isEmpty(dnsServers);
-    }
-
-    /**
-     * Returns {@code true} if all DNS servers have numeric addresses,
-     * e.g. 8.8.8.8
-     */
-    public boolean areDnsAddressesNumeric() {
-        try {
             for (String dnsServer : dnsServers.split(" +")) {
-                InetAddress.parseNumericAddress(dnsServer);
+                InetAddress.parseNumericAddress(this.dnsServers);
             }
+            if (TextUtils.isEmpty(dnsServers)) {
+                Log.w(TAG, "DNS required");
+                return false;
+            }
+
+            // Everything checked out above
+            return true;
+
         } catch (IllegalArgumentException e) {
+            Log.w(TAG, "Invalid address", e);
             return false;
         }
-        return true;
     }
 
     public static final Creator<VpnProfile> CREATOR = new Creator<VpnProfile>() {

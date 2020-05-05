@@ -16,14 +16,12 @@
 
 package android.net.wifi.p2p;
 
-import android.annotation.UnsupportedAppUsage;
-import android.os.Parcel;
 import android.os.Parcelable;
+import android.os.Parcel;
 import android.util.Log;
 
-import java.util.Objects;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 
 /**
  * A class representing a Wi-Fi p2p device
@@ -68,49 +66,37 @@ public class WifiP2pDevice implements Parcelable {
 
     /* Device Capability bitmap */
     private static final int DEVICE_CAPAB_SERVICE_DISCOVERY         = 1;
-    @SuppressWarnings("unused")
     private static final int DEVICE_CAPAB_CLIENT_DISCOVERABILITY    = 1<<1;
-    @SuppressWarnings("unused")
     private static final int DEVICE_CAPAB_CONCURRENT_OPER           = 1<<2;
-    @SuppressWarnings("unused")
     private static final int DEVICE_CAPAB_INFRA_MANAGED             = 1<<3;
-    @SuppressWarnings("unused")
     private static final int DEVICE_CAPAB_DEVICE_LIMIT              = 1<<4;
     private static final int DEVICE_CAPAB_INVITATION_PROCEDURE      = 1<<5;
 
     /* Group Capability bitmap */
     private static final int GROUP_CAPAB_GROUP_OWNER                = 1;
-    @SuppressWarnings("unused")
     private static final int GROUP_CAPAB_PERSISTENT_GROUP           = 1<<1;
     private static final int GROUP_CAPAB_GROUP_LIMIT                = 1<<2;
-    @SuppressWarnings("unused")
     private static final int GROUP_CAPAB_INTRA_BSS_DIST             = 1<<3;
-    @SuppressWarnings("unused")
     private static final int GROUP_CAPAB_CROSS_CONN                 = 1<<4;
-    @SuppressWarnings("unused")
     private static final int GROUP_CAPAB_PERSISTENT_RECONN          = 1<<5;
-    @SuppressWarnings("unused")
     private static final int GROUP_CAPAB_GROUP_FORMATION            = 1<<6;
 
     /**
      * WPS config methods supported
      * @hide
      */
-    @UnsupportedAppUsage
     public int wpsConfigMethodsSupported;
 
     /**
      * Device capability
      * @hide
      */
-    @UnsupportedAppUsage
     public int deviceCapability;
 
     /**
      * Group capability
      * @hide
      */
-    @UnsupportedAppUsage
     public int groupCapability;
 
     public static final int CONNECTED   = 0;
@@ -123,7 +109,6 @@ public class WifiP2pDevice implements Parcelable {
     public int status = UNAVAILABLE;
 
     /** @hide */
-    @UnsupportedAppUsage
     public WifiP2pWfdInfo wfdInfo;
 
     /** Detailed device string pattern with WFD info
@@ -183,7 +168,6 @@ public class WifiP2pDevice implements Parcelable {
      *  Note: The events formats can be looked up in the wpa_supplicant code
      * @hide
      */
-    @UnsupportedAppUsage
     public WifiP2pDevice(String string) throws IllegalArgumentException {
         String[] tokens = string.split("[ \n]");
         Matcher match;
@@ -284,7 +268,6 @@ public class WifiP2pDevice implements Parcelable {
      * @throws IllegalArgumentException if the device is null or device address does not match
      * @hide
      */
-    @UnsupportedAppUsage
     public void update(WifiP2pDevice device) {
         updateSupplicantDetails(device);
         status = device.status;
@@ -322,12 +305,6 @@ public class WifiP2pDevice implements Parcelable {
         return other.deviceAddress.equals(deviceAddress);
     }
 
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(deviceAddress);
-    }
-
-    @Override
     public String toString() {
         StringBuffer sbuf = new StringBuffer();
         sbuf.append("Device: ").append(deviceName);
@@ -343,7 +320,6 @@ public class WifiP2pDevice implements Parcelable {
     }
 
     /** Implement the Parcelable interface */
-    @Override
     public int describeContents() {
         return 0;
     }
@@ -359,14 +335,11 @@ public class WifiP2pDevice implements Parcelable {
             deviceCapability = source.deviceCapability;
             groupCapability = source.groupCapability;
             status = source.status;
-            if (source.wfdInfo != null) {
-                wfdInfo = new WifiP2pWfdInfo(source.wfdInfo);
-            }
+            wfdInfo = new WifiP2pWfdInfo(source.wfdInfo);
         }
     }
 
     /** Implement the Parcelable interface */
-    @Override
     public void writeToParcel(Parcel dest, int flags) {
         dest.writeString(deviceName);
         dest.writeString(deviceAddress);
@@ -385,9 +358,8 @@ public class WifiP2pDevice implements Parcelable {
     }
 
     /** Implement the Parcelable interface */
-    public static final @android.annotation.NonNull Creator<WifiP2pDevice> CREATOR =
+    public static final Creator<WifiP2pDevice> CREATOR =
         new Creator<WifiP2pDevice>() {
-            @Override
             public WifiP2pDevice createFromParcel(Parcel in) {
                 WifiP2pDevice device = new WifiP2pDevice();
                 device.deviceName = in.readString();
@@ -404,7 +376,6 @@ public class WifiP2pDevice implements Parcelable {
                 return device;
             }
 
-            @Override
             public WifiP2pDevice[] newArray(int size) {
                 return new WifiP2pDevice[size];
             }

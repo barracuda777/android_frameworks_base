@@ -24,8 +24,7 @@ import android.os.Build;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.SystemClock;
-
-import androidx.test.InstrumentationRegistry;
+import android.support.test.InstrumentationRegistry;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -33,7 +32,7 @@ import java.util.concurrent.TimeoutException;
 
 final class RemoteIntArray implements ServiceConnection, Closeable {
     private static final long BIND_REMOTE_SERVICE_TIMEOUT =
-            Build.IS_ENG ? 120000 : 10000;
+            ("eng".equals(Build.TYPE)) ? 120000 : 10000;
 
     private final Object mLock = new Object();
 

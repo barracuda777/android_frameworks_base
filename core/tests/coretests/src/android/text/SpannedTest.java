@@ -16,43 +16,33 @@
 
 package android.text;
 
-import static org.junit.Assert.assertEquals;
-
 import android.graphics.Typeface;
 import android.os.Parcel;
-import android.platform.test.annotations.Presubmit;
-import android.text.style.CharacterStyle;
-import android.text.style.StyleSpan;
-import android.text.style.TextAppearanceSpan;
-import android.text.style.TypefaceSpan;
+import android.test.suitebuilder.annotation.SmallTest;
+import android.text.*;
+import android.text.style.*;
+import android.util.Log;
 
-import androidx.test.filters.SmallTest;
-import androidx.test.runner.AndroidJUnit4;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import junit.framework.TestCase;
 
 /**
  * SpannedTest tests some features of Spanned
  */
-@Presubmit
-@SmallTest
-@RunWith(AndroidJUnit4.class)
-public class SpannedTest {
+public class SpannedTest extends TestCase {
     private int mExpect;
 
-    @Test
-    public void testSpannableString() {
+    @SmallTest
+    public void testSpannableString() throws Exception {
         checkPriority(new SpannableString("the quick brown fox"));
     }
 
-    @Test
-    public void testSpannableStringBuilder() {
+    @SmallTest
+    public void testSpannableStringBuilder() throws Exception {
         checkPriority2(new SpannableStringBuilder("the quick brown fox"));
     }
 
-    @Test
-    public void testAppend() {
+    @SmallTest
+    public void testAppend() throws Exception {
         Object o = new Object();
         SpannableString ss = new SpannableString("Test");
         ss.setSpan(o, 0, ss.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
@@ -70,7 +60,7 @@ public class SpannedTest {
         assertEquals(1, ssb.getSpans(4, 8, Object.class).length);
     }
 
-    @Test
+    @SmallTest
     public void testWrapParcel() {
         SpannableString s = new SpannableString("Hello there world");
         CharacterStyle mark = new StyleSpan(Typeface.BOLD);
@@ -138,16 +128,16 @@ public class SpannedTest {
 
         mExpect = 0;
 
-        s.setSpan(new Watcher(2), 0, s.length(),
+        s.setSpan(new Watcher(2), 0, s.length(), 
                   Spannable.SPAN_INCLUSIVE_INCLUSIVE |
                   (2 << Spannable.SPAN_PRIORITY_SHIFT));
-        s.setSpan(new Watcher(4), 0, s.length(),
+        s.setSpan(new Watcher(4), 0, s.length(), 
                   Spannable.SPAN_INCLUSIVE_INCLUSIVE |
                   (4 << Spannable.SPAN_PRIORITY_SHIFT));
-        s.setSpan(new Watcher(1), 0, s.length(),
+        s.setSpan(new Watcher(1), 0, s.length(), 
                   Spannable.SPAN_INCLUSIVE_INCLUSIVE |
                   (1 << Spannable.SPAN_PRIORITY_SHIFT));
-        s.setSpan(new Watcher(3), 0, s.length(),
+        s.setSpan(new Watcher(3), 0, s.length(), 
                   Spannable.SPAN_INCLUSIVE_INCLUSIVE |
                   (3 << Spannable.SPAN_PRIORITY_SHIFT));
 
@@ -171,13 +161,10 @@ public class SpannedTest {
             mSequence = sequence;
         }
 
-        @Override
-        public void onSpanChanged(Spannable b, Object o, int s, int e, int st, int en) { }
-
-        @Override
+        public void onSpanChanged(Spannable b, Object o, int s, int e,
+                                  int st, int en) { }
         public void onSpanRemoved(Spannable b, Object o, int s, int e) { }
 
-        @Override
         public void onSpanAdded(Spannable b, Object o, int s, int e) {
             if (mExpect != 0) {
                 assertEquals(mSequence, mExpect);
@@ -185,18 +172,16 @@ public class SpannedTest {
             }
         }
 
-        @Override
-        public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
-
-        @Override
-        public void onTextChanged(CharSequence s, int start, int before, int count) {
+        public void beforeTextChanged(CharSequence s, int start, int count,
+                                      int after) { }
+        public void onTextChanged(CharSequence s, int start, int before,
+                                      int count) {
             if (mExpect != 0) {
                 assertEquals(mSequence, mExpect);
                 mExpect = mSequence - 1;
             }
         }
 
-        @Override
         public void afterTextChanged(Editable s) { }
     }
 }

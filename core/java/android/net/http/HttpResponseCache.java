@@ -16,8 +16,9 @@
 
 package android.net.http;
 
-import com.android.okhttp.internalandroidapi.AndroidResponseCacheAdapter;
-import com.android.okhttp.internalandroidapi.HasCacheHolder;
+import com.android.okhttp.Cache;
+import com.android.okhttp.AndroidShimResponseCache;
+import com.android.okhttp.OkCacheContainer;
 
 import java.io.Closeable;
 import java.io.File;
@@ -148,12 +149,12 @@ import java.util.Map;
  *       } catch (Exception httpResponseCacheNotAvailable) {
  *       }}</pre>
  */
-public final class HttpResponseCache extends ResponseCache implements HasCacheHolder, Closeable {
+public final class HttpResponseCache extends ResponseCache implements Closeable, OkCacheContainer {
 
-    private final AndroidResponseCacheAdapter mDelegate;
+    private final AndroidShimResponseCache delegate;
 
-    private HttpResponseCache(AndroidResponseCacheAdapter delegate) {
-        mDelegate = delegate;
+    private HttpResponseCache(AndroidShimResponseCache delegate) {
+        this.delegate = delegate;
     }
 
     /**
@@ -183,33 +184,30 @@ public final class HttpResponseCache extends ResponseCache implements HasCacheHo
         ResponseCache installed = ResponseCache.getDefault();
         if (installed instanceof HttpResponseCache) {
             HttpResponseCache installedResponseCache = (HttpResponseCache) installed;
-            CacheHolder cacheHolder = installedResponseCache.getCacheHolder();
             // don't close and reopen if an equivalent cache is already installed
-            if (cacheHolder.isEquivalent(directory, maxSize)) {
+            AndroidShimResponseCache trueResponseCache = installedResponseCache.delegate;
+            if (trueResponseCache.isEquivalent(directory, maxSize)) {
                 return installedResponseCache;
             } else {
                 // The HttpResponseCache that owns this object is about to be replaced.
-                installedResponseCache.close();
+                trueResponseCache.close();
             }
         }
 
-        CacheHolder cacheHolder = CacheHolder.create(directory, maxSize);
-        AndroidResponseCacheAdapter androidResponseCacheAdapter =
-                new AndroidResponseCacheAdapter(cacheHolder);
-        HttpResponseCache responseCache = new HttpResponseCache(androidResponseCacheAdapter);
-        ResponseCache.setDefault(responseCache);
-        return responseCache;
+        AndroidShimResponseCache trueResponseCache =
+                AndroidShimResponseCache.create(directory, maxSize);
+        HttpResponseCache newResponseCache = new HttpResponseCache(trueResponseCache);
+        ResponseCache.setDefault(newResponseCache);
+        return newResponseCache;
     }
 
-    @Override
-    public CacheResponse get(URI uri, String requestMethod,
+    @Override public CacheResponse get(URI uri, String requestMethod,
             Map<String, List<String>> requestHeaders) throws IOException {
-        return mDelegate.get(uri, requestMethod, requestHeaders);
+        return delegate.get(uri, requestMethod, requestHeaders);
     }
 
-    @Override
-    public CacheRequest put(URI uri, URLConnection urlConnection) throws IOException {
-        return mDelegate.put(uri, urlConnection);
+    @Override public CacheRequest put(URI uri, URLConnection urlConnection) throws IOException {
+        return delegate.put(uri, urlConnection);
     }
 
     /**
@@ -219,7 +217,7 @@ public final class HttpResponseCache extends ResponseCache implements HasCacheHo
      */
     public long size() {
         try {
-            return mDelegate.getSize();
+            return delegate.size();
         } catch (IOException e) {
             // This can occur if the cache failed to lazily initialize.
             return -1;
@@ -231,7 +229,7 @@ public final class HttpResponseCache extends ResponseCache implements HasCacheHo
      * its data.
      */
     public long maxSize() {
-        return mDelegate.getMaxSize();
+        return delegate.maxSize();
     }
 
     /**
@@ -241,7 +239,7 @@ public final class HttpResponseCache extends ResponseCache implements HasCacheHo
      */
     public void flush() {
         try {
-            mDelegate.flush();
+            delegate.flush();
         } catch (IOException ignored) {
         }
     }
@@ -251,7 +249,7 @@ public final class HttpResponseCache extends ResponseCache implements HasCacheHo
      * supply a response or validate a locally cached response.
      */
     public int getNetworkCount() {
-        return mDelegate.getNetworkCount();
+        return delegate.getNetworkCount();
     }
 
     /**
@@ -260,7 +258,7 @@ public final class HttpResponseCache extends ResponseCache implements HasCacheHo
      * validated over the network.
      */
     public int getHitCount() {
-        return mDelegate.getHitCount();
+        return delegate.getHitCount();
     }
 
     /**
@@ -269,19 +267,18 @@ public final class HttpResponseCache extends ResponseCache implements HasCacheHo
      * to handle a redirects and retries.
      */
     public int getRequestCount() {
-        return mDelegate.getRequestCount();
+        return delegate.getRequestCount();
     }
 
     /**
      * Uninstalls the cache and releases any active resources. Stored contents
      * will remain on the filesystem.
      */
-    @Override
-    public void close() throws IOException {
+    @Override public void close() throws IOException {
         if (ResponseCache.getDefault() == this) {
             ResponseCache.setDefault(null);
         }
-        mDelegate.close();
+        delegate.close();
     }
 
     /**
@@ -291,12 +288,13 @@ public final class HttpResponseCache extends ResponseCache implements HasCacheHo
         if (ResponseCache.getDefault() == this) {
             ResponseCache.setDefault(null);
         }
-        mDelegate.delete();
+        delegate.delete();
     }
 
     /** @hide Needed for OkHttp integration. */
     @Override
-    public CacheHolder getCacheHolder() {
-        return mDelegate.getCacheHolder();
+    public Cache getCache() {
+        return delegate.getCache();
     }
+
 }

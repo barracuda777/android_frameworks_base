@@ -24,14 +24,15 @@
 
 #include "RenderTask.h"
 
-#include "../FrameInfo.h"
 #include "../Rect.h"
+#include "../FrameInfo.h"
 #include "../TreeInfo.h"
 
 namespace android {
 namespace uirenderer {
 
 class DeferredLayerUpdater;
+class DisplayList;
 class RenderNode;
 
 namespace renderthread {
@@ -45,7 +46,6 @@ enum {
     UIRedrawRequired = 1 << 0,
     LostSurfaceRewardIfFound = 1 << 1,
     ContextIsStopped = 1 << 2,
-    FrameDropped = 1 << 3,
 };
 }
 
@@ -55,32 +55,21 @@ enum {
  * tracked across many frames not just a single frame.
  * It is the sync-state task, and will kick off the post-sync draw
  */
-class DrawFrameTask {
+class DrawFrameTask : public RenderTask {
 public:
     DrawFrameTask();
     virtual ~DrawFrameTask();
 
     void setContext(RenderThread* thread, CanvasContext* context, RenderNode* targetNode);
-    void setContentDrawBounds(int left, int top, int right, int bottom) {
-        mContentDrawBounds.set(left, top, right, bottom);
-    }
 
     void pushLayerUpdate(DeferredLayerUpdater* layer);
     void removeLayerUpdate(DeferredLayerUpdater* layer);
 
-    int drawFrame();
+    int drawFrame(TreeObserver* observer);
 
     int64_t* frameInfo() { return mFrameInfo; }
 
-    void run();
-
-    void setFrameCallback(std::function<void(int64_t)>&& callback) {
-        mFrameCallback = std::move(callback);
-    }
-
-    void setFrameCompleteCallback(std::function<void(int64_t)>&& callback) {
-        mFrameCompleteCallback = std::move(callback);
-    }
+    virtual void run() override;
 
 private:
     void postAndWait();
@@ -93,20 +82,17 @@ private:
     RenderThread* mRenderThread;
     CanvasContext* mContext;
     RenderNode* mTargetNode = nullptr;
-    Rect mContentDrawBounds;
 
     /*********************************************
      *  Single frame data
      *********************************************/
-    std::vector<sp<DeferredLayerUpdater> > mLayers;
+    std::vector< sp<DeferredLayerUpdater> > mLayers;
 
     int mSyncResult;
     int64_t mSyncQueued;
+    TreeObserver* mObserver;
 
     int64_t mFrameInfo[UI_THREAD_FRAME_INFO_SIZE];
-
-    std::function<void(int64_t)> mFrameCallback;
-    std::function<void(int64_t)> mFrameCompleteCallback;
 };
 
 } /* namespace renderthread */

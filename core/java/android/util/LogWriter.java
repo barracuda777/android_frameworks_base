@@ -16,7 +16,6 @@
 
 package android.util;
 
-import android.annotation.UnsupportedAppUsage;
 import java.io.Writer;
 
 /** @hide */
@@ -38,7 +37,6 @@ public class LogWriter extends Writer {
      * {@link android.util.Log#ERROR Log.ERROR}.
      * @param tag A string tag to associate with each printed log statement.
      */
-    @UnsupportedAppUsage
     public LogWriter(int priority, String tag) {
         mPriority = priority;
         mTag = tag;

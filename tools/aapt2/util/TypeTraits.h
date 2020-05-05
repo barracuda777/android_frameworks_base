@@ -21,20 +21,19 @@
 
 namespace aapt {
 
-#define DEFINE_HAS_BINARY_OP_TRAIT(name, op)                                  \
-  template <typename T, typename U>                                           \
-  struct name {                                                               \
-    template <typename V, typename W>                                         \
-    static constexpr decltype(std::declval<V>() op std::declval<W>(), bool()) \
-    test(int) {                                                               \
-      return true;                                                            \
-    }                                                                         \
-    template <typename V, typename W>                                         \
-    static constexpr bool test(...) {                                         \
-      return false;                                                           \
-    }                                                                         \
-    static constexpr bool value = test<T, U>(int());                          \
-  }
+#define DEFINE_HAS_BINARY_OP_TRAIT(name, op) \
+    template <typename T, typename U> \
+    struct name { \
+        template <typename V, typename W> \
+        static constexpr decltype(std::declval<V>() op std::declval<W>(), bool()) test(int) { \
+        return true; \
+    } \
+    template <typename V, typename W> \
+    static constexpr bool test(...) { \
+        return false; \
+    } \
+    static constexpr bool value = test<T, U>(int()); \
+}
 
 DEFINE_HAS_BINARY_OP_TRAIT(has_eq_op, ==);
 DEFINE_HAS_BINARY_OP_TRAIT(has_lt_op, <);
@@ -44,10 +43,9 @@ DEFINE_HAS_BINARY_OP_TRAIT(has_lt_op, <);
  */
 template <typename T, typename U>
 struct is_comparable {
-  static constexpr bool value =
-      has_eq_op<T, U>::value && has_lt_op<T, U>::value;
+    static constexpr bool value = has_eq_op<T, U>::value && has_lt_op<T, U>::value;
 };
 
-}  // namespace aapt
+} // namespace aapt
 
 #endif /* AAPT_UTIL_TYPETRAITS_H */

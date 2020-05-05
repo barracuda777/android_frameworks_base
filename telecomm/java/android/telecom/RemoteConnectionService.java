@@ -21,7 +21,6 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.os.IBinder.DeathRecipient;
 import android.os.RemoteException;
-import android.telecom.Logging.Session;
 
 import com.android.internal.telecom.IConnectionService;
 import com.android.internal.telecom.IConnectionServiceAdapter;
@@ -55,8 +54,7 @@ final class RemoteConnectionService {
         public void handleCreateConnectionComplete(
                 String id,
                 ConnectionRequest request,
-                ParcelableConnection parcel,
-                Session.Info info) {
+                ParcelableConnection parcel) {
             RemoteConnection connection =
                     findConnectionForAction(id, "handleCreateConnectionSuccessful");
             if (connection != NULL_CONNECTION && mPendingConnections.contains(connection)) {
@@ -93,15 +91,11 @@ final class RemoteConnectionService {
                     // failure on the providing end, so immediately mark it destroyed
                     connection.setDestroyed();
                 }
-                connection.setStatusHints(parcel.getStatusHints());
-                connection.setIsVoipAudioMode(parcel.getIsVoipAudioMode());
-                connection.setRingbackRequested(parcel.isRingbackRequested());
-                connection.putExtras(parcel.getExtras());
             }
         }
 
         @Override
-        public void setActive(String callId, Session.Info sessionInfo) {
+        public void setActive(String callId) {
             if (mConnectionById.containsKey(callId)) {
                 findConnectionForAction(callId, "setActive")
                         .setState(Connection.STATE_ACTIVE);
@@ -112,26 +106,25 @@ final class RemoteConnectionService {
         }
 
         @Override
-        public void setRinging(String callId, Session.Info sessionInfo) {
+        public void setRinging(String callId) {
             findConnectionForAction(callId, "setRinging")
                     .setState(Connection.STATE_RINGING);
         }
 
         @Override
-        public void setDialing(String callId, Session.Info sessionInfo) {
+        public void setDialing(String callId) {
             findConnectionForAction(callId, "setDialing")
                     .setState(Connection.STATE_DIALING);
         }
 
         @Override
-        public void setPulling(String callId, Session.Info sessionInfo) {
+        public void setPulling(String callId) {
             findConnectionForAction(callId, "setPulling")
                     .setState(Connection.STATE_PULLING_CALL);
         }
 
         @Override
-        public void setDisconnected(String callId, DisconnectCause disconnectCause,
-                Session.Info sessionInfo) {
+        public void setDisconnected(String callId, DisconnectCause disconnectCause) {
             if (mConnectionById.containsKey(callId)) {
                 findConnectionForAction(callId, "setDisconnected")
                         .setDisconnected(disconnectCause);
@@ -142,7 +135,7 @@ final class RemoteConnectionService {
         }
 
         @Override
-        public void setOnHold(String callId, Session.Info sessionInfo) {
+        public void setOnHold(String callId) {
             if (mConnectionById.containsKey(callId)) {
                 findConnectionForAction(callId, "setOnHold")
                         .setState(Connection.STATE_HOLDING);
@@ -153,14 +146,13 @@ final class RemoteConnectionService {
         }
 
         @Override
-        public void setRingbackRequested(String callId, boolean ringing, Session.Info sessionInfo) {
+        public void setRingbackRequested(String callId, boolean ringing) {
             findConnectionForAction(callId, "setRingbackRequested")
                     .setRingbackRequested(ringing);
         }
 
         @Override
-        public void setConnectionCapabilities(String callId, int connectionCapabilities,
-                Session.Info sessionInfo) {
+        public void setConnectionCapabilities(String callId, int connectionCapabilities) {
             if (mConnectionById.containsKey(callId)) {
                 findConnectionForAction(callId, "setConnectionCapabilities")
                         .setConnectionCapabilities(connectionCapabilities);
@@ -171,8 +163,7 @@ final class RemoteConnectionService {
         }
 
         @Override
-        public void setConnectionProperties(String callId, int connectionProperties,
-                Session.Info sessionInfo) {
+        public void setConnectionProperties(String callId, int connectionProperties) {
             if (mConnectionById.containsKey(callId)) {
                 findConnectionForAction(callId, "setConnectionProperties")
                         .setConnectionProperties(connectionProperties);
@@ -183,8 +174,7 @@ final class RemoteConnectionService {
         }
 
         @Override
-        public void setIsConferenced(String callId, String conferenceCallId,
-                Session.Info sessionInfo) {
+        public void setIsConferenced(String callId, String conferenceCallId) {
             // Note: callId should not be null; conferenceCallId may be null
             RemoteConnection connection =
                     findConnectionForAction(callId, "setIsConferenced");
@@ -205,23 +195,16 @@ final class RemoteConnectionService {
         }
 
         @Override
-        public void setConferenceMergeFailed(String callId, Session.Info sessionInfo) {
+        public void setConferenceMergeFailed(String callId) {
             // Nothing to do here.
             // The event has already been handled and there is no state to update
             // in the underlying connection or conference objects
         }
 
         @Override
-        public void onPhoneAccountChanged(String callId, PhoneAccountHandle pHandle,
-                Session.Info sessionInfo) {
-        }
-
-        @Override
-        public void onConnectionServiceFocusReleased(Session.Info sessionInfo) {}
-
-        @Override
         public void addConferenceCall(
-                final String callId, ParcelableConference parcel, Session.Info sessionInfo) {
+                final String callId,
+                ParcelableConference parcel) {
             RemoteConference conference = new RemoteConference(callId,
                     mOutgoingConnectionServiceRpc);
 
@@ -264,7 +247,7 @@ final class RemoteConnectionService {
         }
 
         @Override
-        public void removeCall(String callId, Session.Info sessionInfo) {
+        public void removeCall(String callId) {
             if (mConnectionById.containsKey(callId)) {
                 findConnectionForAction(callId, "removeCall")
                         .setDestroyed();
@@ -275,68 +258,59 @@ final class RemoteConnectionService {
         }
 
         @Override
-        public void onPostDialWait(String callId, String remaining, Session.Info sessionInfo) {
+        public void onPostDialWait(String callId, String remaining) {
             findConnectionForAction(callId, "onPostDialWait")
                     .setPostDialWait(remaining);
         }
 
         @Override
-        public void onPostDialChar(String callId, char nextChar, Session.Info sessionInfo) {
+        public void onPostDialChar(String callId, char nextChar) {
             findConnectionForAction(callId, "onPostDialChar")
                     .onPostDialChar(nextChar);
         }
 
         @Override
-        public void queryRemoteConnectionServices(RemoteServiceCallback callback,
-                String callingPackage, Session.Info sessionInfo) {
+        public void queryRemoteConnectionServices(RemoteServiceCallback callback) {
             // Not supported from remote connection service.
         }
 
         @Override
-        public void setVideoProvider(String callId, IVideoProvider videoProvider,
-                Session.Info sessionInfo) {
-
-            String callingPackage = mOurConnectionServiceImpl.getApplicationContext()
-                    .getOpPackageName();
-            int targetSdkVersion = mOurConnectionServiceImpl.getApplicationInfo().targetSdkVersion;
+        public void setVideoProvider(String callId, IVideoProvider videoProvider) {
             RemoteConnection.VideoProvider remoteVideoProvider = null;
             if (videoProvider != null) {
-                remoteVideoProvider = new RemoteConnection.VideoProvider(videoProvider,
-                        callingPackage, targetSdkVersion);
+                remoteVideoProvider = new RemoteConnection.VideoProvider(videoProvider);
             }
             findConnectionForAction(callId, "setVideoProvider")
                     .setVideoProvider(remoteVideoProvider);
         }
 
         @Override
-        public void setVideoState(String callId, int videoState, Session.Info sessionInfo) {
+        public void setVideoState(String callId, int videoState) {
             findConnectionForAction(callId, "setVideoState")
                     .setVideoState(videoState);
         }
 
         @Override
-        public void setIsVoipAudioMode(String callId, boolean isVoip, Session.Info sessionInfo) {
+        public void setIsVoipAudioMode(String callId, boolean isVoip) {
             findConnectionForAction(callId, "setIsVoipAudioMode")
                     .setIsVoipAudioMode(isVoip);
         }
 
         @Override
-        public void setStatusHints(String callId, StatusHints statusHints,
-                Session.Info sessionInfo) {
+        public void setStatusHints(String callId, StatusHints statusHints) {
             findConnectionForAction(callId, "setStatusHints")
                     .setStatusHints(statusHints);
         }
 
         @Override
-        public void setAddress(String callId, Uri address, int presentation,
-                Session.Info sessionInfo) {
+        public void setAddress(String callId, Uri address, int presentation) {
             findConnectionForAction(callId, "setAddress")
                     .setAddress(address, presentation);
         }
 
         @Override
         public void setCallerDisplayName(String callId, String callerDisplayName,
-                int presentation, Session.Info sessionInfo) {
+                int presentation) {
             findConnectionForAction(callId, "setCallerDisplayName")
                     .setCallerDisplayName(callerDisplayName, presentation);
         }
@@ -347,8 +321,8 @@ final class RemoteConnectionService {
         }
 
         @Override
-        public final void setConferenceableConnections(String callId,
-                List<String> conferenceableConnectionIds, Session.Info sessionInfo) {
+        public final void setConferenceableConnections(
+                String callId, List<String> conferenceableConnectionIds) {
             List<RemoteConnection> conferenceable = new ArrayList<>();
             for (String id : conferenceableConnectionIds) {
                 if (mConnectionById.containsKey(id)) {
@@ -366,15 +340,9 @@ final class RemoteConnectionService {
         }
 
         @Override
-        public void addExistingConnection(String callId, ParcelableConnection connection,
-                Session.Info sessionInfo) {
-            String callingPackage = mOurConnectionServiceImpl.getApplicationContext().
-                    getOpPackageName();
-            int callingTargetSdkVersion = mOurConnectionServiceImpl.getApplicationInfo()
-                    .targetSdkVersion;
+        public void addExistingConnection(final String callId, ParcelableConnection connection) {
             RemoteConnection remoteConnection = new RemoteConnection(callId,
-                    mOutgoingConnectionServiceRpc, connection, callingPackage,
-                    callingTargetSdkVersion);
+                    mOutgoingConnectionServiceRpc, connection);
             mConnectionById.put(callId, remoteConnection);
             remoteConnection.registerCallback(new RemoteConnection.Callback() {
                 @Override
@@ -387,7 +355,7 @@ final class RemoteConnectionService {
         }
 
         @Override
-        public void putExtras(String callId, Bundle extras, Session.Info sessionInfo) {
+        public void putExtras(String callId, Bundle extras) {
             if (hasConnection(callId)) {
                 findConnectionForAction(callId, "putExtras").putExtras(extras);
             } else {
@@ -396,7 +364,7 @@ final class RemoteConnectionService {
         }
 
         @Override
-        public void removeExtras(String callId, List<String> keys, Session.Info sessionInfo) {
+        public void removeExtras(String callId, List<String> keys) {
             if (hasConnection(callId)) {
                 findConnectionForAction(callId, "removeExtra").removeExtras(keys);
             } else {
@@ -405,77 +373,11 @@ final class RemoteConnectionService {
         }
 
         @Override
-        public void setAudioRoute(String callId, int audioRoute, String bluetoothAddress,
-                Session.Info sessionInfo) {
-            if (hasConnection(callId)) {
-                // TODO(3pcalls): handle this for remote connections.
-                // Likely we don't want to do anything since it doesn't make sense for self-managed
-                // connections to go through a connection mgr.
-            }
-        }
-
-        @Override
-        public void onConnectionEvent(String callId, String event, Bundle extras,
-                Session.Info sessionInfo) {
+        public void onConnectionEvent(String callId, String event, Bundle extras) {
             if (mConnectionById.containsKey(callId)) {
                 findConnectionForAction(callId, "onConnectionEvent").onConnectionEvent(event,
                         extras);
             }
-        }
-
-        @Override
-        public void onRttInitiationSuccess(String callId, Session.Info sessionInfo)
-                throws RemoteException {
-            if (hasConnection(callId)) {
-                findConnectionForAction(callId, "onRttInitiationSuccess")
-                        .onRttInitiationSuccess();
-            } else {
-                Log.w(this, "onRttInitiationSuccess called on a remote conference");
-            }
-        }
-
-        @Override
-        public void onRttInitiationFailure(String callId, int reason, Session.Info sessionInfo)
-                throws RemoteException {
-            if (hasConnection(callId)) {
-                findConnectionForAction(callId, "onRttInitiationFailure")
-                        .onRttInitiationFailure(reason);
-            } else {
-                Log.w(this, "onRttInitiationFailure called on a remote conference");
-            }
-        }
-
-        @Override
-        public void onRttSessionRemotelyTerminated(String callId, Session.Info sessionInfo)
-                throws RemoteException {
-            if (hasConnection(callId)) {
-                findConnectionForAction(callId, "onRttSessionRemotelyTerminated")
-                        .onRttSessionRemotelyTerminated();
-            } else {
-                Log.w(this, "onRttSessionRemotelyTerminated called on a remote conference");
-            }
-        }
-
-        @Override
-        public void onRemoteRttRequest(String callId, Session.Info sessionInfo)
-                throws RemoteException {
-            if (hasConnection(callId)) {
-                findConnectionForAction(callId, "onRemoteRttRequest")
-                        .onRemoteRttRequest();
-            } else {
-                Log.w(this, "onRemoteRttRequest called on a remote conference");
-            }
-        }
-
-        @Override
-        public void resetConnectionTime(String callId, Session.Info sessionInfo) {
-            // Do nothing
-        }
-
-        @Override
-        public void setConferenceState(String callId, boolean isConference,
-                Session.Info sessionInfo) {
-            // Do nothing
         }
     };
 
@@ -522,18 +424,14 @@ final class RemoteConnectionService {
             ConnectionRequest request,
             boolean isIncoming) {
         final String id = UUID.randomUUID().toString();
-        final ConnectionRequest newRequest = new ConnectionRequest.Builder()
-                .setAccountHandle(request.getAccountHandle())
-                .setAddress(request.getAddress())
-                .setExtras(request.getExtras())
-                .setVideoState(request.getVideoState())
-                .setRttPipeFromInCall(request.getRttPipeFromInCall())
-                .setRttPipeToInCall(request.getRttPipeToInCall())
-                .build();
+        final ConnectionRequest newRequest = new ConnectionRequest(
+                request.getAccountHandle(),
+                request.getAddress(),
+                request.getExtras(),
+                request.getVideoState());
         try {
             if (mConnectionById.isEmpty()) {
-                mOutgoingConnectionServiceRpc.addConnectionServiceAdapter(mServant.getStub(),
-                        null /*Session.Info*/);
+                mOutgoingConnectionServiceRpc.addConnectionServiceAdapter(mServant.getStub());
             }
             RemoteConnection connection =
                     new RemoteConnection(id, mOutgoingConnectionServiceRpc, newRequest);
@@ -544,8 +442,7 @@ final class RemoteConnectionService {
                     id,
                     newRequest,
                     isIncoming,
-                    false /* isUnknownCall */,
-                    null /*Session.info*/);
+                    false /* isUnknownCall */);
             connection.registerCallback(new RemoteConnection.Callback() {
                 @Override
                 public void onDestroyed(RemoteConnection connection) {
@@ -585,8 +482,7 @@ final class RemoteConnectionService {
     private void maybeDisconnectAdapter() {
         if (mConnectionById.isEmpty() && mConferenceById.isEmpty()) {
             try {
-                mOutgoingConnectionServiceRpc.removeConnectionServiceAdapter(mServant.getStub(),
-                        null /*Session.info*/);
+                mOutgoingConnectionServiceRpc.removeConnectionServiceAdapter(mServant.getStub());
             } catch (RemoteException e) {
             }
         }

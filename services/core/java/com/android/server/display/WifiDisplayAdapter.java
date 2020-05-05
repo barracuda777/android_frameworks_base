@@ -16,6 +16,9 @@
 
 package com.android.server.display;
 
+import com.android.internal.util.DumpUtils;
+import com.android.internal.util.IndentingPrintWriter;
+
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -32,18 +35,15 @@ import android.os.Message;
 import android.os.UserHandle;
 import android.util.Slog;
 import android.view.Display;
-import android.view.DisplayAddress;
 import android.view.Surface;
 import android.view.SurfaceControl;
 
-import com.android.internal.util.DumpUtils;
-import com.android.internal.util.IndentingPrintWriter;
-
 import java.io.PrintWriter;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
+import java.util.ArrayList;
+
+import libcore.util.Objects;
 
 /**
  * Connects to Wifi displays that implement the Miracast protocol.
@@ -248,7 +248,7 @@ final class WifiDisplayAdapter extends DisplayAdapter {
         }
 
         WifiDisplay display = mPersistentDataStore.getRememberedWifiDisplay(address);
-        if (display != null && !Objects.equals(display.getDeviceAlias(), alias)) {
+        if (display != null && !Objects.equal(display.getDeviceAlias(), alias)) {
             display = new WifiDisplay(address, display.getDeviceName(), alias,
                     false, false, false);
             if (mPersistentDataStore.rememberWifiDisplay(display)) {
@@ -582,7 +582,7 @@ final class WifiDisplayAdapter extends DisplayAdapter {
         private final int mHeight;
         private final float mRefreshRate;
         private final int mFlags;
-        private final DisplayAddress mAddress;
+        private final String mAddress;
         private final Display.Mode mMode;
 
         private Surface mSurface;
@@ -597,7 +597,7 @@ final class WifiDisplayAdapter extends DisplayAdapter {
             mHeight = height;
             mRefreshRate = refreshRate;
             mFlags = flags;
-            mAddress = DisplayAddress.fromMacAddress(address);
+            mAddress = address;
             mSurface = surface;
             mMode = createMode(width, height, refreshRate);
         }
@@ -621,9 +621,9 @@ final class WifiDisplayAdapter extends DisplayAdapter {
         }
 
         @Override
-        public void performTraversalLocked(SurfaceControl.Transaction t) {
+        public void performTraversalInTransactionLocked() {
             if (mSurface != null) {
-                setSurfaceLocked(t, mSurface);
+                setSurfaceInTransactionLocked(mSurface);
             }
         }
 

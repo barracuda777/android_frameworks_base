@@ -16,9 +16,11 @@
 
 package android.view;
 
-import android.test.ActivityInstrumentationTestCase;
+import android.view.Merge;
 
-import androidx.test.filters.MediumTest;
+import android.test.ActivityInstrumentationTestCase;
+import android.test.suitebuilder.annotation.MediumTest;
+import android.view.ViewGroup;
 
 public class MergeTest extends ActivityInstrumentationTestCase<Merge> {
     public MergeTest() {

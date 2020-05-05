@@ -16,11 +16,12 @@
 
 package android.widget.focus;
 
+import android.util.InternalSelectionView;
+
 import android.app.Activity;
 import android.os.Bundle;
-import android.util.InternalSelectionView;
-import android.view.ViewGroup;
 import android.widget.LinearLayout;
+import android.view.ViewGroup;
 
 /**
  * {@link android.view.FocusFinder#findNextFocus(android.view.ViewGroup, android.view.View, int)}

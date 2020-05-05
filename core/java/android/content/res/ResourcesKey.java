@@ -18,7 +18,6 @@ package android.content.res;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
 import android.text.TextUtils;
 
 import java.util.Arrays;
@@ -27,11 +26,9 @@ import java.util.Objects;
 /** @hide */
 public final class ResourcesKey {
     @Nullable
-    @UnsupportedAppUsage
     public final String mResDir;
 
     @Nullable
-    @UnsupportedAppUsage
     public final String[] mSplitResDirs;
 
     @Nullable
@@ -50,7 +47,6 @@ public final class ResourcesKey {
 
     private final int mHash;
 
-    @UnsupportedAppUsage
     public ResourcesKey(@Nullable String resDir,
                         @Nullable String[] splitResDirs,
                         @Nullable String[] overlayDirs,
@@ -63,8 +59,7 @@ public final class ResourcesKey {
         mOverlayDirs = overlayDirs;
         mLibDirs = libDirs;
         mDisplayId = displayId;
-        mOverrideConfiguration = new Configuration(overrideConfig != null
-                ? overrideConfig : Configuration.EMPTY);
+        mOverrideConfiguration = overrideConfig != null ? overrideConfig : Configuration.EMPTY;
         mCompatInfo = compatInfo != null ? compatInfo : CompatibilityInfo.DEFAULT_COMPATIBILITY_INFO;
 
         int hash = 17;

@@ -17,13 +17,8 @@
 package android.content.pm;
 
 import android.annotation.IntDef;
-import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
-import android.content.ComponentName;
-import android.content.Intent;
 import android.content.res.Configuration;
 import android.content.res.Configuration.NativeConfig;
-import android.content.res.TypedArray;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.util.Printer;
@@ -37,7 +32,8 @@ import java.lang.annotation.RetentionPolicy;
  * from the AndroidManifest.xml's &lt;activity&gt; and
  * &lt;receiver&gt; tags.
  */
-public class ActivityInfo extends ComponentInfo implements Parcelable {
+public class ActivityInfo extends ComponentInfo
+        implements Parcelable {
 
      // NOTE: When adding new data members be sure to update the copy-constructor, Parcel
      // constructor, and writeToParcel.
@@ -161,88 +157,38 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
     public String targetActivity;
 
     /**
-     * Token used to string together multiple events within a single launch action.
-     * @hide
-     */
-    public String launchToken;
-
-    /**
      * Activity can not be resized and always occupies the fullscreen area with all windows fully
      * visible.
      * @hide
      */
     public static final int RESIZE_MODE_UNRESIZEABLE = 0;
     /**
-     * Activity didn't explicitly request to be resizeable, but we are making it resizeable because
-     * of the SDK version it targets. Only affects apps with target SDK >= N where the app is
-     * implied to be resizeable if it doesn't explicitly set the attribute to any value.
+     * Activity can not be resized and always occupies the fullscreen area with all windows cropped
+     * to either the task or stack bounds.
      * @hide
      */
-    public static final int RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION = 1;
+    public static final int RESIZE_MODE_CROP_WINDOWS = 1;
     /**
-     * Activity explicitly requested to be resizeable.
+     * Activity is resizeable.
      * @hide
      */
-    @TestApi
     public static final int RESIZE_MODE_RESIZEABLE = 2;
     /**
-     * Activity is resizeable and supported picture-in-picture mode.  This flag is now deprecated
-     * since activities do not need to be resizeable to support picture-in-picture.
-     * See {@link #FLAG_SUPPORTS_PICTURE_IN_PICTURE}.
-     *
+     * Activity is resizeable and supported picture-in-picture mode.
      * @hide
-     * @deprecated
      */
-    public static final int RESIZE_MODE_RESIZEABLE_AND_PIPABLE_DEPRECATED = 3;
+    public static final int RESIZE_MODE_RESIZEABLE_AND_PIPABLE = 3;
     /**
-     * Activity does not support resizing, but we are forcing it to be resizeable. Only affects
-     * certain pre-N apps where we force them to be resizeable.
+     * Activity is does not support resizing, but we are forcing it to be resizeable.
      * @hide
      */
     public static final int RESIZE_MODE_FORCE_RESIZEABLE = 4;
-    /**
-     * Activity does not support resizing, but we are forcing it to be resizeable as long
-     * as the size remains landscape.
-     * @hide
-     */
-    public static final int RESIZE_MODE_FORCE_RESIZABLE_LANDSCAPE_ONLY = 5;
-    /**
-     * Activity does not support resizing, but we are forcing it to be resizeable as long
-     * as the size remains portrait.
-     * @hide
-     */
-    public static final int RESIZE_MODE_FORCE_RESIZABLE_PORTRAIT_ONLY = 6;
-    /**
-     * Activity does not support resizing, but we are forcing it to be resizeable as long
-     * as the bounds remain in the same orientation as they are.
-     * @hide
-     */
-    public static final int RESIZE_MODE_FORCE_RESIZABLE_PRESERVE_ORIENTATION = 7;
     /**
      * Value indicating if the resizing mode the activity supports.
      * See {@link android.R.attr#resizeableActivity}.
      * @hide
      */
-    @UnsupportedAppUsage
     public int resizeMode = RESIZE_MODE_RESIZEABLE;
-
-    /**
-     * Value indicating the maximum aspect ratio the activity supports.
-     * <p>
-     * 0 means unset.
-     * @See {@link android.R.attr#maxAspectRatio}.
-     * @hide
-     */
-    public float maxAspectRatio;
-
-    /**
-     * Value indicating the minimum aspect ratio the activity supports.
-     * <p>
-     * 0 means unset.
-     * @See {@link android.R.attr#minAspectRatio}.
-     * @hide
-     */
-    public float minAspectRatio;
 
     /**
      * Name of the VrListenerService component to run for this activity.
@@ -250,44 +196,6 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
      * @hide
      */
     public String requestedVrComponent;
-
-    /**
-     * Value for {@link #colorMode} indicating that the activity should use the
-     * default color mode (sRGB, low dynamic range).
-     *
-     * @see android.R.attr#colorMode
-     */
-    public static final int COLOR_MODE_DEFAULT = 0;
-    /**
-     * Value of {@link #colorMode} indicating that the activity should use a
-     * wide color gamut if the presentation display supports it.
-     *
-     * @see android.R.attr#colorMode
-     */
-    public static final int COLOR_MODE_WIDE_COLOR_GAMUT = 1;
-    /**
-     * Value of {@link #colorMode} indicating that the activity should use a
-     * high dynamic range if the presentation display supports it.
-     *
-     * @see android.R.attr#colorMode
-     */
-    public static final int COLOR_MODE_HDR = 2;
-
-    /** @hide */
-    @IntDef(prefix = { "COLOR_MODE_" }, value = {
-            COLOR_MODE_DEFAULT,
-            COLOR_MODE_WIDE_COLOR_GAMUT,
-            COLOR_MODE_HDR,
-    })
-    @Retention(RetentionPolicy.SOURCE)
-    public @interface ColorMode {}
-
-    /**
-     * The color mode requested by this activity. The target display may not be
-     * able to honor the request.
-     */
-    @ColorMode
-    public int colorMode = COLOR_MODE_DEFAULT;
 
     /**
      * Bit in {@link #flags} indicating whether this activity is able to
@@ -366,7 +274,6 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
      * {@link android.R.attr#showForAllUsers} attribute.
      * @hide
      */
-    @UnsupportedAppUsage
     public static final int FLAG_SHOW_FOR_ALL_USERS = 0x0400;
     /**
      * Bit in {@link #flags} corresponding to an immersive activity
@@ -413,7 +320,7 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
     /**
      * Bit in {@link #flags} indicating that this activity should be run with VR mode enabled.
      *
-     * @see android.app.Activity#setVrModeEnabled(boolean, ComponentName)
+     * {@see android.app.Activity#setVrMode(boolean)}.
      */
     public static final int FLAG_ENABLE_VR_MODE = 0x8000;
 
@@ -424,49 +331,6 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
      * @hide
      */
     public static final int FLAG_ALWAYS_FOCUSABLE = 0x40000;
-
-    /**
-     * Bit in {@link #flags} indicating if the activity is visible to instant
-     * applications. The activity is visible if it's either implicitly or
-     * explicitly exposed.
-     * @hide
-     */
-    public static final int FLAG_VISIBLE_TO_INSTANT_APP = 0x100000;
-
-    /**
-     * Bit in {@link #flags} indicating if the activity is implicitly visible
-     * to instant applications. Implicitly visible activities are those that
-     * implement certain intent-filters:
-     * <ul>
-     * <li>action {@link Intent#CATEGORY_BROWSABLE}</li>
-     * <li>action {@link Intent#ACTION_SEND}</li>
-     * <li>action {@link Intent#ACTION_SENDTO}</li>
-     * <li>action {@link Intent#ACTION_SEND_MULTIPLE}</li>
-     * </ul>
-     * @hide
-     */
-    public static final int FLAG_IMPLICITLY_VISIBLE_TO_INSTANT_APP = 0x200000;
-
-    /**
-     * Bit in {@link #flags} indicating if the activity supports picture-in-picture mode.
-     * See {@link android.R.attr#supportsPictureInPicture}.
-     * @hide
-     */
-    public static final int FLAG_SUPPORTS_PICTURE_IN_PICTURE = 0x400000;
-
-    /**
-     * Bit in {@link #flags} indicating if the activity should be shown when locked.
-     * See {@link android.R.attr#showWhenLocked}
-     * @hide
-     */
-    public static final int FLAG_SHOW_WHEN_LOCKED = 0x800000;
-
-    /**
-     * Bit in {@link #flags} indicating if the screen should turn on when starting the activity.
-     * See {@link android.R.attr#turnScreenOn}
-     * @hide
-     */
-    public static final int FLAG_TURN_SCREEN_ON = 0x1000000;
 
     /**
      * @hide Bit in {@link #flags}: If set, this component will only be seen
@@ -488,9 +352,7 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
      * this activity is launched into such a container a SecurityException will be
      * thrown. Set from the {@link android.R.attr#allowEmbedded} attribute.
      */
-    @UnsupportedAppUsage
     public static final int FLAG_ALLOW_EMBEDDED = 0x80000000;
-
     /**
      * Options that have been set in the activity declaration in the
      * manifest.
@@ -505,25 +367,8 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
      */
     public int flags;
 
-    /**
-     * Bit in {@link #privateFlags} indicating if the activity should be shown when locked in case
-     * an activity behind this can also be shown when locked.
-     * See {@link android.R.attr#inheritShowWhenLocked}.
-     * @hide
-     */
-    public static final int FLAG_INHERIT_SHOW_WHEN_LOCKED = 0x1;
-
-    /**
-     * Options that have been set in the activity declaration in the manifest.
-     * These include:
-     * {@link #FLAG_INHERIT_SHOW_WHEN_LOCKED}.
-     * @hide
-     */
-    public int privateFlags;
-
     /** @hide */
-    @IntDef(prefix = { "SCREEN_ORIENTATION_" }, value = {
-            SCREEN_ORIENTATION_UNSET,
+    @IntDef({
             SCREEN_ORIENTATION_UNSPECIFIED,
             SCREEN_ORIENTATION_LANDSCAPE,
             SCREEN_ORIENTATION_PORTRAIT,
@@ -544,15 +389,6 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
     @Retention(RetentionPolicy.SOURCE)
     public @interface ScreenOrientation {}
 
-    /**
-     * Internal constant used to indicate that the app didn't set a specific orientation value.
-     * Different from {@link #SCREEN_ORIENTATION_UNSPECIFIED} below as the app can set its
-     * orientation to {@link #SCREEN_ORIENTATION_UNSPECIFIED} while this means that the app didn't
-     * set anything. The system will mostly treat this similar to
-     * {@link #SCREEN_ORIENTATION_UNSPECIFIED}.
-     * @hide
-     */
-    public static final int SCREEN_ORIENTATION_UNSET = -2;
     /**
      * Constant corresponding to <code>unspecified</code> in
      * the {@link android.R.attr#screenOrientation} attribute.
@@ -668,24 +504,24 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
     public int screenOrientation = SCREEN_ORIENTATION_UNSPECIFIED;
 
     /** @hide */
-    @IntDef(flag = true, prefix = { "CONFIG_" }, value = {
-            CONFIG_MCC,
-            CONFIG_MNC,
-            CONFIG_LOCALE,
-            CONFIG_TOUCHSCREEN,
-            CONFIG_KEYBOARD,
-            CONFIG_KEYBOARD_HIDDEN,
-            CONFIG_NAVIGATION,
-            CONFIG_ORIENTATION,
-            CONFIG_SCREEN_LAYOUT,
-            CONFIG_UI_MODE,
-            CONFIG_SCREEN_SIZE,
-            CONFIG_SMALLEST_SCREEN_SIZE,
-            CONFIG_DENSITY,
-            CONFIG_LAYOUT_DIRECTION,
-            CONFIG_COLOR_MODE,
-            CONFIG_FONT_SCALE,
-    })
+    @IntDef(flag = true,
+            value = {
+                    CONFIG_MCC,
+                    CONFIG_MNC,
+                    CONFIG_LOCALE,
+                    CONFIG_TOUCHSCREEN,
+                    CONFIG_KEYBOARD,
+                    CONFIG_KEYBOARD_HIDDEN,
+                    CONFIG_NAVIGATION,
+                    CONFIG_ORIENTATION,
+                    CONFIG_SCREEN_LAYOUT,
+                    CONFIG_UI_MODE,
+                    CONFIG_SCREEN_SIZE,
+                    CONFIG_SMALLEST_SCREEN_SIZE,
+                    CONFIG_DENSITY,
+                    CONFIG_LAYOUT_DIRECTION,
+                    CONFIG_FONT_SCALE,
+            })
     @Retention(RetentionPolicy.SOURCE)
     public @interface Config {}
 
@@ -789,33 +625,12 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
     public static final int CONFIG_LAYOUT_DIRECTION = 0x2000;
     /**
      * Bit in {@link #configChanges} that indicates that the activity
-     * can itself handle the change to the display color gamut or dynamic
-     * range. Set from the {@link android.R.attr#configChanges} attribute.
-     */
-    public static final int CONFIG_COLOR_MODE = 0x4000;
-    /**
-     * Bit in {@link #configChanges} that indicates that the activity
-     * can itself handle asset path changes.  Set from the {@link android.R.attr#configChanges}
-     * attribute. This is not a core resource configuration, but a higher-level value, so its
-     * constant starts at the high bits.
-     * @hide We do not want apps handling this yet, but we do need some kind of bit for diffs.
-     */
-    public static final int CONFIG_ASSETS_PATHS = 0x80000000;
-    /**
-     * Bit in {@link #configChanges} that indicates that the activity
      * can itself handle changes to the font scaling factor.  Set from the
      * {@link android.R.attr#configChanges} attribute.  This is
      * not a core resource configuration, but a higher-level value, so its
      * constant starts at the high bits.
      */
     public static final int CONFIG_FONT_SCALE = 0x40000000;
-    /**
-     * Bit indicating changes to window configuration that isn't exposed to apps.
-     * This is for internal use only and apps don't handle it.
-     * @hide
-     * {@link Configuration}.
-     */
-    public static final int CONFIG_WINDOW_CONFIGURATION = 0x20000000;
 
     /** @hide
      * Unfortunately the constants for config changes in native code are
@@ -837,7 +652,6 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
         Configuration.NATIVE_CONFIG_SMALLEST_SCREEN_SIZE,   // SMALLEST SCREEN SIZE
         Configuration.NATIVE_CONFIG_DENSITY,                // DENSITY
         Configuration.NATIVE_CONFIG_LAYOUTDIR,              // LAYOUT DIRECTION
-        Configuration.NATIVE_CONFIG_COLOR_MODE,             // COLOR_MODE
     };
 
     /**
@@ -845,7 +659,6 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
      *
      * @hide
      */
-    @UnsupportedAppUsage
     public static @NativeConfig int activityInfoConfigJavaToNative(@Config int input) {
         int output = 0;
         for (int i = 0; i < CONFIG_NATIVE_BITS.length; i++) {
@@ -894,8 +707,7 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
      * {@link #CONFIG_LOCALE}, {@link #CONFIG_TOUCHSCREEN},
      * {@link #CONFIG_KEYBOARD}, {@link #CONFIG_NAVIGATION},
      * {@link #CONFIG_ORIENTATION}, {@link #CONFIG_SCREEN_LAYOUT},
-     * {@link #CONFIG_DENSITY}, {@link #CONFIG_LAYOUT_DIRECTION} and
-     * {@link #CONFIG_COLOR_MODE}.
+     * {@link #CONFIG_DENSITY}, and {@link #CONFIG_LAYOUT_DIRECTION}.
      * Set from the {@link android.R.attr#configChanges} attribute.
      */
     public int configChanges;
@@ -908,7 +720,6 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
      * WindowManager.LayoutParams.softInputMode}.  If 0 (unspecified),
      * the mode from the theme will be used.
      */
-    @android.view.WindowManager.LayoutParams.SoftInputModeFlags
     public int softInputMode;
 
     /**
@@ -931,16 +742,6 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
      * If defined, the activity named here is the logical parent of this activity.
      */
     public String parentActivityName;
-
-    /**
-     * Screen rotation animation desired by the activity, with values as defined
-     * for {@link android.view.WindowManager.LayoutParams#rotationAnimation}.
-     *
-     * -1 means to use the system default.
-     *
-     * @hide
-     */
-    public int rotationAnimation = -1;
 
     /** @hide */
     public static final int LOCK_TASK_LAUNCH_MODE_DEFAULT = 0;
@@ -991,7 +792,6 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
         taskAffinity = orig.taskAffinity;
         targetActivity = orig.targetActivity;
         flags = orig.flags;
-        privateFlags = orig.privateFlags;
         screenOrientation = orig.screenOrientation;
         configChanges = orig.configChanges;
         softInputMode = orig.softInputMode;
@@ -1002,10 +802,6 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
         windowLayout = orig.windowLayout;
         resizeMode = orig.resizeMode;
         requestedVrComponent = orig.requestedVrComponent;
-        rotationAnimation = orig.rotationAnimation;
-        colorMode = orig.colorMode;
-        maxAspectRatio = orig.maxAspectRatio;
-        minAspectRatio = orig.minAspectRatio;
     }
 
     /**
@@ -1029,85 +825,26 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
     }
 
     /**
-     * Returns true if the activity has maximum or minimum aspect ratio.
-     * @hide
-     */
-    public boolean hasFixedAspectRatio() {
-        return maxAspectRatio != 0 || minAspectRatio != 0;
-    }
-
-    /**
      * Returns true if the activity's orientation is fixed.
      * @hide
      */
-    public boolean isFixedOrientation() {
-        return isFixedOrientationLandscape() || isFixedOrientationPortrait()
+    boolean isFixedOrientation() {
+        return screenOrientation == SCREEN_ORIENTATION_LANDSCAPE
+                || screenOrientation == SCREEN_ORIENTATION_PORTRAIT
+                || screenOrientation == SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                || screenOrientation == SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                || screenOrientation == SCREEN_ORIENTATION_REVERSE_LANDSCAPE
+                || screenOrientation == SCREEN_ORIENTATION_REVERSE_PORTRAIT
+                || screenOrientation == SCREEN_ORIENTATION_USER_LANDSCAPE
+                || screenOrientation == SCREEN_ORIENTATION_USER_PORTRAIT
                 || screenOrientation == SCREEN_ORIENTATION_LOCKED;
     }
 
-    /**
-     * Returns true if the activity's orientation is fixed to landscape.
-     * @hide
-     */
-    boolean isFixedOrientationLandscape() {
-        return isFixedOrientationLandscape(screenOrientation);
-    }
-
-    /**
-     * Returns true if the activity's orientation is fixed to landscape.
-     * @hide
-     */
-    public static boolean isFixedOrientationLandscape(@ScreenOrientation int orientation) {
-        return orientation == SCREEN_ORIENTATION_LANDSCAPE
-                || orientation == SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                || orientation == SCREEN_ORIENTATION_REVERSE_LANDSCAPE
-                || orientation == SCREEN_ORIENTATION_USER_LANDSCAPE;
-    }
-
-    /**
-     * Returns true if the activity's orientation is fixed to portrait.
-     * @hide
-     */
-    boolean isFixedOrientationPortrait() {
-        return isFixedOrientationPortrait(screenOrientation);
-    }
-
-    /**
-     * Returns true if the activity's orientation is fixed to portrait.
-     * @hide
-     */
-    public static boolean isFixedOrientationPortrait(@ScreenOrientation int orientation) {
-        return orientation == SCREEN_ORIENTATION_PORTRAIT
-                || orientation == SCREEN_ORIENTATION_SENSOR_PORTRAIT
-                || orientation == SCREEN_ORIENTATION_REVERSE_PORTRAIT
-                || orientation == SCREEN_ORIENTATION_USER_PORTRAIT;
-    }
-
-    /**
-     * Returns true if the activity supports picture-in-picture.
-     * @hide
-     */
-    @UnsupportedAppUsage
-    public boolean supportsPictureInPicture() {
-        return (flags & FLAG_SUPPORTS_PICTURE_IN_PICTURE) != 0;
-    }
-
     /** @hide */
-    @UnsupportedAppUsage
     public static boolean isResizeableMode(int mode) {
         return mode == RESIZE_MODE_RESIZEABLE
-                || mode == RESIZE_MODE_FORCE_RESIZEABLE
-                || mode == RESIZE_MODE_FORCE_RESIZABLE_PORTRAIT_ONLY
-                || mode == RESIZE_MODE_FORCE_RESIZABLE_LANDSCAPE_ONLY
-                || mode == RESIZE_MODE_FORCE_RESIZABLE_PRESERVE_ORIENTATION
-                || mode == RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION;
-    }
-
-    /** @hide */
-    public static boolean isPreserveOrientationMode(int mode) {
-        return mode == RESIZE_MODE_FORCE_RESIZABLE_PORTRAIT_ONLY
-                || mode == RESIZE_MODE_FORCE_RESIZABLE_LANDSCAPE_ONLY
-                || mode == RESIZE_MODE_FORCE_RESIZABLE_PRESERVE_ORIENTATION;
+                || mode == RESIZE_MODE_RESIZEABLE_AND_PIPABLE
+                || mode == RESIZE_MODE_FORCE_RESIZEABLE;
     }
 
     /** @hide */
@@ -1115,18 +852,14 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
         switch (mode) {
             case RESIZE_MODE_UNRESIZEABLE:
                 return "RESIZE_MODE_UNRESIZEABLE";
-            case RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION:
-                return "RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION";
+            case RESIZE_MODE_CROP_WINDOWS:
+                return "RESIZE_MODE_CROP_WINDOWS";
             case RESIZE_MODE_RESIZEABLE:
                 return "RESIZE_MODE_RESIZEABLE";
+            case RESIZE_MODE_RESIZEABLE_AND_PIPABLE:
+                return "RESIZE_MODE_RESIZEABLE_AND_PIPABLE";
             case RESIZE_MODE_FORCE_RESIZEABLE:
                 return "RESIZE_MODE_FORCE_RESIZEABLE";
-            case RESIZE_MODE_FORCE_RESIZABLE_PORTRAIT_ONLY:
-                return "RESIZE_MODE_FORCE_RESIZABLE_PORTRAIT_ONLY";
-            case RESIZE_MODE_FORCE_RESIZABLE_LANDSCAPE_ONLY:
-                return "RESIZE_MODE_FORCE_RESIZABLE_LANDSCAPE_ONLY";
-            case RESIZE_MODE_FORCE_RESIZABLE_PRESERVE_ORIENTATION:
-                return "RESIZE_MODE_FORCE_RESIZABLE_PRESERVE_ORIENTATION";
             default:
                 return "unknown=" + mode;
         }
@@ -1137,20 +870,19 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
     }
 
     /** @hide */
-    public void dump(Printer pw, String prefix, int dumpFlags) {
+    public void dump(Printer pw, String prefix, int flags) {
         super.dumpFront(pw, prefix);
         if (permission != null) {
             pw.println(prefix + "permission=" + permission);
         }
-        if ((dumpFlags & DUMP_FLAG_DETAILS) != 0) {
+        if ((flags&DUMP_FLAG_DETAILS) != 0) {
             pw.println(prefix + "taskAffinity=" + taskAffinity
                     + " targetActivity=" + targetActivity
                     + " persistableMode=" + persistableModeToString());
         }
-        if (launchMode != 0 || flags != 0 || privateFlags != 0 || theme != 0) {
+        if (launchMode != 0 || flags != 0 || theme != 0) {
             pw.println(prefix + "launchMode=" + launchMode
                     + " flags=0x" + Integer.toHexString(flags)
-                    + " privateFlags=0x" + Integer.toHexString(privateFlags)
                     + " theme=0x" + Integer.toHexString(theme));
         }
         if (screenOrientation != SCREEN_ORIENTATION_UNSPECIFIED
@@ -1162,7 +894,7 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
         if (uiOptions != 0) {
             pw.println(prefix + " uiOptions=0x" + Integer.toHexString(uiOptions));
         }
-        if ((dumpFlags & DUMP_FLAG_DETAILS) != 0) {
+        if ((flags&DUMP_FLAG_DETAILS) != 0) {
             pw.println(prefix + "lockTaskLaunchMode="
                     + lockTaskLaunchModeToString(lockTaskLaunchMode));
         }
@@ -1175,13 +907,7 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
         if (requestedVrComponent != null) {
             pw.println(prefix + "requestedVrComponent=" + requestedVrComponent);
         }
-        if (maxAspectRatio != 0) {
-            pw.println(prefix + "maxAspectRatio=" + maxAspectRatio);
-        }
-        if (minAspectRatio != 0) {
-            pw.println(prefix + "minAspectRatio=" + minAspectRatio);
-        }
-        super.dumpBack(pw, prefix, dumpFlags);
+        super.dumpBack(pw, prefix, flags);
     }
 
     public String toString() {
@@ -1202,9 +928,7 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
         dest.writeString(permission);
         dest.writeString(taskAffinity);
         dest.writeString(targetActivity);
-        dest.writeString(launchToken);
         dest.writeInt(flags);
-        dest.writeInt(privateFlags);
         dest.writeInt(screenOrientation);
         dest.writeInt(configChanges);
         dest.writeInt(softInputMode);
@@ -1227,94 +951,9 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
         }
         dest.writeInt(resizeMode);
         dest.writeString(requestedVrComponent);
-        dest.writeInt(rotationAnimation);
-        dest.writeInt(colorMode);
-        dest.writeFloat(maxAspectRatio);
-        dest.writeFloat(minAspectRatio);
     }
 
-    /**
-     * Determines whether the {@link Activity} is considered translucent or floating.
-     * @hide
-     */
-    @TestApi
-    public static boolean isTranslucentOrFloating(TypedArray attributes) {
-        final boolean isTranslucent =
-                attributes.getBoolean(com.android.internal.R.styleable.Window_windowIsTranslucent,
-                        false);
-        final boolean isSwipeToDismiss = !attributes.hasValue(
-                com.android.internal.R.styleable.Window_windowIsTranslucent)
-                && attributes.getBoolean(
-                        com.android.internal.R.styleable.Window_windowSwipeToDismiss, false);
-        final boolean isFloating =
-                attributes.getBoolean(com.android.internal.R.styleable.Window_windowIsFloating,
-                        false);
-
-        return isFloating || isTranslucent || isSwipeToDismiss;
-    }
-
-    /**
-     * Convert the screen orientation constant to a human readable format.
-     * @hide
-     */
-    public static String screenOrientationToString(int orientation) {
-        switch (orientation) {
-            case SCREEN_ORIENTATION_UNSET:
-                return "SCREEN_ORIENTATION_UNSET";
-            case SCREEN_ORIENTATION_UNSPECIFIED:
-                return "SCREEN_ORIENTATION_UNSPECIFIED";
-            case SCREEN_ORIENTATION_LANDSCAPE:
-                return "SCREEN_ORIENTATION_LANDSCAPE";
-            case SCREEN_ORIENTATION_PORTRAIT:
-                return "SCREEN_ORIENTATION_PORTRAIT";
-            case SCREEN_ORIENTATION_USER:
-                return "SCREEN_ORIENTATION_USER";
-            case SCREEN_ORIENTATION_BEHIND:
-                return "SCREEN_ORIENTATION_BEHIND";
-            case SCREEN_ORIENTATION_SENSOR:
-                return "SCREEN_ORIENTATION_SENSOR";
-            case SCREEN_ORIENTATION_NOSENSOR:
-                return "SCREEN_ORIENTATION_NOSENSOR";
-            case SCREEN_ORIENTATION_SENSOR_LANDSCAPE:
-                return "SCREEN_ORIENTATION_SENSOR_LANDSCAPE";
-            case SCREEN_ORIENTATION_SENSOR_PORTRAIT:
-                return "SCREEN_ORIENTATION_SENSOR_PORTRAIT";
-            case SCREEN_ORIENTATION_REVERSE_LANDSCAPE:
-                return "SCREEN_ORIENTATION_REVERSE_LANDSCAPE";
-            case SCREEN_ORIENTATION_REVERSE_PORTRAIT:
-                return "SCREEN_ORIENTATION_REVERSE_PORTRAIT";
-            case SCREEN_ORIENTATION_FULL_SENSOR:
-                return "SCREEN_ORIENTATION_FULL_SENSOR";
-            case SCREEN_ORIENTATION_USER_LANDSCAPE:
-                return "SCREEN_ORIENTATION_USER_LANDSCAPE";
-            case SCREEN_ORIENTATION_USER_PORTRAIT:
-                return "SCREEN_ORIENTATION_USER_PORTRAIT";
-            case SCREEN_ORIENTATION_FULL_USER:
-                return "SCREEN_ORIENTATION_FULL_USER";
-            case SCREEN_ORIENTATION_LOCKED:
-                return "SCREEN_ORIENTATION_LOCKED";
-            default:
-                return Integer.toString(orientation);
-        }
-    }
-
-    /**
-     * @hide
-     */
-    public static String colorModeToString(@ColorMode int colorMode) {
-        switch (colorMode) {
-            case COLOR_MODE_DEFAULT:
-                return "COLOR_MODE_DEFAULT";
-            case COLOR_MODE_WIDE_COLOR_GAMUT:
-                return "COLOR_MODE_WIDE_COLOR_GAMUT";
-            case COLOR_MODE_HDR:
-                return "COLOR_MODE_HDR";
-            default:
-                return Integer.toString(colorMode);
-        }
-    }
-
-    public static final @android.annotation.NonNull Parcelable.Creator<ActivityInfo> CREATOR
+    public static final Parcelable.Creator<ActivityInfo> CREATOR
             = new Parcelable.Creator<ActivityInfo>() {
         public ActivityInfo createFromParcel(Parcel source) {
             return new ActivityInfo(source);
@@ -1332,9 +971,7 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
         permission = source.readString();
         taskAffinity = source.readString();
         targetActivity = source.readString();
-        launchToken = source.readString();
         flags = source.readInt();
-        privateFlags = source.readInt();
         screenOrientation = source.readInt();
         configChanges = source.readInt();
         softInputMode = source.readInt();
@@ -1348,10 +985,6 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
         }
         resizeMode = source.readInt();
         requestedVrComponent = source.readString();
-        rotationAnimation = source.readInt();
-        colorMode = source.readInt();
-        maxAspectRatio = source.readFloat();
-        minAspectRatio = source.readFloat();
     }
 
     /**
@@ -1451,13 +1084,5 @@ public class ActivityInfo extends ComponentInfo implements Parcelable {
          * @attr ref android.R.styleable#AndroidManifestLayout_minHeight
          */
         public final int minHeight;
-
-        /**
-         * Returns if this {@link WindowLayout} has specified bounds.
-         * @hide
-         */
-        public boolean hasSpecifiedSize() {
-            return width >= 0 || height >= 0 || widthFraction >= 0 || heightFraction >= 0;
-        }
     }
 }

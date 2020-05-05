@@ -22,18 +22,13 @@ import com.android.server.pm.UserRestrictionsUtils;
 
 import android.content.ComponentName;
 import android.content.Intent;
-import android.os.BaseBundle;
 import android.os.Bundle;
 import android.os.UserHandle;
-import android.util.ArraySet;
 
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
-import org.mockito.hamcrest.MockitoHamcrest;
-
-import java.util.Arrays;
-import java.util.Set;
+import org.mockito.Mockito;
 
 public class MockUtils {
     private MockUtils() {
@@ -52,7 +47,7 @@ public class MockUtils {
                 description.appendText("UserHandle: user-id= \"" + userId + "\"");
             }
         };
-        return MockitoHamcrest.argThat(m);
+        return Mockito.argThat(m);
     }
 
     public static Intent checkIntentComponent(final ComponentName component) {
@@ -68,7 +63,7 @@ public class MockUtils {
                 description.appendText("Intent: component=\"" + component + "\"");
             }
         };
-        return MockitoHamcrest.argThat(m);
+        return Mockito.argThat(m);
     }
 
     public static Intent checkIntentAction(final String action) {
@@ -84,26 +79,7 @@ public class MockUtils {
                 description.appendText("Intent: action=\"" + action + "\"");
             }
         };
-        return MockitoHamcrest.argThat(m);
-    }
-
-    public static Intent checkIntent(final Intent intent) {
-        final Matcher<Intent> m = new BaseMatcher<Intent>() {
-            @Override
-            public boolean matches(Object item) {
-                if (item == null) return false;
-                if (!intent.filterEquals((Intent) item)) return false;
-                BaseBundle extras = intent.getExtras();
-                BaseBundle itemExtras = ((Intent) item).getExtras();
-                return (extras == itemExtras) || (extras != null &&
-                        extras.kindofEquals(itemExtras));
-            }
-            @Override
-            public void describeTo(Description description) {
-                description.appendText(intent.toString());
-            }
-        };
-        return MockitoHamcrest.argThat(m);
+        return Mockito.argThat(m);
     }
 
     public static Bundle checkUserRestrictions(String... keys) {
@@ -120,31 +96,7 @@ public class MockUtils {
                 description.appendText("User restrictions=" + getRestrictionsAsString(expected));
             }
         };
-        return MockitoHamcrest.argThat(m);
-    }
-
-    public static Set<String> checkApps(String... adminApps) {
-        final Matcher<Set<String>> m = new BaseMatcher<Set<String>>() {
-            @Override
-            public boolean matches(Object item) {
-                if (item == null) return false;
-                final Set<String> actualApps = (Set<String>) item;
-                if (adminApps.length != actualApps.size()) {
-                    return false;
-                }
-                final Set<String> copyOfApps = new ArraySet<>(actualApps);
-                for (String adminApp : adminApps) {
-                    copyOfApps.remove(adminApp);
-                }
-                return copyOfApps.isEmpty();
-            }
-
-            @Override
-            public void describeTo(Description description) {
-                description.appendText("Apps=" + Arrays.toString(adminApps));
-            }
-        };
-        return MockitoHamcrest.argThat(m);
+        return Mockito.argThat(m);
     }
 
     private static String getRestrictionsAsString(Bundle b) {

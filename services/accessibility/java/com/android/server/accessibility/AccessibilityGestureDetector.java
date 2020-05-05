@@ -16,18 +16,19 @@
 
 package com.android.server.accessibility;
 
-import android.accessibilityservice.AccessibilityService;
 import android.content.Context;
 import android.gesture.Gesture;
+import android.gesture.GestureLibraries;
+import android.gesture.GestureLibrary;
 import android.gesture.GesturePoint;
 import android.gesture.GestureStore;
 import android.gesture.GestureStroke;
 import android.gesture.Prediction;
-import android.graphics.PointF;
 import android.util.Slog;
 import android.util.TypedValue;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
+import android.view.VelocityTracker;
 import android.view.ViewConfiguration;
 
 import com.android.internal.R;
@@ -45,49 +46,6 @@ class AccessibilityGestureDetector extends GestureDetector.SimpleOnGestureListen
 
     // Tag for logging received events.
     private static final String LOG_TAG = "AccessibilityGestureDetector";
-
-    // Constants for sampling motion event points.
-    // We sample based on a minimum distance between points, primarily to improve accuracy by
-    // reducing noisy minor changes in direction.
-    private static final float MIN_INCHES_BETWEEN_SAMPLES = 0.1f;
-    private final float mMinPixelsBetweenSamplesX;
-    private final float mMinPixelsBetweenSamplesY;
-
-    // Constants for separating gesture segments
-    private static final float ANGLE_THRESHOLD = 0.0f;
-
-    // Constants for line segment directions
-    private static final int LEFT = 0;
-    private static final int RIGHT = 1;
-    private static final int UP = 2;
-    private static final int DOWN = 3;
-    private static final int[][] DIRECTIONS_TO_GESTURE_ID = {
-        {
-            AccessibilityService.GESTURE_SWIPE_LEFT,
-            AccessibilityService.GESTURE_SWIPE_LEFT_AND_RIGHT,
-            AccessibilityService.GESTURE_SWIPE_LEFT_AND_UP,
-            AccessibilityService.GESTURE_SWIPE_LEFT_AND_DOWN
-        },
-        {
-            AccessibilityService.GESTURE_SWIPE_RIGHT_AND_LEFT,
-            AccessibilityService.GESTURE_SWIPE_RIGHT,
-            AccessibilityService.GESTURE_SWIPE_RIGHT_AND_UP,
-            AccessibilityService.GESTURE_SWIPE_RIGHT_AND_DOWN
-        },
-        {
-            AccessibilityService.GESTURE_SWIPE_UP_AND_LEFT,
-            AccessibilityService.GESTURE_SWIPE_UP_AND_RIGHT,
-            AccessibilityService.GESTURE_SWIPE_UP,
-            AccessibilityService.GESTURE_SWIPE_UP_AND_DOWN
-        },
-        {
-            AccessibilityService.GESTURE_SWIPE_DOWN_AND_LEFT,
-            AccessibilityService.GESTURE_SWIPE_DOWN_AND_RIGHT,
-            AccessibilityService.GESTURE_SWIPE_DOWN_AND_UP,
-            AccessibilityService.GESTURE_SWIPE_DOWN
-        }
-    };
-
 
     /**
      * Listener functions are called as a result of onMoveEvent().  The current
@@ -144,8 +102,10 @@ class AccessibilityGestureDetector extends GestureDetector.SimpleOnGestureListen
     }
 
     private final Listener mListener;
-    private final Context mContext;  // Retained for on-demand construction of GestureDetector.
-    private final GestureDetector mGestureDetector;  // Double-tap detector.
+    private final GestureDetector mGestureDetector;
+
+    // The library for gesture detection.
+    private final GestureLibrary mGestureLibrary;
 
     // Indicates that a single tap has occurred.
     private boolean mFirstTapDetected;
@@ -208,50 +168,28 @@ class AccessibilityGestureDetector extends GestureDetector.SimpleOnGestureListen
     // movement when gesturing, and touch exploring.  Based on user testing,
     // all gestures started with the initial movement taking less than 100ms.
     // When touch exploring, the first movement almost always takes longer than
-    // 200ms.
-    private static final long CANCEL_ON_PAUSE_THRESHOLD_NOT_STARTED_MS = 150;
+    // 200ms.  From this data, 200ms seems the best value to decide what
+    // kind of interaction it is.
+    private static final long CANCEL_ON_PAUSE_THRESHOLD_NOT_STARTED_MS = 200;
 
     // Time threshold used to determine if a gesture should be cancelled.  If
-    // the finger takes more than this time to move 1cm, the ongoing gesture is
+    // the finger pauses for longer than this delay, the ongoing gesture is
     // cancelled.
-    private static final long CANCEL_ON_PAUSE_THRESHOLD_STARTED_MS = 300;
+    private static final long CANCEL_ON_PAUSE_THRESHOLD_STARTED_MS = 500;
 
-    /**
-     * Construct the gesture detector for {@link TouchExplorer}.
-     *
-     * @see #AccessibilityGestureDetector(Context, Listener, GestureDetector)
-     */
     AccessibilityGestureDetector(Context context, Listener listener) {
-        this(context, listener, null);
-    }
-
-    /**
-     * Construct the gesture detector for {@link TouchExplorer}.
-     *
-     * @param context A context handle for accessing resources.
-     * @param listener A listener to callback with gesture state or information.
-     * @param detector The gesture detector to handle touch event. If null the default one created
-     *                 in place, or for testing purpose.
-     */
-    AccessibilityGestureDetector(Context context, Listener listener, GestureDetector detector) {
         mListener = listener;
-        mContext = context;
 
-        // Break the circular dependency between constructors and let the class to be testable
-        if (detector == null) {
-            mGestureDetector = new GestureDetector(context, this);
-        } else {
-            mGestureDetector = detector;
-        }
+        mGestureDetector = new GestureDetector(context, this);
         mGestureDetector.setOnDoubleTapListener(this);
+
+        mGestureLibrary = GestureLibraries.fromRawResource(context, R.raw.accessibility_gestures);
+        mGestureLibrary.setOrientationStyle(8 /* GestureStore.ORIENTATION_SENSITIVE_8 */);
+        mGestureLibrary.setSequenceType(GestureStore.SEQUENCE_SENSITIVE);
+        mGestureLibrary.load();
+
         mGestureDetectionThreshold = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_MM, 1,
                 context.getResources().getDisplayMetrics()) * GESTURE_CONFIRM_MM;
-
-        // Calculate minimum gesture velocity
-        final float pixelsPerInchX = context.getResources().getDisplayMetrics().xdpi;
-        final float pixelsPerInchY = context.getResources().getDisplayMetrics().ydpi;
-        mMinPixelsBetweenSamplesX = MIN_INCHES_BETWEEN_SAMPLES * pixelsPerInchX;
-        mMinPixelsBetweenSamplesY = MIN_INCHES_BETWEEN_SAMPLES * pixelsPerInchY;
     }
 
     /**
@@ -259,23 +197,20 @@ class AccessibilityGestureDetector extends GestureDetector.SimpleOnGestureListen
      * callback on mListener is called, and the return value of the callback is
      * passed to the caller.
      *
-     * @param event The transformed motion event to be handled.
-     * @param rawEvent The raw motion event.  It's important that this be the raw
+     * @param event The raw motion event.  It's important that this be the raw
      * event, before any transformations have been applied, so that measurements
      * can be made in physical units.
      * @param policyFlags Policy flags for the event.
      *
      * @return true if the event is consumed, else false
      */
-    public boolean onMotionEvent(MotionEvent event, MotionEvent rawEvent, int policyFlags) {
-        // The accessibility gesture detector is interested in the movements in physical space,
-        // so it uses the rawEvent to ignore magnification and other transformations.
-        final float x = rawEvent.getX();
-        final float y = rawEvent.getY();
-        final long time = rawEvent.getEventTime();
+    public boolean onMotionEvent(MotionEvent event, int policyFlags) {
+        final float x = event.getX();
+        final float y = event.getY();
+        final long time = event.getEventTime();
 
         mPolicyFlags = policyFlags;
-        switch (rawEvent.getActionMasked()) {
+        switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 mDoubleTapDetected = false;
                 mSecondFingerDoubleTap = false;
@@ -326,13 +261,13 @@ class AccessibilityGestureDetector extends GestureDetector.SimpleOnGestureListen
                         // timeout, cancel gesture detection.
                         if (timeDelta > threshold) {
                             cancelGesture();
-                            return mListener.onGestureCancelled(rawEvent, policyFlags);
+                            return mListener.onGestureCancelled(event, policyFlags);
                         }
                     }
 
                     final float dX = Math.abs(x - mPreviousGestureX);
                     final float dY = Math.abs(y - mPreviousGestureY);
-                    if (dX >= mMinPixelsBetweenSamplesX || dY >= mMinPixelsBetweenSamplesY) {
+                    if (dX >= TOUCH_TOLERANCE || dY >= TOUCH_TOLERANCE) {
                         mPreviousGestureX = x;
                         mPreviousGestureY = y;
                         mStrokeBuffer.add(new GesturePoint(x, y, time));
@@ -342,15 +277,12 @@ class AccessibilityGestureDetector extends GestureDetector.SimpleOnGestureListen
 
             case MotionEvent.ACTION_UP:
                 if (mDoubleTapDetected) {
-                    return finishDoubleTap(rawEvent, policyFlags);
+                    return finishDoubleTap(event, policyFlags);
                 }
                 if (mGestureStarted) {
-                    final float dX = Math.abs(x - mPreviousGestureX);
-                    final float dY = Math.abs(y - mPreviousGestureY);
-                    if (dX >= mMinPixelsBetweenSamplesX || dY >= mMinPixelsBetweenSamplesY) {
-                        mStrokeBuffer.add(new GesturePoint(x, y, time));
-                    }
-                    return recognizeGesture(rawEvent, policyFlags);
+                    mStrokeBuffer.add(new GesturePoint(x, y, time));
+
+                    return recognizeGesture(event, policyFlags);
                 }
                 break;
 
@@ -359,7 +291,7 @@ class AccessibilityGestureDetector extends GestureDetector.SimpleOnGestureListen
                 // recognizing a gesture.
                 cancelGesture();
 
-                if (rawEvent.getPointerCount() == 2) {
+                if (event.getPointerCount() == 2) {
                     // If this was the second finger, attempt to recognize double
                     // taps on it.
                     mSecondFingerDoubleTap = true;
@@ -375,7 +307,7 @@ class AccessibilityGestureDetector extends GestureDetector.SimpleOnGestureListen
                 // If we're detecting taps on the second finger, see if we
                 // should finish the double tap.
                 if (mSecondFingerDoubleTap && mDoubleTapDetected) {
-                    return finishDoubleTap(rawEvent, policyFlags);
+                    return finishDoubleTap(event, policyFlags);
                 }
                 break;
 
@@ -387,7 +319,7 @@ class AccessibilityGestureDetector extends GestureDetector.SimpleOnGestureListen
         // If we're detecting taps on the second finger, map events from the
         // finger to the first finger.
         if (mSecondFingerDoubleTap) {
-            MotionEvent newEvent = mapSecondPointerToFirstPointer(rawEvent);
+            MotionEvent newEvent = mapSecondPointerToFirstPointer(event);
             if (newEvent == null) {
                 return false;
             }
@@ -400,7 +332,7 @@ class AccessibilityGestureDetector extends GestureDetector.SimpleOnGestureListen
             return false;
         }
 
-        // Pass the transformed event on to the standard gesture detector.
+        // Pass the event on to the standard gesture detector.
         return mGestureDetector.onTouchEvent(event);
     }
 
@@ -465,152 +397,28 @@ class AccessibilityGestureDetector extends GestureDetector.SimpleOnGestureListen
         mStrokeBuffer.clear();
     }
 
-    /**
-     * Looks at the sequence of motions in mStrokeBuffer, classifies the gesture, then calls
-     * Listener callbacks for success or failure.
-     *
-     * @param event The raw motion event to pass to the listener callbacks.
-     * @param policyFlags Policy flags for the event.
-     *
-     * @return true if the event is consumed, else false
-     */
     private boolean recognizeGesture(MotionEvent event, int policyFlags) {
-        if (mStrokeBuffer.size() < 2) {
-            return mListener.onGestureCancelled(event, policyFlags);
-        }
+        Gesture gesture = new Gesture();
+        gesture.addStroke(new GestureStroke(mStrokeBuffer));
 
-        // Look at mStrokeBuffer and extract 2 line segments, delimited by near-perpendicular
-        // direction change.
-        // Method: for each sampled motion event, check the angle of the most recent motion vector
-        // versus the preceding motion vector, and segment the line if the angle is about
-        // 90 degrees.
-
-        ArrayList<PointF> path = new ArrayList<>();
-        PointF lastDelimiter = new PointF(mStrokeBuffer.get(0).x, mStrokeBuffer.get(0).y);
-        path.add(lastDelimiter);
-
-        float dX = 0;  // Sum of unit vectors from last delimiter to each following point
-        float dY = 0;
-        int count = 0;  // Number of points since last delimiter
-        float length = 0;  // Vector length from delimiter to most recent point
-
-        PointF next = new PointF();
-        for (int i = 1; i < mStrokeBuffer.size(); ++i) {
-            next = new PointF(mStrokeBuffer.get(i).x, mStrokeBuffer.get(i).y);
-            if (count > 0) {
-                // Average of unit vectors from delimiter to following points
-                float currentDX = dX / count;
-                float currentDY = dY / count;
-
-                // newDelimiter is a possible new delimiter, based on a vector with length from
-                // the last delimiter to the previous point, but in the direction of the average
-                // unit vector from delimiter to previous points.
-                // Using the averaged vector has the effect of "squaring off the curve",
-                // creating a sharper angle between the last motion and the preceding motion from
-                // the delimiter. In turn, this sharper angle achieves the splitting threshold
-                // even in a gentle curve.
-                PointF newDelimiter = new PointF(length * currentDX + lastDelimiter.x,
-                    length * currentDY + lastDelimiter.y);
-
-                // Unit vector from newDelimiter to the most recent point
-                float nextDX = next.x - newDelimiter.x;
-                float nextDY = next.y - newDelimiter.y;
-                float nextLength = (float) Math.sqrt(nextDX * nextDX + nextDY * nextDY);
-                nextDX = nextDX / nextLength;
-                nextDY = nextDY / nextLength;
-
-                // Compare the initial motion direction to the most recent motion direction,
-                // and segment the line if direction has changed by about 90 degrees.
-                float dot = currentDX * nextDX + currentDY * nextDY;
-                if (dot < ANGLE_THRESHOLD) {
-                    path.add(newDelimiter);
-                    lastDelimiter = newDelimiter;
-                    dX = 0;
-                    dY = 0;
-                    count = 0;
+        ArrayList<Prediction> predictions = mGestureLibrary.recognize(gesture);
+        if (!predictions.isEmpty()) {
+            Prediction bestPrediction = predictions.get(0);
+            if (bestPrediction.score >= MIN_PREDICTION_SCORE) {
+                if (DEBUG) {
+                    Slog.i(LOG_TAG, "gesture: " + bestPrediction.name + " score: "
+                            + bestPrediction.score);
+                }
+                try {
+                    final int gestureId = Integer.parseInt(bestPrediction.name);
+                    return mListener.onGestureCompleted(gestureId);
+                } catch (NumberFormatException nfe) {
+                    Slog.w(LOG_TAG, "Non numeric gesture id:" + bestPrediction.name);
                 }
             }
-
-            // Vector from last delimiter to most recent point
-            float currentDX = next.x - lastDelimiter.x;
-            float currentDY = next.y - lastDelimiter.y;
-            length = (float) Math.sqrt(currentDX * currentDX + currentDY * currentDY);
-
-            // Increment sum of unit vectors from delimiter to each following point
-            count = count + 1;
-            dX = dX + currentDX / length;
-            dY = dY + currentDY / length;
         }
 
-        path.add(next);
-        Slog.i(LOG_TAG, "path=" + path.toString());
-
-        // Classify line segments, and call Listener callbacks.
-        return recognizeGesturePath(event, policyFlags, path);
-    }
-
-    /**
-     * Classifies a pair of line segments, by direction.
-     * Calls Listener callbacks for success or failure.
-     *
-     * @param event The raw motion event to pass to the listener's onGestureCanceled method.
-     * @param policyFlags Policy flags for the event.
-     * @param path A sequence of motion line segments derived from motion points in mStrokeBuffer.
-     *
-     * @return true if the event is consumed, else false
-     */
-    private boolean recognizeGesturePath(MotionEvent event, int policyFlags,
-            ArrayList<PointF> path) {
-
-        if (path.size() == 2) {
-            PointF start = path.get(0);
-            PointF end = path.get(1);
-
-            float dX = end.x - start.x;
-            float dY = end.y - start.y;
-            int direction = toDirection(dX, dY);
-            switch (direction) {
-                case LEFT:
-                    return mListener.onGestureCompleted(AccessibilityService.GESTURE_SWIPE_LEFT);
-                case RIGHT:
-                    return mListener.onGestureCompleted(AccessibilityService.GESTURE_SWIPE_RIGHT);
-                case UP:
-                    return mListener.onGestureCompleted(AccessibilityService.GESTURE_SWIPE_UP);
-                case DOWN:
-                    return mListener.onGestureCompleted(AccessibilityService.GESTURE_SWIPE_DOWN);
-                default:
-                    // Do nothing.
-            }
-
-        } else if (path.size() == 3) {
-            PointF start = path.get(0);
-            PointF mid = path.get(1);
-            PointF end = path.get(2);
-
-            float dX0 = mid.x - start.x;
-            float dY0 = mid.y - start.y;
-
-            float dX1 = end.x - mid.x;
-            float dY1 = end.y - mid.y;
-
-            int segmentDirection0 = toDirection(dX0, dY0);
-            int segmentDirection1 = toDirection(dX1, dY1);
-            int gestureId = DIRECTIONS_TO_GESTURE_ID[segmentDirection0][segmentDirection1];
-            return mListener.onGestureCompleted(gestureId);
-        }
-        // else if (path.size() < 2 || 3 < path.size()) then no gesture recognized.
         return mListener.onGestureCancelled(event, policyFlags);
-    }
-
-    /** Maps a vector to a dominant direction in set {LEFT, RIGHT, UP, DOWN}. */
-    private static int toDirection(float dX, float dY) {
-        if (Math.abs(dX) > Math.abs(dY)) {
-            // Horizontal
-            return (dX < 0) ? LEFT : RIGHT;
-        } else {
-            // Vertical
-            return (dY < 0) ? UP : DOWN;
-        }
     }
 
     private MotionEvent mapSecondPointerToFirstPointer(MotionEvent event) {

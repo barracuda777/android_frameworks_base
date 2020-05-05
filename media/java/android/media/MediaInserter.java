@@ -16,7 +16,6 @@
 
 package android.media;
 
-import android.annotation.UnsupportedAppUsage;
 import android.content.ContentProviderClient;
 import android.content.ContentValues;
 import android.net.Uri;
@@ -68,7 +67,6 @@ public class MediaInserter {
         }
     }
 
-    @UnsupportedAppUsage
     public void flushAll() throws RemoteException {
         flushAllPriority();
         for (Uri tableUri : mRowMap.keySet()){

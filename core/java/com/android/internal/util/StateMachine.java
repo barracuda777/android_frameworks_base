@@ -16,7 +16,6 @@
 
 package com.android.internal.util;
 
-import android.annotation.UnsupportedAppUsage;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
@@ -24,10 +23,9 @@ import android.os.Message;
 import android.text.TextUtils;
 import android.util.Log;
 
-import com.android.internal.annotations.VisibleForTesting;
-
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
@@ -752,14 +750,6 @@ public class StateMachine {
         /** The destination state when transitionTo has been invoked */
         private State mDestState;
 
-        /**
-         * Indicates if a transition is in progress
-         *
-         * This will be true for all calls of State.exit and all calls of State.enter except for the
-         * last enter call for the current destination state.
-         */
-        private boolean mTransitionInProgress = false;
-
         /** The list of deferred messages */
         private ArrayList<Message> mDeferredMessages = new ArrayList<Message>();
 
@@ -804,7 +794,7 @@ public class StateMachine {
 
                 /** State that processed the message */
                 State msgProcessedState = null;
-                if (mIsConstructionCompleted || (mMsg.what == SM_QUIT_CMD)) {
+                if (mIsConstructionCompleted) {
                     /** Normal path */
                     msgProcessedState = processMsg(msg);
                 } else if (!mIsConstructionCompleted && (mMsg.what == SM_INIT_CMD)
@@ -872,8 +862,6 @@ public class StateMachine {
                      * invoke the exit methods then the enter methods.
                      */
                     StateInfo commonStateInfo = setupTempStateStackWithStatesToEnter(destState);
-                    // flag is cleared in invokeEnterMethods before entering the target state
-                    mTransitionInProgress = true;
                     invokeExitMethods(commonStateInfo);
                     int stateStackEnteringIndex = moveTempStateStackToStateStack();
                     invokeEnterMethods(stateStackEnteringIndex);
@@ -1029,15 +1017,10 @@ public class StateMachine {
          */
         private final void invokeEnterMethods(int stateStackEnteringIndex) {
             for (int i = stateStackEnteringIndex; i <= mStateStackTopIndex; i++) {
-                if (stateStackEnteringIndex == mStateStackTopIndex) {
-                    // Last enter state for transition
-                    mTransitionInProgress = false;
-                }
                 if (mDbg) mSm.log("invokeEnterMethods: " + mStateStack[i].state.getName());
                 mStateStack[i].state.enter();
                 mStateStack[i].active = true;
             }
-            mTransitionInProgress = false; // ensure flag set to false if no methods called
         }
 
         /**
@@ -1192,26 +1175,6 @@ public class StateMachine {
         }
 
         /**
-         * Remove a state from the state machine. Will not remove the state if it is currently
-         * active or if it has any children in the hierarchy.
-         * @param state the state to remove
-         */
-        private void removeState(State state) {
-            StateInfo stateInfo = mStateInfo.get(state);
-            if (stateInfo == null || stateInfo.active) {
-                return;
-            }
-            boolean isParent = mStateInfo.values().stream()
-                    .filter(si -> si.parentStateInfo == stateInfo)
-                    .findAny()
-                    .isPresent();
-            if (isParent) {
-                return;
-            }
-            mStateInfo.remove(state);
-        }
-
-        /**
          * Constructor
          *
          * @param looper for dispatching messages
@@ -1233,10 +1196,6 @@ public class StateMachine {
 
         /** @see StateMachine#transitionTo(IState) */
         private final void transitionTo(IState destState) {
-            if (mTransitionInProgress) {
-                Log.wtf(mSm.mName, "transitionTo called while transition already in progress to " +
-                        mDestState + ", new target state=" + destState);
-            }
             mDestState = (State) destState;
             if (mDbg) mSm.log("transitionTo: destState=" + mDestState.getName());
         }
@@ -1300,7 +1259,6 @@ public class StateMachine {
      *
      * @param name of the state machine
      */
-    @UnsupportedAppUsage
     protected StateMachine(String name) {
         mSmThread = new HandlerThread(name);
         mSmThread.start();
@@ -1314,7 +1272,6 @@ public class StateMachine {
      *
      * @param name of the state machine
      */
-    @UnsupportedAppUsage
     protected StateMachine(String name, Looper looper) {
         initStateMachine(name, looper);
     }
@@ -1324,7 +1281,6 @@ public class StateMachine {
      *
      * @param name of the state machine
      */
-    @UnsupportedAppUsage
     protected StateMachine(String name, Handler handler) {
         initStateMachine(name, handler.getLooper());
     }
@@ -1349,7 +1305,7 @@ public class StateMachine {
      * @param state the state to add
      * @param parent the parent of state
      */
-    public final void addState(State state, State parent) {
+    protected final void addState(State state, State parent) {
         mSmHandler.addState(state, parent);
     }
 
@@ -1357,17 +1313,8 @@ public class StateMachine {
      * Add a new state to the state machine, parent will be null
      * @param state to add
      */
-    @UnsupportedAppUsage
-    public final void addState(State state) {
+    protected final void addState(State state) {
         mSmHandler.addState(state, null);
-    }
-
-    /**
-     * Removes a state from the state machine, unless it is currently active or if it has children.
-     * @param state state to remove
-     */
-    public final void removeState(State state) {
-        mSmHandler.removeState(state);
     }
 
     /**
@@ -1376,15 +1323,14 @@ public class StateMachine {
      *
      * @param initialState is the state which will receive the first message.
      */
-    @UnsupportedAppUsage
-    public final void setInitialState(State initialState) {
+    protected final void setInitialState(State initialState) {
         mSmHandler.setInitialState(initialState);
     }
 
     /**
      * @return current message
      */
-    public final Message getCurrentMessage() {
+    protected final Message getCurrentMessage() {
         // mSmHandler can be null if the state machine has quit.
         SmHandler smh = mSmHandler;
         if (smh == null) return null;
@@ -1394,7 +1340,7 @@ public class StateMachine {
     /**
      * @return current state
      */
-    public final IState getCurrentState() {
+    protected final IState getCurrentState() {
         // mSmHandler can be null if the state machine has quit.
         SmHandler smh = mSmHandler;
         if (smh == null) return null;
@@ -1415,8 +1361,7 @@ public class StateMachine {
      *
      * @param destState will be the state that receives the next message.
      */
-    @UnsupportedAppUsage
-    public final void transitionTo(IState destState) {
+    protected final void transitionTo(IState destState) {
         mSmHandler.transitionTo(destState);
     }
 
@@ -1427,7 +1372,7 @@ public class StateMachine {
      * for all subsequent messages haltedProcessMessage
      * will be called.
      */
-    public final void transitionToHaltingState() {
+    protected final void transitionToHaltingState() {
         mSmHandler.transitionTo(mSmHandler.mHaltingState);
     }
 
@@ -1440,7 +1385,7 @@ public class StateMachine {
      *
      * @param msg is deferred until the next transition.
      */
-    public final void deferMessage(Message msg) {
+    protected final void deferMessage(Message msg) {
         mSmHandler.deferMessage(msg);
     }
 
@@ -1503,24 +1448,13 @@ public class StateMachine {
     }
 
     /**
-     * @return the number of log records currently readable
+     * @return number of log records
      */
     public final int getLogRecSize() {
         // mSmHandler can be null if the state machine has quit.
         SmHandler smh = mSmHandler;
         if (smh == null) return 0;
         return smh.mLogRecords.size();
-    }
-
-    /**
-     * @return the number of log records we can store
-     */
-    @VisibleForTesting
-    public final int getLogRecMaxSize() {
-        // mSmHandler can be null if the state machine has quit.
-        SmHandler smh = mSmHandler;
-        if (smh == null) return 0;
-        return smh.mLogRecords.mMaxSize;
     }
 
     /**
@@ -1562,7 +1496,7 @@ public class StateMachine {
      *
      * @param string
      */
-    public void addLogRec(String string) {
+    protected void addLogRec(String string) {
         // mSmHandler can be null if the state machine has quit.
         SmHandler smh = mSmHandler;
         if (smh == null) return;
@@ -1680,7 +1614,6 @@ public class StateMachine {
      * @param arg2  is assigned to Message.arg2
      * @return  A Message object from the global pool
      */
-    @UnsupportedAppUsage
     public final Message obtainMessage(int what, int arg1, int arg2) {
         return Message.obtain(mSmHandler, what, arg1, arg2);
     }
@@ -1700,7 +1633,6 @@ public class StateMachine {
      * @param obj is assigned to Message.obj
      * @return  A Message object from the global pool
      */
-    @UnsupportedAppUsage
     public final Message obtainMessage(int what, int arg1, int arg2, Object obj) {
         return Message.obtain(mSmHandler, what, arg1, arg2, obj);
     }
@@ -1710,7 +1642,6 @@ public class StateMachine {
      *
      * Message is ignored if state machine has quit.
      */
-    @UnsupportedAppUsage
     public void sendMessage(int what) {
         // mSmHandler can be null if the state machine has quit.
         SmHandler smh = mSmHandler;
@@ -1724,7 +1655,6 @@ public class StateMachine {
      *
      * Message is ignored if state machine has quit.
      */
-    @UnsupportedAppUsage
     public void sendMessage(int what, Object obj) {
         // mSmHandler can be null if the state machine has quit.
         SmHandler smh = mSmHandler;
@@ -1738,7 +1668,6 @@ public class StateMachine {
      *
      * Message is ignored if state machine has quit.
      */
-    @UnsupportedAppUsage
     public void sendMessage(int what, int arg1) {
         // mSmHandler can be null if the state machine has quit.
         SmHandler smh = mSmHandler;
@@ -1765,7 +1694,6 @@ public class StateMachine {
      *
      * Message is ignored if state machine has quit.
      */
-    @UnsupportedAppUsage
     public void sendMessage(int what, int arg1, int arg2, Object obj) {
         // mSmHandler can be null if the state machine has quit.
         SmHandler smh = mSmHandler;
@@ -1779,7 +1707,6 @@ public class StateMachine {
      *
      * Message is ignored if state machine has quit.
      */
-    @UnsupportedAppUsage
     public void sendMessage(Message msg) {
         // mSmHandler can be null if the state machine has quit.
         SmHandler smh = mSmHandler;
@@ -1995,6 +1922,22 @@ public class StateMachine {
     }
 
     /**
+     * Check if there are any pending messages with code 'what' in deferred messages queue.
+     */
+    protected final boolean hasDeferredMessages(int what, Object obj) {
+        SmHandler smh = mSmHandler;
+        if (smh == null) return false;
+
+        Iterator<Message> iterator = smh.mDeferredMessages.iterator();
+        while (iterator.hasNext()) {
+            Message msg = iterator.next();
+            if ((msg.what == what) && (msg.obj == obj)) return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Check if there are any pending posts of messages with code 'what' in
      * the message queue. This does NOT check messages in deferred message queue.
      */
@@ -2020,7 +1963,7 @@ public class StateMachine {
     /**
      * Quit the state machine after all currently queued up messages are processed.
      */
-    public final void quit() {
+    protected final void quit() {
         // mSmHandler can be null if the state machine is already stopped.
         SmHandler smh = mSmHandler;
         if (smh == null) return;
@@ -2031,7 +1974,7 @@ public class StateMachine {
     /**
      * Quit the state machine immediately all currently queued messages will be discarded.
      */
-    public final void quitNow() {
+    protected final void quitNow() {
         // mSmHandler can be null if the state machine is already stopped.
         SmHandler smh = mSmHandler;
         if (smh == null) return;
@@ -2066,7 +2009,6 @@ public class StateMachine {
     /**
      * Start the state machine.
      */
-    @UnsupportedAppUsage
     public void start() {
         // mSmHandler can be null if the state machine has quit.
         SmHandler smh = mSmHandler;
@@ -2083,8 +2025,9 @@ public class StateMachine {
      * @param pw
      * @param args
      */
-    @UnsupportedAppUsage
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
+        // Cannot just invoke pw.println(this.toString()) because if the
+        // resulting string is to long it won't be displayed.
         pw.println(getName() + ":");
         pw.println(" total records=" + getLogRecCount());
         for (int i = 0; i < getLogRecSize(); i++) {
@@ -2096,15 +2039,12 @@ public class StateMachine {
 
     @Override
     public String toString() {
-        String name = "(null)";
-        String state = "(null)";
-        try {
-            name = mName.toString();
-            state = mSmHandler.getCurrentState().getName().toString();
-        } catch (NullPointerException | ArrayIndexOutOfBoundsException e) {
-            // Will use default(s) initialized above.
-        }
-        return "name=" + name + " state=" + state;
+        StringWriter sr = new StringWriter();
+        PrintWriter pr = new PrintWriter(sr);
+        dump(null, pr, null);
+        pr.flush();
+        pr.close();
+        return sr.toString();
     }
 
     /**

@@ -20,8 +20,7 @@ public:
                                      jlong outerHandle, jlong innerHandle) {
         SkPathEffect* outer = reinterpret_cast<SkPathEffect*>(outerHandle);
         SkPathEffect* inner = reinterpret_cast<SkPathEffect*>(innerHandle);
-        SkPathEffect* effect = SkPathEffect::MakeCompose(sk_ref_sp(outer),
-                sk_ref_sp(inner)).release();
+        SkPathEffect* effect = SkComposePathEffect::Create(outer, inner);
         return reinterpret_cast<jlong>(effect);
     }
 
@@ -29,8 +28,7 @@ public:
                                  jlong firstHandle, jlong secondHandle) {
         SkPathEffect* first = reinterpret_cast<SkPathEffect*>(firstHandle);
         SkPathEffect* second = reinterpret_cast<SkPathEffect*>(secondHandle);
-        SkPathEffect* effect = SkPathEffect::MakeSum(sk_ref_sp(first),
-                sk_ref_sp(second)).release();
+        SkPathEffect* effect = SkSumPathEffect::Create(first, second);
         return reinterpret_cast<jlong>(effect);
     }
 
@@ -43,7 +41,7 @@ public:
 #else
         #error Need to convert float array to SkScalar array before calling the following function.
 #endif
-        SkPathEffect* effect = SkDashPathEffect::Make(intervals, count, phase).release();
+        SkPathEffect* effect = SkDashPathEffect::Create(intervals, count, phase);
         return reinterpret_cast<jlong>(effect);
     }
 
@@ -51,19 +49,19 @@ public:
                   jlong shapeHandle, jfloat advance, jfloat phase, jint style) {
         const SkPath* shape = reinterpret_cast<SkPath*>(shapeHandle);
         SkASSERT(shape != NULL);
-        SkPathEffect* effect = SkPath1DPathEffect::Make(*shape, advance, phase,
-                (SkPath1DPathEffect::Style)style).release();
+        SkPathEffect* effect = SkPath1DPathEffect::Create(*shape, advance, phase,
+                (SkPath1DPathEffect::Style)style);
         return reinterpret_cast<jlong>(effect);
     }
 
     static jlong Corner_constructor(JNIEnv* env, jobject, jfloat radius){
-        SkPathEffect* effect = SkCornerPathEffect::Make(radius).release();
+        SkPathEffect* effect = SkCornerPathEffect::Create(radius);
         return reinterpret_cast<jlong>(effect);
     }
 
     static jlong Discrete_constructor(JNIEnv* env, jobject,
                                       jfloat length, jfloat deviation) {
-        SkPathEffect* effect = SkDiscretePathEffect::Make(length, deviation).release();
+        SkPathEffect* effect = SkDiscretePathEffect::Create(length, deviation);
         return reinterpret_cast<jlong>(effect);
     }
 

@@ -14,34 +14,26 @@
 
 package com.android.systemui.qs.tiles;
 
-import android.content.DialogInterface.OnClickListener;
+import android.content.DialogInterface;
 import android.content.Intent;
-import android.provider.Settings;
-import android.service.quicksettings.Tile;
 import android.widget.Switch;
 
-import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
+import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.systemui.Prefs;
 import com.android.systemui.R;
-import com.android.systemui.plugins.qs.QSTile.BooleanState;
-import com.android.systemui.qs.QSHost;
-import com.android.systemui.qs.tileimpl.QSTileImpl;
+import com.android.systemui.qs.QSTile;
 import com.android.systemui.statusbar.phone.SystemUIDialog;
 import com.android.systemui.statusbar.policy.DataSaverController;
-import com.android.systemui.statusbar.policy.NetworkController;
 
-import javax.inject.Inject;
-
-public class DataSaverTile extends QSTileImpl<BooleanState> implements
+public class DataSaverTile extends QSTile<QSTile.BooleanState> implements
         DataSaverController.Listener{
 
     private final DataSaverController mDataSaverController;
 
-    @Inject
-    public DataSaverTile(QSHost host, NetworkController networkController) {
+    public DataSaverTile(Host host) {
         super(host);
-        mDataSaverController = networkController.getDataSaverController();
-        mDataSaverController.observe(getLifecycle(), this);
+        mDataSaverController = host.getNetworkController().getDataSaverController();
     }
 
     @Override
@@ -50,13 +42,19 @@ public class DataSaverTile extends QSTileImpl<BooleanState> implements
     }
 
     @Override
-    public void handleSetListening(boolean listening) {
+    public void setListening(boolean listening) {
+        if (listening) {
+            mDataSaverController.addListener(this);
+        } else {
+            mDataSaverController.remListener(this);
+        }
     }
 
     @Override
     public Intent getLongClickIntent() {
-        return new Intent(Settings.ACTION_DATA_SAVER_SETTINGS);
+        return CellularTile.CELLULAR_SETTINGS;
     }
+
     @Override
     protected void handleClick() {
         if (mState.value
@@ -70,17 +68,21 @@ public class DataSaverTile extends QSTileImpl<BooleanState> implements
         dialog.setTitle(com.android.internal.R.string.data_saver_enable_title);
         dialog.setMessage(com.android.internal.R.string.data_saver_description);
         dialog.setPositiveButton(com.android.internal.R.string.data_saver_enable_button,
-                (OnClickListener) (dialogInterface, which) -> {
-                    toggleDataSaver();
-                    Prefs.putBoolean(mContext, Prefs.Key.QS_DATA_SAVER_DIALOG_SHOWN, true);
+                new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        toggleDataSaver();
+                    }
                 });
         dialog.setNegativeButton(com.android.internal.R.string.cancel, null);
         dialog.setShowForAllUsers(true);
         dialog.show();
+        Prefs.putBoolean(mContext, Prefs.Key.QS_DATA_SAVER_DIALOG_SHOWN, true);
     }
 
     private void toggleDataSaver() {
         mState.value = !mDataSaverController.isDataSaverEnabled();
+        MetricsLogger.action(mContext, getMetricsCategory(), mState.value);
         mDataSaverController.setDataSaverEnabled(mState.value);
         refreshState(mState.value);
     }
@@ -94,12 +96,12 @@ public class DataSaverTile extends QSTileImpl<BooleanState> implements
     protected void handleUpdateState(BooleanState state, Object arg) {
         state.value = arg instanceof Boolean ? (Boolean) arg
                 : mDataSaverController.isDataSaverEnabled();
-        state.state = state.value ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
         state.label = mContext.getString(R.string.data_saver);
         state.contentDescription = state.label;
         state.icon = ResourceIcon.get(state.value ? R.drawable.ic_data_saver
                 : R.drawable.ic_data_saver_off);
-        state.expandedAccessibilityClassName = Switch.class.getName();
+        state.minimalAccessibilityClassName = state.expandedAccessibilityClassName
+                = Switch.class.getName();
     }
 
     @Override

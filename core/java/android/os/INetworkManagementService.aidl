@@ -18,12 +18,13 @@
 package android.os;
 
 import android.net.InterfaceConfiguration;
+import android.net.INetd;
 import android.net.INetworkManagementEventObserver;
-import android.net.ITetheringStatsProvider;
 import android.net.Network;
 import android.net.NetworkStats;
 import android.net.RouteInfo;
 import android.net.UidRange;
+import android.net.wifi.WifiConfiguration;
 import android.os.INetworkActivityListener;
 
 /**
@@ -38,14 +39,17 @@ interface INetworkManagementService
     /**
      * Register an observer to receive events.
      */
-    @UnsupportedAppUsage
     void registerObserver(INetworkManagementEventObserver obs);
 
     /**
      * Unregister an observer from receiving events.
      */
-    @UnsupportedAppUsage
     void unregisterObserver(INetworkManagementEventObserver obs);
+
+    /**
+     * Retrieve an INetd to talk to netd.
+     */
+    INetd getNetdService();
 
     /**
      * Returns a list of currently known network interfaces
@@ -56,19 +60,16 @@ interface INetworkManagementService
      * Retrieves the specified interface config
      *
      */
-    @UnsupportedAppUsage
     InterfaceConfiguration getInterfaceConfig(String iface);
 
     /**
      * Sets the configuration of the specified interface
      */
-    @UnsupportedAppUsage
     void setInterfaceConfig(String iface, in InterfaceConfiguration cfg);
 
     /**
      * Clear all IP addresses on the specified interface
      */
-    @UnsupportedAppUsage
     void clearInterfaceAddresses(String iface);
 
     /**
@@ -84,27 +85,22 @@ interface INetworkManagementService
     /**
      * Set interface IPv6 privacy extensions
      */
-    @UnsupportedAppUsage
     void setInterfaceIpv6PrivacyExtensions(String iface, boolean enable);
 
     /**
      * Disable IPv6 on an interface
      */
-    @UnsupportedAppUsage
     void disableIpv6(String iface);
 
     /**
      * Enable IPv6 on an interface
      */
-    @UnsupportedAppUsage
     void enableIpv6(String iface);
 
     /**
-     * Set IPv6 autoconf address generation mode.
-     * This is a no-op if an unsupported mode is requested.
+     * Enables or enables IPv6 ND offload.
      */
-    @UnsupportedAppUsage
-    void setIPv6AddrGenMode(String iface, int mode);
+    void setInterfaceIpv6NdOffload(String iface, boolean enable);
 
     /**
      * Add the specified route to the interface.
@@ -133,44 +129,37 @@ interface INetworkManagementService
     /**
      * Returns true if IP forwarding is enabled
      */
-    @UnsupportedAppUsage
     boolean getIpForwardingEnabled();
 
     /**
      * Enables/Disables IP Forwarding
      */
-    @UnsupportedAppUsage
     void setIpForwardingEnabled(boolean enabled);
 
     /**
      * Start tethering services with the specified dhcp server range
      * arg is a set of start end pairs defining the ranges.
      */
-    @UnsupportedAppUsage
     void startTethering(in String[] dhcpRanges);
 
     /**
      * Stop currently running tethering services
      */
-    @UnsupportedAppUsage
     void stopTethering();
 
     /**
      * Returns true if tethering services are started
      */
-    @UnsupportedAppUsage
     boolean isTetheringStarted();
 
     /**
      * Tethers the specified interface
      */
-    @UnsupportedAppUsage
     void tetherInterface(String iface);
 
     /**
      * Untethers the specified interface
      */
-    @UnsupportedAppUsage
     void untetherInterface(String iface);
 
     /**
@@ -205,41 +194,64 @@ interface INetworkManagementService
      *  The address and netmask of the external interface is used for
      *  the NAT'ed network.
      */
-    @UnsupportedAppUsage
     void enableNat(String internalInterface, String externalInterface);
 
     /**
      *  Disables Network Address Translation between two interfaces.
      */
-    @UnsupportedAppUsage
     void disableNat(String internalInterface, String externalInterface);
 
     /**
-     * Registers a {@code ITetheringStatsProvider} to provide tethering statistics.
-     * All registered providers will be called in order, and their results will be added together.
-     * Netd is always registered as a tethering stats provider.
-     */
-    void registerTetheringStatsProvider(ITetheringStatsProvider provider, String name);
+     ** PPPD
+     **/
 
     /**
-     * Unregisters a previously-registered {@code ITetheringStatsProvider}.
+     * Returns the list of currently known TTY devices on the system
      */
-    void unregisterTetheringStatsProvider(ITetheringStatsProvider provider);
+    String[] listTtys();
 
     /**
-     * Reports that a tethering provider has reached a data limit.
-     *
-     * Currently triggers a global alert, which causes NetworkStatsService to poll counters and
-     * re-evaluate data usage.
-     *
-     * This does not take an interface name because:
-     * 1. The tethering offload stats provider cannot reliably determine the interface on which the
-     *    limit was reached, because the HAL does not provide it.
-     * 2. Firing an interface-specific alert instead of a global alert isn't really useful since in
-     *    all cases of interest, the system responds to both in the same way - it polls stats, and
-     *    then notifies NetworkPolicyManagerService of the fact.
+     * Attaches a PPP server daemon to the specified TTY with the specified
+     * local/remote addresses.
      */
-    void tetherLimitReached(ITetheringStatsProvider provider);
+    void attachPppd(String tty, String localAddr, String remoteAddr, String dns1Addr,
+            String dns2Addr);
+
+    /**
+     * Detaches a PPP server daemon from the specified TTY.
+     */
+    void detachPppd(String tty);
+
+    /**
+     * Load firmware for operation in the given mode. Currently the three
+     * modes supported are "AP", "STA" and "P2P".
+     */
+    void wifiFirmwareReload(String wlanIface, String mode);
+
+    /**
+     * Start Wifi Access Point
+     */
+    void startAccessPoint(in WifiConfiguration wifiConfig, String iface);
+
+    /**
+     * Start Wigig Access Point
+     */
+    void startWigigAccessPoint();
+
+    /**
+     * Stop Wifi Access Point
+     */
+    void stopAccessPoint(String iface);
+
+    /**
+     * Stop Wigig Access Point
+     */
+    void stopWigigAccessPoint();
+
+    /**
+     * Set Access Point config
+     */
+    void setAccessPoint(in WifiConfiguration wifiConfig, String iface);
 
     /**
      ** DATA USAGE RELATED
@@ -259,17 +271,15 @@ interface INetworkManagementService
     NetworkStats getNetworkStatsDetail();
 
     /**
-     * Return detailed network statistics for the requested UID and interfaces,
+     * Return detailed network statistics for the requested UID,
      * including interface and tag details.
-     * @param uid UID to obtain statistics for, or {@link NetworkStats#UID_ALL}.
-     * @param ifaces Interfaces to obtain statistics for, or {@link NetworkStats#INTERFACES_ALL}.
      */
-    NetworkStats getNetworkStatsUidDetail(int uid, in String[] ifaces);
+    NetworkStats getNetworkStatsUidDetail(int uid);
 
     /**
      * Return summary of network statistics all tethering interfaces.
      */
-    NetworkStats getNetworkStatsTethering(int how);
+    NetworkStats getNetworkStatsTethering();
 
     /**
      * Set quota for an interface.
@@ -308,7 +318,6 @@ interface INetworkManagementService
     /**
      * Return status of bandwidth control module.
      */
-    @UnsupportedAppUsage
     boolean isBandwidthControlEnabled();
 
     /**
@@ -330,9 +339,21 @@ interface INetworkManagementService
      */
     void removeIdleTimer(String iface);
 
+    /**
+     * Configure name servers, search paths, and resolver parameters for the given network.
+     */
+    void setDnsConfigurationForNetwork(int netId, in String[] servers, String domains);
+
+    /**
+     * Bind name servers to a network in the DNS resolver.
+     */
+    void setDnsServersForNetwork(int netId, in String[] servers, String domains);
+
     void setFirewallEnabled(boolean enabled);
     boolean isFirewallEnabled();
     void setFirewallInterfaceRule(String iface, boolean allow);
+    void setFirewallEgressSourceRule(String addr, boolean allow);
+    void setFirewallEgressDestRule(String addr, int port, boolean allow);
     void setFirewallUidRule(int chain, int uid, int rule);
     void setFirewallUidRules(int chain, in int[] uids, in int[] rules);
     void setFirewallChainEnabled(int chain, boolean enable);
@@ -348,6 +369,21 @@ interface INetworkManagementService
     void removeVpnUidRanges(int netId, in UidRange[] ranges);
 
     /**
+     * Start the clatd (464xlat) service on the given interface.
+     */
+    void startClatd(String interfaceName);
+
+    /**
+     * Stop the clatd (464xlat) service on the given interface.
+     */
+    void stopClatd(String interfaceName);
+
+    /**
+     * Determine whether the clatd (464xlat) service has been started on the given interface.
+     */
+    boolean isClatdStarted(String interfaceName);
+
+    /**
      * Start listening for mobile activity state changes.
      */
     void registerNetworkActivityListener(INetworkActivityListener listener);
@@ -361,6 +397,23 @@ interface INetworkManagementService
      * Check whether the mobile radio is currently active.
      */
     boolean isNetworkActive();
+
+    /**
+     * Setup a new physical network.
+     * @param permission null if no permissions required to access this network.  PERMISSION_NETWORK
+     *                   or PERMISSION_SYSTEM to set respective permission.
+     */
+    void createPhysicalNetwork(int netId, String permission);
+
+    /**
+     * Setup a new VPN.
+     */
+    void createVirtualNetwork(int netId, boolean hasDNS, boolean secure);
+
+    /**
+     * Remove a network.
+     */
+    void removeNetwork(int netId);
 
     /**
      * Add an interface to a network.
@@ -379,10 +432,13 @@ interface INetworkManagementService
 
     /**
      * Set permission for a network.
-     * @param permission PERMISSION_NONE to clear permissions.
-     *                   PERMISSION_NETWORK or PERMISSION_SYSTEM to set permission.
+     * @param permission null to clear permissions. PERMISSION_NETWORK or PERMISSION_SYSTEM to set
+     *                   permission.
      */
-    void setNetworkPermission(int netId, int permission);
+    void setNetworkPermission(int netId, String permission);
+
+    void setPermission(String permission, in int[] uids);
+    void clearPermission(in int[] uids);
 
     /**
      * Allow UID to call protect().
@@ -399,11 +455,20 @@ interface INetworkManagementService
     int removeRoutesFromLocalNetwork(in List<RouteInfo> routes);
 
     void setAllowOnlyVpnForUids(boolean enable, in UidRange[] uidRanges);
+    /**
+     * Create SoftAp Interface
+     */
+    void createSoftApInterface(String wlanIface);
 
-    boolean isNetworkRestricted(int uid);
+     /**
+     * Delete SoftAp Interface
+     */
+    void deleteSoftApInterface(String wlanIface);
 
     /**
-     * Restrict UID from accessing a network interface
+     * Restrict UID from accessing data/wifi
      */
-    void restrictAppOnInterface(String key, int uid, boolean restrict);
+    void restrictAppOnData(int uid, boolean restrict);
+    void restrictAppOnWifi(int uid, boolean restrict);
+    void restrictAppOnVpn(int uid, boolean restrict);
 }

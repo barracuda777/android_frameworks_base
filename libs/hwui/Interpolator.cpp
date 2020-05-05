@@ -16,11 +16,10 @@
 
 #include "Interpolator.h"
 
-#include <algorithm>
-
-#include <log/log.h>
-
 #include "utils/MathUtils.h"
+
+#include <algorithm>
+#include <cutils/log.h>
 
 namespace android {
 namespace uirenderer {
@@ -54,10 +53,8 @@ static float o(float t, float s) {
 }
 
 float AnticipateOvershootInterpolator::interpolate(float t) {
-    if (t < 0.5f)
-        return 0.5f * a(t * 2.0f, mTension);
-    else
-        return 0.5f * (o(t * 2.0f - 2.0f, mTension) + 2.0f);
+    if (t < 0.5f) return 0.5f * a(t * 2.0f, mTension);
+    else return 0.5f * (o(t * 2.0f - 2.0f, mTension) + 2.0f);
 }
 
 static float bounce(float t) {
@@ -66,14 +63,10 @@ static float bounce(float t) {
 
 float BounceInterpolator::interpolate(float t) {
     t *= 1.1226f;
-    if (t < 0.3535f)
-        return bounce(t);
-    else if (t < 0.7408f)
-        return bounce(t - 0.54719f) + 0.7f;
-    else if (t < 0.9644f)
-        return bounce(t - 0.8526f) + 0.9f;
-    else
-        return bounce(t - 1.0435f) + 0.95f;
+    if (t < 0.3535f) return bounce(t);
+    else if (t < 0.7408f) return bounce(t - 0.54719f) + 0.7f;
+    else if (t < 0.9644f) return bounce(t - 0.8526f) + 0.9f;
+    else return bounce(t - 1.0435f) + 0.95f;
 }
 
 float CycleInterpolator::interpolate(float input) {
@@ -95,41 +88,13 @@ float OvershootInterpolator::interpolate(float t) {
     return t * t * ((mTension + 1) * t + mTension) + 1.0f;
 }
 
-float PathInterpolator::interpolate(float t) {
-    if (t <= 0) {
-        return 0;
-    } else if (t >= 1) {
-        return 1;
-    }
-    // Do a binary search for the correct x to interpolate between.
-    size_t startIndex = 0;
-    size_t endIndex = mX.size() - 1;
-
-    while (endIndex > startIndex + 1) {
-        int midIndex = (startIndex + endIndex) / 2;
-        if (t < mX[midIndex]) {
-            endIndex = midIndex;
-        } else {
-            startIndex = midIndex;
-        }
-    }
-
-    float xRange = mX[endIndex] - mX[startIndex];
-    if (xRange == 0) {
-        return mY[startIndex];
-    }
-
-    float tInRange = t - mX[startIndex];
-    float fraction = tInRange / xRange;
-
-    float startY = mY[startIndex];
-    float endY = mY[endIndex];
-    return startY + (fraction * (endY - startY));
+LUTInterpolator::LUTInterpolator(float* values, size_t size)
+    : mValues(values)
+    , mSize(size) {
 }
 
-LUTInterpolator::LUTInterpolator(float* values, size_t size) : mValues(values), mSize(size) {}
-
-LUTInterpolator::~LUTInterpolator() {}
+LUTInterpolator::~LUTInterpolator() {
+}
 
 float LUTInterpolator::interpolate(float input) {
     // lut position should only be at the end of the table when input is 1f.
@@ -141,12 +106,10 @@ float LUTInterpolator::interpolate(float input) {
     float ipart, weight;
     weight = modff(lutpos, &ipart);
 
-    int i1 = (int)ipart;
-    int i2 = std::min(i1 + 1, (int)mSize - 1);
+    int i1 = (int) ipart;
+    int i2 = std::min(i1 + 1, (int) mSize - 1);
 
-    LOG_ALWAYS_FATAL_IF(
-            i1 < 0 || i2 < 0,
-            "negatives in interpolation!"
+    LOG_ALWAYS_FATAL_IF(i1 < 0 || i2 < 0, "negatives in interpolation!"
             " i1=%d, i2=%d, input=%f, lutpos=%f, size=%zu, values=%p, ipart=%f, weight=%f",
             i1, i2, input, lutpos, mSize, mValues.get(), ipart, weight);
 
@@ -155,6 +118,7 @@ float LUTInterpolator::interpolate(float input) {
 
     return MathUtils::lerp(v1, v2, weight);
 }
+
 
 } /* namespace uirenderer */
 } /* namespace android */

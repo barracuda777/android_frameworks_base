@@ -16,13 +16,11 @@
 
 package com.android.server.backup;
 
-import android.annotation.NonNull;
+import android.app.AppGlobals;
 import android.app.backup.BlobBackupHelper;
+import android.content.pm.IPackageManager;
 import android.os.UserHandle;
-import android.permission.PermissionManagerInternal;
 import android.util.Slog;
-
-import com.android.server.LocalServices;
 
 public class PermissionBackupHelper extends BlobBackupHelper {
     private static final String TAG = "PermissionBackup";
@@ -34,26 +32,20 @@ public class PermissionBackupHelper extends BlobBackupHelper {
     // key under which the permission-grant state blob is committed to backup
     private static final String KEY_PERMISSIONS = "permissions";
 
-    private final @NonNull UserHandle mUser;
-
-    private final @NonNull PermissionManagerInternal mPermissionManager;
-
-    public PermissionBackupHelper(int userId) {
+    public PermissionBackupHelper() {
         super(STATE_VERSION, KEY_PERMISSIONS);
-
-        mUser = UserHandle.of(userId);
-        mPermissionManager = LocalServices.getService(PermissionManagerInternal.class);
     }
 
     @Override
     protected byte[] getBackupPayload(String key) {
+        IPackageManager pm = AppGlobals.getPackageManager();
         if (DEBUG) {
             Slog.d(TAG, "Handling backup of " + key);
         }
         try {
             switch (key) {
                 case KEY_PERMISSIONS:
-                    return mPermissionManager.backupRuntimePermissions(mUser);
+                    return pm.getPermissionGrantBackup(UserHandle.USER_SYSTEM);
 
                 default:
                     Slog.w(TAG, "Unexpected backup key " + key);
@@ -66,13 +58,14 @@ public class PermissionBackupHelper extends BlobBackupHelper {
 
     @Override
     protected void applyRestoredPayload(String key, byte[] payload) {
+        IPackageManager pm = AppGlobals.getPackageManager();
         if (DEBUG) {
             Slog.d(TAG, "Handling restore of " + key);
         }
         try {
             switch (key) {
                 case KEY_PERMISSIONS:
-                    mPermissionManager.restoreRuntimePermissions(payload, mUser);
+                    pm.restorePermissionGrants(payload, UserHandle.USER_SYSTEM);
                     break;
 
                 default:

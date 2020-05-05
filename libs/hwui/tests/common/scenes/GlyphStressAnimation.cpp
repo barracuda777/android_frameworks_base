@@ -17,44 +17,48 @@
 #include "TestSceneBase.h"
 #include "utils/Color.h"
 
-#include <hwui/Paint.h>
 #include <minikin/Layout.h>
+#include <hwui/Paint.h>
 
 #include <cstdio>
 
 class GlyphStressAnimation;
 
 static TestScene::Registrar _GlyphStress(TestScene::Info{
-        "glyphstress", "A stress test for both the glyph cache, and glyph rendering.",
-        TestScene::simpleCreateScene<GlyphStressAnimation>});
+    "glyphstress",
+    "A stress test for both the glyph cache, and glyph rendering.",
+    TestScene::simpleCreateScene<GlyphStressAnimation>
+});
 
 class GlyphStressAnimation : public TestScene {
 public:
     sp<RenderNode> container;
-    void createContent(int width, int height, Canvas& canvas) override {
+    void createContent(int width, int height, TestCanvas& canvas) override {
         container = TestUtils::createNode(0, 0, width, height, nullptr);
-        doFrame(0);  // update container
+        doFrame(0); // update container
 
-        canvas.drawColor(Color::White, SkBlendMode::kSrcOver);
+        canvas.drawColor(Color::White, SkXfermode::kSrcOver_Mode);
         canvas.drawRenderNode(container.get());
     }
 
     void doFrame(int frameNr) override {
-        const char* text = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        std::unique_ptr<uint16_t[]> text = TestUtils::asciiToUtf16(
+                "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ");
+        ssize_t textLength = 26 * 2;
 
-        std::unique_ptr<Canvas> canvas(
-                Canvas::create_recording_canvas(container->stagingProperties().getWidth(),
-                                                container->stagingProperties().getHeight(),
-                                                container.get()));
-
+        TestCanvas canvas(
+                container->stagingProperties().getWidth(),
+                container->stagingProperties().getHeight());
         Paint paint;
+        paint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
         paint.setAntiAlias(true);
         paint.setColor(Color::Black);
         for (int i = 0; i < 5; i++) {
-            paint.getSkFont().setSize(10 + (frameNr % 20) + i * 20);
-            TestUtils::drawUtf8ToCanvas(canvas.get(), text, paint, 0, 100 * (i + 2));
+            paint.setTextSize(10 + (frameNr % 20) + i * 20);
+            canvas.drawText(text.get(), 0, textLength, textLength,
+                    0, 100 * (i + 2), kBidi_Force_LTR, paint, nullptr);
         }
 
-        container->setStagingDisplayList(canvas->finishRecording());
+        container->setStagingDisplayList(canvas.finishRecording(), nullptr);
     }
 };

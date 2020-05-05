@@ -34,12 +34,14 @@ import java.util.List;
 /**
  * HeadsetProfile handles Bluetooth HFP and Headset profiles.
  */
-public class HeadsetProfile implements LocalBluetoothProfile {
+public final class HeadsetProfile implements LocalBluetoothProfile {
     private static final String TAG = "HeadsetProfile";
+    private static boolean V = true;
 
     private BluetoothHeadset mService;
     private boolean mIsProfileReady;
 
+    private final LocalBluetoothAdapter mLocalAdapter;
     private final CachedBluetoothDeviceManager mDeviceManager;
     private final LocalBluetoothProfileManager mProfileManager;
 
@@ -58,6 +60,7 @@ public class HeadsetProfile implements LocalBluetoothProfile {
             implements BluetoothProfile.ServiceListener {
 
         public void onServiceConnected(int profile, BluetoothProfile proxy) {
+            if (V) Log.d(TAG,"Bluetooth service connected");
             mService = (BluetoothHeadset) proxy;
             // We just bound to the service, so refresh the UI for any connected HFP devices.
             List<BluetoothDevice> deviceList = mService.getConnectedDevices();
@@ -67,17 +70,19 @@ public class HeadsetProfile implements LocalBluetoothProfile {
                 // we may add a new device here, but generally this should not happen
                 if (device == null) {
                     Log.w(TAG, "HeadsetProfile found new device: " + nextDevice);
-                    device = mDeviceManager.addDevice(nextDevice);
+                    device = mDeviceManager.addDevice(mLocalAdapter, mProfileManager, nextDevice);
                 }
                 device.onProfileStateChanged(HeadsetProfile.this,
                         BluetoothProfile.STATE_CONNECTED);
                 device.refresh();
             }
-            mIsProfileReady=true;
+
             mProfileManager.callServiceConnectedListeners();
+            mIsProfileReady=true;
         }
 
         public void onServiceDisconnected(int profile) {
+            if (V) Log.d(TAG,"Bluetooth service disconnected");
             mProfileManager.callServiceDisconnectedListeners();
             mIsProfileReady=false;
         }
@@ -87,20 +92,17 @@ public class HeadsetProfile implements LocalBluetoothProfile {
         return mIsProfileReady;
     }
 
-    @Override
-    public int getProfileId() {
-        return BluetoothProfile.HEADSET;
-    }
-
-    HeadsetProfile(Context context, CachedBluetoothDeviceManager deviceManager,
+    HeadsetProfile(Context context, LocalBluetoothAdapter adapter,
+            CachedBluetoothDeviceManager deviceManager,
             LocalBluetoothProfileManager profileManager) {
+        mLocalAdapter = adapter;
         mDeviceManager = deviceManager;
         mProfileManager = profileManager;
-        BluetoothAdapter.getDefaultAdapter().getProfileProxy(context, new HeadsetServiceListener(),
+        mLocalAdapter.getProfileProxy(context, new HeadsetServiceListener(),
                 BluetoothProfile.HEADSET);
     }
 
-    public boolean accessProfileEnabled() {
+    public boolean isConnectable() {
         return true;
     }
 
@@ -109,76 +111,64 @@ public class HeadsetProfile implements LocalBluetoothProfile {
     }
 
     public boolean connect(BluetoothDevice device) {
-        if (mService == null) {
-            return false;
+        if (mService == null) return false;
+        List<BluetoothDevice> sinks = mService.getConnectedDevices();
+        if (sinks != null) {
+            for (BluetoothDevice sink : sinks) {
+                if (sink.equals(device)) {
+                    // Connect to same device, Ignore it
+                    Log.d(TAG,"Not disconnecting device = " + sink);
+                    return true;
+                }
+            }
         }
         return mService.connect(device);
     }
 
     public boolean disconnect(BluetoothDevice device) {
-        if (mService == null) {
-            return false;
+        if (mService == null) return false;
+        List<BluetoothDevice> deviceList = mService.getConnectedDevices();
+        if (!deviceList.isEmpty()) {
+            for (BluetoothDevice dev : deviceList) {
+                if (dev.equals(device)) {
+                    if (V) Log.d(TAG,"Downgrade priority as user" +
+                                        "is disconnecting the headset");
+                    // Downgrade priority as user is disconnecting the headset.
+                    if (mService.getPriority(device) > BluetoothProfile.PRIORITY_ON) {
+                        mService.setPriority(device, BluetoothProfile.PRIORITY_ON);
+                    }
+                    return mService.disconnect(device);
+                }
+            }
         }
-        // Downgrade priority as user is disconnecting the headset.
-        if (mService.getPriority(device) > BluetoothProfile.PRIORITY_ON) {
-            mService.setPriority(device, BluetoothProfile.PRIORITY_ON);
-        }
-        return mService.disconnect(device);
+        return false;
     }
 
     public int getConnectionStatus(BluetoothDevice device) {
-        if (mService == null) {
-            return BluetoothProfile.STATE_DISCONNECTED;
+        if (mService == null) return BluetoothProfile.STATE_DISCONNECTED;
+        List<BluetoothDevice> deviceList = mService.getConnectedDevices();
+        if (!deviceList.isEmpty()){
+            for (BluetoothDevice dev : deviceList) {
+                if (dev.equals(device)) {
+                    return mService.getConnectionState(device);
+                }
+            }
         }
-        return mService.getConnectionState(device);
-    }
-
-    public boolean setActiveDevice(BluetoothDevice device) {
-        if (mService == null) {
-            return false;
-        }
-        return mService.setActiveDevice(device);
-    }
-
-    public BluetoothDevice getActiveDevice() {
-        if (mService == null) {
-            return null;
-        }
-        return mService.getActiveDevice();
-    }
-
-    public boolean isAudioOn() {
-        if (mService == null) {
-            return false;
-        }
-        return mService.isAudioOn();
-    }
-
-    public int getAudioState(BluetoothDevice device) {
-        if (mService == null) {
-            return BluetoothHeadset.STATE_AUDIO_DISCONNECTED;
-        }
-        return mService.getAudioState(device);
+        return BluetoothProfile.STATE_DISCONNECTED;
     }
 
     public boolean isPreferred(BluetoothDevice device) {
-        if (mService == null) {
-            return false;
-        }
+        if (mService == null) return false;
         return mService.getPriority(device) > BluetoothProfile.PRIORITY_OFF;
     }
 
     public int getPreferred(BluetoothDevice device) {
-        if (mService == null) {
-            return BluetoothProfile.PRIORITY_OFF;
-        }
+        if (mService == null) return BluetoothProfile.PRIORITY_OFF;
         return mService.getPriority(device);
     }
 
     public void setPreferred(BluetoothDevice device, boolean preferred) {
-        if (mService == null) {
-            return;
-        }
+        if (mService == null) return;
         if (preferred) {
             if (mService.getPriority(device) < BluetoothProfile.PRIORITY_ON) {
                 mService.setPriority(device, BluetoothProfile.PRIORITY_ON);
@@ -189,9 +179,7 @@ public class HeadsetProfile implements LocalBluetoothProfile {
     }
 
     public List<BluetoothDevice> getConnectedDevices() {
-        if (mService == null) {
-            return new ArrayList<BluetoothDevice>(0);
-        }
+        if (mService == null) return new ArrayList<BluetoothDevice>(0);
         return mService.getDevicesMatchingConnectionStates(
               new int[] {BluetoothProfile.STATE_CONNECTED,
                          BluetoothProfile.STATE_CONNECTING,
@@ -220,16 +208,16 @@ public class HeadsetProfile implements LocalBluetoothProfile {
                 return R.string.bluetooth_headset_profile_summary_connected;
 
             default:
-                return BluetoothUtils.getConnectionStateSummary(state);
+                return Utils.getConnectionStateSummary(state);
         }
     }
 
     public int getDrawableResource(BluetoothClass btClass) {
-        return com.android.internal.R.drawable.ic_bt_headset_hfp;
+        return R.drawable.ic_bt_headset_hfp;
     }
 
     protected void finalize() {
-        Log.d(TAG, "finalize()");
+        if (V) Log.d(TAG, "finalize()");
         if (mService != null) {
             try {
                 BluetoothAdapter.getDefaultAdapter().closeProfileProxy(BluetoothProfile.HEADSET,

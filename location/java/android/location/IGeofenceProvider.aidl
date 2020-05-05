@@ -23,7 +23,6 @@ import android.hardware.location.IGeofenceHardware;
  *
  * {@hide}
  */
-oneway interface IGeofenceProvider {
-    @UnsupportedAppUsage
+interface IGeofenceProvider {
     void setGeofenceHardware(in IGeofenceHardware proxy);
 }

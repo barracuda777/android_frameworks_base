@@ -17,67 +17,58 @@
 #ifndef AAPT_IO_FILESYSTEM_H
 #define AAPT_IO_FILESYSTEM_H
 
-#include <map>
-
 #include "io/File.h"
+
+#include <map>
 
 namespace aapt {
 namespace io {
 
-// A regular file from the file system. Uses mmap to open the data.
+/**
+ * A regular file from the file system. Uses mmap to open the data.
+ */
 class RegularFile : public IFile {
- public:
-  explicit RegularFile(const Source& source);
+public:
+    RegularFile(const Source& source);
 
-  std::unique_ptr<IData> OpenAsData() override;
-  std::unique_ptr<io::InputStream> OpenInputStream() override;
-  const Source& GetSource() const override;
+    std::unique_ptr<IData> openAsData() override;
+    const Source& getSource() const override;
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(RegularFile);
-
-  Source source_;
+private:
+    Source mSource;
 };
 
 class FileCollection;
 
 class FileCollectionIterator : public IFileCollectionIterator {
- public:
-  explicit FileCollectionIterator(FileCollection* collection);
+public:
+    FileCollectionIterator(FileCollection* collection);
 
-  bool HasNext() override;
-  io::IFile* Next() override;
+    bool hasNext() override;
+    io::IFile* next() override;
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(FileCollectionIterator);
-
-  std::map<std::string, std::unique_ptr<IFile>>::const_iterator current_, end_;
+private:
+    std::map<std::string, std::unique_ptr<IFile>>::const_iterator mCurrent, mEnd;
 };
 
-// An IFileCollection representing the file system.
+/**
+ * An IFileCollection representing the file system.
+ */
 class FileCollection : public IFileCollection {
- public:
-  FileCollection() = default;
+public:
+    /**
+     * Adds a file located at path. Returns the IFile representation of that file.
+     */
+    IFile* insertFile(const StringPiece& path);
+    IFile* findFile(const StringPiece& path) override;
+    std::unique_ptr<IFileCollectionIterator> iterator() override;
 
-  /** Creates a file collection containing all files contained in the specified root directory. */
-  static std::unique_ptr<FileCollection> Create(const android::StringPiece& path,
-                                                std::string* outError);
-
-  // Adds a file located at path. Returns the IFile representation of that file.
-  IFile* InsertFile(const android::StringPiece& path);
-  IFile* FindFile(const android::StringPiece& path) override;
-  std::unique_ptr<IFileCollectionIterator> Iterator() override;
-  char GetDirSeparator() override;
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(FileCollection);
-
-  friend class FileCollectionIterator;
-
-  std::map<std::string, std::unique_ptr<IFile>> files_;
+private:
+    friend class FileCollectionIterator;
+    std::map<std::string, std::unique_ptr<IFile>> mFiles;
 };
 
-}  // namespace io
-}  // namespace aapt
+} // namespace io
+} // namespace aapt
 
-#endif  // AAPT_IO_FILESYSTEM_H
+#endif // AAPT_IO_FILESYSTEM_H

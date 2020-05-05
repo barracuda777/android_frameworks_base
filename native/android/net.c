@@ -27,7 +27,7 @@ static int getnetidfromhandle(net_handle_t handle, unsigned *netid) {
     static const uint32_t k32BitMask = 0xffffffff;
     // This value MUST be kept in sync with the corresponding value in
     // the android.net.Network#getNetworkHandle() implementation.
-    static const uint32_t kHandleMagic = 0xcafed00d;
+    static const uint32_t kHandleMagic = 0xfacade;
 
     // Check for minimum acceptable version of the API in the low bits.
     if (handle != NETWORK_UNSPECIFIED &&
@@ -82,32 +82,4 @@ int android_getaddrinfofornetwork(net_handle_t network,
     }
 
     return android_getaddrinfofornet(node, service, hints, netid, 0, res);
-}
-
-int android_res_nquery(net_handle_t network, const char *dname,
-        int ns_class, int ns_type, enum ResNsendFlags flags) {
-    unsigned netid;
-    if (!getnetidfromhandle(network, &netid)) {
-        return -ENONET;
-    }
-
-    return resNetworkQuery(netid, dname, ns_class, ns_type, flags);
-}
-
-int android_res_nresult(int fd, int *rcode, uint8_t *answer, size_t anslen) {
-    return resNetworkResult(fd, rcode, answer, anslen);
-}
-
-int android_res_nsend(net_handle_t network, const uint8_t *msg, size_t msglen,
-        enum ResNsendFlags flags) {
-    unsigned netid;
-    if (!getnetidfromhandle(network, &netid)) {
-        return -ENONET;
-    }
-
-    return resNetworkSend(netid, msg, msglen, flags);
-}
-
-void android_res_cancel(int nsend_fd) {
-    resNetworkCancel(nsend_fd);
 }

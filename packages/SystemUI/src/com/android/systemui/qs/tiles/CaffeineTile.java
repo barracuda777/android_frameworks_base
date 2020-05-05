@@ -21,24 +21,23 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.database.ContentObserver;
+import android.net.Uri;
 import android.os.CountDownTimer;
 import android.os.PowerManager;
 import android.os.SystemClock;
-import android.service.quicksettings.Tile;
+import android.provider.Settings;
 
-import com.android.systemui.qs.QSHost;
-import com.android.systemui.qs.tileimpl.QSTileImpl;
-import com.android.systemui.plugins.qs.QSTile.BooleanState;
+import com.android.systemui.qs.QSTile;
 import com.android.systemui.R;
 
-import org.lineageos.internal.logging.LineageMetricsLogger;
-
-import javax.inject.Inject;
+import org.cyanogenmod.internal.logging.CMMetricsLogger;
 
 /** Quick settings tile: Caffeine **/
-public class CaffeineTile extends QSTileImpl<BooleanState> {
+public class CaffeineTile extends QSTile<QSTile.BooleanState> {
 
-    private final Icon mIcon = ResourceIcon.get(R.drawable.ic_qs_caffeine);
+    private static final Intent NOTIFICATION_SETTINGS =
+            new Intent("android.settings.NOTIFICATION_MANAGER");
 
     private final PowerManager.WakeLock mWakeLock;
     private int mSecondsRemaining;
@@ -52,11 +51,11 @@ public class CaffeineTile extends QSTileImpl<BooleanState> {
     private CountDownTimer mCountdownTimer = null;
     public long mLastClickTime = -1;
     private final Receiver mReceiver = new Receiver();
+    private boolean mListening;
 
-    @Inject
-    public CaffeineTile(QSHost host) {
+    public CaffeineTile(Host host) {
         super(host);
-        mWakeLock = mContext.getSystemService(PowerManager.class).newWakeLock(
+        mWakeLock = ((PowerManager) mContext.getSystemService(Context.POWER_SERVICE)).newWakeLock(
                 PowerManager.FULL_WAKE_LOCK, "CaffeineTile");
         mReceiver.init();
     }
@@ -71,13 +70,13 @@ public class CaffeineTile extends QSTileImpl<BooleanState> {
         super.handleDestroy();
         stopCountDown();
         mReceiver.destroy();
-        if (mWakeLock.isHeld()) {
+      if (mWakeLock.isHeld()) {
             mWakeLock.release();
-        }
+      }
     }
 
     @Override
-    public void handleSetListening(boolean listening) {
+    public void setListening(boolean listening) {
     }
 
     @Override
@@ -134,7 +133,7 @@ public class CaffeineTile extends QSTileImpl<BooleanState> {
 
     @Override
     public int getMetricsCategory() {
-        return LineageMetricsLogger.TILE_CAFFEINE;
+        return CMMetricsLogger.TILE_CAFFEINE;
     }
 
     private void startCountDown(long duration) {
@@ -145,6 +144,7 @@ public class CaffeineTile extends QSTileImpl<BooleanState> {
             return;
         }
         mCountdownTimer = new CountDownTimer(duration * 1000, 1000) {
+
             @Override
             public void onTick(long millisUntilFinished) {
                 mSecondsRemaining = (int) (millisUntilFinished / 1000);
@@ -179,18 +179,16 @@ public class CaffeineTile extends QSTileImpl<BooleanState> {
     @Override
     protected void handleUpdateState(BooleanState state, Object arg) {
         state.value = mWakeLock.isHeld();
-        state.icon = mIcon;
-        state.label = mContext.getString(R.string.quick_settings_caffeine_label);
         if (state.value) {
-            state.secondaryLabel = formatValueWithRemainingTime();
+            state.label = formatValueWithRemainingTime();
+            state.icon = ResourceIcon.get(R.drawable.ic_qs_caffeine_on);
             state.contentDescription =  mContext.getString(
                     R.string.accessibility_quick_settings_caffeine_on);
-            state.state = Tile.STATE_ACTIVE;
         } else {
-            state.secondaryLabel = null;
+            state.label = mContext.getString(R.string.quick_settings_caffeine_label);
+            state.icon = ResourceIcon.get(R.drawable.ic_qs_caffeine_off);
             state.contentDescription =  mContext.getString(
                     R.string.accessibility_quick_settings_caffeine_off);
-            state.state = Tile.STATE_INACTIVE;
         }
     }
 

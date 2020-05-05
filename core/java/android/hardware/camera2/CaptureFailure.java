@@ -15,9 +15,8 @@
  */
 package android.hardware.camera2;
 
-import android.annotation.IntDef;
 import android.annotation.NonNull;
-import android.annotation.Nullable;
+import android.annotation.IntDef;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -52,7 +51,7 @@ public class CaptureFailure {
 
      /** @hide */
      @Retention(RetentionPolicy.SOURCE)
-     @IntDef(prefix = {"REASON_"}, value =
+     @IntDef(
          {REASON_ERROR,
           REASON_FLUSHED })
      public @interface FailureReason {};
@@ -62,19 +61,17 @@ public class CaptureFailure {
     private final boolean mDropped;
     private final int mSequenceId;
     private final long mFrameNumber;
-    private final String mErrorPhysicalCameraId;
 
     /**
      * @hide
      */
     public CaptureFailure(CaptureRequest request, int reason,
-            boolean dropped, int sequenceId, long frameNumber, String errorPhysicalCameraId) {
+            boolean dropped, int sequenceId, long frameNumber) {
         mRequest = request;
         mReason = reason;
         mDropped = dropped;
         mSequenceId = sequenceId;
         mFrameNumber = frameNumber;
-        mErrorPhysicalCameraId = errorPhysicalCameraId;
     }
 
     /**
@@ -122,7 +119,7 @@ public class CaptureFailure {
      * Determine why the request was dropped, whether due to an error or to a user
      * action.
      *
-     * @return int The reason code.
+     * @return int One of {@code REASON_*} integer constants.
      *
      * @see #REASON_ERROR
      * @see #REASON_FLUSHED
@@ -153,22 +150,9 @@ public class CaptureFailure {
      *
      * @return int The ID for the sequence of requests that this capture failure is the result of
      *
-     * @see CameraCaptureSession.CaptureCallback#onCaptureSequenceCompleted
+     * @see CameraDevice.CaptureCallback#onCaptureSequenceCompleted
      */
     public int getSequenceId() {
         return mSequenceId;
-    }
-
-    /**
-     * The physical camera device ID in case the capture failure comes from a {@link CaptureRequest}
-     * with configured physical camera streams for a logical camera.
-     *
-     * @return String The physical camera device ID of the respective failing output.
-     *         {@code null} in case the capture request has no associated physical camera device.
-     * @see CaptureRequest.Builder#setPhysicalCameraKey
-     * @see android.hardware.camera2.params.OutputConfiguration#setPhysicalCameraId
-     */
-    public @Nullable String getPhysicalCameraId() {
-        return mErrorPhysicalCameraId;
     }
 }

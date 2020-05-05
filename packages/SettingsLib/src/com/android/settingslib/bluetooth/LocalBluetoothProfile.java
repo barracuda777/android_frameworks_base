@@ -26,9 +26,9 @@ import android.bluetooth.BluetoothDevice;
 public interface LocalBluetoothProfile {
 
     /**
-     * Return {@code true} if the user can initiate a connection for this profile in UI.
+     * Returns true if the user can initiate a connection, false otherwise.
      */
-    boolean accessProfileEnabled();
+    boolean isConnectable();
 
     /**
      * Returns true if the user can enable auto connection for this profile.
@@ -48,8 +48,6 @@ public interface LocalBluetoothProfile {
     void setPreferred(BluetoothDevice device, boolean preferred);
 
     boolean isProfileReady();
-
-    int getProfileId();
 
     /** Display order for device profile settings. */
     int getOrdinal();

@@ -16,9 +16,8 @@
 
 package android.util;
 
-import androidx.test.filters.SmallTest;
-
 import junit.framework.TestCase;
+import android.test.suitebuilder.annotation.SmallTest;
 
 /**
  * Tests for {@link StateSet}

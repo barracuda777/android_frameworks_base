@@ -16,19 +16,12 @@
 
 package com.android.internal.policy;
 
-import android.content.AutofillOptions;
-import android.content.ContentCaptureOptions;
 import android.content.Context;
 import android.content.res.AssetManager;
 import android.content.res.Resources;
 import android.view.ContextThemeWrapper;
 import android.view.WindowManager;
 import android.view.WindowManagerImpl;
-import android.view.contentcapture.ContentCaptureManager;
-
-import com.android.internal.annotations.VisibleForTesting;
-
-import java.lang.ref.WeakReference;
 
 /**
  * Context for decor views which can be seeded with pure application context and not depend on the
@@ -37,20 +30,14 @@ import java.lang.ref.WeakReference;
  *
  * @hide
  */
-@VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
-public class DecorContext extends ContextThemeWrapper {
+class DecorContext extends ContextThemeWrapper {
     private PhoneWindow mPhoneWindow;
     private WindowManager mWindowManager;
     private Resources mActivityResources;
-    private ContentCaptureManager mContentCaptureManager;
 
-    private WeakReference<Context> mActivityContext;
-
-    @VisibleForTesting
-    public DecorContext(Context context, Context activityContext) {
-        super(context.createDisplayContext(activityContext.getDisplay()), null);
-        mActivityContext = new WeakReference<>(activityContext);
-        mActivityResources = activityContext.getResources();
+    public DecorContext(Context context, Resources activityResources) {
+        super(context, null);
+        mActivityResources = activityResources;
     }
 
     void setPhoneWindow(PhoneWindow phoneWindow) {
@@ -68,51 +55,16 @@ public class DecorContext extends ContextThemeWrapper {
             }
             return mWindowManager;
         }
-        if (Context.CONTENT_CAPTURE_MANAGER_SERVICE.equals(name)) {
-            if (mContentCaptureManager == null) {
-                Context activityContext = mActivityContext.get();
-                if (activityContext != null) {
-                    mContentCaptureManager = (ContentCaptureManager) activityContext
-                            .getSystemService(name);
-                }
-            }
-            return mContentCaptureManager;
-        }
         return super.getSystemService(name);
     }
 
     @Override
     public Resources getResources() {
-        Context activityContext = mActivityContext.get();
-        // Attempt to update the local cached Resources from the activity context. If the activity
-        // is no longer around, return the old cached values.
-        if (activityContext != null) {
-            mActivityResources = activityContext.getResources();
-        }
-
         return mActivityResources;
     }
 
     @Override
     public AssetManager getAssets() {
         return mActivityResources.getAssets();
-    }
-
-    @Override
-    public AutofillOptions getAutofillOptions() {
-        Context activityContext = mActivityContext.get();
-        if (activityContext != null) {
-            return activityContext.getAutofillOptions();
-        }
-        return null;
-    }
-
-    @Override
-    public ContentCaptureOptions getContentCaptureOptions() {
-        Context activityContext = mActivityContext.get();
-        if (activityContext != null) {
-            return activityContext.getContentCaptureOptions();
-        }
-        return null;
     }
 }

@@ -17,10 +17,9 @@
 package com.android.ims.internal;
 
 import android.os.Message;
-import android.telephony.ims.aidl.IImsCallSessionListener;
-
-import android.telephony.ims.ImsCallProfile;
-import android.telephony.ims.ImsStreamMediaProfile;
+import com.android.ims.ImsCallProfile;
+import com.android.ims.ImsStreamMediaProfile;
+import com.android.ims.internal.IImsCallSessionListener;
 import com.android.ims.internal.IImsVideoCallProvider;
 
 /**
@@ -134,13 +133,6 @@ interface IImsCallSession {
      * @see Listener#callSessionStarted
      */
     void accept(int callType, in ImsStreamMediaProfile profile);
-
-    /**
-     * Deflects an incoming call.
-     *
-     * @param deflectNumber number to deflect the call
-     */
-    void deflect(String deflectNumber);
 
     /**
      * Rejects an incoming call or session update.
@@ -263,23 +255,4 @@ interface IImsCallSession {
      * @return {@code True} if the session is multiparty.
      */
     boolean isMultiparty();
-
-    /**
-     * Device issues RTT modify request
-     * @param toProfile The profile with requested changes made
-     */
-    void sendRttModifyRequest(in ImsCallProfile toProfile);
-
-    /*
-     * Device responds to Remote RTT modify request
-     * @param status true : Accepted the request
-     *                false : Declined the request
-     */
-    void sendRttModifyResponse(in boolean status);
-
-    /*
-     * Device sends RTT message
-     * @param rttMessage RTT message to be sent
-     */
-    void sendRttMessage(in String rttMessage);
 }

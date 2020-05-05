@@ -18,22 +18,23 @@
 
 #include <androidfw/BackupHelpers.h>
 
+#include <utils/KeyedVector.h>
+#include <utils/ByteOrder.h>
+#include <utils/String8.h>
+
 #include <errno.h>
-#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <sys/stat.h>
+#include <sys/time.h>  // for utimes
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/time.h>  // for utimes
-#include <sys/uio.h>
 #include <unistd.h>
 #include <utime.h>
+#include <fcntl.h>
 #include <zlib.h>
 
-#include <log/log.h>
-#include <utils/ByteOrder.h>
-#include <utils/KeyedVector.h>
-#include <utils/String8.h>
+#include <cutils/log.h>
 
 namespace android {
 
@@ -441,7 +442,7 @@ back_up_files(int oldSnapshotFD, BackupDataWriter* dataStream, int newSnapshotFD
     return 0;
 }
 
-static void calc_tar_checksum(char* buf, size_t buf_size) {
+static void calc_tar_checksum(char* buf) {
     // [ 148 :   8 ] checksum -- to be calculated with this field as space chars
     memset(buf + 148, ' ', 8);
 
@@ -452,13 +453,11 @@ static void calc_tar_checksum(char* buf, size_t buf_size) {
 
     // Now write the real checksum value:
     // [ 148 :   8 ]  checksum: 6 octal digits [leading zeroes], NUL, SPC
-    snprintf(buf + 148, buf_size - 148, "%06o", sum); // the trailing space is
-                                                      // already in place
+    sprintf(buf + 148, "%06o", sum); // the trailing space is already in place
 }
 
 // Returns number of bytes written
-static int write_pax_header_entry(char* buf, size_t buf_size,
-                                  const char* key, const char* value) {
+static int write_pax_header_entry(char* buf, const char* key, const char* value) {
     // start with the size of "1 key=value\n"
     int len = strlen(key) + strlen(value) + 4;
     if (len > 9) len++;
@@ -467,7 +466,7 @@ static int write_pax_header_entry(char* buf, size_t buf_size,
     // since PATH_MAX is 4096 we don't expect to have to generate any single
     // header entry longer than 9999 characters
 
-    return snprintf(buf, buf_size, "%d %s=%s\n", len, key, value);
+    return sprintf(buf, "%d %s=%s\n", len, key, value);
 }
 
 // Wire format to the backup manager service is chunked:  each chunk is prefixed by
@@ -551,12 +550,8 @@ int write_tarfile(const String8& packageName, const String8& domain,
     // read/write up to this much at a time.
     const size_t BUFSIZE = 32 * 1024;
     char* buf = (char *)calloc(1,BUFSIZE);
-    const size_t PAXHEADER_OFFSET = 512;
-    const size_t PAXHEADER_SIZE = 512;
-    const size_t PAXDATA_SIZE = BUFSIZE - (PAXHEADER_SIZE + PAXHEADER_OFFSET);
-    char* const paxHeader = buf + PAXHEADER_OFFSET; // use a different chunk of
-                                                    // it as separate scratch
-    char* const paxData = paxHeader + PAXHEADER_SIZE;
+    char* paxHeader = buf + 512;    // use a different chunk of it as separate scratch
+    char* paxData = buf + 1024;
 
     if (buf == NULL) {
         ALOGE("Out of mem allocating transfer buffer");
@@ -635,21 +630,21 @@ int write_tarfile(const String8& packageName, const String8& domain,
     // already preflighted
     if (needExtended) {
         char sizeStr[32];   // big enough for a 64-bit unsigned value in decimal
+        char* p = paxData;
 
         // construct the pax extended header data block
-        memset(paxData, 0, PAXDATA_SIZE);
+        memset(paxData, 0, BUFSIZE - (paxData - buf));
 
         // size header -- calc len in digits by actually rendering the number
         // to a string - brute force but simple
-        int paxLen = 0;
         snprintf(sizeStr, sizeof(sizeStr), "%lld", (long long)s.st_size);
-        paxLen += write_pax_header_entry(paxData, PAXDATA_SIZE, "size", sizeStr);
+        p += write_pax_header_entry(p, "size", sizeStr);
 
         // fullname was generated above with the ustar paths
-        paxLen += write_pax_header_entry(paxData + paxLen, PAXDATA_SIZE - paxLen,
-                "path", fullname.string());
+        p += write_pax_header_entry(p, "path", fullname.string());
 
         // Now we know how big the pax data is
+        int paxLen = p - paxData;
 
         // Now build the pax *header* templated on the ustar header
         memcpy(paxHeader, buf, 512);
@@ -664,10 +659,10 @@ int write_tarfile(const String8& packageName, const String8& domain,
 
         // [ 124 :  12 ] size of pax extended header data
         memset(paxHeader + 124, 0, 12);
-        snprintf(paxHeader + 124, 12, "%011o", (unsigned int)paxLen);
+        snprintf(paxHeader + 124, 12, "%011o", (unsigned int)(p - paxData));
 
         // Checksum and write the pax block header
-        calc_tar_checksum(paxHeader, PAXHEADER_SIZE);
+        calc_tar_checksum(paxHeader);
         send_tarfile_chunk(writer, paxHeader, 512);
 
         // Now write the pax data itself
@@ -676,7 +671,7 @@ int write_tarfile(const String8& packageName, const String8& domain,
     }
 
     // Checksum and write the 512-byte ustar file header block to the output
-    calc_tar_checksum(buf, BUFSIZE);
+    calc_tar_checksum(buf);
     send_tarfile_chunk(writer, buf, 512);
 
     // Now write the file data itself, for real files.  We honor tar's convention that

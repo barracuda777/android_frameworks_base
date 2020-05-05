@@ -34,7 +34,7 @@ public class RestoreDescription implements Parcelable {
     private final String mPackageName;
     private final int mDataType;
 
-    private static final String NO_MORE_PACKAGES_SENTINEL = "NO_MORE_PACKAGES";
+    private static final String NO_MORE_PACKAGES_SENTINEL = "";
 
     /**
      * Return this constant RestoreDescription from BackupTransport.nextRestorePackage()
@@ -89,7 +89,7 @@ public class RestoreDescription implements Parcelable {
         out.writeInt(mDataType);
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<RestoreDescription> CREATOR
+    public static final Parcelable.Creator<RestoreDescription> CREATOR
             = new Parcelable.Creator<RestoreDescription>() {
         public RestoreDescription createFromParcel(Parcel in) {
             final RestoreDescription unparceled = new RestoreDescription(in);

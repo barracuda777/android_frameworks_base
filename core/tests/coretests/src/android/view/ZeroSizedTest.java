@@ -16,12 +16,13 @@
 
 package android.view;
 
-import android.graphics.Bitmap;
-import android.test.ActivityInstrumentationTestCase;
-
-import androidx.test.filters.MediumTest;
-
+import android.view.ZeroSized;
 import com.android.frameworks.coretests.R;
+
+import android.test.ActivityInstrumentationTestCase;
+import android.test.suitebuilder.annotation.MediumTest;
+import android.view.View;
+import android.graphics.Bitmap;
 
 /**
  * Builds the drawing cache of Views of various dimension. The assumption is that

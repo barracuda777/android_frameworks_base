@@ -16,17 +16,14 @@
 
 package android.net.http;
 
-import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
+import com.android.internal.util.HexDump;
+
 import android.content.Context;
 import android.os.Bundle;
 import android.text.format.DateFormat;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.TextView;
-
-import com.android.internal.util.HexDump;
-import com.android.org.bouncycastle.asn1.x509.X509Name;
 
 import java.io.ByteArrayInputStream;
 import java.math.BigInteger;
@@ -41,6 +38,8 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Vector;
+
+import com.android.org.bouncycastle.asn1.x509.X509Name;
 
 /**
  * SSL certificate info (certificate details) class
@@ -79,7 +78,6 @@ public class SslCertificate {
      * be available, and saveState and restoreState can be simplified
      * to be unconditional.
      */
-    @UnsupportedAppUsage
     private final X509Certificate mX509Certificate;
 
     /**
@@ -250,17 +248,8 @@ public class SslCertificate {
     }
 
     /**
-     * @return The {@code X509Certificate} used to create this {@code SslCertificate} or
-     * {@code null} if no certificate was provided.
-     */
-    public @Nullable X509Certificate getX509Certificate() {
-        return mX509Certificate;
-    }
-
-    /**
      * Convenience for UI presentation, not intended as public API.
      */
-    @UnsupportedAppUsage
     private static String getSerialNumber(X509Certificate x509Certificate) {
         if (x509Certificate == null) {
             return "";
@@ -275,7 +264,6 @@ public class SslCertificate {
     /**
      * Convenience for UI presentation, not intended as public API.
      */
-    @UnsupportedAppUsage
     private static String getDigest(X509Certificate x509Certificate, String algorithm) {
         if (x509Certificate == null) {
             return "";
@@ -459,7 +447,6 @@ public class SslCertificate {
      *
      * @hide Used by Browser and Settings
      */
-    @UnsupportedAppUsage
     public View inflateCertificateView(Context context) {
         LayoutInflater factory = LayoutInflater.from(context);
 
@@ -519,6 +506,6 @@ public class SslCertificate {
         if (certificateDate == null) {
             return "";
         }
-        return DateFormat.getMediumDateFormat(context).format(certificateDate);
+        return DateFormat.getDateFormat(context).format(certificateDate);
     }
 }

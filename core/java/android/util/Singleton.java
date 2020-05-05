@@ -16,8 +16,6 @@
 
 package android.util;
 
-import android.annotation.UnsupportedAppUsage;
-
 /**
  * Singleton helper class for lazily initialization.
  *
@@ -26,12 +24,10 @@ import android.annotation.UnsupportedAppUsage;
  * @hide
  */
 public abstract class Singleton<T> {
-    @UnsupportedAppUsage
     private T mInstance;
 
     protected abstract T create();
 
-    @UnsupportedAppUsage
     public final T get() {
         synchronized (this) {
             if (mInstance == null) {

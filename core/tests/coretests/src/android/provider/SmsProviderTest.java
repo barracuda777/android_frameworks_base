@@ -22,9 +22,8 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.provider.Telephony.Sms;
 import android.test.AndroidTestCase;
-
-import androidx.test.filters.LargeTest;
-import androidx.test.filters.Suppress;
+import android.test.suitebuilder.annotation.LargeTest;
+import android.test.suitebuilder.annotation.Suppress;
 
 import java.util.GregorianCalendar;
 

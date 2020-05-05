@@ -24,12 +24,6 @@ import android.net.NetworkTemplate;
 import android.os.Bundle;
 import android.os.RemoteException;
 
-/**
- * Framework loader is deprecated, use the compat version instead.
- *
- * @deprecated
- */
-@Deprecated
 public class SummaryForAllUidLoader extends AsyncTaskLoader<NetworkStats> {
     private static final String KEY_TEMPLATE = "template";
     private static final String KEY_START = "start";

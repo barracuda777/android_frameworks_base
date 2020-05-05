@@ -20,8 +20,7 @@
 #include <utils/Log.h>
 
 #include "jni.h"
-#include <nativehelper/JNIHelp.h>
-#include <nativehelper/ScopedUtfChars.h>
+#include "JNIHelp.h"
 #include "core_jni_helpers.h"
 #include <system/sound_trigger.h>
 #include <soundtrigger/SoundTriggerCallback.h>
@@ -222,23 +221,11 @@ void JNISoundTriggerCallback::onRecognitionEvent(struct sound_trigger_recognitio
 
     jobject jAudioFormat = NULL;
     if (event->trigger_in_data || event->capture_available) {
-        jint channelMask = (jint)audio_channel_mask_get_bits(event->audio_config.channel_mask);
-        jint channelIndexMask = (jint)AUDIO_CHANNEL_NONE;
-
-        switch (audio_channel_mask_get_representation(event->audio_config.channel_mask)) {
-        case AUDIO_CHANNEL_REPRESENTATION_INDEX:
-            channelIndexMask = channelMask;
-            channelMask = (jint)AUDIO_CHANNEL_NONE;
-            break;
-        default:
-            break;
-        }
         jAudioFormat = env->NewObject(gAudioFormatClass,
                                     gAudioFormatCstor,
                                     audioFormatFromNative(event->audio_config.format),
                                     event->audio_config.sample_rate,
-                                    channelMask,
-                                    channelIndexMask);
+                                    inChannelMaskFromNative(event->audio_config.channel_mask));
 
     }
     if (event->type == SOUND_MODEL_TYPE_KEYPHRASE) {
@@ -396,7 +383,7 @@ static sp<SoundTrigger> setSoundTrigger(JNIEnv* env, jobject thiz, const sp<Soun
 
 static jint
 android_hardware_SoundTrigger_listModules(JNIEnv *env, jobject clazz,
-                                          jstring opPackageName, jobject jModules)
+                                          jobject jModules)
 {
     ALOGV("listModules");
 
@@ -412,10 +399,7 @@ android_hardware_SoundTrigger_listModules(JNIEnv *env, jobject clazz,
     unsigned int numModules = 0;
     struct sound_trigger_module_descriptor *nModules = NULL;
 
-    ScopedUtfChars opPackageNameStr(env, opPackageName);
-    const String16 opPackageNameString16 = String16(opPackageNameStr.c_str());
-
-    status_t status = SoundTrigger::listModules(opPackageNameString16, nModules, &numModules);
+    status_t status = SoundTrigger::listModules(nModules, &numModules);
     if (status != NO_ERROR || numModules == 0) {
         return (jint)status;
     }
@@ -423,7 +407,7 @@ android_hardware_SoundTrigger_listModules(JNIEnv *env, jobject clazz,
     nModules = (struct sound_trigger_module_descriptor *)
                             calloc(numModules, sizeof(struct sound_trigger_module_descriptor));
 
-    status = SoundTrigger::listModules(opPackageNameString16, nModules, &numModules);
+    status = SoundTrigger::listModules(nModules, &numModules);
     ALOGV("listModules SoundTrigger::listModules status %d numModules %d", status, numModules);
 
     if (status != NO_ERROR) {
@@ -474,20 +458,16 @@ exit:
 }
 
 static void
-android_hardware_SoundTrigger_setup(JNIEnv *env, jobject thiz,
-                                    jstring opPackageName, jobject weak_this)
+android_hardware_SoundTrigger_setup(JNIEnv *env, jobject thiz, jobject weak_this)
 {
     ALOGV("setup");
-
-    ScopedUtfChars opPackageNameStr(env, opPackageName);
-    const String16 opPackageNameString16 = String16(opPackageNameStr.c_str());
 
     sp<JNISoundTriggerCallback> callback = new JNISoundTriggerCallback(env, thiz, weak_this);
 
     sound_trigger_module_handle_t handle =
             (sound_trigger_module_handle_t)env->GetIntField(thiz, gModuleFields.mId);
 
-    sp<SoundTrigger> module = SoundTrigger::attach(opPackageNameString16, handle, callback);
+    sp<SoundTrigger> module = SoundTrigger::attach(handle, callback);
     if (module == 0) {
         return;
     }
@@ -808,30 +788,16 @@ android_hardware_SoundTrigger_stopRecognition(JNIEnv *env, jobject thiz,
     return status;
 }
 
-static jint
-android_hardware_SoundTrigger_getModelState(JNIEnv *env, jobject thiz,
-                                            jint jHandle)
-{
-    jint status = SOUNDTRIGGER_STATUS_OK;
-    ALOGV("getModelState");
-    sp<SoundTrigger> module = getSoundTrigger(env, thiz);
-    if (module == NULL) {
-        return SOUNDTRIGGER_STATUS_ERROR;
-    }
-    status = module->getModelState(jHandle);
-    return status;
-}
-
 static const JNINativeMethod gMethods[] = {
     {"listModules",
-        "(Ljava/lang/String;Ljava/util/ArrayList;)I",
+        "(Ljava/util/ArrayList;)I",
         (void *)android_hardware_SoundTrigger_listModules},
 };
 
 
 static const JNINativeMethod gModuleMethods[] = {
     {"native_setup",
-        "(Ljava/lang/String;Ljava/lang/Object;)V",
+        "(Ljava/lang/Object;)V",
         (void *)android_hardware_SoundTrigger_setup},
     {"native_finalize",
         "()V",
@@ -851,9 +817,6 @@ static const JNINativeMethod gModuleMethods[] = {
     {"stopRecognition",
         "(I)I",
         (void *)android_hardware_SoundTrigger_stopRecognition},
-    {"getModelState",
-        "(I)I",
-        (void *)android_hardware_SoundTrigger_getModelState},
 };
 
 int register_android_hardware_SoundTrigger(JNIEnv *env)

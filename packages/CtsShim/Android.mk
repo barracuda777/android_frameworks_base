@@ -30,12 +30,8 @@ LOCAL_BUILT_MODULE_STEM := package.apk
 # Make sure the build system doesn't try to resign the APK
 LOCAL_CERTIFICATE := PRESIGNED
 LOCAL_DEX_PREOPT := false
-LOCAL_MODULE_TARGET_ARCH := arm arm64 x86 x86_64
 
-LOCAL_SRC_FILES_arm := apk/arm/CtsShimPriv.apk
-LOCAL_SRC_FILES_arm64 := apk/arm/CtsShimPriv.apk
-LOCAL_SRC_FILES_x86 := apk/x86/CtsShimPriv.apk
-LOCAL_SRC_FILES_x86_64 := apk/x86/CtsShimPriv.apk
+LOCAL_SRC_FILES := CtsShimPriv.apk
 
 include $(BUILD_PREBUILT)
 
@@ -52,12 +48,8 @@ LOCAL_BUILT_MODULE_STEM := package.apk
 # Make sure the build system doesn't try to resign the APK
 LOCAL_CERTIFICATE := PRESIGNED
 LOCAL_DEX_PREOPT := false
-LOCAL_MODULE_TARGET_ARCH := arm arm64 x86 x86_64
 
-LOCAL_SRC_FILES_arm := apk/arm/CtsShim.apk
-LOCAL_SRC_FILES_arm64 := apk/arm/CtsShim.apk
-LOCAL_SRC_FILES_x86 := apk/x86/CtsShim.apk
-LOCAL_SRC_FILES_x86_64 := apk/x86/CtsShim.apk
+LOCAL_SRC_FILES := CtsShim.apk
 
 include $(BUILD_PREBUILT)
 

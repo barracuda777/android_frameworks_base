@@ -35,18 +35,16 @@
 
 #include <utils/Looper.h>
 
-#include <nativehelper/JNIHelp.h>
+#include "JNIHelp.h"
 #include "android_os_MessageQueue.h"
 #include "android_view_InputChannel.h"
 #include "android_view_KeyEvent.h"
 
-#include "android-base/stringprintf.h"
 #include "nativebridge/native_bridge.h"
 #include "nativeloader/native_loader.h"
 
 #include "core_jni_helpers.h"
 
-#include <nativehelper/ScopedUtfChars.h>
 
 #define LOG_TRACE(...)
 //#define LOG_TRACE(...) ALOG(LOG_DEBUG, LOG_TAG, __VA_ARGS__)
@@ -129,13 +127,8 @@ struct NativeCode : public ANativeActivity {
         if (callbacks.onDestroy != NULL) {
             callbacks.onDestroy(this);
         }
-        if (env != NULL) {
-          if (clazz != NULL) {
+        if (env != NULL && clazz != NULL) {
             env->DeleteGlobalRef(clazz);
-          }
-          if (javaAssetManager != NULL) {
-            env->DeleteGlobalRef(javaAssetManager);
-          }
         }
         if (messageQueue != NULL && mainWorkRead >= 0) {
             messageQueue->getLooper()->removeFd(mainWorkRead);
@@ -176,10 +169,6 @@ struct NativeCode : public ANativeActivity {
     int mainWorkRead;
     int mainWorkWrite;
     sp<MessageQueue> messageQueue;
-
-    // Need to hold on to a reference here in case the upper layers destroy our
-    // AssetManager.
-    jobject javaAssetManager;
 };
 
 void android_NativeActivity_finish(ANativeActivity* activity) {
@@ -266,8 +255,6 @@ static int mainWorkCallback(int fd, int events, void* data) {
 
 // ------------------------------------------------------------------------
 
-static thread_local std::string g_error_msg;
-
 static jlong
 loadNativeCode_native(JNIEnv* env, jobject clazz, jstring path, jstring funcName,
         jobject messageQueue, jstring internalDataDir, jstring obbDir,
@@ -277,123 +264,108 @@ loadNativeCode_native(JNIEnv* env, jobject clazz, jstring path, jstring funcName
         ALOGD("loadNativeCode_native");
     }
 
-    ScopedUtfChars pathStr(env, path);
+    const char* pathStr = env->GetStringUTFChars(path, NULL);
     std::unique_ptr<NativeCode> code;
-    bool needs_native_bridge = false;
+    bool needNativeBridge = false;
 
-    char* nativeloader_error_msg = nullptr;
-    void* handle = OpenNativeLibrary(env,
-                                     sdkVersion,
-                                     pathStr.c_str(),
-                                     classLoader,
-                                     nullptr,
-                                     libraryPath,
-                                     &needs_native_bridge,
-                                     &nativeloader_error_msg);
-
-    if (handle == nullptr) {
-        g_error_msg = nativeloader_error_msg;
-        NativeLoaderFreeErrorMessage(nativeloader_error_msg);
-        ALOGW("NativeActivity LoadNativeLibrary(\"%s\") failed: %s",
-              pathStr.c_str(),
-              g_error_msg.c_str());
-        return 0;
+    void* handle = OpenNativeLibrary(env, sdkVersion, pathStr, classLoader, libraryPath);
+    if (handle == NULL) {
+        if (NativeBridgeIsSupported(pathStr)) {
+            handle = NativeBridgeLoadLibrary(pathStr, RTLD_LAZY);
+            needNativeBridge = true;
+        }
     }
+    env->ReleaseStringUTFChars(path, pathStr);
 
-    void* funcPtr = NULL;
-    const char* funcStr = env->GetStringUTFChars(funcName, NULL);
-    if (needs_native_bridge) {
-        funcPtr = NativeBridgeGetTrampoline(handle, funcStr, NULL, 0);
-    } else {
-        funcPtr = dlsym(handle, funcStr);
+    if (handle != NULL) {
+        void* funcPtr = NULL;
+        const char* funcStr = env->GetStringUTFChars(funcName, NULL);
+        if (needNativeBridge) {
+            funcPtr = NativeBridgeGetTrampoline(handle, funcStr, NULL, 0);
+        } else {
+            funcPtr = dlsym(handle, funcStr);
+        }
+
+        code.reset(new NativeCode(handle, (ANativeActivity_createFunc*)funcPtr));
+        env->ReleaseStringUTFChars(funcName, funcStr);
+
+        if (code->createActivityFunc == NULL) {
+            ALOGW("ANativeActivity_onCreate not found");
+            return 0;
+        }
+        
+        code->messageQueue = android_os_MessageQueue_getMessageQueue(env, messageQueue);
+        if (code->messageQueue == NULL) {
+            ALOGW("Unable to retrieve native MessageQueue");
+            return 0;
+        }
+        
+        int msgpipe[2];
+        if (pipe(msgpipe)) {
+            ALOGW("could not create pipe: %s", strerror(errno));
+            return 0;
+        }
+        code->mainWorkRead = msgpipe[0];
+        code->mainWorkWrite = msgpipe[1];
+        int result = fcntl(code->mainWorkRead, F_SETFL, O_NONBLOCK);
+        SLOGW_IF(result != 0, "Could not make main work read pipe "
+                "non-blocking: %s", strerror(errno));
+        result = fcntl(code->mainWorkWrite, F_SETFL, O_NONBLOCK);
+        SLOGW_IF(result != 0, "Could not make main work write pipe "
+                "non-blocking: %s", strerror(errno));
+        code->messageQueue->getLooper()->addFd(
+                code->mainWorkRead, 0, ALOOPER_EVENT_INPUT, mainWorkCallback, code.get());
+        
+        code->ANativeActivity::callbacks = &code->callbacks;
+        if (env->GetJavaVM(&code->vm) < 0) {
+            ALOGW("NativeActivity GetJavaVM failed");
+            return 0;
+        }
+        code->env = env;
+        code->clazz = env->NewGlobalRef(clazz);
+
+        const char* dirStr = env->GetStringUTFChars(internalDataDir, NULL);
+        code->internalDataPathObj = dirStr;
+        code->internalDataPath = code->internalDataPathObj.string();
+        env->ReleaseStringUTFChars(internalDataDir, dirStr);
+    
+        if (externalDataDir != NULL) {
+            dirStr = env->GetStringUTFChars(externalDataDir, NULL);
+            code->externalDataPathObj = dirStr;
+            env->ReleaseStringUTFChars(externalDataDir, dirStr);
+        }
+        code->externalDataPath = code->externalDataPathObj.string();
+
+        code->sdkVersion = sdkVersion;
+        
+        code->assetManager = assetManagerForJavaObject(env, jAssetMgr);
+
+        if (obbDir != NULL) {
+            dirStr = env->GetStringUTFChars(obbDir, NULL);
+            code->obbPathObj = dirStr;
+            env->ReleaseStringUTFChars(obbDir, dirStr);
+        }
+        code->obbPath = code->obbPathObj.string();
+
+        jbyte* rawSavedState = NULL;
+        jsize rawSavedSize = 0;
+        if (savedState != NULL) {
+            rawSavedState = env->GetByteArrayElements(savedState, NULL);
+            rawSavedSize = env->GetArrayLength(savedState);
+        }
+
+        code->createActivityFunc(code.get(), rawSavedState, rawSavedSize);
+
+        if (rawSavedState != NULL) {
+            env->ReleaseByteArrayElements(savedState, rawSavedState, 0);
+        }
     }
-
-    code.reset(new NativeCode(handle, (ANativeActivity_createFunc*)funcPtr));
-    env->ReleaseStringUTFChars(funcName, funcStr);
-
-    if (code->createActivityFunc == NULL) {
-        g_error_msg = needs_native_bridge ? NativeBridgeGetError() : dlerror();
-        ALOGW("ANativeActivity_onCreate not found: %s", g_error_msg.c_str());
-        return 0;
-    }
-
-    code->messageQueue = android_os_MessageQueue_getMessageQueue(env, messageQueue);
-    if (code->messageQueue == NULL) {
-        g_error_msg = "Unable to retrieve native MessageQueue";
-        ALOGW("%s", g_error_msg.c_str());
-        return 0;
-    }
-
-    int msgpipe[2];
-    if (pipe(msgpipe)) {
-        g_error_msg = android::base::StringPrintf("could not create pipe: %s", strerror(errno));
-        ALOGW("%s", g_error_msg.c_str());
-        return 0;
-    }
-    code->mainWorkRead = msgpipe[0];
-    code->mainWorkWrite = msgpipe[1];
-    int result = fcntl(code->mainWorkRead, F_SETFL, O_NONBLOCK);
-    SLOGW_IF(result != 0, "Could not make main work read pipe "
-            "non-blocking: %s", strerror(errno));
-    result = fcntl(code->mainWorkWrite, F_SETFL, O_NONBLOCK);
-    SLOGW_IF(result != 0, "Could not make main work write pipe "
-            "non-blocking: %s", strerror(errno));
-    code->messageQueue->getLooper()->addFd(
-            code->mainWorkRead, 0, ALOOPER_EVENT_INPUT, mainWorkCallback, code.get());
-
-    code->ANativeActivity::callbacks = &code->callbacks;
-    if (env->GetJavaVM(&code->vm) < 0) {
-        g_error_msg = "NativeActivity GetJavaVM failed";
-        ALOGW("%s", g_error_msg.c_str());
-        return 0;
-    }
-    code->env = env;
-    code->clazz = env->NewGlobalRef(clazz);
-
-    const char* dirStr = env->GetStringUTFChars(internalDataDir, NULL);
-    code->internalDataPathObj = dirStr;
-    code->internalDataPath = code->internalDataPathObj.string();
-    env->ReleaseStringUTFChars(internalDataDir, dirStr);
-
-    if (externalDataDir != NULL) {
-        dirStr = env->GetStringUTFChars(externalDataDir, NULL);
-        code->externalDataPathObj = dirStr;
-        env->ReleaseStringUTFChars(externalDataDir, dirStr);
-    }
-    code->externalDataPath = code->externalDataPathObj.string();
-
-    code->sdkVersion = sdkVersion;
-
-    code->javaAssetManager = env->NewGlobalRef(jAssetMgr);
-    code->assetManager = NdkAssetManagerForJavaObject(env, jAssetMgr);
-
-    if (obbDir != NULL) {
-        dirStr = env->GetStringUTFChars(obbDir, NULL);
-        code->obbPathObj = dirStr;
-        env->ReleaseStringUTFChars(obbDir, dirStr);
-    }
-    code->obbPath = code->obbPathObj.string();
-
-    jbyte* rawSavedState = NULL;
-    jsize rawSavedSize = 0;
-    if (savedState != NULL) {
-        rawSavedState = env->GetByteArrayElements(savedState, NULL);
-        rawSavedSize = env->GetArrayLength(savedState);
-    }
-
-    code->createActivityFunc(code.get(), rawSavedState, rawSavedSize);
-
-    if (rawSavedState != NULL) {
-        env->ReleaseByteArrayElements(savedState, rawSavedState, 0);
-    }
-
+    
     return (jlong)code.release();
 }
 
 static jstring getDlError_native(JNIEnv* env, jobject clazz) {
-  jstring result = env->NewStringUTF(g_error_msg.c_str());
-  g_error_msg.clear();
-  return result;
+  return env->NewStringUTF(dlerror());
 }
 
 static void

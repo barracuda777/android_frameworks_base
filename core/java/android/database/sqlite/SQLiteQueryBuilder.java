@@ -18,7 +18,6 @@ package android.database.sqlite;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.DatabaseUtils;
@@ -27,7 +26,6 @@ import android.os.CancellationSignal;
 import android.os.OperationCanceledException;
 import android.provider.BaseColumns;
 import android.text.TextUtils;
-import android.util.ArrayMap;
 import android.util.Log;
 
 import com.android.internal.util.ArrayUtils;
@@ -46,23 +44,22 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * This is a convenience class that helps build SQL queries to be sent to
+ * This is a convience class that helps build SQL queries to be sent to
  * {@link SQLiteDatabase} objects.
  */
-public class SQLiteQueryBuilder {
+public class SQLiteQueryBuilder
+{
     private static final String TAG = "SQLiteQueryBuilder";
+
+    private Map<String, String> mProjectionMap = null;
 
     private static final Pattern sAggregationPattern = Pattern.compile(
             "(?i)(AVG|COUNT|MAX|MIN|SUM|TOTAL|GROUP_CONCAT)\\((.+)\\)");
 
-    private Map<String, String> mProjectionMap = null;
     private List<Pattern> mProjectionGreylist = null;
 
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     private String mTables = "";
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     private StringBuilder mWhereClause = null;  // lazily created
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     private boolean mDistinct;
     private SQLiteDatabase.CursorFactory mFactory;
 
@@ -78,20 +75,12 @@ public class SQLiteQueryBuilder {
     }
 
     /**
-     * Mark the query as {@code DISTINCT}.
+     * Mark the query as DISTINCT.
      *
-     * @param distinct if true the query is {@code DISTINCT}, otherwise it isn't
+     * @param distinct if true the query is DISTINCT, otherwise it isn't
      */
     public void setDistinct(boolean distinct) {
         mDistinct = distinct;
-    }
-
-    /**
-     * Get if the query is marked as {@code DISTINCT}, as last configured by
-     * {@link #setDistinct(boolean)}.
-     */
-    public boolean isDistinct() {
-        return mDistinct;
     }
 
     /**
@@ -99,7 +88,7 @@ public class SQLiteQueryBuilder {
      *
      * @return the list of tables being queried
      */
-    public @Nullable String getTables() {
+    public String getTables() {
         return mTables;
     }
 
@@ -111,20 +100,20 @@ public class SQLiteQueryBuilder {
      *
      * @param inTables the list of tables to query on
      */
-    public void setTables(@Nullable String inTables) {
+    public void setTables(String inTables) {
         mTables = inTables;
     }
 
     /**
-     * Append a chunk to the {@code WHERE} clause of the query. All chunks appended are surrounded
-     * by parenthesis and {@code AND}ed with the selection passed to {@link #query}. The final
-     * {@code WHERE} clause looks like:
-     * <p>
+     * Append a chunk to the WHERE clause of the query. All chunks appended are surrounded
+     * by parenthesis and ANDed with the selection passed to {@link #query}. The final
+     * WHERE clause looks like:
+     *
      * WHERE (&lt;append chunk 1>&lt;append chunk2>) AND (&lt;query() selection parameter>)
      *
-     * @param inWhere the chunk of text to append to the {@code WHERE} clause.
+     * @param inWhere the chunk of text to append to the WHERE clause.
      */
-    public void appendWhere(@NonNull CharSequence inWhere) {
+    public void appendWhere(CharSequence inWhere) {
         if (mWhereClause == null) {
             mWhereClause = new StringBuilder(inWhere.length() + 16);
         }
@@ -132,41 +121,20 @@ public class SQLiteQueryBuilder {
     }
 
     /**
-     * Append a chunk to the {@code WHERE} clause of the query. All chunks appended are surrounded
+     * Append a chunk to the WHERE clause of the query. All chunks appended are surrounded
      * by parenthesis and ANDed with the selection passed to {@link #query}. The final
-     * {@code WHERE} clause looks like:
-     * <p>
+     * WHERE clause looks like:
+     *
      * WHERE (&lt;append chunk 1>&lt;append chunk2>) AND (&lt;query() selection parameter>)
      *
-     * @param inWhere the chunk of text to append to the {@code WHERE} clause. it will be escaped
+     * @param inWhere the chunk of text to append to the WHERE clause. it will be escaped
      * to avoid SQL injection attacks
      */
-    public void appendWhereEscapeString(@NonNull String inWhere) {
+    public void appendWhereEscapeString(String inWhere) {
         if (mWhereClause == null) {
             mWhereClause = new StringBuilder(inWhere.length() + 16);
         }
         DatabaseUtils.appendEscapedSQLString(mWhereClause, inWhere);
-    }
-
-    /**
-     * Add a standalone chunk to the {@code WHERE} clause of this query.
-     * <p>
-     * This method differs from {@link #appendWhere(CharSequence)} in that it
-     * automatically appends {@code AND} to any existing {@code WHERE} clause
-     * already under construction before appending the given standalone
-     * expression wrapped in parentheses.
-     *
-     * @param inWhere the standalone expression to append to the {@code WHERE}
-     *            clause. It will be wrapped in parentheses when it's appended.
-     */
-    public void appendWhereStandalone(@NonNull CharSequence inWhere) {
-        if (mWhereClause == null) {
-            mWhereClause = new StringBuilder(inWhere.length() + 16);
-        }
-        if (mWhereClause.length() > 0) {
-            mWhereClause.append(" AND ");
-        }
-        mWhereClause.append('(').append(inWhere).append(')');
     }
 
     /**
@@ -180,13 +148,15 @@ public class SQLiteQueryBuilder {
      *
      * @param columnMap maps from the user column names to the database column names
      */
-    public void setProjectionMap(@Nullable Map<String, String> columnMap) {
+    public void setProjectionMap(Map<String, String> columnMap) {
         mProjectionMap = columnMap;
     }
 
     /**
      * Gets the projection map for the query, as last configured by
      * {@link #setProjectionMap(Map)}.
+     *
+     * @hide
      */
     public @Nullable Map<String, String> getProjectionMap() {
         return mProjectionMap;
@@ -214,41 +184,14 @@ public class SQLiteQueryBuilder {
     }
 
     /**
-     * @deprecated Projection aggregation is now always allowed
-     *
-     * @hide
-     */
-    @Deprecated
-    public void setProjectionAggregationAllowed(boolean projectionAggregationAllowed) {
-    }
-
-    /**
-     * @deprecated Projection aggregation is now always allowed
-     *
-     * @hide
-     */
-    @Deprecated
-    public boolean isProjectionAggregationAllowed() {
-        return true;
-    }
-
-    /**
      * Sets the cursor factory to be used for the query.  You can use
      * one factory for all queries on a database but it is normally
      * easier to specify the factory when doing this query.
      *
      * @param factory the factory to use.
      */
-    public void setCursorFactory(@Nullable SQLiteDatabase.CursorFactory factory) {
+    public void setCursorFactory(SQLiteDatabase.CursorFactory factory) {
         mFactory = factory;
-    }
-
-    /**
-     * Gets the cursor factory to be used for the query, as last configured by
-     * {@link #setCursorFactory(android.database.sqlite.SQLiteDatabase.CursorFactory)}.
-     */
-    public @Nullable SQLiteDatabase.CursorFactory getCursorFactory() {
-        return mFactory;
     }
 
     /**
@@ -283,6 +226,8 @@ public class SQLiteQueryBuilder {
     /**
      * Get if the query is marked as strict, as last configured by
      * {@link #setStrict(boolean)}.
+     *
+     * @hide
      */
     public boolean isStrict() {
         return (mStrictFlags & STRICT_PARENTHESES) != 0;
@@ -296,7 +241,7 @@ public class SQLiteQueryBuilder {
      * {@link #update} operations. Any enforcement failures will throw an
      * {@link IllegalArgumentException}.
      *
-     * {@hide}
+     * @hide
      */
     public void setStrictColumns(boolean strictColumns) {
         if (strictColumns) {
@@ -310,7 +255,7 @@ public class SQLiteQueryBuilder {
      * Get if the query is marked as strict, as last configured by
      * {@link #setStrictColumns(boolean)}.
      *
-     * {@hide}
+     * @hide
      */
     public boolean isStrictColumns() {
         return (mStrictFlags & STRICT_COLUMNS) != 0;
@@ -336,7 +281,7 @@ public class SQLiteQueryBuilder {
      * inputs, such as those provided by {@link #appendWhere}. Any enforcement
      * failures will throw an {@link IllegalArgumentException}.
      *
-     * {@hide}
+     * @hide
      */
     public void setStrictGrammar(boolean strictGrammar) {
         if (strictGrammar) {
@@ -350,7 +295,7 @@ public class SQLiteQueryBuilder {
      * Get if the query is marked as strict, as last configured by
      * {@link #setStrictGrammar(boolean)}.
      *
-     * {@hide}
+     * @hide
      */
     public boolean isStrictGrammar() {
         return (mStrictFlags & STRICT_GRAMMAR) != 0;
@@ -365,21 +310,21 @@ public class SQLiteQueryBuilder {
      *            return all columns, which is discouraged to prevent reading
      *            data from storage that isn't going to be used.
      * @param where A filter declaring which rows to return, formatted as an SQL
-     *            {@code WHERE} clause (excluding the {@code WHERE} itself). Passing {@code null} will
+     *            WHERE clause (excluding the WHERE itself). Passing null will
      *            return all rows for the given URL.
      * @param groupBy A filter declaring how to group rows, formatted as an SQL
-     *            {@code GROUP BY} clause (excluding the {@code GROUP BY} itself). Passing {@code null}
+     *            GROUP BY clause (excluding the GROUP BY itself). Passing null
      *            will cause the rows to not be grouped.
      * @param having A filter declare which row groups to include in the cursor,
-     *            if row grouping is being used, formatted as an SQL {@code HAVING}
-     *            clause (excluding the {@code HAVING} itself). Passing null will cause
+     *            if row grouping is being used, formatted as an SQL HAVING
+     *            clause (excluding the HAVING itself). Passing null will cause
      *            all row groups to be included, and is required when row
      *            grouping is not being used.
-     * @param orderBy How to order the rows, formatted as an SQL {@code ORDER BY} clause
-     *            (excluding the {@code ORDER BY} itself). Passing null will use the
+     * @param orderBy How to order the rows, formatted as an SQL ORDER BY clause
+     *            (excluding the ORDER BY itself). Passing null will use the
      *            default sort order, which may be unordered.
      * @param limit Limits the number of rows returned by the query,
-     *            formatted as {@code LIMIT} clause. Passing null denotes no {@code LIMIT} clause.
+     *            formatted as LIMIT clause. Passing null denotes no LIMIT clause.
      * @return the SQL query string
      */
     public static String buildQueryString(
@@ -448,22 +393,22 @@ public class SQLiteQueryBuilder {
      *   null will return all columns, which is discouraged to prevent
      *   reading data from storage that isn't going to be used.
      * @param selection A filter declaring which rows to return,
-     *   formatted as an SQL {@code WHERE} clause (excluding the {@code WHERE}
+     *   formatted as an SQL WHERE clause (excluding the WHERE
      *   itself). Passing null will return all rows for the given URL.
      * @param selectionArgs You may include ?s in selection, which
      *   will be replaced by the values from selectionArgs, in order
      *   that they appear in the selection. The values will be bound
      *   as Strings.
      * @param groupBy A filter declaring how to group rows, formatted
-     *   as an SQL {@code GROUP BY} clause (excluding the {@code GROUP BY}
+     *   as an SQL GROUP BY clause (excluding the GROUP BY
      *   itself). Passing null will cause the rows to not be grouped.
      * @param having A filter declare which row groups to include in
      *   the cursor, if row grouping is being used, formatted as an
-     *   SQL {@code HAVING} clause (excluding the {@code HAVING} itself).  Passing
+     *   SQL HAVING clause (excluding the HAVING itself).  Passing
      *   null will cause all row groups to be included, and is
      *   required when row grouping is not being used.
      * @param sortOrder How to order the rows, formatted as an SQL
-     *   {@code ORDER BY} clause (excluding the {@code ORDER BY} itself). Passing null
+     *   ORDER BY clause (excluding the ORDER BY itself). Passing null
      *   will use the default sort order, which may be unordered.
      * @return a cursor over the result set
      * @see android.content.ContentResolver#query(android.net.Uri, String[],
@@ -485,25 +430,25 @@ public class SQLiteQueryBuilder {
      *   null will return all columns, which is discouraged to prevent
      *   reading data from storage that isn't going to be used.
      * @param selection A filter declaring which rows to return,
-     *   formatted as an SQL {@code WHERE} clause (excluding the {@code WHERE}
+     *   formatted as an SQL WHERE clause (excluding the WHERE
      *   itself). Passing null will return all rows for the given URL.
      * @param selectionArgs You may include ?s in selection, which
      *   will be replaced by the values from selectionArgs, in order
      *   that they appear in the selection. The values will be bound
      *   as Strings.
      * @param groupBy A filter declaring how to group rows, formatted
-     *   as an SQL {@code GROUP BY} clause (excluding the {@code GROUP BY}
+     *   as an SQL GROUP BY clause (excluding the GROUP BY
      *   itself). Passing null will cause the rows to not be grouped.
      * @param having A filter declare which row groups to include in
      *   the cursor, if row grouping is being used, formatted as an
-     *   SQL {@code HAVING} clause (excluding the {@code HAVING} itself).  Passing
+     *   SQL HAVING clause (excluding the HAVING itself).  Passing
      *   null will cause all row groups to be included, and is
      *   required when row grouping is not being used.
      * @param sortOrder How to order the rows, formatted as an SQL
-     *   {@code ORDER BY} clause (excluding the {@code ORDER BY} itself). Passing null
+     *   ORDER BY clause (excluding the ORDER BY itself). Passing null
      *   will use the default sort order, which may be unordered.
      * @param limit Limits the number of rows returned by the query,
-     *   formatted as {@code LIMIT} clause. Passing null denotes no {@code LIMIT} clause.
+     *   formatted as LIMIT clause. Passing null denotes no LIMIT clause.
      * @return a cursor over the result set
      * @see android.content.ContentResolver#query(android.net.Uri, String[],
      *      String, String[], String)
@@ -524,25 +469,25 @@ public class SQLiteQueryBuilder {
      *   null will return all columns, which is discouraged to prevent
      *   reading data from storage that isn't going to be used.
      * @param selection A filter declaring which rows to return,
-     *   formatted as an SQL {@code WHERE} clause (excluding the {@code WHERE}
+     *   formatted as an SQL WHERE clause (excluding the WHERE
      *   itself). Passing null will return all rows for the given URL.
      * @param selectionArgs You may include ?s in selection, which
      *   will be replaced by the values from selectionArgs, in order
      *   that they appear in the selection. The values will be bound
      *   as Strings.
      * @param groupBy A filter declaring how to group rows, formatted
-     *   as an SQL {@code GROUP BY} clause (excluding the {@code GROUP BY}
+     *   as an SQL GROUP BY clause (excluding the GROUP BY
      *   itself). Passing null will cause the rows to not be grouped.
      * @param having A filter declare which row groups to include in
      *   the cursor, if row grouping is being used, formatted as an
-     *   SQL {@code HAVING} clause (excluding the {@code HAVING} itself).  Passing
+     *   SQL HAVING clause (excluding the HAVING itself).  Passing
      *   null will cause all row groups to be included, and is
      *   required when row grouping is not being used.
      * @param sortOrder How to order the rows, formatted as an SQL
-     *   {@code ORDER BY} clause (excluding the {@code ORDER BY} itself). Passing null
+     *   ORDER BY clause (excluding the ORDER BY itself). Passing null
      *   will use the default sort order, which may be unordered.
      * @param limit Limits the number of rows returned by the query,
-     *   formatted as {@code LIMIT} clause. Passing null denotes no {@code LIMIT} clause.
+     *   formatted as LIMIT clause. Passing null denotes no LIMIT clause.
      * @param cancellationSignal A signal to cancel the operation in progress, or null if none.
      * If the operation is canceled, then {@link OperationCanceledException} will be thrown
      * when the query is executed.
@@ -608,54 +553,19 @@ public class SQLiteQueryBuilder {
     }
 
     /**
-     * Perform an insert by combining all current settings and the
-     * information passed into this method.
-     *
-     * @param db the database to insert on
-     * @return the row ID of the newly inserted row, or -1 if an error occurred
-     *
-     * {@hide}
-     */
-    public long insert(@NonNull SQLiteDatabase db, @NonNull ContentValues values) {
-        Objects.requireNonNull(mTables, "No tables defined");
-        Objects.requireNonNull(db, "No database defined");
-        Objects.requireNonNull(values, "No values defined");
-
-        if (isStrictColumns()) {
-            enforceStrictColumns(values);
-        }
-
-        final String sql = buildInsert(values);
-
-        final ArrayMap<String, Object> rawValues = values.getValues();
-        final int valuesLength = rawValues.size();
-        final Object[] sqlArgs = new Object[valuesLength];
-        for (int i = 0; i < sqlArgs.length; i++) {
-            sqlArgs[i] = rawValues.valueAt(i);
-        }
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-            if (Build.IS_DEBUGGABLE) {
-                Log.d(TAG, sql + " with args " + Arrays.toString(sqlArgs));
-            } else {
-                Log.d(TAG, sql);
-            }
-        }
-        return db.executeSql(sql, sqlArgs);
-    }
-
-    /**
      * Perform an update by combining all current settings and the
      * information passed into this method.
      *
      * @param db the database to update on
      * @param selection A filter declaring which rows to return,
-     *   formatted as an SQL {@code WHERE} clause (excluding the {@code WHERE}
+     *   formatted as an SQL WHERE clause (excluding the WHERE
      *   itself). Passing null will return all rows for the given URL.
      * @param selectionArgs You may include ?s in selection, which
      *   will be replaced by the values from selectionArgs, in order
      *   that they appear in the selection. The values will be bound
      *   as Strings.
      * @return the number of rows updated
+     * @hide
      */
     public int update(@NonNull SQLiteDatabase db, @NonNull ContentValues values,
             @Nullable String selection, @Nullable String[] selectionArgs) {
@@ -699,12 +609,12 @@ public class SQLiteQueryBuilder {
         if (selectionArgs == null) {
             selectionArgs = EmptyArray.STRING;
         }
-        final ArrayMap<String, Object> rawValues = values.getValues();
-        final int valuesLength = rawValues.size();
+        final String[] rawKeys = values.keySet().toArray(EmptyArray.STRING);
+        final int valuesLength = rawKeys.length;
         final Object[] sqlArgs = new Object[valuesLength + selectionArgs.length];
         for (int i = 0; i < sqlArgs.length; i++) {
             if (i < valuesLength) {
-                sqlArgs[i] = rawValues.valueAt(i);
+                sqlArgs[i] = values.get(rawKeys[i]);
             } else {
                 sqlArgs[i] = selectionArgs[i - valuesLength];
             }
@@ -725,13 +635,14 @@ public class SQLiteQueryBuilder {
      *
      * @param db the database to delete on
      * @param selection A filter declaring which rows to return,
-     *   formatted as an SQL {@code WHERE} clause (excluding the {@code WHERE}
+     *   formatted as an SQL WHERE clause (excluding the WHERE
      *   itself). Passing null will return all rows for the given URL.
      * @param selectionArgs You may include ?s in selection, which
      *   will be replaced by the values from selectionArgs, in order
      *   that they appear in the selection. The values will be bound
      *   as Strings.
      * @return the number of rows deleted
+     * @hide
      */
     public int delete(@NonNull SQLiteDatabase db, @Nullable String selection,
             @Nullable String[] selectionArgs) {
@@ -788,9 +699,10 @@ public class SQLiteQueryBuilder {
     private void enforceStrictColumns(@NonNull ContentValues values) {
         Objects.requireNonNull(mProjectionMap, "No projection map defined");
 
-        final ArrayMap<String, Object> rawValues = values.getValues();
-        for (int i = 0; i < rawValues.size(); i++) {
-            final String column = rawValues.keyAt(i);
+        final Set<String> rawValues = values.keySet();
+        final Iterator<String> rawValuesIt = rawValues.iterator();
+        while (rawValuesIt.hasNext()) {
+            final String column = rawValuesIt.next();
             if (!mProjectionMap.containsKey(column)) {
                 throw new IllegalArgumentException("Invalid column " + column);
             }
@@ -855,8 +767,8 @@ public class SQLiteQueryBuilder {
     }
 
     /**
-     * Construct a {@code SELECT} statement suitable for use in a group of
-     * {@code SELECT} statements that will be joined through {@code UNION} operators
+     * Construct a SELECT statement suitable for use in a group of
+     * SELECT statements that will be joined through UNION operators
      * in buildUnionQuery.
      *
      * @param projectionIn A list of which columns to return. Passing
@@ -864,23 +776,23 @@ public class SQLiteQueryBuilder {
      *    prevent reading data from storage that isn't going to be
      *    used.
      * @param selection A filter declaring which rows to return,
-     *   formatted as an SQL {@code WHERE} clause (excluding the {@code WHERE}
+     *   formatted as an SQL WHERE clause (excluding the WHERE
      *   itself).  Passing null will return all rows for the given
      *   URL.
      * @param groupBy A filter declaring how to group rows, formatted
-     *   as an SQL {@code GROUP BY} clause (excluding the {@code GROUP BY} itself).
+     *   as an SQL GROUP BY clause (excluding the GROUP BY itself).
      *   Passing null will cause the rows to not be grouped.
      * @param having A filter declare which row groups to include in
      *   the cursor, if row grouping is being used, formatted as an
-     *   SQL {@code HAVING} clause (excluding the {@code HAVING} itself).  Passing
+     *   SQL HAVING clause (excluding the HAVING itself).  Passing
      *   null will cause all row groups to be included, and is
      *   required when row grouping is not being used.
      * @param sortOrder How to order the rows, formatted as an SQL
-     *   {@code ORDER BY} clause (excluding the {@code ORDER BY} itself). Passing null
+     *   ORDER BY clause (excluding the ORDER BY itself). Passing null
      *   will use the default sort order, which may be unordered.
      * @param limit Limits the number of rows returned by the query,
-     *   formatted as {@code LIMIT} clause. Passing null denotes no {@code LIMIT} clause.
-     * @return the resulting SQL {@code SELECT} statement
+     *   formatted as LIMIT clause. Passing null denotes no LIMIT clause.
+     * @return the resulting SQL SELECT statement
      */
     public String buildQuery(
             String[] projectionIn, String selection, String groupBy,
@@ -907,37 +819,8 @@ public class SQLiteQueryBuilder {
     }
 
     /** {@hide} */
-    public String buildInsert(ContentValues values) {
-        if (values == null || values.isEmpty()) {
-            throw new IllegalArgumentException("Empty values");
-        }
-
-        StringBuilder sql = new StringBuilder(120);
-        sql.append("INSERT INTO ");
-        sql.append(SQLiteDatabase.findEditTable(mTables));
-        sql.append(" (");
-
-        final ArrayMap<String, Object> rawValues = values.getValues();
-        for (int i = 0; i < rawValues.size(); i++) {
-            if (i > 0) {
-                sql.append(',');
-            }
-            sql.append(rawValues.keyAt(i));
-        }
-        sql.append(") VALUES (");
-        for (int i = 0; i < rawValues.size(); i++) {
-            if (i > 0) {
-                sql.append(',');
-            }
-            sql.append('?');
-        }
-        sql.append(")");
-        return sql.toString();
-    }
-
-    /** {@hide} */
     public String buildUpdate(ContentValues values, String selection) {
-        if (values == null || values.isEmpty()) {
+        if (values == null || values.size() == 0) {
             throw new IllegalArgumentException("Empty values");
         }
 
@@ -946,12 +829,12 @@ public class SQLiteQueryBuilder {
         sql.append(SQLiteDatabase.findEditTable(mTables));
         sql.append(" SET ");
 
-        final ArrayMap<String, Object> rawValues = values.getValues();
-        for (int i = 0; i < rawValues.size(); i++) {
+        final String[] rawKeys = values.keySet().toArray(EmptyArray.STRING);
+        for (int i = 0; i < rawKeys.length; i++) {
             if (i > 0) {
                 sql.append(',');
             }
-            sql.append(rawValues.keyAt(i));
+            sql.append(rawKeys[i]);
             sql.append("=?");
         }
 
@@ -972,8 +855,8 @@ public class SQLiteQueryBuilder {
     }
 
     /**
-     * Construct a {@code SELECT} statement suitable for use in a group of
-     * {@code SELECT} statements that will be joined through {@code UNION} operators
+     * Construct a SELECT statement suitable for use in a group of
+     * SELECT statements that will be joined through UNION operators
      * in buildUnionQuery.
      *
      * @param typeDiscriminatorColumn the name of the result column
@@ -981,8 +864,8 @@ public class SQLiteQueryBuilder {
      *   each row was drawn.
      * @param unionColumns the names of the columns to appear in the
      *   result.  This may include columns that do not appear in the
-     *   table this {@code SELECT} is querying (i.e. mTables), but that do
-     *   appear in one of the other tables in the {@code UNION} query that we
+     *   table this SELECT is querying (i.e. mTables), but that do
+     *   appear in one of the other tables in the UNION query that we
      *   are constructing.
      * @param columnsPresentInTable a Set of the names of the columns
      *   that appear in this table (i.e. in the table whose name is
@@ -997,18 +880,18 @@ public class SQLiteQueryBuilder {
      * @param typeDiscriminatorValue the value used for the
      *   type-discriminator column in this subquery
      * @param selection A filter declaring which rows to return,
-     *   formatted as an SQL {@code WHERE} clause (excluding the {@code WHERE}
+     *   formatted as an SQL WHERE clause (excluding the WHERE
      *   itself).  Passing null will return all rows for the given
      *   URL.
      * @param groupBy A filter declaring how to group rows, formatted
-     *   as an SQL {@code GROUP BY} clause (excluding the {@code GROUP BY} itself).
+     *   as an SQL GROUP BY clause (excluding the GROUP BY itself).
      *   Passing null will cause the rows to not be grouped.
      * @param having A filter declare which row groups to include in
      *   the cursor, if row grouping is being used, formatted as an
-     *   SQL {@code HAVING} clause (excluding the {@code HAVING} itself).  Passing
+     *   SQL HAVING clause (excluding the HAVING itself).  Passing
      *   null will cause all row groups to be included, and is
      *   required when row grouping is not being used.
-     * @return the resulting SQL {@code SELECT} statement
+     * @return the resulting SQL SELECT statement
      */
     public String buildUnionSubQuery(
             String typeDiscriminatorColumn,
@@ -1066,18 +949,18 @@ public class SQLiteQueryBuilder {
     }
 
     /**
-     * Given a set of subqueries, all of which are {@code SELECT} statements,
+     * Given a set of subqueries, all of which are SELECT statements,
      * construct a query that returns the union of what those
      * subqueries return.
-     * @param subQueries an array of SQL {@code SELECT} statements, all of
+     * @param subQueries an array of SQL SELECT statements, all of
      *   which must have the same columns as the same positions in
      *   their results
      * @param sortOrder How to order the rows, formatted as an SQL
-     *   {@code ORDER BY} clause (excluding the {@code ORDER BY} itself).  Passing
+     *   ORDER BY clause (excluding the ORDER BY itself).  Passing
      *   null will use the default sort order, which may be unordered.
      * @param limit The limit clause, which applies to the entire union result set
      *
-     * @return the resulting SQL {@code SELECT} statement
+     * @return the resulting SQL SELECT statement
      */
     public String buildUnionQuery(String[] subQueries, String sortOrder, String limit) {
         StringBuilder query = new StringBuilder(128);
@@ -1105,7 +988,6 @@ public class SQLiteQueryBuilder {
     }
 
     /** {@hide} */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     public @Nullable String[] computeProjection(@Nullable String[] projectionIn) {
         if (!ArrayUtils.isEmpty(projectionIn)) {
             String[] projectionOut = new String[projectionIn.length];

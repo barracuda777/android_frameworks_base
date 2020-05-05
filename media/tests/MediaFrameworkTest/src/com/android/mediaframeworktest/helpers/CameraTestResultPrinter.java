@@ -18,9 +18,8 @@ package com.android.mediaframeworktest.helpers;
 
 import android.app.Instrumentation;
 import android.os.Bundle;
+import android.os.Environment;
 import android.util.Log;
-
-import androidx.test.InstrumentationRegistry;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -29,9 +28,8 @@ import java.io.FileWriter;
 public class CameraTestResultPrinter {
 
     private static final String TAG = CameraTestResultPrinter.class.getSimpleName();
-    private static final String RESULT_DIR = InstrumentationRegistry
-            .getInstrumentation().getTargetContext()
-            .getExternalFilesDir(null).getPath() + "/camera-out/";
+    private static final String RESULT_DIR = Environment.getExternalStorageDirectory() +
+            "/camera-out/";
     private static final String RESULT_FILE_FORMAT = "fwk-stress_camera_%s.txt";
     private static final String RESULT_SWAP_FILE = "fwk-stress.swp";
     private static final String KEY_NUM_ATTEMPTS = "numAttempts";   // Total number of iterations
@@ -42,14 +40,14 @@ public class CameraTestResultPrinter {
     private Instrumentation mInst = null;
     private boolean mWriteToFile = true;
 
+
     public CameraTestResultPrinter(Instrumentation instrumentation, boolean writeToFile) {
         mInst = instrumentation;
         mWriteToFile = writeToFile;
 
         // Create a log directory if not exists.
         File baseDir = new File(RESULT_DIR);
-        baseDir.mkdirs();
-        if (!baseDir.isDirectory()) {
+        if (!baseDir.exists() && !baseDir.mkdirs()) {
             throw new IllegalStateException("Couldn't create directory for logs: " + baseDir);
         }
         Log.v(TAG, String.format("Saving test results under: %s", baseDir.getAbsolutePath()));

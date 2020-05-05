@@ -15,14 +15,13 @@
  */
 package android.view;
 
-import static com.android.internal.util.Preconditions.checkArgument;
-
-import static java.lang.Character.MIN_VALUE;
-
 import android.annotation.Nullable;
 import android.graphics.drawable.Icon;
 import android.os.Parcel;
 import android.os.Parcelable;
+
+import static com.android.internal.util.Preconditions.checkArgument;
+import static java.lang.Character.MIN_VALUE;
 
 /**
  * Information about a Keyboard Shortcut.
@@ -156,7 +155,7 @@ public final class KeyboardShortcutInfo implements Parcelable {
         dest.writeInt(mModifiers);
     }
 
-    public static final @android.annotation.NonNull Creator<KeyboardShortcutInfo> CREATOR =
+    public static final Creator<KeyboardShortcutInfo> CREATOR =
             new Creator<KeyboardShortcutInfo>() {
         public KeyboardShortcutInfo createFromParcel(Parcel source) {
             return new KeyboardShortcutInfo(source);

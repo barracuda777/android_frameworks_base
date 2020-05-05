@@ -18,10 +18,9 @@ package android.content;
 
 import android.net.Uri;
 import android.test.AndroidTestCase;
-
-import androidx.test.filters.LargeTest;
-import androidx.test.filters.MediumTest;
-import androidx.test.filters.SmallTest;
+import android.test.suitebuilder.annotation.LargeTest;
+import android.test.suitebuilder.annotation.MediumTest;
+import android.test.suitebuilder.annotation.SmallTest;
 
 import java.io.InputStream;
 import java.util.Arrays;

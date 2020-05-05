@@ -18,7 +18,6 @@ package android.test.suitebuilder.examples.error;
 
 import junit.framework.TestCase;
 
-@RunAsPartOfSeparateTest
 public class ErrorTest extends TestCase {
 
     public void testErrorOne() throws Exception {

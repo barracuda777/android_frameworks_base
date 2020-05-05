@@ -17,10 +17,7 @@
 package android.os.storage;
 
 import android.annotation.NonNull;
-import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
 import android.content.res.Resources;
-import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.text.TextUtils;
@@ -51,14 +48,11 @@ public class DiskInfo implements Parcelable {
     public static final int FLAG_SD = 1 << 2;
     public static final int FLAG_USB = 1 << 3;
     public static final int FLAG_EMMC = 1 << 4;
-    public static final int FLAG_UFS_CARD = 1 << 5;
+    public static final int FLAG_NON_REMOVABLE = 1 << 5;
 
     public final String id;
-    @UnsupportedAppUsage
     public final int flags;
-    @UnsupportedAppUsage
     public long size;
-    @UnsupportedAppUsage
     public String label;
     /** Hacky; don't rely on this count */
     public int volumeCount;
@@ -69,7 +63,6 @@ public class DiskInfo implements Parcelable {
         this.flags = flags;
     }
 
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     public DiskInfo(Parcel parcel) {
         id = parcel.readString();
         flags = parcel.readInt();
@@ -79,7 +72,6 @@ public class DiskInfo implements Parcelable {
         sysPath = parcel.readString();
     }
 
-    @UnsupportedAppUsage
     public @NonNull String getId() {
         return id;
     }
@@ -103,8 +95,7 @@ public class DiskInfo implements Parcelable {
         return true;
     }
 
-    @UnsupportedAppUsage
-    public @Nullable String getDescription() {
+    public String getDescription() {
         final Resources res = Resources.getSystem();
         if ((flags & FLAG_SD) != 0) {
             if (isInteresting(label)) {
@@ -123,35 +114,24 @@ public class DiskInfo implements Parcelable {
         }
     }
 
-    public @Nullable String getShortDescription() {
-        final Resources res = Resources.getSystem();
-        if (isSd()) {
-            return res.getString(com.android.internal.R.string.storage_sd_card);
-        } else if (isUsb()) {
-            return res.getString(com.android.internal.R.string.storage_usb_drive);
-        } else {
-            return null;
-        }
-    }
-
-    @UnsupportedAppUsage
     public boolean isAdoptable() {
         return (flags & FLAG_ADOPTABLE) != 0;
     }
 
-    @UnsupportedAppUsage
     public boolean isDefaultPrimary() {
         return (flags & FLAG_DEFAULT_PRIMARY) != 0;
     }
 
-    @UnsupportedAppUsage
     public boolean isSd() {
         return (flags & FLAG_SD) != 0;
     }
 
-    @UnsupportedAppUsage
     public boolean isUsb() {
         return (flags & FLAG_USB) != 0;
+    }
+
+    public boolean isNonRemovable() {
+        return (flags & FLAG_NON_REMOVABLE) != 0;
     }
 
     @Override
@@ -199,8 +179,7 @@ public class DiskInfo implements Parcelable {
         return id.hashCode();
     }
 
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
-    public static final @android.annotation.NonNull Creator<DiskInfo> CREATOR = new Creator<DiskInfo>() {
+    public static final Creator<DiskInfo> CREATOR = new Creator<DiskInfo>() {
         @Override
         public DiskInfo createFromParcel(Parcel in) {
             return new DiskInfo(in);

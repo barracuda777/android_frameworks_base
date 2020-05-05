@@ -23,19 +23,15 @@ import android.os.IBinder;
 
 /** @hide */
 interface IDreamManager {
-    @UnsupportedAppUsage
     void dream();
-    @UnsupportedAppUsage
     void awaken();
-    @UnsupportedAppUsage
     void setDreamComponents(in ComponentName[] componentNames);
     ComponentName[] getDreamComponents();
     ComponentName getDefaultDreamComponent();
     void testDream(in ComponentName componentName);
-    @UnsupportedAppUsage
     boolean isDreaming();
+    boolean isDozing();
     void finishSelf(in IBinder token, boolean immediate);
     void startDozing(in IBinder token, int screenState, int screenBrightness);
     void stopDozing(in IBinder token);
-    void forceAmbientDisplayEnabled(boolean enabled);
 }

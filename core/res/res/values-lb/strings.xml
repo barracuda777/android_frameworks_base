@@ -20,10 +20,23 @@
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="byteShort">B</string>
+    <string name="kilobyteShort">kB</string>
     <string name="megabyteShort">MB</string>
     <string name="gigabyteShort">GB</string>
     <string name="terabyteShort">TB</string>
     <string name="petabyteShort">PB</string>
+    <string name="durationDays"><xliff:g id="days">%1$d</xliff:g> Deeg</string>
+    <string name="durationDayHours"><xliff:g id="days">%1$d</xliff:g> Dag <xliff:g id="hours">%2$d</xliff:g> St.</string>
+    <string name="durationDayHour"><xliff:g id="days">%1$d</xliff:g> Dag <xliff:g id="hours">%2$d</xliff:g> St.</string>
+    <string name="durationHours"><xliff:g id="hours">%1$d</xliff:g> St.</string>
+    <string name="durationHourMinutes"><xliff:g id="hours">%1$d</xliff:g> St. <xliff:g id="minutes">%2$d</xliff:g> Min.</string>
+    <string name="durationHourMinute"><xliff:g id="hours">%1$d</xliff:g> St. <xliff:g id="minutes">%2$d</xliff:g> Min.</string>
+    <string name="durationMinutes"><xliff:g id="minutes">%1$d</xliff:g> Min.</string>
+    <string name="durationMinute"><xliff:g id="minutes">%1$d</xliff:g> Min.</string>
+    <string name="durationMinuteSeconds"><xliff:g id="minutes">%1$d</xliff:g> Min. <xliff:g id="seconds">%2$d</xliff:g> Sek.</string>
+    <string name="durationMinuteSecond"><xliff:g id="minutes">%1$d</xliff:g> Min. <xliff:g id="seconds">%2$d</xliff:g> Sek.</string>
+    <string name="durationSeconds"><xliff:g id="seconds">%1$d</xliff:g> Sek.</string>
+    <string name="durationSecond"><xliff:g id="seconds">%1$d</xliff:g> Sek.</string>
     <string name="untitled">&lt;Ouni Titel&gt;</string>
     <string name="emptyPhoneNumber">(Keng Telefonsnummer)</string>
     <string name="unknownName">Onbekannt</string>
@@ -73,7 +86,14 @@
     <string name="CLIRDefaultOffNextCallOff">D\'Uruffer-ID ass standardméisseg net ageschränkt. Nächsten Uruff: Net ageschränkt</string>
     <string name="serviceNotProvisioned">Service net ageriicht.</string>
     <string name="CLIRPermanent">D\'Astellung fir d\'Uruffer-ID kann net geännert ginn.</string>
-    <string name="notification_channel_call_forward">Gespréich-Weiderleedung</string>
+    <string name="RestrictedOnData">Dateservice ass gespaart.</string>
+    <string name="RestrictedOnEmergency">Noutruff ass gespaart.</string>
+    <string name="RestrictedOnNormal">Sproochservice ass gespaart.</string>
+    <string name="RestrictedOnAllVoice">All Stëmmservicer si gespaart.</string>
+    <string name="RestrictedOnSms">SMS-Service ass gespaart.</string>
+    <string name="RestrictedOnVoiceData">Sprooch-/Dateservicer si gespaart.</string>
+    <string name="RestrictedOnVoiceSms">Sprooch-/SMS-Servicer si gespaart.</string>
+    <string name="RestrictedOnAll">Alle Sprooch-/Date-/SMS-Servicer si gespaart.</string>
     <string name="peerTtyModeFull">Peer huet TTY-Modus \"Vollstänneg\" ugefrot</string>
     <string name="peerTtyModeHco">Peer huet TTY-Modus \"HCO\" ugefrot</string>
     <string name="peerTtyModeVco">Peer huet TTY-Modus \"VCO\" ugefrot</string>
@@ -100,8 +120,10 @@
     <string name="roamingText11">Roaming-Banner Un</string>
     <string name="roamingText12">Roaming-Banner Aus</string>
     <string name="roamingTextSearching">E Service gëtt gesicht</string>
-    <string name="wfcSpnFormat_wifi_calling">WLAN-Uriff</string>
-    <string name="wfcSpnFormat_wifi">Wi-Fi</string>
+    <string name="wfcRegErrorTitle">WLAN-Uriff</string>
+    <string-array name="wfcOperatorErrorNotificationMessages">
+        <item>Beim Netzbedreiwer umellen</item>
+    </string-array>
     <string name="cfTemplateNotForwarded"><xliff:g id="bearer_service_code">{0}</xliff:g>: Net weidergeleet</string>
     <string name="cfTemplateForwarded"><xliff:g id="bearer_service_code">{0}</xliff:g>: <xliff:g id="dialing_number">{1}</xliff:g></string>
     <string name="cfTemplateForwardedTime"><xliff:g id="bearer_service_code">{0}</xliff:g>: <xliff:g id="dialing_number">{1}</xliff:g> no <xliff:g id="time_delay">{2}</xliff:g> Sekonnen</string>
@@ -127,14 +149,20 @@
     <string name="httpErrorTooManyRequests">Et ginn ze vill Ufroe beaarbecht. Probéier méi spéit nees.</string>
     <string name="notification_title">Feeler bei der Umeldung fir <xliff:g id="account" example="foo@gmail.com">%1$s</xliff:g></string>
     <string name="contentServiceSync">Sync</string>
+    <string name="contentServiceSyncNotificationTitle">Sync</string>
+    <string name="contentServiceTooManyDeletesNotificationDesc">Ze vill <xliff:g id="content_type">%s</xliff:g> geläscht.</string>
     <string name="low_memory" product="tablet">Den Tabletsspäicher ass voll. Läsch Dateien, fir Späicherplaz fräizeginn.</string>
     <string name="low_memory" product="watch">Den Auerespäicher ass voll. Läsch Dateien, fir Späicherplaz fräizeginn.</string>
     <string name="low_memory" product="tv">Den Tëleespäicher ass voll. Läsch Dateien, fir Späicherplaz fräizeginn.</string>
     <string name="low_memory" product="default">Den Telefonsspäicher ass voll. Läsch Dateien, fir Späicherplaz fräizeginn.</string>
     <string name="ssl_ca_cert_noti_by_unknown">Vun engem onbekannten Drëtten</string>
+    <string name="ssl_ca_cert_noti_by_administrator">Vum Administrateur vun dengem Aarbechtsprofil</string>
     <string name="ssl_ca_cert_noti_managed">Vu(n) <xliff:g id="managing_domain">%s</xliff:g></string>
     <string name="work_profile_deleted">Aarbechtsprofil geläscht</string>
+    <string name="work_profile_deleted_description">Aarbechtsprofil geläscht well d\'Admin-App feelt.</string>
+    <string name="work_profile_deleted_details">D\'Admin-App fir den Aarbechtsprofil feelt oder ass futti. Dowéinst gouf däin Aarbechtsprofil an all d\'Daten déi dozougehéiere geläscht. Kontaktéier däin Administrateur fir Hëllef ze kréien.</string>
     <string name="factory_reset_warning">Däin Apparat gëtt geläscht</string>
+    <string name="factory_reset_message">D\'Admin-App kann net benotzt ginn, well se futti ass oder Komponente feelen. D\'Daten op dengem Apparat ginn elo geläscht. Kontaktéier däin Administrateur fir Hëllef ze kréien.</string>
     <string name="me">Ech</string>
     <string name="power_dialog" product="tablet">Tabletoptiounen</string>
     <string name="power_dialog" product="tv">Tëleesoptiounen</string>
@@ -163,7 +191,7 @@
     <string name="global_action_lock">Schiermspär</string>
     <string name="global_action_power_off">Ausmaachen</string>
     <string name="global_action_bug_report">Feelerbericht</string>
-    <string name="bugreport_title">Feelerbericht</string>
+    <string name="bugreport_title">Feelerbericht maachen</string>
     <string name="bugreport_message">Bei dësem Feelerbericht ginn Daten iwwer den aktuelle Status vum Apparat erfaasst an als E-Mail verschéckt. Vum Start vum Bericht bis bei d\'Verschécke kann et ee Moment daueren; ee Moment Gedold.</string>
     <string name="global_action_toggle_silent_mode">Stëlle Modus</string>
     <string name="global_action_silent_mode_on_status">Den Toun ass AUS</string>
@@ -172,19 +200,24 @@
     <string name="global_actions_airplane_mode_on_status">Fligermodus ass UN</string>
     <string name="global_actions_airplane_mode_off_status">Fligermodus ass AUS</string>
     <string name="global_action_settings">Astellungen</string>
+    <string name="global_action_lockdown">Elo spären</string>
     <string name="status_bar_notification_info_overflow">999+</string>
     <string name="safeMode">Séchere Modus</string>
     <string name="android_system_label">Android-System</string>
     <string name="permgrouplab_calendar">Kalenner</string>
     <string name="permgrouplab_sms">SMS</string>
+    <string name="permgroupdesc_sms">SMS</string>
     <string name="permgrouplab_storage">Späicher</string>
     <string name="permgrouplab_microphone">Mikro</string>
     <string name="permgroupdesc_microphone">Toun ophuelen</string>
     <string name="permgrouplab_camera">Fotoapparat</string>
     <string name="permgrouplab_phone">Telefon</string>
+    <string name="permgroupdesc_phone">Telefon</string>
     <string name="capability_title_canRetrieveWindowContent">Fënsterinhalter ofruffen</string>
     <string name="capability_desc_canRetrieveWindowContent">D\'Inhalter vun der Fënster mat där s du interagéiers ginn ofgeruff.</string>
     <string name="capability_title_canRequestTouchExploration">\"Drécken an Entdecken\" aktivéieren</string>
+    <string name="capability_title_canRequestEnhancedWebAccessibility">Verbessert Web-Benotzbarkeet uschalten</string>
+    <string name="capability_desc_canRequestEnhancedWebAccessibility">Skripter kënnen installéiert ginn, fir den Zougrëff op App-Inhalter ze vereinfachen.</string>
     <string name="capability_title_canRequestFilterKeyEvents">Text observéieren deen s du agëss</string>
     <string name="capability_desc_canRequestFilterKeyEvents">Huet perséinlech Date wéi Kreditkaartennummeren a Passwierder als Inhalt.</string>
     <string name="permlab_statusBar">Statusläischt desaktivéieren oder änneren</string>
@@ -205,8 +238,11 @@
     <string name="permlab_readCellBroadcasts">Messagë vun Zelliwwerdrounge liesen</string>
     <string name="permlab_subscribedFeedsRead">Abonnéiert Feeds liesen</string>
     <string name="permdesc_subscribedFeedsRead">Erlaabt der App, Detailer iwwer déi momentan synchroniséiert Feeds ofzeruffen.</string>
+    <string name="permlab_sendSms">SMS-Messagë schécken</string>
     <string name="permdesc_sendSms">Erlaabt der App, SMSen ze schécken. Doduerch kéinten onerwaart Käschten entstoen. Béiswëlleg Appe kéinten dech Sue kaschten andeem se Messagen ouni deng Bestätegung verschécken.</string>
-    <string name="permlab_readSms">SMSen oder MMSe liesen</string>
+    <string name="permdesc_readSms" product="tablet">Erlaabt der App, SMSen ze liesen déi um Tablet oder op der SIM-Kaart gespäichert sinn. Doduerch kann d\'App all d\'SMSe liesen, onofhängeg vum Inhalt an egal wéi vertraulech se sinn.</string>
+    <string name="permdesc_readSms" product="tv">Erlaabt der App SMSen ze liesen déi op der Tëlee oder op der SIM-Kaart gespäichert sinn. Doduerch kann d\'App all d\'SMSe liesen, onofhängeg vum Inhalt an egal wéi confidentiell se sinn.</string>
+    <string name="permdesc_readSms" product="default">Erlaabt der App, SMSen ze liesen déi um Telefon oder op der SIM-Kaart gespäichert sinn. Doduerch kann d\'App all d\'SMSe liesen, onofhängeg vum Inhalt an egal wéi vertraulech se sinn.</string>
     <string name="permlab_receiveWapPush">Textmessagen (WAP) empfänken</string>
     <string name="permdesc_receiveWapPush">Erlaabt der App, WAP-Messagen z\'empfänken an ze beaarbechten. Dës Berechtegung huet d\'Fäegkeet, Messagen déi s du geschéckt kriss z\'iwwerwaachen oder ze läschen, ouni datt s du se ze gesi kriss.</string>
     <string name="permlab_getTasks">Lafend Appen ausliesen</string>
@@ -217,6 +253,8 @@
     <string name="permdesc_enableCarMode">Der App erlaben den Automodus z\'aktivéieren.</string>
     <string name="permlab_killBackgroundProcesses">Aner Appen zoumaachen</string>
     <string name="permdesc_killBackgroundProcesses">Erlaabt der App, Hannergrondprozesser vun aneren Appen zouzemaachen. Doduerch kéinten aner Appen ophale mat funktionéieren.</string>
+    <string name="permlab_systemAlertWindow">Iwwer aner Appen uweisen</string>
+    <string name="permdesc_systemAlertWindow">Erlaabt der App, fir iwwer aner Applikatiounen oder Deeler vum Benotzerinterface ze zeechnen. Dat kéint mat denge Benotzungsgewunneschten interferéieren, oder ännere wat s du an aneren Appe mengs ze gesinn.</string>
     <string name="permlab_persistentActivity">App permanent ausféieren</string>
     <string name="permdesc_persistentActivity" product="tablet">Erlaabt der App, Deeler vu sech selwer am Späicher ze persistéieren. Dat kann de Späicher dee fir aner Appen disponibel ass limitéieren an doduerch den Tablet méi lues maachen.</string>
     <string name="permdesc_persistentActivity" product="tv">Erlaabt der App, Deeler vu sech selwer am Späicher ze persistéieren. Dat kann de Späicher dee fir aner Appen disponibel ass limitéieren an doduerch d\'Tëlee méi lues maachen.</string>
@@ -237,26 +275,37 @@
     <string name="permdesc_readContacts" product="tablet">Erlaabt der App, Daten iwwer d\'Kontakter déi op dengem Tablet gespäichert sinn ze liesen, inklusiv der Frequenz mat där s de spezifesch Kontakter ugeruff hues, hinnen E-Maile geschéckt hues, oder anerwäerts mat hinne kommunikéiert hues. Dës Berechtegung erméiglecht et Appen, Kontaktdaten z\'änneren, a béisaarteg Appe kéinte Kontaktdaten ouni däi Wëssen deelen.</string>
     <string name="permdesc_readContacts" product="tv">Erlaabt der App, Daten iwwer d\'Kontakter déi op denger Tëlee gespäichert sinn ze liesen, inklusiv der Frequenz mat där s de spezifesch Kontakter ugeruff hues, hinnen E-Maile geschéckt hues, oder anerwäerts mat hinne kommunikéiert hues. Dës Berechtegung erméiglecht et Appen, Kontaktdaten z\'änneren, a béisaarteg Appe kéinte Kontaktdaten ouni däi Wëssen deelen.</string>
     <string name="permdesc_readContacts" product="default">Erlaabt der App, Daten iwwer d\'Kontakter déi op dengem Telefon gespäichert sinn ze liesen, inklusiv der Frequenz mat där s de spezifesch Kontakter ugeruff hues, hinnen E-Maile geschéckt hues, oder anerwäerts mat hinne kommunikéiert hues. Dës Berechtegung erméiglecht et Appen, Kontaktdaten z\'änneren, a béisaarteg Appe kéinte Kontaktdaten ouni däi Wëssen deelen.</string>
-    <string name="permlab_writeContacts">Kontakter änneren</string>
     <string name="permdesc_writeContacts" product="tablet">Erlaabt der App, Daten iwwer d\'Kontakter déi op dengem Tablet gespäichert sinn z\'änneren, inklusiv der Frequenz mat där s de spezifesch Kontakter ugeruff hues, hinnen E-Maile geschéckt hues, oder anerwäerts mat hinne kommunikéiert hues. Dës Berechtegung erméiglecht et Appen, Kontaktdaten ze läschen.</string>
     <string name="permdesc_writeContacts" product="tv">Erlaabt der App, Daten iwwer d\'Kontakter déi op denger Tëlee gespäichert sinn z\'änneren, inklusiv der Frequenz mat där s de spezifesch Kontakter ugeruff hues, hinnen E-Maile geschéckt hues, oder anerwäerts mat hinne kommunikéiert hues. Dës Berechtegung erméiglecht et Appen, Kontaktdaten ze läschen.</string>
     <string name="permdesc_writeContacts" product="default">Erlaabt der App, Daten iwwer d\'Kontakter déi op dengem Telefon gespäichert sinn z\'änneren, inklusiv der Frequenz mat där s de spezifesch Kontakter ugeruff hues, hinnen E-Maile geschéckt hues, oder anerwäerts mat hinne kommunikéiert hues. Dës Berechtegung erméiglecht et Appen, Kontaktdaten ze läschen.</string>
     <string name="permlab_readCallLog">Urufflëscht liesen</string>
-    <string name="permlab_writeCallLog">Urufflëscht änneren</string>
+    <string name="permdesc_readCallLog" product="tablet">Erlaabt der App, d\'Urufflëscht vum Tablet auszeliesen, inklusiv Daten iwwer erakommend an erausgoend Uriff. Dës Berechtegung erlaabt et Appen, d\'Daten aus denger Urufflëscht ze späicheren, a béisaarteg Appe kéinten dës Daten ouni däi Wëssen deelen.</string>
+    <string name="permdesc_readCallLog" product="tv">Erlaabt der App, d\'Urufflëscht vun der Tëlee auszeliesen, inklusiv Daten iwwer erakommend an erausgoend Uriff. Dës Berechtegung erlaabt et Appen, d\'Daten aus denger Urufflëscht ze späicheren, a béisaarteg Appe kéinten dës Daten ouni däi Wëssen deelen.</string>
+    <string name="permdesc_readCallLog" product="default">Erlaabt der App, d\'Urufflëscht vum Telefon auszeliesen, inklusiv Daten iwwer erakommend an erausgoend Uriff. Dës Berechtegung erlaabt et Appen, d\'Daten aus denger Urufflëscht ze späicheren, a béisaarteg Appe kéinten dës Daten ouni däi Wëssen deelen.</string>
     <string name="permdesc_writeCallLog" product="tablet">Erlaabt der App, d\'Urufflëscht vum Tablet z\'änneren, inklusiv Daten iwwer erakommend an erausgoend Uriff. Béisaarteg Appe kéinten dës Berechtegung benotze fir d\'Daten ouni däi Wëssen ze läschen oder z\'änneren.</string>
     <string name="permdesc_writeCallLog" product="tv">Erlaabt der App, d\'Urufflëscht vun der Tëlee z\'änneren, inklusiv Daten iwwer erakommend an erausgoend Uriff. Béisaarteg Appe kéinten dës Berechtegung benotze fir d\'Daten ouni däi Wëssen ze läschen oder z\'änneren.</string>
     <string name="permdesc_writeCallLog" product="default">Erlaabt der App, d\'Urufflëscht vum Telefon z\'änneren, inklusiv Daten iwwer erakommend an erausgoend Uriff. Béisaarteg Appe kéinten dës Berechtegung benotze fir d\'Daten ouni däi Wëssen ze läschen oder z\'änneren.</string>
     <string name="permdesc_bodySensors" product="default">Erlaabt der App, op d\'Date vu Sensoren zouzegräifen, déi deng kierperlech Verfaassung iwwerwaachen, z. B. däi Puls.</string>
+    <string name="permlab_readCalendar">Kalenner-Rendezvousen a vertraulech Informatioune liesen</string>
+    <string name="permdesc_readCalendar" product="tablet">Erlaabt der App, all d\'Kalenner-Evenementer déi um Tablet gespäichert sinn ze liesen, inklusiv deene vu Frënn a Mataarbechter. Doduerch kéint d\'App deng Kalennerdate späicheren oder deelen, onofhängeg vun der agestallter Konfidentialitéit.</string>
+    <string name="permdesc_readCalendar" product="tv">Erlaabt der App, all d\'Kalenner-Evenementer déi op der Tëlee gespäichert sinn ze liesen, inklusiv deene vu Frënn a Mataarbechter. Doduerch kéint d\'App deng Kalennerdate späicheren oder deelen, onofhängeg vun der agestallter Konfidentialitéit.</string>
+    <string name="permdesc_readCalendar" product="default">Erlaabt der App, all d\'Kalenner-Evenementer déi um Telefon gespäichert sinn ze liesen, inklusiv deene vu Frënn a Mataarbechter. Doduerch kéint d\'App deng Kalennerdate späicheren oder deelen, onofhängeg vun der agestallter Konfidentialitéit.</string>
     <string name="permlab_writeCalendar">Kalenner-Rendezvousen dobäisetzen oder änneren an E-Mailen u Gäscht ouni d\'Wësse vun de Benotzer schécken</string>
+    <string name="permdesc_writeCalendar" product="tablet">Erlaabt der App, Rendezvousen, déi s du op dengem Tablet ännere kanns, dobäizesetzen, ze läschen an z\'änneren, inklusiv deene vu Frënn oder Kollegen. Doduerch kann d\'App Noriichte verschécken, déi sou ausgesi wéi wa se vum Besëtzer vum Kalenner géife stamen, oder Rendezvousen änneren ouni datt de Besëtzer et matkritt.</string>
+    <string name="permdesc_writeCalendar" product="tv">Erlaabt der App, Rendezvousen, déi s du op denger Tëlee ännere kanns, dobäizesetzen, ze läschen an z\'änneren, inklusiv deene vu Frënn oder Kollegen. Doduerch kann d\'App Noriichte verschécken, déi sou ausgesi wéi wa se vum Besëtzer vum Kalenner géife stamen, oder Rendezvousen änneren ouni datt de Besëtzer et matkritt.</string>
+    <string name="permdesc_writeCalendar" product="default">Erlaabt der App, Rendezvousen, déi s du op dengem Telefon ännere kanns, dobäizesetzen, ze läschen an z\'änneren, inklusiv deene vu Frënn oder Kollegen. Doduerch kann d\'App Noriichte verschécken, déi sou ausgesi wéi wa se vum Besëtzer vum Kalenner géife stamen, oder Rendezvousen änneren ouni datt de Besëtzer et matkritt.</string>
     <string name="permlab_accessLocationExtraCommands">Op zousätzlech Serviceproviderbefeeler fir de Standuert zougräifen</string>
+    <string name="permdesc_accessFineLocation">Erlaabt der App, iwwer de Globale Positionéierungs-System (GPS) oder iwwer Netzwierkquelle wéi Funkmasten oder WLAN däi genaue Standuert ze bestëmmen. Dës Standuert-Servicer mussen ugeschalt a fir däin Apparat disponibel si fir datt d\'App se ka benotzen. Appe kéinten dat benotze fir ze bestëmme wou s de dech ophäls, an doduerch zousätzlech Akkuleeschtung beusprochen.</string>
+    <string name="permdesc_accessCoarseLocation">Erlaabt der App, däin ongeféiere Standuert ze bestëmmen. De Standuert gëtt unhand vun Netzwierkstanduertquellen, wéi Funkmasten oder WLAN ofgeleent. Dës Standuert-Servicer mussen ugeschalt a fir däin Apparat disponibel si fir datt d\'App se ka benotzen. Appe kéinten dat benotze fir ze bestëmme wou ongeféier s de dech ophäls.</string>
     <string name="permlab_modifyAudioSettings">Tounastellungen änneren</string>
     <string name="permdesc_modifyAudioSettings">Erlaabt der App, déi global Audioastellungen ze steieren, z. B. d\'Lautstäerkt oder wéi ee Lautsprecher benotzt soll ginn.</string>
     <string name="permlab_recordAudio">Toun ophuelen</string>
+    <string name="permdesc_recordAudio">Erlaabt der App, Toun mam Mikro opzehuelen. Dës Berechtegung erlaabt der App zu all Moment Toun ouni deng Bestätegung opzehuelen.</string>
     <string name="permdesc_sim_communication">Erlaabt der App, Befeeler un d\'SIM ze schécken. Dat ass immens geféierlech.</string>
     <string name="permlab_camera">Biller a Videoen ophuelen</string>
+    <string name="permdesc_camera">Erlaabt der App, Biller a Videoe mat der Kamera opzehuelen. Dës Berechtegung erlaabt der App, d\'Kamera zu all Moment ouni däin Awierken ze benotzen.</string>
     <string name="permlab_vibrate">Vibratioun steieren</string>
     <string name="permdesc_vibrate">Erlaabt der App, d\'Vibratioun ze steieren.</string>
-    <string name="permlab_callPhone">Telefonsnummeren direkt uruffen</string>
     <string name="permdesc_callPhone">Erlaabt der App, Telefonsnummeren ouni deng Awierkung unzeruffen. Doduerch kéinten onerwaart Käschten oder Uriff entstoen. D\'App kann heiduerch awer keng Noutfallnummeren uruffen. Béiswëlleg Appe kéinte Käschte verursaachen andeem se Nummeren ouni deng Bestätegung uruffen.</string>
     <string name="permlab_readPhoneState">Status an Identitéit vum Telefon liesen</string>
     <string name="permdesc_readPhoneState">Erlaabt der App, op d\'Telefonsfunktioune vum Apparat zouzegräifen. Mat dëser Berechtegung kann d\'App d\'Telefonsnummer an d\'Identifikatiounsnummer vum Apparat, a wann en Uruff aktiv ass och d\'Telefonsnummer vum Gespréichspartner, ausliesen.</string>
@@ -291,13 +340,11 @@
     <string name="permdesc_changeTetherState">Erlaabt der App, de Status vun der getetherter Netzwierkconnectivitéit z\'änneren.</string>
     <string name="permlab_accessWifiState">WLAN-Connectiounen uweisen</string>
     <string name="permdesc_accessWifiState">Erlaabt der App, Informatiounen iwwer d\'WLAN-Netzwierker auszeliesen. Beispillsweis ob WLAN un ass a wéi eng Nimm déi connectéiert WLAN-Apparater hunn.</string>
-    <string name="permlab_changeWifiState">WLAN-Connectiounen hierstellen an trennen</string>
     <string name="permdesc_changeWifiState">Erlaabt der App, Connectioune mat WLAN-Zougankspunkten hierzestellen an ze trennen a fir Ännerungen un der Konfiguratioun vun de WLAN-Netzwierker virzehuelen.</string>
     <string name="permlab_changeWifiMulticastState">WLAN-Multicast-Empfang erlaben</string>
     <string name="permdesc_changeWifiMulticastState" product="tablet">Erlaabt der App, Päck z\'empfänken, déi iwwer Multicast-Adressen u sämtlech Apparater an engem WLAN verschéckt ginn, net just un däin Tablet. Dat kascht méi Leeschtung wéi den Net-Multicast-Modus.</string>
     <string name="permdesc_changeWifiMulticastState" product="tv">Erlaabt der App, Päck z\'empfänken, déi iwwer Multicast-Adressen u sämtlech Apparater an engem WLAN verschéckt ginn, net just un deng Tëlee. Dat kascht méi Leeschtung wéi den Net-Multicast-Modus.</string>
     <string name="permdesc_changeWifiMulticastState" product="default">Erlaabt der App, Päck z\'empfänken, déi iwwer Multicast-Adressen u sämtlech Apparater an engem WLAN verschéckt ginn, net just un däin Telefon. Dat kascht méi Leeschtung wéi den Net-Multicast-Modus.</string>
-    <string name="permlab_bluetoothAdmin">Op d\'Bluetooth-Astellungen zougräifen</string>
     <string name="permdesc_bluetoothAdmin" product="tablet">Erlaabt der App, Bluetooth um Tablet ze konfiguréieren, an anerer Apparater z\'entdecken a Koppelunge mat hinnen hierzestellen.</string>
     <string name="permdesc_bluetoothAdmin" product="tv">Erlaabt der App, Bluetooth opo der Tëlee ze konfiguréieren, an anerer Apparater z\'entdecken a Koppelunge mat hinnen hierzestellen.</string>
     <string name="permdesc_bluetoothAdmin" product="default">Erlaabt der App, Bluetooth um Telefon ze konfiguréieren, an anerer Apparater z\'entdecken a Koppelunge mat hinnen hierzestellen.</string>
@@ -316,14 +363,16 @@
     <string name="permdesc_disableKeyguard">Erlaabt der App, d\'Tastespär an déi liéiert Passwuertsécherheet ze desaktivéieren. Den Telefon desaktivéiert beispillsweis d\'Tastespär wann en Uruff erakënnt, a reaktivéiert se wann den Uruff ofgeschloss ass.</string>
     <string-array name="fingerprint_acquired_vendor"/>
     <string-array name="fingerprint_error_vendor"/>
-    <string-array name="face_acquired_vendor"/>
-    <string-array name="face_error_vendor"/>
     <string name="permlab_readSyncSettings">Synchroniséierungsastellunge liesen</string>
     <string name="permdesc_readSyncSettings">Erlaabt der App, d\'Synchroniséierungsastellunge fir e Kont ze liesen. Doduerch ka beispillsweis festgestallt ginn ob d\'Kontakter mat engem Kont synchroniséiert sinn.</string>
     <string name="permlab_writeSyncSettings">Synchronisatioun un- an ausschalten</string>
     <string name="permdesc_writeSyncSettings">Erlaabt der App, d\'Synchroniséierungsastellunge fir e Kont z\'änneren. Doduerch ka beispillsweis d\'Synchroniséierung vun de Kontakter mat engem Kont aktivéiert ginn.</string>
     <string name="permlab_readSyncStats">Synchronisatiounsstatistike liesen</string>
     <string name="permdesc_readSyncStats">Erlaabt der App, d\'Synchroniséierungs-Statistike fir ee Kont ze liesen, inklusiv dem Verlaf vun de Synchronisatiountsevenementer a wéi vill Date synchroniséiert ginn.</string>
+    <string name="permlab_sdcardRead" product="default">Inhalter vun denger SD-Kaart liesen</string>
+    <string name="permdesc_sdcardRead" product="default">Erlaabt der App, d\'Inhalter vun der SD-Kaart ze liesen.</string>
+    <string name="permlab_sdcardWrite" product="default">Inhalter vun der SD-Kaart änneren oder läschen</string>
+    <string name="permdesc_sdcardWrite" product="default">Erlaabt der App, op d\'SD-Kaart ze schreiwen.</string>
     <string name="permlab_use_sip">SIP-Uriff maachen/empfänken</string>
     <string name="permdesc_use_sip">Erlaabt der App, SIP-Uriff ze maachen an entgéintzehuelen.</string>
     <string name="permlab_register_sim_subscription">Nei SIM-Telekommunikatiounsverbindunge registréieren</string>
@@ -366,6 +415,7 @@
     <string name="permlab_bindCarrierMessagingService">Un engem Provider-SMS/MMS-Service bannen</string>
     <string name="permdesc_bindCarrierMessagingService">Erlaabt de Besëtzer an d\'Iwwerfläch vum SMS/MMS-Service-Provider op dem ieweschten Niveau ze bannen. Sollt ni fir normal Appen néideg sinn.</string>
     <string name="policylab_limitPassword">Passwuertregelen definéieren</string>
+    <string name="policylab_watchLogin">Versich fir d\'Entspäre vum Schierm iwwerwaachen</string>
     <string name="policydesc_watchLogin" product="tablet">Unzuel vun de falsche Passwierder beim Entspäre vum Schierm iwwerwaachen an den Tablet spären oder all d\'Daten um Tablet läsche wann ze dacks een e falscht Passwuert aginn huet.</string>
     <string name="policydesc_watchLogin" product="TV">Unzuel vun de falsche Passwierder beim Entspäre vum Schierm iwwerwaachen an d\'Tlee spären oder all d\'Daten um Telefon läsche wann ze dacks een e falscht Passwuert aginn huet.</string>
     <string name="policydesc_watchLogin" product="default">Unzuel vun de falsche Passwierder beim Entspäre vum Schierm iwwerwaachen an den Telefon spären oder all d\'Daten um Telefon läsche wann ze dacks een e falscht Passwuert aginn huet.</string>
@@ -671,6 +721,7 @@ Kontaktéier däi Provider fir eng aner SIM-Kaart ze kréien.</string>
     <string name="menu_enter_shortcut_label">Enter</string>
     <string name="menu_delete_shortcut_label">läschen</string>
     <string name="search_go">Sichen</string>
+    <string name="search_hint">Sichen…</string>
     <string name="searchview_description_search">Sichen</string>
     <string name="searchview_description_query">Sichufro</string>
     <string name="searchview_description_clear">Ufro läschen</string>
@@ -700,6 +751,18 @@ Wann \"Drécken an Endecken\" aktivéiert ass, kanns du Beschreiwunge vun Elemen
     <string name="weeks">Wochen</string>
     <string name="year">Joer</string>
     <string name="years">Joer</string>
+    <plurals name="duration_seconds">
+        <item quantity="one">1 Sekonn</item>
+        <item quantity="other"><xliff:g id="count">%d</xliff:g> Sekonnen</item>
+    </plurals>
+    <plurals name="duration_minutes">
+        <item quantity="one">1 Minutt</item>
+        <item quantity="other"><xliff:g id="count">%d</xliff:g> Minutten</item>
+    </plurals>
+    <plurals name="duration_hours">
+        <item quantity="one">1 Stonn</item>
+        <item quantity="other"><xliff:g id="count">%d</xliff:g> Stonnen</item>
+    </plurals>
     <string name="now_string_shortest">elo</string>
     <string name="VideoView_error_title">Videoproblem</string>
     <string name="VideoView_error_text_invalid_progressive_playback">De Video ass net gëlteg fir op dësen Apparat gestreamt ze ginn.</string>
@@ -723,13 +786,11 @@ Wann \"Drécken an Endecken\" aktivéiert ass, kanns du Beschreiwunge vun Elemen
     <string name="selectTextMode">Text auswielen</string>
     <string name="undo">Réckgängeg maachen</string>
     <string name="redo">Widderhuelen</string>
-    <string name="autofill">Automatescht Ausfëllen</string>
     <string name="textSelectionCABTitle">Textauswiel</string>
     <string name="addToDictionary">An den Dictionnaire setzen</string>
     <string name="deleteText">Läschen</string>
     <string name="inputMethod">Method fir anzeginn</string>
     <string name="editTextMenuTitle">Textaktiounen</string>
-    <string name="browse">Opmaachen</string>
     <string name="low_internal_storage_view_title">De Späicher huet geschwë keng Plaz méi</string>
     <string name="low_internal_storage_view_text">E puer Systemfunktioune funktionéiere vläicht net</string>
     <string name="low_internal_storage_view_text_no_boot">Net genuch Späicher fir de System. Stell sécher, datt s de 250MB fräi Späicherplaz hues a start nei.</string>
@@ -750,7 +811,7 @@ Wann \"Drécken an Endecken\" aktivéiert ass, kanns du Beschreiwunge vun Elemen
     <string name="whichEditApplication">Ännere mat</string>
     <string name="whichEditApplicationNamed">Ännere mat %1$s</string>
     <string name="whichEditApplicationLabel">Änneren</string>
-    <string name="whichSendApplication">Deelen</string>
+    <string name="whichSendApplication">Deele mat</string>
     <string name="whichSendApplicationNamed">Deele mat %1$s</string>
     <string name="whichSendApplicationLabel">Deelen</string>
     <string name="whichSendToApplication">Schécke mat</string>
@@ -784,14 +845,23 @@ Wann \"Drécken an Endecken\" aktivéiert ass, kanns du Beschreiwunge vun Elemen
     <string name="screen_compat_mode_show">Ëmmer uweisen</string>
     <string name="screen_compat_mode_hint">Reaktivéierung ënner Astellungen &gt; Appen &gt; Erofgelueden.</string>
     <string name="unsupported_display_size_show">Ëmmer uweisen</string>
-    <string name="unsupported_compile_sdk_show">Ëmmer uweisen</string>
     <string name="smv_application">D\'App <xliff:g id="application">%1$s</xliff:g> (Prozess <xliff:g id="process">%2$s</xliff:g>) huet géint déi selwer operluechte StrictMode-Richtlinne verstouss.</string>
     <string name="smv_process">De Prozess <xliff:g id="process">%1$s</xliff:g> huet géint déi selwer operluechte StrictMode-Richtlinne verstouss.</string>
+    <string name="android_upgrading_title">Android gëtt aktualiséiert\u2026</string>
+    <string name="android_start_title">Android gëtt gestart\u2026</string>
     <string name="android_upgrading_fstrim">Späicher optiméieren.</string>
+    <string name="android_upgrading_notification_title">Android-Update gëtt ofgeschloss\u2026</string>
     <string name="android_upgrading_apk">Optiméierung vun der App <xliff:g id="number" example="123">%1$d</xliff:g> / <xliff:g id="number" example="123">%2$d</xliff:g>.</string>
     <string name="android_upgrading_starting_apps">Appe gi gestart.</string>
     <string name="android_upgrading_complete">Start gëtt ofgeschloss.</string>
     <string name="heavy_weight_notification"><xliff:g id="app">%1$s</xliff:g> leeft</string>
+    <string name="heavy_weight_notification_detail">Drécke fir bei d\'App ze wiesselen</string>
+    <string name="heavy_weight_switcher_title">Appe wiesselen?</string>
+    <string name="heavy_weight_switcher_text">Et leeft schonn eng App déi muss gestoppt gi fir eng nei ze starten.</string>
+    <string name="old_app_action">Zréck bei <xliff:g id="old_app">%1$s</xliff:g></string>
+    <string name="old_app_description">Déi nei App net starten.</string>
+    <string name="new_app_action"><xliff:g id="old_app">%1$s</xliff:g> starten</string>
+    <string name="new_app_description">Déi al App ouni ze späichere stoppen.</string>
     <string name="sendText">Aktioun fir Text auswielen</string>
     <string name="volume_ringtone">Schelltounlautstäerkt</string>
     <string name="volume_music">Medielautstäerkt</string>
@@ -808,9 +878,10 @@ Wann \"Drécken an Endecken\" aktivéiert ass, kanns du Beschreiwunge vun Elemen
     <string name="volume_icon_description_media">Medielautstäerkt</string>
     <string name="volume_icon_description_notification">Notifikatiounslautstäerkt</string>
     <string name="ringtone_default">Standardschelltoun</string>
+    <string name="ringtone_default_with_actual">Standard-Schelltoun (<xliff:g id="actual_ringtone">%1$s</xliff:g>)</string>
     <string name="ringtone_silent">Keen</string>
     <string name="ringtone_picker_title">Schelltéin</string>
-    <string name="ringtone_unknown">Onbekannt</string>
+    <string name="ringtone_unknown">Onbekannte Schelltoun</string>
     <plurals name="wifi_available">
         <item quantity="one">WLAN-Netzwierk disponibel</item>
         <item quantity="other">WLAN-Netzwierker disponibel</item>
@@ -819,16 +890,16 @@ Wann \"Drécken an Endecken\" aktivéiert ass, kanns du Beschreiwunge vun Elemen
         <item quantity="one">Oppent WLAN-Netzwierk disponibel</item>
         <item quantity="other">Oppe WLAN-Netzwierker disponibel</item>
     </plurals>
-    <string name="wifi_suggestion_action_allow_app">Erlaben</string>
     <string name="network_available_sign_in_detailed"><xliff:g id="network_ssid">%1$s</xliff:g></string>
     <string-array name="network_switch_type_name">
-        <item>mobile data</item>
+        <item>cellular data</item>
         <item>Wi-Fi</item>
         <item>Bluetooth</item>
         <item>Ethernet</item>
         <item>VPN</item>
     </string-array>
     <string name="wifi_watchdog_network_disabled">Konnt net mam WLAN connectéieren</string>
+    <string name="wifi_watchdog_network_disabled_detailed">\u0020huet eng schwaach Internetconnectioun.</string>
     <string name="wifi_p2p_dialog_title">Wi-Fi Direct</string>
     <string name="wifi_p2p_turnon_message">Wi-Fi Direct starten. De WLAN-Zougankspunkt gëtt doduerch ausgeschalt.</string>
     <string name="wifi_p2p_failed_message">Konnt Wi-Fi Direct net starten.</string>
@@ -859,8 +930,10 @@ Wann \"Drécken an Endecken\" aktivéiert ass, kanns du Beschreiwunge vun Elemen
     <string name="sms_short_code_confirm_always_allow">Ëmmer erlaben</string>
     <string name="sms_short_code_confirm_never_allow">Ni erlaben</string>
     <string name="sim_removed_title">SIM-Kaart erausgeholl</string>
+    <string name="sim_removed_message">D\'Mobilnetzwierk ass net disponibel bis de eng gëlteg SIM-Kaart asetz an nei starts.</string>
     <string name="sim_done_button">Fäerdeg</string>
     <string name="sim_added_title">SIM-Kaart dobäigesat</string>
+    <string name="sim_added_message">Start den Handy nei fir op d\'Mobilnetz zouzegräifen.</string>
     <string name="sim_restart_button">Nei starten</string>
     <string name="time_picker_dialog_title">Zäit setzen</string>
     <string name="date_picker_dialog_title">Datum setzen</string>
@@ -871,10 +944,11 @@ Wann \"Drécken an Endecken\" aktivéiert ass, kanns du Beschreiwunge vun Elemen
     <string name="no_permissions">Keng Berechtegungen néideg</string>
     <string name="perm_costs_money">dëst kéint dech Sue kaschten</string>
     <string name="dlg_ok">OK</string>
+    <string name="usb_accessory_notification_title">Als USB-Accessoire verbonnen</string>
     <string name="adb_active_notification_title">USB-Debugging verbonnen</string>
+    <string name="select_input_method">Tastatur wiesselen</string>
     <string name="fast_scroll_alphabet">\u0020ABCDEFGHIJKLMNOPQRSTUVWXYZ</string>
     <string name="fast_scroll_numeric_alphabet">\u00200123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ</string>
-    <string name="ext_media_new_notification_message">Drécke fir anzestellen</string>
     <string name="ext_media_status_checking">Iwwerpréiwung\u2026</string>
     <string name="activity_list_empty">Keng passend Aktivitéit fonnt.</string>
     <string name="permdesc_route_media_output">Erlaabt der App, d\'Medienausgab un extern Apparater weiderzeleeden.</string>
@@ -911,10 +985,15 @@ Wann \"Drécken an Endecken\" aktivéiert ass, kanns du Beschreiwunge vun Elemen
     <string name="vpn_text_long">Verbonne mat <xliff:g id="session" example="office">%s</xliff:g>. Dréck fir d\'Netzwierk ze geréieren.</string>
     <string name="vpn_lockdown_connecting">Permanent aktive VPN gëtt connectéiert\u2026</string>
     <string name="vpn_lockdown_connected">Permanent aktive VPN connectéiert</string>
+    <string name="vpn_lockdown_disconnected">Permanent aktive VPN deconnectéiert</string>
+    <string name="vpn_lockdown_error">Feeler beim permanent aktive VPN</string>
+    <string name="vpn_lockdown_config">Drécke fir anzestellen</string>
     <string name="upload_file">Fichier auswielen</string>
     <string name="no_file_chosen">Kee Fichier ausgewielt</string>
     <string name="reset">Zrécksetzen</string>
     <string name="submit">Schécken</string>
+    <string name="car_mode_disable_notification_title">Automodus aktivéiert</string>
+    <string name="car_mode_disable_notification_message">Dréck fir den Automodus auszemaachen.</string>
     <string name="tethered_notification_title">Tethering oder Zougankspunkt aktiv</string>
     <string name="tethered_notification_message">Drécke fir anzestellen.</string>
     <string name="back_button_label">Zréck</string>
@@ -927,6 +1006,8 @@ Wann \"Drécken an Endecken\" aktivéiert ass, kanns du Beschreiwunge vun Elemen
         <item quantity="other"><xliff:g id="index" example="2">%d</xliff:g> vu(n) <xliff:g id="total" example="137">%d</xliff:g></item>
     </plurals>
     <string name="action_mode_done">Fäerdeg</string>
+    <string name="progress_erasing" product="nosdcard">Den USB-Späicher gëtt geläscht\u2026</string>
+    <string name="progress_erasing" product="default">SD-Kaart gëtt geläscht\u2026</string>
     <string name="share">Deelen</string>
     <string name="find">Sichen</string>
     <string name="websearch">Websich</string>
@@ -973,6 +1054,8 @@ Wann \"Drécken an Endecken\" aktivéiert ass, kanns du Beschreiwunge vun Elemen
     <string name="shareactionprovider_share_with_application">Deele mat <xliff:g id="application_name" example="Bluetooth">%s</xliff:g></string>
     <string name="content_description_sliding_handle">"Wëschgrëff. Drécken an halen."</string>
     <string name="description_target_unlock_tablet">Wësche fir z\'entspären.</string>
+    <string name="keyboard_headset_required_to_hear_password">Schléiss en Headset u fir d\'Passwuerttaste virgelies ze kréien.</string>
+    <string name="keyboard_password_character_no_headset">Punkt.</string>
     <string name="action_bar_home_description">Heem navigéieren</string>
     <string name="action_bar_up_description">Erop navigéieren</string>
     <string name="action_menu_overflow_description">Méi Optiounen</string>
@@ -981,7 +1064,16 @@ Wann \"Drécken an Endecken\" aktivéiert ass, kanns du Beschreiwunge vun Elemen
     <string name="storage_sd_card">SD-Kaart</string>
     <string name="storage_usb">USB-Späicher</string>
     <string name="extract_edit_menu_button">Änneren</string>
+    <string name="data_usage_3g_limit_title">2G/3G Datelimitt erreecht</string>
+    <string name="data_usage_4g_limit_title">4G Datelimitt erreecht</string>
+    <string name="data_usage_mobile_limit_title">Mobil Datelimitt erreecht</string>
     <string name="data_usage_wifi_limit_title">WLAN-Datelimitt erreecht</string>
+    <string name="data_usage_limit_body">Date pauséiert fir de Rescht vum Zyklus</string>
+    <string name="data_usage_3g_limit_snoozed_title">2G- an 3G-Datelimitt iwwerschratt</string>
+    <string name="data_usage_4g_limit_snoozed_title">4G-Datelimitt iwwerschratt</string>
+    <string name="data_usage_mobile_limit_snoozed_title">Mobil Datelimitt iwwerschratt</string>
+    <string name="data_usage_wifi_limit_snoozed_title">Wi-Fi-Datelimitt iwwerschratt</string>
+    <string name="data_usage_limit_snoozed_body"><xliff:g id="size" example="3.8GB">%s</xliff:g> iwwer der definéierter Limitt.</string>
     <string name="data_usage_restricted_title">Hannergronddaten ageschränkt</string>
     <string name="ssl_certificate">Sécherheetszertifikat</string>
     <string name="ssl_certificate_is_valid">Dëst Zertifikat ass gëlteg.</string>
@@ -1005,14 +1097,13 @@ Wann \"Drécken an Endecken\" aktivéiert ass, kanns du Beschreiwunge vun Elemen
     <string name="SetupCallDefault">Uruff unhuelen?</string>
     <string name="activity_resolver_use_always">Ëmmer</string>
     <string name="activity_resolver_use_once">Just eemol</string>
-    <string name="activity_resolver_app_settings">Astellungen</string>
     <string name="activity_resolver_work_profiles_support">%1$s ënnerstëtzt keen Aarbechtsprofil</string>
     <string name="default_audio_route_name" product="tablet">Tablet</string>
     <string name="default_audio_route_name" product="tv">Tëlee</string>
     <string name="default_audio_route_name" product="default">Telefon</string>
-    <string name="default_audio_route_name_dock_speakers">Dock-Lautsprecher</string>
-    <string name="default_audio_route_name_hdmi">HDMI</string>
     <string name="default_audio_route_name_headphones">Kopfhörer</string>
+    <string name="default_audio_route_name_dock_speakers">Dock-Lautsprecher</string>
+    <string name="default_media_route_name_hdmi">HDMI</string>
     <string name="default_audio_route_category_name">System</string>
     <string name="bluetooth_a2dp_audio_route_name">Bluetooth-Audio</string>
     <string name="wireless_display_route_description">Kabellose Schierm</string>
@@ -1036,6 +1127,7 @@ Wann \"Drécken an Endecken\" aktivéiert ass, kanns du Beschreiwunge vun Elemen
     <string name="kg_wrong_pattern">Falscht Muster</string>
     <string name="kg_wrong_password">Falscht Passwuert</string>
     <string name="kg_wrong_pin">Falsche PIN</string>
+    <string name="kg_too_many_failed_attempts_countdown">Probéier nees a(n) <xliff:g id="number">%1$d</xliff:g> Sekonnen.</string>
     <string name="kg_pattern_instructions">Mol däi Muster</string>
     <string name="kg_sim_pin_instructions">SIM-PIN aginn</string>
     <string name="kg_pin_instructions">PIN aginn</string>
@@ -1063,10 +1155,14 @@ Wann \"Drécken an Endecken\" aktivéiert ass, kanns du Beschreiwunge vun Elemen
     <string name="kg_text_message_separator" product="default">" \u2014 "</string>
     <string name="kg_reordering_delete_drop_target_text">Ewechhuelen</string>
     <string name="safe_media_volume_warning" product="default">D\'Lautstäerkt iwwer de recommandéierten Niveau erhéijen?\n\nIwwer laang Periode bei héijer Lautstäerkt Musek lauschtere kéint däi Gehéier schiedegen.</string>
+    <string name="continue_to_enable_accessibility">Mat zwee Fangeren drécke fir d\'Benotzungshëllefen z\'aktivéieren.</string>
+    <string name="accessibility_enabled">Accessibilitéit aktivéiert.</string>
+    <string name="enable_accessibility_canceled">Accessibilitéit ofgebrach.</string>
     <string name="user_switched">Aktuelle Benotzer <xliff:g id="name" example="Bob">%1$s</xliff:g>.</string>
     <string name="user_switching_message">Wiesselen op de Benotzer <xliff:g id="name" example="Bob">%1$s</xliff:g>\u2026</string>
     <string name="owner_name" msgid="3879126011135546571">Besëtzer</string>
     <string name="error_message_title">Feeler</string>
+    <string name="error_message_change_not_allowed">Dës Ännerung ass duerch däin Administrateur net erlaabt</string>
     <string name="app_not_found">Et gouf keng Applikatioun fonnt fir dës Aktioun auszeféieren</string>
     <string name="revoke">Zréckzéien</string>
     <string name="mediasize_iso_a0">ISO A0</string>
@@ -1158,6 +1254,7 @@ Wann \"Drécken an Endecken\" aktivéiert ass, kanns du Beschreiwunge vun Elemen
     <string name="reason_service_unavailable">Dréck-Service net aktivéiert</string>
     <string name="print_service_installed_title"><xliff:g id="name" example="Cloud Print">%s</xliff:g> Service installéiert</string>
     <string name="print_service_installed_message">Dréck fir z\'aktivéieren</string>
+    <string name="restr_pin_enter_admin_pin">Administrateur-PIN aginn</string>
     <string name="restr_pin_enter_pin">PIN aginn</string>
     <string name="restr_pin_incorrect">Inkorrekt</string>
     <string name="restr_pin_enter_old_pin">Aktuell PIN</string>
@@ -1181,36 +1278,48 @@ Wann \"Drécken an Endecken\" aktivéiert ass, kanns du Beschreiwunge vun Elemen
     <string name="deleted_key"><xliff:g id="key" example="4">%1$s</xliff:g> geläscht</string>
     <string name="managed_profile_label_badge"><xliff:g id="label" example="Email">%1$s</xliff:g> (Aarbecht)</string>
     <string name="time_placeholder">--</string>
+    <string name="lock_to_app_start">Schierm fixéiert</string>
+    <string name="lock_to_app_exit">Schierm fräiginn</string>
     <string name="lock_to_app_unlock_pin">E PIN froe fir e Schierm fräizeginn</string>
     <string name="lock_to_app_unlock_pattern">En Entspärmuster froe fir e Schierm fräizeginn</string>
     <string name="lock_to_app_unlock_password">E Passwuert froe fir e Schierm fräizeginn</string>
-    <string name="confirm_battery_saver">OK</string>
+    <string name="battery_saver_description">Den Energiespuermodus schount den Akku, andeem en d\'Leeschtung vum Apparat reduzéiert, d\'Vibratioun limitéiert an déi meescht Hannergronddatenaktivitéiten aschränkt. E-Mail, Messagen an aner Appen, déi op dengem Apparat synchroniséieren, gi méiglecherweis eréischt nom Opmaachen aktualiséiert.\n\nDen Energiespuermodus gëtt automatesch desaktivéiert, wann däin Apparat opgeluede gëtt.</string>
     <string name="data_saver_enable_button">Uschalten</string>
     <plurals name="zen_mode_duration_minutes_summary">
         <item quantity="one">Fir eng Minutt (bis <xliff:g id="formattedTime" example="10:00 PM">%2$s</xliff:g>)</item>
         <item quantity="other">Fir %1$d Minutten (bis <xliff:g id="formattedTime" example="10:00 PM">%2$s</xliff:g>)</item>
     </plurals>
+    <plurals name="zen_mode_duration_hours_summary">
+        <item quantity="one">Fir eng Stonn (bis <xliff:g id="formattedTime" example="10:00 PM">%2$s</xliff:g>)</item>
+        <item quantity="other">Fir %1$d Stonnen (bis <xliff:g id="formattedTime" example="10:00 PM">%2$s</xliff:g>)</item>
+    </plurals>
     <plurals name="zen_mode_duration_minutes">
         <item quantity="one">Fir eng Minutt</item>
         <item quantity="other">Fir %d Minutten</item>
     </plurals>
+    <plurals name="zen_mode_duration_hours">
+        <item quantity="one">Fir eng Stonn</item>
+        <item quantity="other">Fir %d Stonnen</item>
+    </plurals>
     <string name="zen_mode_until">Bis <xliff:g id="formattedTime" example="10:00 PM">%1$s</xliff:g></string>
     <string name="toolbar_collapse_description">Zouklappen</string>
     <string name="zen_mode_feature_name">Net stéieren</string>
+    <string name="muted_by">Roueg gestallt duerch <xliff:g id="third_party">%1$s</xliff:g></string>
     <string name="system_error_wipe_data">Mat dengem Apparat ass en interne Problem opgetrueden. Wann e sech instabil behuelt muss du en op d\'Wierksastellungen zrécksetzen.</string>
     <string name="system_error_manufacturer">Mat dengem Apparat ass en interne Problem opgetrueden. Kontaktéier däin Hiersteller fir méi Detailer.</string>
-    <string name="expand_button_content_description_expanded">Zouklappen</string>
+    <string name="stk_cc_ussd_to_dial">D\'USSD-Ufro gouf an eng DIAL-Ufro ëmgewandelt.</string>
+    <string name="stk_cc_ussd_to_ss">D\'USSD-Ufro gouf an eng SS-Ufro ëmgewandelt.</string>
+    <string name="stk_cc_ussd_to_ussd">D\'USSD-Ufro gouf an eng nei USSD-Ufro ëmgewandelt.</string>
+    <string name="stk_cc_ss_to_dial">D\'SS-Ufro gouf an eng DIAL-Ufro ëmgewandelt.</string>
+    <string name="stk_cc_ss_to_ussd">D\'SS-Ufro gouf an eng USSD-Ufro ëmgewandelt.</string>
+    <string name="stk_cc_ss_to_ss">D\'SS-Ufro gouf an eng nei SS-Ufro ëmgewandelt.</string>
     <string name="floating_toolbar_open_overflow_description">Méi Optiounen</string>
     <string name="close_button_text">Zoumaachen</string>
     <string name="locale_search_menu">Sichen</string>
     <string name="new_sms_notification_content">SMS-App opmaache fir ze weisen</string>
     <string name="demo_restarting_message">Apparat gëtt zréckgesat\u2026</string>
+    <string name="demo_user_inactivity_timeout_title">Apparat zrécksetzen?</string>
+    <string name="demo_user_inactivity_timeout_left_button">Ofbriechen</string>
+    <string name="demo_user_inactivity_timeout_right_button">Elo zrécksetzen</string>
     <string name="conference_call">Konferenzuruff</string>
-    <string name="time_picker_hour_label">Stonn</string>
-    <string name="time_picker_header_text">Zäit setzen</string>
-    <string name="screenshot_edit">Änneren</string>
-    <string name="notification_app_name_system">System</string>
-    <string name="notification_app_name_settings">Astellungen</string>
-    <string name="notification_appops_camera_active">Fotoapparat</string>
-    <string name="notification_appops_microphone_active">Mikro</string>
 </resources>

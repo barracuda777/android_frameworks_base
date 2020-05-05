@@ -16,14 +16,7 @@
 
 package android.hardware.display;
 
-import static java.lang.annotation.RetentionPolicy.SOURCE;
-
-import android.annotation.IntDef;
-import android.annotation.Nullable;
 import android.graphics.Rect;
-import android.text.TextUtils;
-
-import java.lang.annotation.Retention;
 
 /**
  * Describes how the pixels of physical display device reflects the content of
@@ -36,16 +29,6 @@ import java.lang.annotation.Retention;
  * @hide Only for use within the system server.
  */
 public final class DisplayViewport {
-
-    // Viewport constants defined in InputReader.h.
-    public static final int VIEWPORT_INTERNAL = 1;
-    public static final int VIEWPORT_EXTERNAL = 2;
-    public static final int VIEWPORT_VIRTUAL = 3;
-    @IntDef(prefix = { "VIEWPORT_" }, value = {
-            VIEWPORT_INTERNAL, VIEWPORT_EXTERNAL, VIEWPORT_VIRTUAL})
-    @Retention(SOURCE)
-    public @interface ViewportType {};
-
     // True if this viewport is valid.
     public boolean valid;
 
@@ -69,14 +52,6 @@ public final class DisplayViewport {
     public int deviceWidth;
     public int deviceHeight;
 
-    // The ID used to uniquely identify this display.
-    public String uniqueId;
-
-    // The physical port that the associated display device is connected to.
-    public @Nullable Byte physicalPort;
-
-    public @ViewportType int type;
-
     public void copyFrom(DisplayViewport viewport) {
         valid = viewport.valid;
         displayId = viewport.displayId;
@@ -85,89 +60,18 @@ public final class DisplayViewport {
         physicalFrame.set(viewport.physicalFrame);
         deviceWidth = viewport.deviceWidth;
         deviceHeight = viewport.deviceHeight;
-        uniqueId = viewport.uniqueId;
-        physicalPort = viewport.physicalPort;
-        type = viewport.type;
-    }
-
-    /**
-     * Creates a copy of this DisplayViewport.
-     */
-    public DisplayViewport makeCopy() {
-        DisplayViewport dv = new DisplayViewport();
-        dv.copyFrom(this);
-        return dv;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (o == this) {
-            return true;
-        }
-
-        if (!(o instanceof DisplayViewport)) {
-            return false;
-        }
-
-        DisplayViewport other = (DisplayViewport) o;
-        return valid == other.valid
-              && displayId == other.displayId
-              && orientation == other.orientation
-              && logicalFrame.equals(other.logicalFrame)
-              && physicalFrame.equals(other.physicalFrame)
-              && deviceWidth == other.deviceWidth
-              && deviceHeight == other.deviceHeight
-              && TextUtils.equals(uniqueId, other.uniqueId)
-              && physicalPort == other.physicalPort
-              && type == other.type;
-    }
-
-    @Override
-    public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result += prime * result + (valid ? 1 : 0);
-        result += prime * result + displayId;
-        result += prime * result + orientation;
-        result += prime * result + logicalFrame.hashCode();
-        result += prime * result + physicalFrame.hashCode();
-        result += prime * result + deviceWidth;
-        result += prime * result + deviceHeight;
-        result += prime * result + uniqueId.hashCode();
-        result += prime * result + physicalPort;
-        result += prime * result + type;
-        return result;
     }
 
     // For debugging purposes.
     @Override
     public String toString() {
-        return "DisplayViewport{type=" + typeToString(type)
-                + ", valid=" + valid
+        return "DisplayViewport{valid=" + valid
                 + ", displayId=" + displayId
-                + ", uniqueId='" + uniqueId + "'"
-                + ", physicalPort=" + physicalPort
                 + ", orientation=" + orientation
                 + ", logicalFrame=" + logicalFrame
                 + ", physicalFrame=" + physicalFrame
                 + ", deviceWidth=" + deviceWidth
                 + ", deviceHeight=" + deviceHeight
                 + "}";
-    }
-
-    /**
-     * Human-readable viewport type.
-     */
-    public static String typeToString(@ViewportType int viewportType) {
-        switch (viewportType) {
-            case VIEWPORT_INTERNAL:
-                return "INTERNAL";
-            case VIEWPORT_EXTERNAL:
-                return "EXTERNAL";
-            case VIEWPORT_VIRTUAL:
-                return "VIRTUAL";
-            default:
-                return "UNKNOWN (" + viewportType + ")";
-        }
     }
 }

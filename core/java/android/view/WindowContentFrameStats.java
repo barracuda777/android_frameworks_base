@@ -16,7 +16,6 @@
 
 package android.view;
 
-import android.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 import android.os.Parcelable;
 
@@ -61,7 +60,6 @@ public final class WindowContentFrameStats extends FrameStats implements Parcela
      *
      * @hide
      */
-    @UnsupportedAppUsage
     public void init(long refreshPeriodNano, long[] framesPostedTimeNano,
             long[] framesPresentedTimeNano, long[] framesReadyTimeNano) {
         mRefreshPeriodNano = refreshPeriodNano;
@@ -139,7 +137,7 @@ public final class WindowContentFrameStats extends FrameStats implements Parcela
         return builder.toString();
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<WindowContentFrameStats> CREATOR =
+    public static final Parcelable.Creator<WindowContentFrameStats> CREATOR =
             new Creator<WindowContentFrameStats>() {
                 @Override
                 public WindowContentFrameStats createFromParcel(Parcel parcel) {

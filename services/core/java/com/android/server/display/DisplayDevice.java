@@ -19,7 +19,7 @@ package com.android.server.display;
 import android.graphics.Rect;
 import android.hardware.display.DisplayViewport;
 import android.os.IBinder;
-import android.view.DisplayAddress;
+import android.view.Display;
 import android.view.Surface;
 import android.view.SurfaceControl;
 
@@ -45,7 +45,7 @@ abstract class DisplayDevice {
     private Rect mCurrentDisplayRect;
 
     // The display device owns its surface, but it should only set it
-    // within a transaction from performTraversalLocked.
+    // within a transaction from performTraversalInTransactionLocked.
     private Surface mCurrentSurface;
 
     // DEBUG STATE: Last device info which was written to the log, or null if none.
@@ -122,7 +122,7 @@ abstract class DisplayDevice {
     /**
      * Gives the display device a chance to update its properties while in a transaction.
      */
-    public void performTraversalLocked(SurfaceControl.Transaction t) {
+    public void performTraversalInTransactionLocked() {
     }
 
     /**
@@ -138,31 +138,18 @@ abstract class DisplayDevice {
     }
 
     /**
-     * Sets the display modes the system is allowed to switch between, roughly ordered by
-     * preference.
-     *
-     * Not all display devices will automatically switch between modes, so it's important that the
-     * most-desired modes are at the beginning of the allowed array.
+     * Sets the mode, if supported.
      */
-    public void setAllowedDisplayModesLocked(int[] modes) {
-    }
-
-    /**
-     * Sets the requested color mode.
-     */
-    public void setRequestedColorModeLocked(int colorMode) {
-    }
-
-    public void onOverlayChangedLocked() {
+    public void requestDisplayModesInTransactionLocked(int colorMode, int modeId) {
     }
 
     /**
      * Sets the display layer stack while in a transaction.
      */
-    public final void setLayerStackLocked(SurfaceControl.Transaction t, int layerStack) {
+    public final void setLayerStackInTransactionLocked(int layerStack) {
         if (mCurrentLayerStack != layerStack) {
             mCurrentLayerStack = layerStack;
-            t.setDisplayLayerStack(mDisplayToken, layerStack);
+            SurfaceControl.setDisplayLayerStack(mDisplayToken, layerStack);
         }
     }
 
@@ -176,7 +163,7 @@ abstract class DisplayDevice {
      *            mapped to. displayRect is specified post-orientation, that is
      *            it uses the orientation seen by the end-user
      */
-    public final void setProjectionLocked(SurfaceControl.Transaction t, int orientation,
+    public final void setProjectionInTransactionLocked(int orientation,
             Rect layerStackRect, Rect displayRect) {
         if (mCurrentOrientation != orientation
                 || mCurrentLayerStackRect == null
@@ -195,7 +182,7 @@ abstract class DisplayDevice {
             }
             mCurrentDisplayRect.set(displayRect);
 
-            t.setDisplayProjection(mDisplayToken,
+            SurfaceControl.setDisplayProjection(mDisplayToken,
                     orientation, layerStackRect, displayRect);
         }
     }
@@ -203,10 +190,10 @@ abstract class DisplayDevice {
     /**
      * Sets the display surface while in a transaction.
      */
-    public final void setSurfaceLocked(SurfaceControl.Transaction t, Surface surface) {
+    public final void setSurfaceInTransactionLocked(Surface surface) {
         if (mCurrentSurface != surface) {
             mCurrentSurface = surface;
-            t.setDisplaySurface(mDisplayToken, surface);
+            SurfaceControl.setDisplaySurface(mDisplayToken, surface);
         }
     }
 
@@ -234,14 +221,6 @@ abstract class DisplayDevice {
         DisplayDeviceInfo info = getDisplayDeviceInfoLocked();
         viewport.deviceWidth = isRotated ? info.height : info.width;
         viewport.deviceHeight = isRotated ? info.width : info.height;
-
-        viewport.uniqueId = info.uniqueId;
-
-        if (info.address instanceof DisplayAddress.Physical) {
-            viewport.physicalPort = ((DisplayAddress.Physical) info.address).getPort();
-        } else {
-            viewport.physicalPort = null;
-        }
     }
 
     /**

@@ -16,8 +16,6 @@
 
 package com.android.systemui.statusbar.policy;
 
-import static com.android.systemui.Dependency.MAIN_HANDLER_NAME;
-
 import android.app.ActivityManager;
 import android.app.AlarmManager;
 import android.app.NotificationManager;
@@ -34,58 +32,44 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.Settings.Global;
 import android.provider.Settings.Secure;
+import android.service.notification.Condition;
+import android.service.notification.IConditionListener;
 import android.service.notification.ZenModeConfig;
 import android.service.notification.ZenModeConfig.ZenRule;
-import android.text.format.DateFormat;
 import android.util.Log;
+import android.util.Slog;
 
-import com.android.internal.annotations.VisibleForTesting;
-import com.android.systemui.Dumpable;
 import com.android.systemui.qs.GlobalSetting;
-import com.android.systemui.settings.CurrentUserTracker;
-import com.android.systemui.util.Utils;
 
-import java.io.FileDescriptor;
-import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.Objects;
 
-import javax.inject.Inject;
-import javax.inject.Named;
-import javax.inject.Singleton;
-
 /** Platform implementation of the zen mode controller. **/
-@Singleton
-public class ZenModeControllerImpl extends CurrentUserTracker
-        implements ZenModeController, Dumpable {
+public class ZenModeControllerImpl implements ZenModeController {
     private static final String TAG = "ZenModeController";
     private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
 
-    private final ArrayList<Callback> mCallbacks = new ArrayList<>();
-    private final Object mCallbacksLock = new Object();
+    private final ArrayList<Callback> mCallbacks = new ArrayList<Callback>();
     private final Context mContext;
     private final GlobalSetting mModeSetting;
     private final GlobalSetting mConfigSetting;
     private final NotificationManager mNoMan;
+    private final LinkedHashMap<Uri, Condition> mConditions = new LinkedHashMap<Uri, Condition>();
     private final AlarmManager mAlarmManager;
     private final SetupObserver mSetupObserver;
     private final UserManager mUserManager;
 
     private int mUserId;
+    private boolean mRequesting;
     private boolean mRegistered;
     private ZenModeConfig mConfig;
-    private int mZenMode;
-    private long mZenUpdateTime;
-    private NotificationManager.Policy mConsolidatedNotificationPolicy;
 
-    @Inject
-    public ZenModeControllerImpl(Context context, @Named(MAIN_HANDLER_NAME) Handler handler) {
-        super(context);
+    public ZenModeControllerImpl(Context context, Handler handler) {
         mContext = context;
         mModeSetting = new GlobalSetting(mContext, handler, Global.ZEN_MODE) {
             @Override
             protected void handleValueChanged(int value) {
-                updateZenMode(value);
                 fireZenChanged(value);
             }
         };
@@ -96,16 +80,13 @@ public class ZenModeControllerImpl extends CurrentUserTracker
             }
         };
         mNoMan = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        mConfig = mNoMan.getZenModeConfig();
         mModeSetting.setListening(true);
-        updateZenMode(mModeSetting.getValue());
         mConfigSetting.setListening(true);
-        updateZenModeConfig();
-        updateConsolidatedNotificationPolicy();
         mAlarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         mSetupObserver = new SetupObserver(handler);
         mSetupObserver.register();
         mUserManager = context.getSystemService(UserManager.class);
-        startTracking();
     }
 
     @Override
@@ -115,42 +96,23 @@ public class ZenModeControllerImpl extends CurrentUserTracker
     }
 
     @Override
-    public boolean areNotificationsHiddenInShade() {
-        if (mZenMode != Global.ZEN_MODE_OFF) {
-            return (mConsolidatedNotificationPolicy.suppressedVisualEffects
-                    & NotificationManager.Policy.SUPPRESSED_EFFECT_NOTIFICATION_LIST) != 0;
-        }
-        return false;
-    }
-
-    @Override
     public void addCallback(Callback callback) {
-        synchronized (mCallbacksLock) {
-            mCallbacks.add(callback);
-        }
+        mCallbacks.add(callback);
     }
 
     @Override
     public void removeCallback(Callback callback) {
-        synchronized (mCallbacksLock) {
-            mCallbacks.remove(callback);
-        }
+        mCallbacks.remove(callback);
     }
 
     @Override
     public int getZen() {
-        return mZenMode;
+        return mModeSetting.getValue();
     }
 
     @Override
     public void setZen(int zen, Uri conditionId, String reason) {
         mNoMan.setZenMode(zen, conditionId, reason);
-    }
-
-    @Override
-    public boolean areAlarmsAllowedInPriority() {
-        return (mNoMan.getNotificationPolicy().priorityCategories
-                & NotificationManager.Policy.PRIORITY_CATEGORY_ALARMS) != 0;
     }
 
     @Override
@@ -169,18 +131,13 @@ public class ZenModeControllerImpl extends CurrentUserTracker
     }
 
     @Override
-    public NotificationManager.Policy getConsolidatedPolicy() {
-        return mConsolidatedNotificationPolicy;
-    }
-
-    @Override
     public long getNextAlarm() {
         final AlarmManager.AlarmClockInfo info = mAlarmManager.getNextAlarmClock(mUserId);
         return info != null ? info.getTriggerTime() : 0;
     }
 
     @Override
-    public void onUserSwitched(int userId) {
+    public void setUserId(int userId) {
         mUserId = userId;
         if (mRegistered) {
             mContext.unregisterReceiver(mReceiver);
@@ -209,85 +166,77 @@ public class ZenModeControllerImpl extends CurrentUserTracker
     }
 
     private void fireNextAlarmChanged() {
-        synchronized (mCallbacksLock) {
-            Utils.safeForeach(mCallbacks, c -> c.onNextAlarmChanged());
+        for (Callback cb : mCallbacks) {
+            cb.onNextAlarmChanged();
         }
     }
 
     private void fireEffectsSuppressorChanged() {
-        synchronized (mCallbacksLock) {
-            Utils.safeForeach(mCallbacks, c -> c.onEffectsSupressorChanged());
+        for (Callback cb : mCallbacks) {
+            cb.onEffectsSupressorChanged();
         }
     }
 
     private void fireZenChanged(int zen) {
-        synchronized (mCallbacksLock) {
-            Utils.safeForeach(mCallbacks, c -> c.onZenChanged(zen));
+        for (Callback cb : mCallbacks) {
+            cb.onZenChanged(zen);
         }
     }
 
     private void fireZenAvailableChanged(boolean available) {
-        synchronized (mCallbacksLock) {
-            Utils.safeForeach(mCallbacks, c -> c.onZenAvailableChanged(available));
+        for (Callback cb : mCallbacks) {
+            cb.onZenAvailableChanged(available);
+        }
+    }
+
+    private void fireConditionsChanged(Condition[] conditions) {
+        for (Callback cb : mCallbacks) {
+            cb.onConditionsChanged(conditions);
         }
     }
 
     private void fireManualRuleChanged(ZenRule rule) {
-        synchronized (mCallbacksLock) {
-            Utils.safeForeach(mCallbacks, c -> c.onManualRuleChanged(rule));
+        for (Callback cb : mCallbacks) {
+            cb.onManualRuleChanged(rule);
         }
     }
 
-    private void fireConsolidatedPolicyChanged(NotificationManager.Policy policy) {
-        synchronized (mCallbacksLock) {
-            Utils.safeForeach(mCallbacks, c -> c.onConsolidatedPolicyChanged(policy));
+    private void fireConfigChanged(ZenModeConfig config) {
+        for (Callback cb : mCallbacks) {
+            cb.onConfigChanged(config);
         }
     }
 
-    @VisibleForTesting
-    protected void fireConfigChanged(ZenModeConfig config) {
-        synchronized (mCallbacksLock) {
-            Utils.safeForeach(mCallbacks, c -> c.onConfigChanged(config));
+    private void updateConditions(Condition[] conditions) {
+        if (conditions == null || conditions.length == 0) return;
+        for (Condition c : conditions) {
+            if ((c.flags & Condition.FLAG_RELEVANT_NOW) == 0) continue;
+            mConditions.put(c.id, c);
         }
+        fireConditionsChanged(
+                mConditions.values().toArray(new Condition[mConditions.values().size()]));
     }
 
-    @VisibleForTesting
-    protected void updateZenMode(int mode) {
-        mZenMode = mode;
-        mZenUpdateTime = System.currentTimeMillis();
-    }
-
-    @VisibleForTesting
-    protected void updateConsolidatedNotificationPolicy() {
-        final NotificationManager.Policy policy = mNoMan.getConsolidatedNotificationPolicy();
-        if (!Objects.equals(policy, mConsolidatedNotificationPolicy)) {
-            mConsolidatedNotificationPolicy = policy;
-            fireConsolidatedPolicyChanged(policy);
-        }
-    }
-
-    @VisibleForTesting
-    protected void updateZenModeConfig() {
+    private void updateZenModeConfig() {
         final ZenModeConfig config = mNoMan.getZenModeConfig();
         if (Objects.equals(config, mConfig)) return;
         final ZenRule oldRule = mConfig != null ? mConfig.manualRule : null;
         mConfig = config;
-        mZenUpdateTime = System.currentTimeMillis();
         fireConfigChanged(config);
-
         final ZenRule newRule = config != null ? config.manualRule : null;
-        if (!Objects.equals(oldRule, newRule)) {
-            fireManualRuleChanged(newRule);
-        }
-
-        final NotificationManager.Policy consolidatedPolicy =
-                mNoMan.getConsolidatedNotificationPolicy();
-        if (!Objects.equals(consolidatedPolicy, mConsolidatedNotificationPolicy)) {
-            mConsolidatedNotificationPolicy = consolidatedPolicy;
-            fireConsolidatedPolicyChanged(consolidatedPolicy);
-        }
-
+        if (Objects.equals(oldRule, newRule)) return;
+        fireManualRuleChanged(newRule);
     }
+
+    private final IConditionListener mListener = new IConditionListener.Stub() {
+        @Override
+        public void onConditionsReceived(Condition[] conditions) {
+            if (DEBUG) Slog.d(TAG, "onConditionsReceived "
+                    + (conditions == null ? 0 : conditions.length) + " mRequesting=" + mRequesting);
+            if (!mRequesting) return;
+            updateConditions(conditions);
+        }
+    };
 
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
         @Override
@@ -300,15 +249,6 @@ public class ZenModeControllerImpl extends CurrentUserTracker
             }
         }
     };
-
-    @Override
-    public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
-        pw.println("ZenModeControllerImpl:");
-        pw.println("  mZenMode=" + mZenMode);
-        pw.println("  mConfig=" + mConfig);
-        pw.println("  mConsolidatedNotificationPolicy=" + mConsolidatedNotificationPolicy);
-        pw.println("  mZenUpdateTime=" + DateFormat.format("MM-dd HH:mm:ss", mZenUpdateTime));
-    }
 
     private final class SetupObserver extends ContentObserver {
         private final ContentResolver mResolver;
@@ -336,7 +276,6 @@ public class ZenModeControllerImpl extends CurrentUserTracker
                     Global.getUriFor(Global.DEVICE_PROVISIONED), false, this);
             mResolver.registerContentObserver(
                     Secure.getUriFor(Secure.USER_SETUP_COMPLETE), false, this, mUserId);
-            mRegistered = true;
             fireZenAvailableChanged(isZenAvailable());
         }
 

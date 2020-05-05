@@ -16,12 +16,6 @@
 
 package android.service.notification;
 
-import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationChannelGroup;
-import android.content.pm.ParceledListSlice;
-import android.os.UserHandle;
-import android.service.notification.NotificationStats;
 import android.service.notification.IStatusBarNotificationHolder;
 import android.service.notification.StatusBarNotification;
 import android.service.notification.NotificationRankingUpdate;
@@ -29,29 +23,20 @@ import android.service.notification.NotificationRankingUpdate;
 /** @hide */
 oneway interface INotificationListener
 {
-    // listeners and assistant
+    // listeners and rankers
     void onListenerConnected(in NotificationRankingUpdate update);
     void onNotificationPosted(in IStatusBarNotificationHolder notificationHolder,
             in NotificationRankingUpdate update);
-    void onStatusBarIconsBehaviorChanged(boolean hideSilentStatusIcons);
-    // stats only for assistant
     void onNotificationRemoved(in IStatusBarNotificationHolder notificationHolder,
-            in NotificationRankingUpdate update, in NotificationStats stats, int reason);
+            in NotificationRankingUpdate update);
     void onNotificationRankingUpdate(in NotificationRankingUpdate update);
     void onListenerHintsChanged(int hints);
     void onInterruptionFilterChanged(int interruptionFilter);
 
-    // companion device managers only
-    void onNotificationChannelModification(String pkgName, in UserHandle user, in NotificationChannel channel, int modificationType);
-    void onNotificationChannelGroupModification(String pkgName, in UserHandle user, in NotificationChannelGroup group, int modificationType);
-
-    // assistants only
-    void onNotificationEnqueuedWithChannel(in IStatusBarNotificationHolder notificationHolder, in NotificationChannel channel);
-    void onNotificationSnoozedUntilContext(in IStatusBarNotificationHolder notificationHolder, String snoozeCriterionId);
-    void onNotificationsSeen(in List<String> keys);
-    void onNotificationExpansionChanged(String key, boolean userAction, boolean expanded);
-    void onNotificationDirectReply(String key);
-    void onSuggestedReplySent(String key, in CharSequence reply, int source);
-    void onActionClicked(String key, in Notification.Action action, int source);
-    void onAllowedAdjustmentsChanged();
+    // rankers only
+    void onNotificationEnqueued(in IStatusBarNotificationHolder notificationHolder, int importance, boolean user);
+    void onNotificationVisibilityChanged(String key, long time, boolean visible);
+    void onNotificationClick(String key, long time);
+    void onNotificationActionClick(String key, long time, int actionIndex);
+    void onNotificationRemovedReason(String key, long time, int reason);
 }

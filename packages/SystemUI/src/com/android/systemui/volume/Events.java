@@ -23,8 +23,8 @@ import android.provider.Settings.Global;
 import android.util.Log;
 
 import com.android.internal.logging.MetricsLogger;
-import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
-import com.android.systemui.plugins.VolumeDialogController.State;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.systemui.volume.VolumeDialogController.State;
 
 import java.util.Arrays;
 
@@ -51,37 +51,25 @@ public class Events {
     public static final int EVENT_SUPPRESSOR_CHANGED = 14;  // (component|string) (name|string)
     public static final int EVENT_MUTE_CHANGED = 15;  // (stream|int) (muted|bool)
     public static final int EVENT_TOUCH_LEVEL_DONE = 16;  // (stream|int) (level|bool)
-    public static final int EVENT_ZEN_CONFIG_CHANGED = 17; // (allow/disallow|string)
-    public static final int EVENT_RINGER_TOGGLE = 18; // (ringer_mode)
-    public static final int EVENT_SHOW_USB_OVERHEAT_ALARM = 19; // (reason|int) (keyguard|bool)
-    public static final int EVENT_DISMISS_USB_OVERHEAT_ALARM = 20; // (reason|int) (keyguard|bool)
-    public static final int EVENT_ODI_CAPTIONS_CLICK = 21;
-    public static final int EVENT_ODI_CAPTIONS_TOOLTIP_CLICK = 22;
 
     private static final String[] EVENT_TAGS = {
-            "show_dialog",
-            "dismiss_dialog",
-            "active_stream_changed",
-            "expand",
-            "key",
-            "collection_started",
-            "collection_stopped",
-            "icon_click",
-            "settings_click",
-            "touch_level_changed",
-            "level_changed",
-            "internal_ringer_mode_changed",
-            "external_ringer_mode_changed",
-            "zen_mode_changed",
-            "suppressor_changed",
-            "mute_changed",
-            "touch_level_done",
-            "zen_mode_config_changed",
-            "ringer_toggle",
-            "show_usb_overheat_alarm",
-            "dismiss_usb_overheat_alarm",
-            "odi_captions_click",
-            "odi_captions_tooltip_click"
+        "show_dialog",
+        "dismiss_dialog",
+        "active_stream_changed",
+        "expand",
+        "key",
+        "collection_started",
+        "collection_stopped",
+        "icon_click",
+        "settings_click",
+        "touch_level_changed",
+        "level_changed",
+        "internal_ringer_mode_changed",
+        "external_ringer_mode_changed",
+        "zen_mode_changed",
+        "suppressor_changed",
+        "mute_changed",
+        "touch_level_done",
     };
 
     public static final int DISMISS_REASON_UNKNOWN = 0;
@@ -91,31 +79,23 @@ public class Events {
     public static final int DISMISS_REASON_SCREEN_OFF = 4;
     public static final int DISMISS_REASON_SETTINGS_CLICKED = 5;
     public static final int DISMISS_REASON_DONE_CLICKED = 6;
-    public static final int DISMISS_STREAM_GONE = 7;
-    public static final int DISMISS_REASON_OUTPUT_CHOOSER = 8;
-    public static final int DISMISS_REASON_USB_OVERHEAD_ALARM_CHANGED = 9;
     public static final String[] DISMISS_REASONS = {
-            "unknown",
-            "touch_outside",
-            "volume_controller",
-            "timeout",
-            "screen_off",
-            "settings_clicked",
-            "done_clicked",
-            "a11y_stream_changed",
-            "output_chooser",
-            "usb_temperature_below_threshold"
+        "unknown",
+        "touch_outside",
+        "volume_controller",
+        "timeout",
+        "screen_off",
+        "settings_clicked",
+        "done_clicked",
     };
 
     public static final int SHOW_REASON_UNKNOWN = 0;
     public static final int SHOW_REASON_VOLUME_CHANGED = 1;
     public static final int SHOW_REASON_REMOTE_VOLUME_CHANGED = 2;
-    public static final int SHOW_REASON_USB_OVERHEAD_ALARM_CHANGED = 3;
     public static final String[] SHOW_REASONS = {
         "unknown",
         "volume_changed",
-        "remote_volume_changed",
-        "usb_temperature_above_threshold"
+        "remote_volume_changed"
     };
 
     public static final int ICON_STATE_UNKNOWN = 0;
@@ -126,7 +106,6 @@ public class Events {
     public static Callback sCallback;
 
     public static void writeEvent(Context context, int tag, Object... list) {
-        MetricsLogger logger = new MetricsLogger();
         final long time = System.currentTimeMillis();
         final StringBuilder sb = new StringBuilder("writeEvent ").append(EVENT_TAGS[tag]);
         if (list != null && list.length > 0) {
@@ -154,7 +133,7 @@ public class Events {
                     break;
                 case EVENT_ICON_CLICK:
                     MetricsLogger.action(context, MetricsEvent.ACTION_VOLUME_ICON,
-                            (Integer) list[0]);
+                            (Integer) list[1]);
                     sb.append(AudioSystem.streamToString((Integer) list[0])).append(' ')
                             .append(iconStateToString((Integer) list[1]));
                     break;
@@ -170,15 +149,9 @@ public class Events {
                     break;
                 case EVENT_KEY:
                     MetricsLogger.action(context, MetricsEvent.ACTION_VOLUME_KEY,
-                            (Integer) list[0]);
+                            (Integer) list[1]);
                     sb.append(AudioSystem.streamToString((Integer) list[0])).append(' ')
                             .append(list[1]);
-                    break;
-                case EVENT_RINGER_TOGGLE:
-                    logger.action(MetricsEvent.ACTION_VOLUME_RINGER_TOGGLE, (Integer) list[0]);
-                    break;
-                case EVENT_SETTINGS_CLICK:
-                    logger.action(MetricsEvent.ACTION_VOLUME_SETTINGS);
                     break;
                 case EVENT_EXTERNAL_RINGER_MODE_CHANGED:
                     MetricsLogger.action(context, MetricsEvent.ACTION_RINGER_MODE,
@@ -192,19 +165,6 @@ public class Events {
                     break;
                 case EVENT_SUPPRESSOR_CHANGED:
                     sb.append(list[0]).append(' ').append(list[1]);
-                    break;
-                case EVENT_SHOW_USB_OVERHEAT_ALARM:
-                    MetricsLogger.visible(context, MetricsEvent.POWER_OVERHEAT_ALARM);
-                    MetricsLogger.histogram(context, "show_usb_overheat_alarm",
-                            (Boolean) list[1] ? 1 : 0);
-                    sb.append(SHOW_REASONS[(Integer) list[0]]).append(" keyguard=").append(list[1]);
-                    break;
-                case EVENT_DISMISS_USB_OVERHEAT_ALARM:
-                    MetricsLogger.hidden(context, MetricsEvent.POWER_OVERHEAT_ALARM);
-                    MetricsLogger.histogram(context, "dismiss_usb_overheat_alarm",
-                            (Boolean) list[1] ? 1 : 0);
-                    sb.append(DISMISS_REASONS[(Integer) list[0]])
-                        .append(" keyguard=").append(list[1]);
                     break;
                 default:
                     sb.append(Arrays.asList(list));

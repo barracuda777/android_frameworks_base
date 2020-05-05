@@ -6,7 +6,6 @@
 #include "Main.h"
 #include "Bundle.h"
 
-#include <build/version.h>
 #include <utils/Compat.h>
 #include <utils/Log.h>
 #include <utils/threads.h>
@@ -16,23 +15,11 @@
 #include <cstdlib>
 #include <getopt.h>
 #include <cassert>
+#include <ctype.h>
 
 using namespace android;
 
 static const char* gProgName = "aapt";
-
-/*
- * Show version info.  All the cool kids do it.
- */
-int doVersion(Bundle* bundle)
-{
-    if (bundle->getFileSpecCount() != 0) {
-        printf("(ignoring extra arguments)\n");
-    }
-    printf("Android Asset Packaging Tool, v0.2-%s\n", android::build::GetBuildNumber().c_str());
-
-    return 0;
-}
 
 /*
  * When running under Cygwin on Windows, this will convert slash-based
@@ -71,7 +58,7 @@ void usage(void)
         "   xmltree          Print the compiled xmls in the given assets.\n"
         "   xmlstrings       Print the strings of the given compiled xml assets.\n\n", gProgName);
     fprintf(stderr,
-        " %s p[ackage] [-d][-f][-m][-u][-v][-x][-z][-M AndroidManifest.xml] \\\n"
+        " %s p[ackage] [-d][-f][-m][-u][-v][-x[ extending-resource-id]][-z][-M AndroidManifest.xml] \\\n"
         "        [-0 extension [-0 extension ...]] [-g tolerance] [-j jarfile] \\\n"
         "        [--debug-mode] [--min-sdk-version VAL] [--target-sdk-version VAL] \\\n"
         "        [--app-version VAL] [--app-version-name TEXT] [--custom-package VAL] \\\n"
@@ -130,7 +117,7 @@ void usage(void)
         "   -m  make package directories under location specified by -J\n"
         "   -u  update existing packages (add new, replace older, remove deleted files)\n"
         "   -v  verbose output\n"
-        "   -x  create extending (non-application) resource IDs\n"
+        "   -x  either create or assign (if specified) extending (non-application) resource IDs\n"
         "   -z  require localization of resource attributes marked with\n"
         "       localization=\"suggested\"\n"
         "   -A  additional directory in which to find raw asset files\n"
@@ -237,8 +224,6 @@ void usage(void)
         "       localization\n"
         "   --no-version-vectors\n"
         "       Do not automatically generate versioned copies of vector XML resources.\n"
-        "   --no-version-transitions\n"
-        "       Do not automatically generate versioned copies of transition XML resources.\n"
         "   --private-symbols\n"
         "       Java package name to use when generating R.java for private resources.\n",
         gDefaultIgnoreAssets);
@@ -371,6 +356,14 @@ int main(int argc, char* const argv[])
                 break;
             case 'x':
                 bundle.setExtending(true);
+                argc--;
+                argv++;
+                if (!argc || !isdigit(argv[0][0])) {
+                    argc++;
+                    argv--;
+                } else {
+                    bundle.setExtendedPackageId(atoi(argv[0]));
+                }
                 break;
             case 'z':
                 bundle.setRequireLocalization(true);
@@ -720,8 +713,6 @@ int main(int argc, char* const argv[])
                     bundle.setPseudolocalize(PSEUDO_ACCENTED | PSEUDO_BIDI);
                 } else if (strcmp(cp, "-no-version-vectors") == 0) {
                     bundle.setNoVersionVectors(true);
-                } else if (strcmp(cp, "-no-version-transitions") == 0) {
-                    bundle.setNoVersionTransitions(true);
                 } else if (strcmp(cp, "-private-symbols") == 0) {
                     argc--;
                     argv++;

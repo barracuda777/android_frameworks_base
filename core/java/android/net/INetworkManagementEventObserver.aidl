@@ -24,7 +24,7 @@ import android.net.RouteInfo;
  *
  * @hide
  */
-oneway interface INetworkManagementEventObserver {
+interface INetworkManagementEventObserver {
     /**
      * Interface configuration status has changed.
      *
@@ -90,6 +90,13 @@ oneway interface INetworkManagementEventObserver {
      * @param tsNanos Elapsed realtime in nanos when the state of the network interface changed.
      */
     void interfaceClassDataActivityChanged(String label, boolean active, long tsNanos);
+
+    /**
+     * Message is received from network interface.
+     *
+     * @param message The message
+     */
+    void interfaceMessageRecevied(String message);
 
     /**
      * Information about available DNS servers has been received.

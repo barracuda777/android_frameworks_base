@@ -25,38 +25,30 @@ option java_package com.android.server
 # This is logged when the screen on broadcast has completed
 2727 power_screen_broadcast_stop (which|1|5),(wakelockCount|1|1)
 # This is logged when the screen is turned on or off.
-2728 power_screen_state (offOrOn|1|5),(becauseOfUser|1|5),(totalTouchDownTime|2|3),(touchCycles|1|1),(latency|1|3)
+2728 power_screen_state (offOrOn|1|5),(becauseOfUser|1|5),(totalTouchDownTime|2|3),(touchCycles|1|1)
 # This is logged when the partial wake lock (keeping the device awake
 # regardless of whether the screen is off) is acquired or released.
 2729 power_partial_wake_state (releasedorAcquired|1|5),(tag|3)
 # The device is being asked to go into a soft sleep (typically by the ungaze gesture).
 # It logs the time remaining before the device would've normally gone to sleep without the request.
 2731 power_soft_sleep_requested (savedwaketimems|2)
-# Power save state has changed. See BatterySaverController.java for the details.
-2739 battery_saver_mode (fullPrevOffOrOn|1|5),(adaptivePrevOffOrOn|1|5),(fullNowOffOrOn|1|5),(adaptiveNowOffOrOn|1|5),(interactive|1|5),(features|3|5),(reason|1|5)
-27390 battery_saving_stats (batterySaver|1|5),(interactive|1|5),(doze|1|5),(delta_duration|2|3),(delta_battery_drain|1|1),(delta_battery_drain_percent|1|6),(total_duration|2|3),(total_battery_drain|1|1),(total_battery_drain_percent|1|6)
-# Note when the user activity timeout has been overriden by ActivityManagerService
-27391 user_activity_timeout_override (override|2|3)
-27392 battery_saver_setting (threshold|1)
-
-
-# ---------------------------
-# ThermalManagerService.java
-# ---------------------------
-2737 thermal_changed (name|3),(type|1|5),(temperature|5),(sensor_status|1|5),(previous_system_status|1|5)
 
 #
-# Leave IDs through 2740 for more power logs (2730 used by battery_discharge above)
+# Leave IDs through 2739 for more power logs (2730 used by battery_discharge above)
 #
 
 
 # ---------------------------
 # DeviceStorageMonitorService.java
 # ---------------------------
-# File on cache partition was deleted
+# The disk space free on the /data partition, in bytes
+2744 free_storage_changed (data|2|2)
+# Device low memory notification and disk space free on the /data partition, in bytes at that time
+2745 low_storage (data|2|2)
+# disk space free on the /data, /system, and /cache partitions in bytes
+2746 free_storage_left (data|2|2),(system|2|2),(cache|2|2)
+# file on cache partition was deleted
 2748 cache_file_deleted (path|3)
-# Storage volume state and usable space in bytes
-2749 storage_state (uuid|3),(old_state|1),(new_state|1),(usable|2),(total|2)
 
 
 # ---------------------------
@@ -79,11 +71,11 @@ option java_package com.android.server
 # when notifications are expanded, or contracted
 27511 notification_expansion (key|3),(user_action|1),(expanded|1),(lifespan|1),(freshness|1),(exposure|1)
 # when a notification has been clicked
-27520 notification_clicked (key|3),(lifespan|1),(freshness|1),(exposure|1),(rank|1),(count|1)
+27520 notification_clicked (key|3),(lifespan|1),(freshness|1),(exposure|1)
 # when a notification action button has been clicked
-27521 notification_action_clicked (key|3),(action_index|1),(lifespan|1),(freshness|1),(exposure|1),(rank|1),(count|1)
+27521 notification_action_clicked (key|3),(action_index|1),(lifespan|1),(freshness|1),(exposure|1)
 # when a notification has been canceled
-27530 notification_canceled (key|3),(reason|1),(lifespan|1),(freshness|1),(exposure|1),(rank|1),(count|1),(listener|3)
+27530 notification_canceled (key|3),(reason|1),(lifespan|1),(freshness|1),(exposure|1)
 # replaces 27510 with a row per notification
 27531 notification_visibility (key|3),(visibile|1),(lifespan|1),(freshness|1),(exposure|1),(rank|1)
 # a notification emited noise, vibration, or light
@@ -107,13 +99,6 @@ option java_package com.android.server
 2810 watchdog_vmstat (runtime|2|3),(pgfree|1|1),(pgactivate|1|1),(pgdeactivate|1|1),(pgfault|1|1),(pgmajfault|1|1)
 2811 watchdog_requested_reboot (NoWait|1|1),(ScheduleInterval|1|3),(RecheckInterval|1|3),(StartTime|1|3),(Window|1|3),(MinScreenOff|1|3),(MinNextAlarm|1|3)
 
-# ---------------------------
-# RescueParty.java
-# ---------------------------
-2900 rescue_note (uid|1),(count|1),(window|2)
-2901 rescue_level (level|1),(trigger_uid|1)
-2902 rescue_success (level|1)
-2903 rescue_failure (level|1),(msg|3)
 
 # ---------------------------
 # BackupManagerService.java
@@ -140,10 +125,8 @@ option java_package com.android.server
 2843 full_backup_success (Package|3)
 2844 full_restore_package (Package|3)
 2845 full_backup_quota_exceeded (Package|3)
-2846 full_backup_cancelled (Package|3),(Message|3)
 
 2850 backup_transport_lifecycle (Transport|3),(Bound|1|1)
-2851 backup_transport_connection (Transport|3),(Connected|1|1)
 
 
 # ---------------------------
@@ -151,7 +134,7 @@ option java_package com.android.server
 # ---------------------------
 # SystemServer.run() starts:
 3010 boot_progress_system_run (time|2|3)
-3011 system_server_start (start_count|1),(uptime|2|3),(elapse_time|2|3)
+
 
 # ---------------------------
 # PackageManagerService.java
@@ -171,8 +154,7 @@ option java_package com.android.server
 3110 unknown_sources_enabled (value|1)
 # Package Manager critical info
 3120 pm_critical_info (msg|3)
-# Disk usage stats for verifying quota correctness
-3121 pm_package_stats (manual_time|2|3),(quota_time|2|3),(manual_data|2|2),(quota_data|2|2),(manual_cache|2|2),(quota_cache|2|2)
+
 
 # ---------------------------
 # WindowManagerService.java
@@ -226,7 +208,7 @@ option java_package com.android.server
 # DisplayManagerService.java
 # ---------------------------
 # Auto-brightness adjustments by the user.
-35000 auto_brightness_adj (old_lux|5),(old_brightness|5),(new_lux|5),(new_brightness|5)
+35000 auto_brightness_adj (old_adj|5),(old_lux|5),(old_brightness|5),(old_gamma|5),(new_adj|5),(new_lux|5),(new_brightness|5),(new_gamma|5)
 
 # ---------------------------
 # ConnectivityService.java
@@ -266,16 +248,12 @@ option java_package com.android.server
 51501 idle_maintenance_window_finish (time|2|3), (lastUserActivity|2|3), (batteryLevel|1|6), (batteryCharging|1|5)
 
 # ---------------------------
-# StorageManagerService.java
+# MountService.java
 # ---------------------------
 2755 fstrim_start (time|2|3)
 2756 fstrim_finish (time|2|3)
 
 # ---------------------------
-# Job scheduler
-# ---------------------------
-8000 job_deferred_execution (time|2|3)
-
 # AudioService.java
 # ---------------------------
 40000 volume_changed (stream|1), (prev_level|1), (level|1), (max_level|1), (caller|3)
@@ -285,16 +263,3 @@ option java_package com.android.server
 # GestureLauncherService.java
 # ---------------------------
 40100 camera_gesture_triggered (gesture_on_time|2|3), (sensor1_on_time|2|3), (sensor2_on_time|2|3), (event_extra|1|1)
-
-# ---------------------------
-# timezone/RulesManagerService.java
-# ---------------------------
-51600 timezone_trigger_check (token|3)
-51610 timezone_request_install (token|3)
-51611 timezone_install_started (token|3)
-51612 timezone_install_complete (token|3), (result|1)
-51620 timezone_request_uninstall (token|3)
-51621 timezone_uninstall_started (token|3)
-51622 timezone_uninstall_complete (token|3), (result|1)
-51630 timezone_request_nothing (token|3)
-51631 timezone_nothing_complete (token|3)

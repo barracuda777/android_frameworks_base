@@ -15,119 +15,79 @@
  */
 
 #include "java/AnnotationProcessor.h"
-
-#include <algorithm>
-#include <array>
-
-#include "text/Unicode.h"
-#include "text/Utf8Iterator.h"
 #include "util/Util.h"
 
-using ::aapt::text::Printer;
-using ::aapt::text::Utf8Iterator;
-using ::android::StringPiece;
+#include <algorithm>
 
 namespace aapt {
 
-StringPiece AnnotationProcessor::ExtractFirstSentence(const StringPiece& comment) {
-  Utf8Iterator iter(comment);
-  while (iter.HasNext()) {
-    const char32_t codepoint = iter.Next();
-    if (codepoint == U'.') {
-      const size_t current_position = iter.Position();
-      if (!iter.HasNext() || text::IsWhitespace(iter.Next())) {
-        return comment.substr(0, current_position);
-      }
+void AnnotationProcessor::appendCommentLine(std::string& comment) {
+    static const std::string sDeprecated = "@deprecated";
+    static const std::string sSystemApi = "@SystemApi";
+
+    if (comment.find(sDeprecated) != std::string::npos) {
+        mAnnotationBitMask |= kDeprecated;
     }
-  }
-  return comment;
-}
 
-struct AnnotationRule {
-  enum : uint32_t {
-    kDeprecated = 0x01,
-    kSystemApi = 0x02,
-    kTestApi = 0x04,
-  };
-
-  StringPiece doc_str;
-  uint32_t bit_mask;
-  StringPiece annotation;
-};
-
-static std::array<AnnotationRule, 2> sAnnotationRules = {{
-    {"@SystemApi", AnnotationRule::kSystemApi, "@android.annotation.SystemApi"},
-    {"@TestApi", AnnotationRule::kTestApi, "@android.annotation.TestApi"},
-}};
-
-void AnnotationProcessor::AppendCommentLine(std::string comment) {
-  static const std::string sDeprecated = "@deprecated";
-
-  // Treat deprecated specially, since we don't remove it from the source comment.
-  if (comment.find(sDeprecated) != std::string::npos) {
-    annotation_bit_mask_ |= AnnotationRule::kDeprecated;
-  }
-
-  for (const AnnotationRule& rule : sAnnotationRules) {
-    std::string::size_type idx = comment.find(rule.doc_str.data());
+    std::string::size_type idx = comment.find(sSystemApi);
     if (idx != std::string::npos) {
-      annotation_bit_mask_ |= rule.bit_mask;
-      comment.erase(comment.begin() + idx, comment.begin() + idx + rule.doc_str.size());
+        mAnnotationBitMask |= kSystemApi;
+        comment.erase(comment.begin() + idx, comment.begin() + idx + sSystemApi.size());
     }
-  }
 
-  // Check if after removal of annotations the line is empty.
-  const StringPiece trimmed = util::TrimWhitespace(comment);
-  if (trimmed.empty()) {
-    return;
-  }
+    if (util::trimWhitespace(comment).empty()) {
+        return;
+    }
 
-  // If there was trimming to do, copy the string.
-  if (trimmed.size() != comment.size()) {
-    comment = trimmed.to_string();
-  }
+    if (!mHasComments) {
+        mHasComments = true;
+        mComment << "/**";
+    }
 
-  if (!has_comments_) {
-    has_comments_ = true;
-    comment_ << "/**";
-  }
-  comment_ << "\n * " << std::move(comment);
+    mComment << "\n * " << std::move(comment);
 }
 
-void AnnotationProcessor::AppendComment(const StringPiece& comment) {
-  // We need to process line by line to clean-up whitespace and append prefixes.
-  for (StringPiece line : util::Tokenize(comment, '\n')) {
-    line = util::TrimWhitespace(line);
-    if (!line.empty()) {
-      AppendCommentLine(line.to_string());
+void AnnotationProcessor::appendComment(const StringPiece16& comment) {
+    // We need to process line by line to clean-up whitespace and append prefixes.
+    for (StringPiece16 line : util::tokenize(comment, u'\n')) {
+        line = util::trimWhitespace(line);
+        if (!line.empty()) {
+            std::string utf8Line = util::utf16ToUtf8(line);
+            appendCommentLine(utf8Line);
+        }
     }
-  }
 }
 
-void AnnotationProcessor::AppendNewLine() {
-  if (has_comments_) {
-    comment_ << "\n *";
-  }
+void AnnotationProcessor::appendComment(const StringPiece& comment) {
+    for (StringPiece line : util::tokenize(comment, '\n')) {
+        line = util::trimWhitespace(line);
+        if (!line.empty()) {
+            std::string utf8Line = line.toString();
+            appendCommentLine(utf8Line);
+        }
+    }
 }
 
-void AnnotationProcessor::Print(Printer* printer) const {
-  if (has_comments_) {
-    std::string result = comment_.str();
-    for (const StringPiece& line : util::Tokenize(result, '\n')) {
-      printer->Println(line);
-    }
-    printer->Println(" */");
-  }
-
-  if (annotation_bit_mask_ & AnnotationRule::kDeprecated) {
-    printer->Println("@Deprecated");
-  }
-
-  for (const AnnotationRule& rule : sAnnotationRules) {
-    if (annotation_bit_mask_ & rule.bit_mask) {
-      printer->Println(rule.annotation);
-    }
-  }
+void AnnotationProcessor::appendNewLine() {
+    mComment << "\n *";
 }
 
-}  // namespace aapt
+void AnnotationProcessor::writeToStream(std::ostream* out, const StringPiece& prefix) const {
+    if (mHasComments) {
+        std::string result = mComment.str();
+        for (StringPiece line : util::tokenize<char>(result, '\n')) {
+           *out << prefix << line << "\n";
+        }
+        *out << prefix << " */" << "\n";
+    }
+
+    if (mAnnotationBitMask & kDeprecated) {
+        *out << prefix << "@Deprecated\n";
+    }
+
+    if (mAnnotationBitMask & kSystemApi) {
+        *out << prefix << "@android.annotation.SystemApi\n";
+    }
+}
+
+} // namespace aapt

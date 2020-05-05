@@ -15,7 +15,6 @@
  */
 package android.provider;
 
-import android.annotation.UnsupportedAppUsage;
 import android.app.admin.DevicePolicyManager;
 import android.content.ActivityNotFoundException;
 import android.content.ContentUris;
@@ -55,7 +54,6 @@ public class ContactsInternal {
     /**
      * Called by {@link ContactsContract} to star Quick Contact, possibly on the managed profile.
      */
-    @UnsupportedAppUsage
     public static void startQuickContactWithErrorToast(Context context, Intent intent) {
         final Uri uri = intent.getData();
 
@@ -70,7 +68,7 @@ public class ContactsInternal {
             }
         }
         // Launch on the current profile.
-        startQuickContactWithErrorToastForUser(context, intent, context.getUser());
+        startQuickContactWithErrorToastForUser(context, intent, Process.myUserHandle());
     }
 
     public static void startQuickContactWithErrorToastForUser(Context context, Intent intent,

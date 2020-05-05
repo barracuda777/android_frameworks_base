@@ -16,14 +16,14 @@
 
 package android.widget.scroll;
 
+import com.android.frameworks.coretests.R;
+
 import android.app.Activity;
-import android.graphics.Rect;
 import android.os.Bundle;
+import android.graphics.Rect;
 import android.view.View;
 import android.widget.ScrollView;
 import android.widget.TextView;
-
-import com.android.frameworks.coretests.R;
 
 /**
  * A screen with some scenarios that exercise {@link ScrollView}'s implementation
@@ -43,8 +43,8 @@ public class RequestRectangleVisible extends Activity {
         final Rect rect = new Rect();
         final View childToMakeVisible = findViewById(R.id.childToMakeVisible);
 
-        final TextView topBlob = findViewById(R.id.topBlob);
-        final TextView bottomBlob = findViewById(R.id.bottomBlob);
+        final TextView topBlob = (TextView) findViewById(R.id.topBlob);
+        final TextView bottomBlob = (TextView) findViewById(R.id.bottomBlob);
 
         // estimate to get blobs larger than screen
         int screenHeight = getWindowManager().getDefaultDisplay().getHeight();

@@ -16,7 +16,6 @@
 
 package android.media;
 
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.text.Layout.Alignment;
 import android.text.SpannableStringBuilder;
@@ -45,7 +44,6 @@ public class WebVttRenderer extends SubtitleController.Renderer {
 
     private WebVttRenderingWidget mRenderingWidget;
 
-    @UnsupportedAppUsage
     public WebVttRenderer(Context context) {
         mContext = context;
     }

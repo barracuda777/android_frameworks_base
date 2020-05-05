@@ -14,27 +14,23 @@
  * limitations under the License.
  */
 
+
 package android.app;
-
-import static junit.framework.TestCase.assertNotNull;
-import static junit.framework.TestCase.assertNotSame;
-import static junit.framework.TestCase.assertSame;
-
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 import android.content.Context;
 import android.os.Handler;
 import android.os.Parcelable;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.ArrayMap;
-
-import androidx.test.filters.MediumTest;
-import androidx.test.rule.ActivityTestRule;
-import androidx.test.runner.AndroidJUnit4;
-
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import static junit.framework.TestCase.assertNotNull;
+import static junit.framework.TestCase.assertNotSame;
+import static junit.framework.TestCase.assertSame;
 
 @RunWith(AndroidJUnit4.class)
 public class LoaderLifecycleTest {
@@ -207,16 +203,6 @@ public class LoaderLifecycleTest {
 
             // Test that the fragments are in the configuration we expect
             final Fragment restoredOne = fm2.findFragmentByTag("one");
-            try {
-                restoredOne.getLoaderManager();
-                fail("A restored fragment on the back stack doesn't have a host, so it should "
-                        + "throw an exception");
-            } catch (IllegalStateException e) {
-                // expected
-            }
-            fm2.popBackStackImmediate();
-            // Now restoredOne should be added and should be in a good state.
-            assertTrue(restoredOne.isAdded());
             final LoaderManager lm2 = restoredOne.getLoaderManager();
 
             assertSame("didn't get same LoaderManager instance back", lm2, lm1);

@@ -16,6 +16,9 @@
 
 package com.android.server.display;
 
+import com.android.internal.util.DumpUtils;
+import com.android.internal.util.IndentingPrintWriter;
+
 import android.content.Context;
 import android.database.ContentObserver;
 import android.graphics.SurfaceTexture;
@@ -28,9 +31,6 @@ import android.view.Display;
 import android.view.Gravity;
 import android.view.Surface;
 import android.view.SurfaceControl;
-
-import com.android.internal.util.DumpUtils;
-import com.android.internal.util.IndentingPrintWriter;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -271,12 +271,12 @@ final class OverlayDisplayAdapter extends DisplayAdapter {
         }
 
         @Override
-        public void performTraversalLocked(SurfaceControl.Transaction t) {
+        public void performTraversalInTransactionLocked() {
             if (mSurfaceTexture != null) {
                 if (mSurface == null) {
                     mSurface = new Surface(mSurfaceTexture);
                 }
-                setSurfaceLocked(t, mSurface);
+                setSurfaceInTransactionLocked(mSurface);
             }
         }
 
@@ -308,23 +308,14 @@ final class OverlayDisplayAdapter extends DisplayAdapter {
                     mInfo.flags |= DisplayDeviceInfo.FLAG_SECURE;
                 }
                 mInfo.type = Display.TYPE_OVERLAY;
-                mInfo.touch = DisplayDeviceInfo.TOUCH_VIRTUAL;
+                mInfo.touch = DisplayDeviceInfo.TOUCH_NONE;
                 mInfo.state = mState;
             }
             return mInfo;
         }
 
         @Override
-        public void setAllowedDisplayModesLocked(int[] modes) {
-            final int id;
-            if (modes.length > 0) {
-                // The allowed modes should be ordered by preference, so just use the first mode
-                // here.
-                id = modes[0];
-            } else {
-                // If we don't have any allowed modes, just use the default mode.
-                id = 0;
-            }
+        public void requestDisplayModesInTransactionLocked(int color, int id) {
             int index = -1;
             if (id == 0) {
                 // Use the default.

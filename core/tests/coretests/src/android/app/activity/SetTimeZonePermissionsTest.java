@@ -19,8 +19,7 @@ package android.app.activity;
 import android.app.AlarmManager;
 import android.content.Context;
 import android.test.AndroidTestCase;
-
-import androidx.test.filters.LargeTest;
+import android.test.suitebuilder.annotation.LargeTest;
 
 import java.util.TimeZone;
 

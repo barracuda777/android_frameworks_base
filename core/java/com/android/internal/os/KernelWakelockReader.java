@@ -16,8 +16,6 @@
 package com.android.internal.os;
 
 import android.os.Process;
-import android.os.StrictMode;
-import android.os.SystemClock;
 import android.util.Slog;
 
 import com.android.internal.annotations.VisibleForTesting;
@@ -66,11 +64,9 @@ public class KernelWakelockReader {
      */
     public final KernelWakelockStats readKernelWakelockStats(KernelWakelockStats staleStats) {
         byte[] buffer = new byte[32*1024];
-        int len = 0;
+        int len;
         boolean wakeup_sources;
-        final long startTime = SystemClock.uptimeMillis();
 
-        final int oldMask = StrictMode.allowThreadDiskReadsMask();
         try {
             FileInputStream is;
             try {
@@ -87,22 +83,11 @@ public class KernelWakelockReader {
                 }
             }
 
-            int cnt;
-            while ((cnt = is.read(buffer, len, buffer.length - len)) > 0) {
-                len += cnt;
-            }
-
+            len = is.read(buffer);
             is.close();
         } catch (java.io.IOException e) {
             Slog.wtf(TAG, "failed to read kernel wakelocks", e);
             return null;
-        } finally {
-            StrictMode.setThreadPolicyMask(oldMask);
-        }
-
-        final long readTime = SystemClock.uptimeMillis() - startTime;
-        if (readTime > 100) {
-            Slog.w(TAG, "Reading wakelock stats took " + readTime + "ms");
         }
 
         if (len > 0) {
@@ -162,7 +147,7 @@ public class KernelWakelockReader {
                                          PROC_WAKELOCKS_FORMAT,
                         nameStringArray, wlData, null);
 
-                name = nameStringArray[0].trim();
+                name = nameStringArray[0];
                 count = (int) wlData[1];
 
                 if (wakeup_sources) {

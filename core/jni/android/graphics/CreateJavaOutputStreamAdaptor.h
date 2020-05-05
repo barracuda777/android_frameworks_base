@@ -16,16 +16,13 @@ class SkWStream;
  *  @param stream Pointer to Java InputStream.
  *  @param storage Java byte array for retrieving data from the
  *      Java InputStream.
- *  @param swallowExceptions Whether to call ExceptionClear() after
- *      an Exception is thrown. If false, it is up to the client to
- *      clear or propagate the exception.
  *  @return SkStream Simple subclass of SkStream which supports its
  *      basic methods like reading. Only valid until the calling
  *      function returns, since the Java InputStream is not managed
  *      by the SkStream.
  */
-SkStream* CreateJavaInputStreamAdaptor(JNIEnv* env, jobject stream, jbyteArray storage,
-                                       bool swallowExceptions = true);
+SkStream* CreateJavaInputStreamAdaptor(JNIEnv* env, jobject stream,
+                                       jbyteArray storage);
 
 /**
  *  Copy a Java InputStream. The result will be rewindable.
@@ -36,8 +33,10 @@ SkStream* CreateJavaInputStreamAdaptor(JNIEnv* env, jobject stream, jbyteArray s
  *  @return SkStreamRewindable The data in stream will be copied
  *      to a new SkStreamRewindable.
  */
-SkStreamRewindable* CopyJavaInputStream(JNIEnv* env, jobject stream, jbyteArray storage);
+SkStreamRewindable* CopyJavaInputStream(JNIEnv* env, jobject stream,
+                                        jbyteArray storage);
 
-SkWStream* CreateJavaOutputStreamAdaptor(JNIEnv* env, jobject stream, jbyteArray storage);
+SkWStream* CreateJavaOutputStreamAdaptor(JNIEnv* env, jobject stream,
+                                         jbyteArray storage);
 
 #endif  // _ANDROID_GRAPHICS_CREATE_JAVA_OUTPUT_STREAM_ADAPTOR_H_

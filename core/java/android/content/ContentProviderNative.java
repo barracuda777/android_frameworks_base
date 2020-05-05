@@ -16,8 +16,6 @@
 
 package android.content;
 
-import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
 import android.content.res.AssetFileDescriptor;
 import android.database.BulkCursorDescriptor;
 import android.database.BulkCursorToCursorAdaptor;
@@ -51,7 +49,6 @@ abstract public class ContentProviderNative extends Binder implements IContentPr
      * Cast a Binder object into a content resolver interface, generating
      * a proxy if needed.
      */
-    @UnsupportedAppUsage
     static public IContentProvider asInterface(IBinder obj)
     {
         if (obj == null) {
@@ -95,13 +92,25 @@ abstract public class ContentProviderNative extends Binder implements IContentPr
                         }
                     }
 
-                    Bundle queryArgs = data.readBundle();
+                    // String selection, String[] selectionArgs...
+                    String selection = data.readString();
+                    num = data.readInt();
+                    String[] selectionArgs = null;
+                    if (num > 0) {
+                        selectionArgs = new String[num];
+                        for (int i = 0; i < num; i++) {
+                            selectionArgs[i] = data.readString();
+                        }
+                    }
+
+                    String sortOrder = data.readString();
                     IContentObserver observer = IContentObserver.Stub.asInterface(
                             data.readStrongBinder());
                     ICancellationSignal cancellationSignal = ICancellationSignal.Stub.asInterface(
                             data.readStrongBinder());
 
-                    Cursor cursor = query(callingPkg, url, projection, queryArgs, cancellationSignal);
+                    Cursor cursor = query(callingPkg, url, projection, selection, selectionArgs,
+                            sortOrder, cancellationSignal);
                     if (cursor != null) {
                         CursorToBulkCursorAdaptor adaptor = null;
 
@@ -174,15 +183,13 @@ abstract public class ContentProviderNative extends Binder implements IContentPr
                 {
                     data.enforceInterface(IContentProvider.descriptor);
                     String callingPkg = data.readString();
-                    String authority = data.readString();
                     final int numOperations = data.readInt();
                     final ArrayList<ContentProviderOperation> operations =
-                            new ArrayList<>(numOperations);
+                            new ArrayList<ContentProviderOperation>(numOperations);
                     for (int i = 0; i < numOperations; i++) {
                         operations.add(i, ContentProviderOperation.CREATOR.createFromParcel(data));
                     }
-                    final ContentProviderResult[] results = applyBatch(callingPkg, authority,
-                            operations);
+                    final ContentProviderResult[] results = applyBatch(callingPkg, operations);
                     reply.writeNoException();
                     reply.writeTypedArray(results, 0);
                     return true;
@@ -269,12 +276,11 @@ abstract public class ContentProviderNative extends Binder implements IContentPr
                     data.enforceInterface(IContentProvider.descriptor);
 
                     String callingPkg = data.readString();
-                    String authority = data.readString();
                     String method = data.readString();
                     String stringArg = data.readString();
                     Bundle args = data.readBundle();
 
-                    Bundle responseBundle = call(callingPkg, authority, method, stringArg, args);
+                    Bundle responseBundle = call(callingPkg, method, stringArg, args);
 
                     reply.writeNoException();
                     reply.writeBundle(responseBundle);
@@ -349,20 +355,6 @@ abstract public class ContentProviderNative extends Binder implements IContentPr
                     Uri.writeToParcel(reply, out);
                     return true;
                 }
-
-                case REFRESH_TRANSACTION: {
-                    data.enforceInterface(IContentProvider.descriptor);
-                    String callingPkg = data.readString();
-                    Uri url = Uri.CREATOR.createFromParcel(data);
-                    Bundle args = data.readBundle();
-                    ICancellationSignal signal = ICancellationSignal.Stub.asInterface(
-                            data.readStrongBinder());
-
-                    boolean out = refresh(callingPkg, url, args, signal);
-                    reply.writeNoException();
-                    reply.writeInt(out ? 0 : -1);
-                    return true;
-                }
             }
         } catch (Exception e) {
             DatabaseUtils.writeExceptionToParcel(reply, e);
@@ -372,7 +364,6 @@ abstract public class ContentProviderNative extends Binder implements IContentPr
         return super.onTransact(code, data, reply, flags);
     }
 
-    @Override
     public IBinder asBinder()
     {
         return this;
@@ -387,16 +378,14 @@ final class ContentProviderProxy implements IContentProvider
         mRemote = remote;
     }
 
-    @Override
     public IBinder asBinder()
     {
         return mRemote;
     }
 
-    @Override
-    public Cursor query(String callingPkg, Uri url, @Nullable String[] projection,
-            @Nullable Bundle queryArgs, @Nullable ICancellationSignal cancellationSignal)
-            throws RemoteException {
+    public Cursor query(String callingPkg, Uri url, String[] projection, String selection,
+            String[] selectionArgs, String sortOrder, ICancellationSignal cancellationSignal)
+                    throws RemoteException {
         BulkCursorToCursorAdaptor adaptor = new BulkCursorToCursorAdaptor();
         Parcel data = Parcel.obtain();
         Parcel reply = Parcel.obtain();
@@ -413,10 +402,19 @@ final class ContentProviderProxy implements IContentProvider
             for (int i = 0; i < length; i++) {
                 data.writeString(projection[i]);
             }
-            data.writeBundle(queryArgs);
+            data.writeString(selection);
+            if (selectionArgs != null) {
+                length = selectionArgs.length;
+            } else {
+                length = 0;
+            }
+            data.writeInt(length);
+            for (int i = 0; i < length; i++) {
+                data.writeString(selectionArgs[i]);
+            }
+            data.writeString(sortOrder);
             data.writeStrongBinder(adaptor.getObserver().asBinder());
-            data.writeStrongBinder(
-                    cancellationSignal != null ? cancellationSignal.asBinder() : null);
+            data.writeStrongBinder(cancellationSignal != null ? cancellationSignal.asBinder() : null);
 
             mRemote.transact(IContentProvider.QUERY_TRANSACTION, data, reply, 0);
 
@@ -424,7 +422,6 @@ final class ContentProviderProxy implements IContentProvider
 
             if (reply.readInt() != 0) {
                 BulkCursorDescriptor d = BulkCursorDescriptor.CREATOR.createFromParcel(reply);
-                Binder.copyAllowBlocking(mRemote, (d.cursor != null) ? d.cursor.asBinder() : null);
                 adaptor.initialize(d);
             } else {
                 adaptor.close();
@@ -443,7 +440,6 @@ final class ContentProviderProxy implements IContentProvider
         }
     }
 
-    @Override
     public String getType(Uri url) throws RemoteException
     {
         Parcel data = Parcel.obtain();
@@ -464,7 +460,6 @@ final class ContentProviderProxy implements IContentProvider
         }
     }
 
-    @Override
     public Uri insert(String callingPkg, Uri url, ContentValues values) throws RemoteException
     {
         Parcel data = Parcel.obtain();
@@ -487,7 +482,6 @@ final class ContentProviderProxy implements IContentProvider
         }
     }
 
-    @Override
     public int bulkInsert(String callingPkg, Uri url, ContentValues[] values) throws RemoteException {
         Parcel data = Parcel.obtain();
         Parcel reply = Parcel.obtain();
@@ -509,8 +503,7 @@ final class ContentProviderProxy implements IContentProvider
         }
     }
 
-    @Override
-    public ContentProviderResult[] applyBatch(String callingPkg, String authority,
+    public ContentProviderResult[] applyBatch(String callingPkg, 
             ArrayList<ContentProviderOperation> operations)
                     throws RemoteException, OperationApplicationException {
         Parcel data = Parcel.obtain();
@@ -518,7 +511,6 @@ final class ContentProviderProxy implements IContentProvider
         try {
             data.writeInterfaceToken(IContentProvider.descriptor);
             data.writeString(callingPkg);
-            data.writeString(authority);
             data.writeInt(operations.size());
             for (ContentProviderOperation operation : operations) {
                 operation.writeToParcel(data, 0);
@@ -535,7 +527,6 @@ final class ContentProviderProxy implements IContentProvider
         }
     }
 
-    @Override
     public int delete(String callingPkg, Uri url, String selection, String[] selectionArgs)
             throws RemoteException {
         Parcel data = Parcel.obtain();
@@ -559,7 +550,6 @@ final class ContentProviderProxy implements IContentProvider
         }
     }
 
-    @Override
     public int update(String callingPkg, Uri url, ContentValues values, String selection,
             String[] selectionArgs) throws RemoteException {
         Parcel data = Parcel.obtain();
@@ -639,16 +629,14 @@ final class ContentProviderProxy implements IContentProvider
         }
     }
 
-    @Override
-    public Bundle call(String callingPkg, String authority, String method, String request,
-            Bundle args) throws RemoteException {
+    public Bundle call(String callingPkg, String method, String request, Bundle args)
+            throws RemoteException {
         Parcel data = Parcel.obtain();
         Parcel reply = Parcel.obtain();
         try {
             data.writeInterfaceToken(IContentProvider.descriptor);
 
             data.writeString(callingPkg);
-            data.writeString(authority);
             data.writeString(method);
             data.writeString(request);
             data.writeBundle(args);
@@ -664,7 +652,6 @@ final class ContentProviderProxy implements IContentProvider
         }
     }
 
-    @Override
     public String[] getStreamTypes(Uri url, String mimeTypeFilter) throws RemoteException
     {
         Parcel data = Parcel.obtain();
@@ -713,7 +700,6 @@ final class ContentProviderProxy implements IContentProvider
         }
     }
 
-    @Override
     public ICancellationSignal createCancellationSignal() throws RemoteException {
         Parcel data = Parcel.obtain();
         Parcel reply = Parcel.obtain();
@@ -733,7 +719,6 @@ final class ContentProviderProxy implements IContentProvider
         }
     }
 
-    @Override
     public Uri canonicalize(String callingPkg, Uri url) throws RemoteException
     {
         Parcel data = Parcel.obtain();
@@ -755,7 +740,6 @@ final class ContentProviderProxy implements IContentProvider
         }
     }
 
-    @Override
     public Uri uncanonicalize(String callingPkg, Uri url) throws RemoteException {
         Parcel data = Parcel.obtain();
         Parcel reply = Parcel.obtain();
@@ -776,30 +760,5 @@ final class ContentProviderProxy implements IContentProvider
         }
     }
 
-    @Override
-    public boolean refresh(String callingPkg, Uri url, Bundle args, ICancellationSignal signal)
-            throws RemoteException {
-        Parcel data = Parcel.obtain();
-        Parcel reply = Parcel.obtain();
-        try {
-            data.writeInterfaceToken(IContentProvider.descriptor);
-
-            data.writeString(callingPkg);
-            url.writeToParcel(data, 0);
-            data.writeBundle(args);
-            data.writeStrongBinder(signal != null ? signal.asBinder() : null);
-
-            mRemote.transact(IContentProvider.REFRESH_TRANSACTION, data, reply, 0);
-
-            DatabaseUtils.readExceptionFromParcel(reply);
-            int success = reply.readInt();
-            return (success == 0);
-        } finally {
-            data.recycle();
-            reply.recycle();
-        }
-    }
-
-    @UnsupportedAppUsage
     private IBinder mRemote;
 }

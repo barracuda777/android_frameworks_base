@@ -16,17 +16,13 @@
 
 package android.view;
 
-import android.annotation.RequiresPermission;
-import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.hardware.input.InputDeviceIdentifier;
 import android.hardware.input.InputManager;
-import android.os.Build;
-import android.os.NullVibrator;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.Vibrator;
+import android.os.NullVibrator;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,7 +51,6 @@ public final class InputDevice implements Parcelable {
     private final int mProductId;
     private final String mDescriptor;
     private final InputDeviceIdentifier mIdentifier;
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P)
     private final boolean mIsExternal;
     private final int mSources;
     private final int mKeyboardType;
@@ -242,14 +237,6 @@ public final class InputDevice implements Parcelable {
     public static final int SOURCE_TRACKBALL = 0x00010000 | SOURCE_CLASS_TRACKBALL;
 
     /**
-     * The input source is a mouse device whose relative motions should be interpreted as
-     * navigation events.
-     *
-     * @see #SOURCE_CLASS_TRACKBALL
-     */
-    public static final int SOURCE_MOUSE_RELATIVE = 0x00020000 | SOURCE_CLASS_TRACKBALL;
-
-    /**
      * The input source is a touch pad or digitizer tablet that is not
      * associated with a display (unlike {@link #SOURCE_TOUCHSCREEN}).
      *
@@ -273,8 +260,21 @@ public final class InputDevice implements Parcelable {
      * those of a scroll wheel.
      *
      * @see #SOURCE_CLASS_NONE
+     * {@hide}
      */
     public static final int SOURCE_ROTARY_ENCODER = 0x00400000 | SOURCE_CLASS_NONE;
+
+    /**
+     * The input source is a touch device whose motions should be interpreted as gestures.
+     *
+     * For example, an upward swipe should be treated the same as a swipe of the touchscreen.
+     * The same should apply for left, right, down swipes. Complex gestures may also be input.
+     *
+     * @see #SOURCE_CLASS_NONE
+     *
+     * @hide
+     */
+    public static final int SOURCE_GESTURE_SENSOR = 0x00800000 | SOURCE_CLASS_NONE;
 
     /**
      * The input source is a joystick.
@@ -395,9 +395,7 @@ public final class InputDevice implements Parcelable {
      */
     public static final int KEYBOARD_TYPE_ALPHABETIC = 2;
 
-    private static final int MAX_RANGES = 1000;
-
-    public static final @android.annotation.NonNull Parcelable.Creator<InputDevice> CREATOR =
+    public static final Parcelable.Creator<InputDevice> CREATOR =
             new Parcelable.Creator<InputDevice>() {
         public InputDevice createFromParcel(Parcel in) {
             return new InputDevice(in);
@@ -408,7 +406,6 @@ public final class InputDevice implements Parcelable {
     };
 
     // Called by native code.
-    @UnsupportedAppUsage
     private InputDevice(int id, int generation, int controllerNumber, String name, int vendorId,
             int productId, String descriptor, boolean isExternal, int sources, int keyboardType,
             KeyCharacterMap keyCharacterMap, boolean hasVibrator, boolean hasMicrophone,
@@ -447,14 +444,13 @@ public final class InputDevice implements Parcelable {
         mHasButtonUnderPad = in.readInt() != 0;
         mIdentifier = new InputDeviceIdentifier(mDescriptor, mVendorId, mProductId);
 
-        int numRanges = in.readInt();
-        if (numRanges > MAX_RANGES) {
-            numRanges = MAX_RANGES;
-        }
-
-        for (int i = 0; i < numRanges; i++) {
-            addMotionRange(in.readInt(), in.readInt(), in.readFloat(), in.readFloat(),
-                    in.readFloat(), in.readFloat(), in.readFloat());
+        for (;;) {
+            int axis = in.readInt();
+            if (axis < 0) {
+                break;
+            }
+            addMotionRange(axis, in.readInt(), in.readFloat(), in.readFloat(), in.readFloat(),
+                    in.readFloat(), in.readFloat());
         }
     }
 
@@ -609,6 +605,8 @@ public final class InputDevice implements Parcelable {
      * peripheral bus), otherwise it is built-in.
      *
      * @return True if the device is external.
+     *
+     * @hide
      */
     public boolean isExternal() {
         return mIsExternal;
@@ -741,7 +739,6 @@ public final class InputDevice implements Parcelable {
     }
 
     // Called from native code.
-    @UnsupportedAppUsage
     private void addMotionRange(int axis, int source,
             float min, float max, float flat, float fuzz, float resolution) {
         mMotionRanges.add(new MotionRange(axis, source, min, max, flat, fuzz, resolution));
@@ -770,36 +767,6 @@ public final class InputDevice implements Parcelable {
             }
             return mVibrator;
         }
-    }
-
-    /**
-     * Returns true if input device is enabled.
-     * @return Whether the input device is enabled.
-     */
-    public boolean isEnabled() {
-        return InputManager.getInstance().isInputDeviceEnabled(mId);
-    }
-
-    /**
-     * Enables the input device.
-     *
-     * @hide
-     */
-    @RequiresPermission(android.Manifest.permission.DISABLE_INPUT_DEVICE)
-    @TestApi
-    public void enable() {
-        InputManager.getInstance().enableInputDevice(mId);
-    }
-
-    /**
-     * Disables the input device.
-     *
-     * @hide
-     */
-    @RequiresPermission(android.Manifest.permission.DISABLE_INPUT_DEVICE)
-    @TestApi
-    public void disable() {
-        InputManager.getInstance().disableInputDevice(mId);
     }
 
     /**
@@ -966,7 +933,6 @@ public final class InputDevice implements Parcelable {
         out.writeInt(mHasButtonUnderPad ? 1 : 0);
 
         final int numRanges = mMotionRanges.size();
-        out.writeInt(numRanges);
         for (int i = 0; i < numRanges; i++) {
             MotionRange range = mMotionRanges.get(i);
             out.writeInt(range.mAxis);
@@ -977,6 +943,7 @@ public final class InputDevice implements Parcelable {
             out.writeFloat(range.mFuzz);
             out.writeFloat(range.mResolution);
         }
+        out.writeInt(-1);
     }
 
     @Override
@@ -1017,10 +984,10 @@ public final class InputDevice implements Parcelable {
         appendSourceDescriptionIfApplicable(description, SOURCE_MOUSE, "mouse");
         appendSourceDescriptionIfApplicable(description, SOURCE_STYLUS, "stylus");
         appendSourceDescriptionIfApplicable(description, SOURCE_TRACKBALL, "trackball");
-        appendSourceDescriptionIfApplicable(description, SOURCE_MOUSE_RELATIVE, "mouse_relative");
         appendSourceDescriptionIfApplicable(description, SOURCE_TOUCHPAD, "touchpad");
         appendSourceDescriptionIfApplicable(description, SOURCE_JOYSTICK, "joystick");
         appendSourceDescriptionIfApplicable(description, SOURCE_GAMEPAD, "gamepad");
+        appendSourceDescriptionIfApplicable(description, SOURCE_GESTURE_SENSOR, "gesture");
         description.append(" )\n");
 
         final int numAxes = mMotionRanges.size();

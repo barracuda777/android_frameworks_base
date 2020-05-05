@@ -16,7 +16,6 @@
 
 package android.renderscript;
 
-import android.annotation.UnsupportedAppUsage;
 import java.util.Vector;
 
 /**
@@ -50,7 +49,6 @@ public class Mesh extends BaseObj {
         * @deprecated in API 16
         * Vertex data will be rendered as a series of points
         */
-        @UnsupportedAppUsage
         POINT (0),
         /**
         * @deprecated in API 16
@@ -66,7 +64,6 @@ public class Mesh extends BaseObj {
         * @deprecated in API 16
         * Vertices will be rendered as individual triangles
         */
-        @UnsupportedAppUsage
         TRIANGLE (3),
         /**
         * @deprecated in API 16
@@ -114,7 +111,6 @@ public class Mesh extends BaseObj {
     * @return vertex data allocation at the given index
     *
     **/
-    @UnsupportedAppUsage
     public Allocation getVertexAllocation(int slot) {
         return mVertexBuffers[slot];
     }
@@ -428,7 +424,6 @@ public class Mesh extends BaseObj {
         /**
         * @deprecated in API 16
         **/
-        @UnsupportedAppUsage
         public AllocationBuilder(RenderScript rs) {
             mRS = rs;
             mVertexTypeCount = 0;
@@ -463,7 +458,6 @@ public class Mesh extends BaseObj {
         *
         * @return this
         **/
-        @UnsupportedAppUsage
         public AllocationBuilder addVertexAllocation(Allocation a) throws IllegalStateException {
             if (mVertexTypeCount >= mVertexTypes.length) {
                 throw new IllegalStateException("Max vertex types exceeded.");
@@ -485,7 +479,6 @@ public class Mesh extends BaseObj {
         *
         * @return this
         **/
-        @UnsupportedAppUsage
         public AllocationBuilder addIndexSetAllocation(Allocation a, Primitive p) {
             Entry indexType = new Entry();
             indexType.a = a;
@@ -502,7 +495,6 @@ public class Mesh extends BaseObj {
         *
         * @return this
         **/
-        @UnsupportedAppUsage
         public AllocationBuilder addIndexSetType(Primitive p) {
             Entry indexType = new Entry();
             indexType.a = null;
@@ -516,7 +508,6 @@ public class Mesh extends BaseObj {
         * Create a Mesh object from the current state of the builder
         *
         **/
-        @UnsupportedAppUsage
         public Mesh create() {
             mRS.validate();
 
@@ -605,7 +596,6 @@ public class Mesh extends BaseObj {
         *              channels are present in the mesh
         *
         **/
-        @UnsupportedAppUsage
         public TriangleMeshBuilder(RenderScript rs, int vtxSize, int flags) {
             mRS = rs;
             mVtxCount = 0;
@@ -662,7 +652,6 @@ public class Mesh extends BaseObj {
         * @return this
         *
         **/
-        @UnsupportedAppUsage
         public TriangleMeshBuilder addVertex(float x, float y) {
             if (mVtxSize != 2) {
                 throw new IllegalStateException("add mistmatch with declared components.");
@@ -768,7 +757,6 @@ public class Mesh extends BaseObj {
         *
         * @return this
         **/
-        @UnsupportedAppUsage
         public TriangleMeshBuilder addTriangle(int idx1, int idx2, int idx3) {
             if((idx1 >= mMaxIndex) || (idx1 < 0) ||
                (idx2 >= mMaxIndex) || (idx2 < 0) ||
@@ -801,7 +789,6 @@ public class Mesh extends BaseObj {
         *                             accessible memory
         *
         **/
-        @UnsupportedAppUsage
         public Mesh create(boolean uploadToBufferObject) {
             Element.Builder b = new Element.Builder(mRS);
             b.add(Element.createVector(mRS,

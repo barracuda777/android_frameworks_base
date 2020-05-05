@@ -18,27 +18,23 @@ package android.app.admin;
 
 import android.content.pm.PackageManager;
 import android.os.Parcel;
-import android.os.ParcelFormatException;
 import android.os.Parcelable;
+import android.os.ParcelFormatException;
 
 /**
  * An abstract class that represents a network event.
+ * @hide
  */
 public abstract class NetworkEvent implements Parcelable {
 
-    /** @hide */
     static final int PARCEL_TOKEN_DNS_EVENT = 1;
-    /** @hide */
     static final int PARCEL_TOKEN_CONNECT_EVENT = 2;
 
     /** The package name of the UID that performed the query. */
-    String mPackageName;
+    String packageName;
 
     /** The timestamp of the event being reported in milliseconds. */
-    long mTimestamp;
-
-    /** The id of the event. */
-    long mId;
+    long timestamp;
 
     /** @hide */
     NetworkEvent() {
@@ -47,8 +43,8 @@ public abstract class NetworkEvent implements Parcelable {
 
     /** @hide */
     NetworkEvent(String packageName, long timestamp) {
-        this.mPackageName = packageName;
-        this.mTimestamp = timestamp;
+        this.packageName = packageName;
+        this.timestamp = timestamp;
     }
 
     /**
@@ -56,7 +52,7 @@ public abstract class NetworkEvent implements Parcelable {
      * {@link PackageManager#getNameForUid}.
      */
     public String getPackageName() {
-        return mPackageName;
+        return packageName;
     }
 
     /**
@@ -64,20 +60,7 @@ public abstract class NetworkEvent implements Parcelable {
      * the time the event was reported and midnight, January 1, 1970 UTC.
      */
     public long getTimestamp() {
-        return mTimestamp;
-    }
-
-    /** @hide */
-    public void setId(long id) {
-        this.mId = id;
-    }
-
-    /**
-     * Returns the id of the event, where the id monotonically increases for each event. The id
-     * is reset when the device reboots, and when network logging is enabled.
-     */
-    public long getId() {
-        return this.mId;
+        return timestamp;
     }
 
     @Override
@@ -85,7 +68,7 @@ public abstract class NetworkEvent implements Parcelable {
         return 0;
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<NetworkEvent> CREATOR
+    public static final Parcelable.Creator<NetworkEvent> CREATOR
             = new Parcelable.Creator<NetworkEvent>() {
         public NetworkEvent createFromParcel(Parcel in) {
             final int initialPosition = in.dataPosition();
@@ -111,3 +94,4 @@ public abstract class NetworkEvent implements Parcelable {
     @Override
     public abstract void writeToParcel(Parcel out, int flags);
 }
+

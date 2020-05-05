@@ -15,8 +15,6 @@
  */
 package android.text.method;
 
-import android.annotation.UnsupportedAppUsage;
-
 /**
  * TransformationMethod2 extends the TransformationMethod interface
  * and adds the ability to relax restrictions of TransformationMethod.
@@ -31,6 +29,5 @@ public interface TransformationMethod2 extends TransformationMethod {
      * @param allowLengthChanges true to allow the transformation to change the length
      *                           of the input string.
      */
-    @UnsupportedAppUsage
     public void setLengthChangesAllowed(boolean allowLengthChanges);
 }

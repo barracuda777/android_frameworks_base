@@ -16,26 +16,23 @@
 
 package com.android.server.notification;
 
-import static android.provider.Settings.Global.ZEN_MODE_OFF;
-
 import android.app.Notification;
-import android.app.NotificationManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.media.AudioAttributes;
+import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.UserHandle;
 import android.provider.Settings.Global;
+import android.provider.Settings.Secure;
 import android.service.notification.ZenModeConfig;
 import android.telecom.TelecomManager;
 import android.util.ArrayMap;
 import android.util.Slog;
 
-import com.android.internal.messages.nano.SystemMessageProto;
-import com.android.internal.util.NotificationMessagingUtil;
-
 import java.io.PrintWriter;
 import java.util.Date;
+import java.util.Objects;
 
 public class ZenModeFiltering {
     private static final String TAG = ZenModeHelper.TAG;
@@ -46,16 +43,9 @@ public class ZenModeFiltering {
     private final Context mContext;
 
     private ComponentName mDefaultPhoneApp;
-    private final NotificationMessagingUtil mMessagingUtil;
 
     public ZenModeFiltering(Context context) {
         mContext = context;
-        mMessagingUtil = new NotificationMessagingUtil(mContext);
-    }
-
-    public ZenModeFiltering(Context context, NotificationMessagingUtil messagingUtil) {
-        mContext = context;
-        mMessagingUtil = messagingUtil;
     }
 
     public void dump(PrintWriter pw, String prefix) {
@@ -85,21 +75,20 @@ public class ZenModeFiltering {
      * @param timeoutAffinity affinity to return when the timeout specified via
      *                        <code>contactsTimeoutMs</code> is hit
      */
-    public static boolean matchesCallFilter(Context context, int zen, NotificationManager.Policy
-            consolidatedPolicy, UserHandle userHandle, Bundle extras,
-            ValidateNotificationPeople validator, int contactsTimeoutMs, float timeoutAffinity) {
+    public static boolean matchesCallFilter(Context context, int zen, ZenModeConfig config,
+            UserHandle userHandle, Bundle extras, ValidateNotificationPeople validator,
+            int contactsTimeoutMs, float timeoutAffinity) {
         if (zen == Global.ZEN_MODE_NO_INTERRUPTIONS) return false; // nothing gets through
         if (zen == Global.ZEN_MODE_ALARMS) return false; // not an alarm
         if (zen == Global.ZEN_MODE_IMPORTANT_INTERRUPTIONS) {
-            if (consolidatedPolicy.allowRepeatCallers()
-                    && REPEAT_CALLERS.isRepeat(context, extras)) {
+            if (config.allowRepeatCallers && REPEAT_CALLERS.isRepeat(context, extras)) {
                 return true;
             }
-            if (!consolidatedPolicy.allowCalls()) return false; // no other calls get through
+            if (!config.allowCalls) return false; // no other calls get through
             if (validator != null) {
                 final float contactAffinity = validator.getContactAffinity(userHandle, extras,
                         contactsTimeoutMs, timeoutAffinity);
-                return audienceMatches(consolidatedPolicy.allowCallsFrom(), contactAffinity);
+                return audienceMatches(config.allowCallsFrom, contactAffinity);
             }
         }
         return true;
@@ -114,20 +103,8 @@ public class ZenModeFiltering {
         REPEAT_CALLERS.recordCall(mContext, extras(record));
     }
 
-    /**
-     * Whether to intercept the notification based on the policy
-     */
-    public boolean shouldIntercept(int zen, NotificationManager.Policy policy,
-            NotificationRecord record) {
-        // Zen mode is ignored for critical notifications.
-        if (zen == ZEN_MODE_OFF || isCritical(record)) {
-            return false;
-        }
-        // Make an exception to policy for the notification saying that policy has changed
-        if (NotificationManager.Policy.areAllVisualEffectsSuppressed(policy.suppressedVisualEffects)
-                && "android".equals(record.sbn.getPackageName())
-                && SystemMessageProto.SystemMessage.NOTE_ZEN_UPGRADE == record.sbn.getId()) {
-            ZenLog.traceNotIntercepted(record, "systemDndChangedNotification");
+    public boolean shouldIntercept(int zen, ZenModeConfig config, NotificationRecord record) {
+        if (isSystem(record)) {
             return false;
         }
         switch (zen) {
@@ -143,62 +120,44 @@ public class ZenModeFiltering {
                 ZenLog.traceIntercepted(record, "alarmsOnly");
                 return true;
             case Global.ZEN_MODE_IMPORTANT_INTERRUPTIONS:
+                if (isAlarm(record)) {
+                    // Alarms are always priority
+                    return false;
+                }
                 // allow user-prioritized packages through in priority mode
                 if (record.getPackagePriority() == Notification.PRIORITY_MAX) {
                     ZenLog.traceNotIntercepted(record, "priorityApp");
                     return false;
                 }
-
-                if (isAlarm(record)) {
-                    if (!policy.allowAlarms()) {
-                        ZenLog.traceIntercepted(record, "!allowAlarms");
-                        return true;
-                    }
-                    return false;
-                }
                 if (isCall(record)) {
-                    if (policy.allowRepeatCallers()
+                    if (config.allowRepeatCallers
                             && REPEAT_CALLERS.isRepeat(mContext, extras(record))) {
                         ZenLog.traceNotIntercepted(record, "repeatCaller");
                         return false;
                     }
-                    if (!policy.allowCalls()) {
+                    if (!config.allowCalls) {
                         ZenLog.traceIntercepted(record, "!allowCalls");
                         return true;
                     }
-                    return shouldInterceptAudience(policy.allowCallsFrom(), record);
+                    return shouldInterceptAudience(config.allowCallsFrom, record);
                 }
                 if (isMessage(record)) {
-                    if (!policy.allowMessages()) {
+                    if (!config.allowMessages) {
                         ZenLog.traceIntercepted(record, "!allowMessages");
                         return true;
                     }
-                    return shouldInterceptAudience(policy.allowMessagesFrom(), record);
+                    return shouldInterceptAudience(config.allowMessagesFrom, record);
                 }
                 if (isEvent(record)) {
-                    if (!policy.allowEvents()) {
+                    if (!config.allowEvents) {
                         ZenLog.traceIntercepted(record, "!allowEvents");
                         return true;
                     }
                     return false;
                 }
                 if (isReminder(record)) {
-                    if (!policy.allowReminders()) {
+                    if (!config.allowReminders) {
                         ZenLog.traceIntercepted(record, "!allowReminders");
-                        return true;
-                    }
-                    return false;
-                }
-                if (isMedia(record)) {
-                    if (!policy.allowMedia()) {
-                        ZenLog.traceIntercepted(record, "!allowMedia");
-                        return true;
-                    }
-                    return false;
-                }
-                if (isSystem(record)) {
-                    if (!policy.allowSystem()) {
-                        ZenLog.traceIntercepted(record, "!allowSystem");
                         return true;
                     }
                     return false;
@@ -210,19 +169,6 @@ public class ZenModeFiltering {
         }
     }
 
-    /**
-     * Check if the notification is too critical to be suppressed.
-     *
-     * @param record the record to test for criticality
-     * @return {@code true} if notification is considered critical
-     *
-     * @see CriticalNotificationExtractor for criteria
-     */
-    private boolean isCritical(NotificationRecord record) {
-        // 0 is the most critical
-        return record.getCriticality() < CriticalNotificationExtractor.NORMAL;
-    }
-
     private static boolean shouldInterceptAudience(int source, NotificationRecord record) {
         if (!audienceMatches(source, record.getContactAffinity())) {
             ZenLog.traceIntercepted(record, "!audienceMatches");
@@ -231,8 +177,13 @@ public class ZenModeFiltering {
         return false;
     }
 
-    protected static boolean isAlarm(NotificationRecord record) {
+    private static boolean isSystem(NotificationRecord record) {
+        return record.isCategory(Notification.CATEGORY_SYSTEM);
+    }
+
+    private static boolean isAlarm(NotificationRecord record) {
         return record.isCategory(Notification.CATEGORY_ALARM)
+                || record.isAudioStream(AudioManager.STREAM_ALARM)
                 || record.isAudioAttributesUsage(AudioAttributes.USAGE_ALARM);
     }
 
@@ -249,18 +200,6 @@ public class ZenModeFiltering {
                 || record.isCategory(Notification.CATEGORY_CALL));
     }
 
-    public boolean isMedia(NotificationRecord record) {
-        AudioAttributes aa = record.getAudioAttributes();
-        return aa != null && AudioAttributes.SUPPRESSIBLE_USAGES.get(aa.getUsage()) ==
-                AudioAttributes.SUPPRESSIBLE_MEDIA;
-    }
-
-    public boolean isSystem(NotificationRecord record) {
-        AudioAttributes aa = record.getAudioAttributes();
-        return aa != null && AudioAttributes.SUPPRESSIBLE_USAGES.get(aa.getUsage()) ==
-                AudioAttributes.SUPPRESSIBLE_SYSTEM;
-    }
-
     private boolean isDefaultPhoneApp(String pkg) {
         if (mDefaultPhoneApp == null) {
             final TelecomManager telecomm =
@@ -272,8 +211,17 @@ public class ZenModeFiltering {
                 && pkg.equals(mDefaultPhoneApp.getPackageName());
     }
 
-    protected boolean isMessage(NotificationRecord record) {
-        return mMessagingUtil.isMessaging(record.sbn);
+    @SuppressWarnings("deprecation")
+    private boolean isDefaultMessagingApp(NotificationRecord record) {
+        final int userId = record.getUserId();
+        if (userId == UserHandle.USER_NULL || userId == UserHandle.USER_ALL) return false;
+        final String defaultApp = Secure.getStringForUser(mContext.getContentResolver(),
+                Secure.SMS_DEFAULT_APPLICATION, userId);
+        return Objects.equals(defaultApp, record.sbn.getPackageName());
+    }
+
+    private boolean isMessage(NotificationRecord record) {
+        return record.isCategory(Notification.CATEGORY_MESSAGE) || isDefaultMessagingApp(record);
     }
 
     private static boolean audienceMatches(int source, float contactAffinity) {

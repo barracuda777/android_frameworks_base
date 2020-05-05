@@ -15,17 +15,10 @@
  */
 package android.app.usage;
 
-import android.annotation.IntDef;
-import android.annotation.Nullable;
-import android.annotation.SystemApi;
-import android.annotation.UnsupportedAppUsage;
 import android.content.res.Configuration;
-import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 import java.util.Arrays;
 import java.util.List;
 
@@ -34,12 +27,6 @@ import java.util.List;
  * from which to read {@link android.app.usage.UsageEvents.Event} objects.
  */
 public final class UsageEvents implements Parcelable {
-
-    /** @hide */
-    public static final String INSTANT_APP_PACKAGE_NAME = "android.instant_app";
-
-    /** @hide */
-    public static final String INSTANT_APP_CLASS_NAME = "android.instant_class";
 
     /**
      * An event representing a state change for a component.
@@ -52,57 +39,25 @@ public final class UsageEvents implements Parcelable {
         public static final int NONE = 0;
 
         /**
-         * A device level event like {@link #DEVICE_SHUTDOWN} does not have package name, but some
-         * user code always expect a non-null {@link #mPackage} for every event. Use
-         * {@link #DEVICE_EVENT_PACKAGE_NAME} as packageName for these device level events.
-         * @hide
+         * An event type denoting that a component moved to the foreground.
          */
-        public static final String DEVICE_EVENT_PACKAGE_NAME = "android";
-
-        /**
-         * @deprecated by {@link #ACTIVITY_RESUMED}
-         */
-        @Deprecated
         public static final int MOVE_TO_FOREGROUND = 1;
 
         /**
-         * An event type denoting that an {@link android.app.Activity} moved to the foreground.
-         * This event has a package name and class name associated with it and can be retrieved
-         * using {@link #getPackageName()} and {@link #getClassName()}.
-         * If a package has multiple activities, this event is reported for each activity that moves
-         * to foreground.
-         * This event is corresponding to {@link android.app.Activity#onResume()} of the
-         * activity's lifecycle.
+         * An event type denoting that a component moved to the background.
          */
-        public static final int ACTIVITY_RESUMED = MOVE_TO_FOREGROUND;
-
-        /**
-         * @deprecated by {@link #ACTIVITY_PAUSED}
-         */
-        @Deprecated
         public static final int MOVE_TO_BACKGROUND = 2;
 
         /**
-         * An event type denoting that an {@link android.app.Activity} moved to the background.
-         * This event has a package name and class name associated with it and can be retrieved
-         * using {@link #getPackageName()} and {@link #getClassName()}.
-         * If a package has multiple activities, this event is reported for each activity that moves
-         * to background.
-         * This event is corresponding to {@link android.app.Activity#onPause()} of the activity's
-         * lifecycle.
-         */
-        public static final int ACTIVITY_PAUSED = MOVE_TO_BACKGROUND;
-
-        /**
          * An event type denoting that a component was in the foreground when the stats
-         * rolled-over. This is effectively treated as a {@link #ACTIVITY_PAUSED}.
+         * rolled-over. This is effectively treated as a {@link #MOVE_TO_BACKGROUND}.
          * {@hide}
          */
         public static final int END_OF_DAY = 3;
 
         /**
          * An event type denoting that a component was in the foreground the previous day.
-         * This is effectively treated as a {@link #ACTIVITY_RESUMED}.
+         * This is effectively treated as a {@link #MOVE_TO_FOREGROUND}.
          * {@hide}
          */
         public static final int CONTINUE_PREVIOUS_DAY = 4;
@@ -116,7 +71,6 @@ public final class UsageEvents implements Parcelable {
          * An event type denoting that a package was interacted with in some way by the system.
          * @hide
          */
-        @SystemApi
         public static final int SYSTEM_INTERACTION = 6;
 
         /**
@@ -132,215 +86,29 @@ public final class UsageEvents implements Parcelable {
         public static final int SHORTCUT_INVOCATION = 8;
 
         /**
-         * An event type denoting that a package was selected by the user for ChooserActivity.
-         * @hide
-         */
-        public static final int CHOOSER_ACTION = 9;
-
-        /**
-         * An event type denoting that a notification was viewed by the user.
-         * @hide
-         */
-        @SystemApi
-        public static final int NOTIFICATION_SEEN = 10;
-
-        /**
-         * An event type denoting a change in App Standby Bucket. The new bucket can be
-         * retrieved by calling {@link #getAppStandbyBucket()}.
-         *
-         * @see UsageStatsManager#getAppStandbyBucket()
-         */
-        public static final int STANDBY_BUCKET_CHANGED = 11;
-
-        /**
-         * An event type denoting that an app posted an interruptive notification. Visual and
-         * audible interruptions are included.
-         * @hide
-         */
-        @SystemApi
-        public static final int NOTIFICATION_INTERRUPTION = 12;
-
-        /**
-         * A Slice was pinned by the default launcher or the default assistant.
-         * @hide
-         */
-        @SystemApi
-        public static final int SLICE_PINNED_PRIV = 13;
-
-        /**
-         * A Slice was pinned by an app.
-         * @hide
-         */
-        @SystemApi
-        public static final int SLICE_PINNED = 14;
-
-        /**
-         * An event type denoting that the screen has gone in to an interactive state (turned
-         * on for full user interaction, not ambient display or other non-interactive state).
-         */
-        public static final int SCREEN_INTERACTIVE = 15;
-
-        /**
-         * An event type denoting that the screen has gone in to a non-interactive state
-         * (completely turned off or turned on only in a non-interactive state like ambient
-         * display).
-         */
-        public static final int SCREEN_NON_INTERACTIVE = 16;
-
-        /**
-         * An event type denoting that the screen's keyguard has been shown, whether or not
-         * the screen is off.
-         */
-        public static final int KEYGUARD_SHOWN = 17;
-
-        /**
-         * An event type denoting that the screen's keyguard has been hidden.  This typically
-         * happens when the user unlocks their phone after turning it on.
-         */
-        public static final int KEYGUARD_HIDDEN = 18;
-
-        /**
-         * An event type denoting start of a foreground service.
-         * This event has a package name and class name associated with it and can be retrieved
-         * using {@link #getPackageName()} and {@link #getClassName()}.
-         * If a package has multiple foreground services, this event is reported for each service
-         * that is started.
-         */
-        public static final int FOREGROUND_SERVICE_START = 19;
-
-        /**
-         * An event type denoting stop of a foreground service.
-         * This event has a package name and class name associated with it and can be retrieved
-         * using {@link #getPackageName()} and {@link #getClassName()}.
-         * If a package has multiple foreground services, this event is reported for each service
-         * that is stopped.
-         */
-        public static final int FOREGROUND_SERVICE_STOP = 20;
-
-        /**
-         * An event type denoting that a foreground service is at started state at beginning of a
-         * time interval.
-         * This is effectively treated as a {@link #FOREGROUND_SERVICE_START}.
          * {@hide}
          */
-        public static final int CONTINUING_FOREGROUND_SERVICE = 21;
-
-        /**
-         * An event type denoting that a foreground service is at started state when the stats
-         * rolled-over at the end of a time interval.
-         * {@hide}
-         */
-        public static final int ROLLOVER_FOREGROUND_SERVICE = 22;
-
-        /**
-         * An activity becomes invisible on the UI, corresponding to
-         * {@link android.app.Activity#onStop()} of the activity's lifecycle.
-         */
-        public static final int ACTIVITY_STOPPED = 23;
-
-        /**
-         * An activity object is destroyed, corresponding to
-         * {@link android.app.Activity#onDestroy()} of the activity's lifecycle.
-         * {@hide}
-         */
-        public static final int ACTIVITY_DESTROYED = 24;
-
-        /**
-         * The event type demoting that a flush of UsageStatsDatabase to file system. Before the
-         * flush all usage stats need to be updated to latest timestamp to make sure the most
-         * up to date stats are persisted.
-         * @hide
-         */
-        public static final int FLUSH_TO_DISK = 25;
-
-        /**
-         * An event type denoting that the Android runtime underwent a shutdown process.
-         * A DEVICE_SHUTDOWN event should be treated as if all started activities and foreground
-         * services are now stopped and no explicit {@link #ACTIVITY_STOPPED} and
-         * {@link #FOREGROUND_SERVICE_STOP} events will be generated for them.
-         *
-         * <p>The DEVICE_SHUTDOWN timestamp is actually the last time UsageStats database is
-         * persisted before the actual shutdown. Events (if there are any) between this timestamp
-         * and the actual shutdown is not persisted in the database. So any open events without
-         * matching close events between DEVICE_SHUTDOWN and {@link #DEVICE_STARTUP} should be
-         * ignored because the closing time is unknown.</p>
-         */
-        public static final int DEVICE_SHUTDOWN = 26;
-
-        /**
-         * An event type denoting that the Android runtime started up. This could be after a
-         * shutdown or a runtime restart. Any open events without matching close events between
-         * {@link #DEVICE_SHUTDOWN} and DEVICE_STARTUP should be ignored because the closing time is
-         * unknown.
-         */
-        public static final int DEVICE_STARTUP = 27;
-
-        /**
-         * Keep in sync with the greatest event type value.
-         * @hide
-         */
-        public static final int MAX_EVENT_TYPE = 27;
-
-        /** @hide */
-        public static final int FLAG_IS_PACKAGE_INSTANT_APP = 1 << 0;
-
-        /** @hide */
-        @IntDef(flag = true, prefix = { "FLAG_" }, value = {
-                FLAG_IS_PACKAGE_INSTANT_APP,
-        })
-        @Retention(RetentionPolicy.SOURCE)
-        public @interface EventFlags {}
-
-        /**
-         * Bitwise OR all valid flag constants to create this constant.
-         * @hide
-         */
-        public static final int VALID_FLAG_BITS = FLAG_IS_PACKAGE_INSTANT_APP;
-
-        /**
-         * {@hide}
-         */
-        @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
         public String mPackage;
 
         /**
          * {@hide}
          */
-        @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
         public String mClass;
 
         /**
          * {@hide}
          */
-        public int mInstanceId;
-
-        /**
-         * {@hide}
-         */
-        public String mTaskRootPackage;
-
-        /**
-         * {@hide}
-         */
-        public String mTaskRootClass;
-
-        /**
-         * {@hide}
-         */
-        @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
         public long mTimeStamp;
 
         /**
          * {@hide}
          */
-        @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
         public int mEventType;
 
         /**
          * Only present for {@link #CONFIGURATION_CHANGE} event types.
          * {@hide}
          */
-        @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
         public Configuration mConfiguration;
 
         /**
@@ -351,88 +119,10 @@ public final class UsageEvents implements Parcelable {
         public String mShortcutId;
 
         /**
-         * Action type passed to ChooserActivity
-         * Only present for {@link #CHOOSER_ACTION} event types.
-         * {@hide}
-         */
-        public String mAction;
-
-        /**
-         * Content type passed to ChooserActivity.
-         * Only present for {@link #CHOOSER_ACTION} event types.
-         * {@hide}
-         */
-        public String mContentType;
-
-        /**
-         * Content annotations passed to ChooserActivity.
-         * Only present for {@link #CHOOSER_ACTION} event types.
-         * {@hide}
-         */
-        public String[] mContentAnnotations;
-
-        /**
-         * The app standby bucket assigned and reason. Bucket is the high order 16 bits, reason
-         * is the low order 16 bits.
-         * Only present for {@link #STANDBY_BUCKET_CHANGED} event types
-         * {@hide}
-         */
-        public int mBucketAndReason;
-
-        /**
-         * The id of the {@link android.app.NotificationChannel} to which an interruptive
-         * notification was posted.
-         * Only present for {@link #NOTIFICATION_INTERRUPTION} event types.
-         * {@hide}
-         */
-        public String mNotificationChannelId;
-
-        /** @hide */
-        @EventFlags
-        public int mFlags;
-
-        public Event() {
-        }
-
-        /** @hide */
-        public Event(int type,  long timeStamp) {
-            mEventType = type;
-            mTimeStamp = timeStamp;
-        }
-
-        /** @hide */
-        public Event(Event orig) {
-            mPackage = orig.mPackage;
-            mClass = orig.mClass;
-            mInstanceId = orig.mInstanceId;
-            mTaskRootPackage = orig.mTaskRootPackage;
-            mTaskRootClass = orig.mTaskRootClass;
-            mTimeStamp = orig.mTimeStamp;
-            mEventType = orig.mEventType;
-            mConfiguration = orig.mConfiguration;
-            mShortcutId = orig.mShortcutId;
-            mAction = orig.mAction;
-            mContentType = orig.mContentType;
-            mContentAnnotations = orig.mContentAnnotations;
-            mFlags = orig.mFlags;
-            mBucketAndReason = orig.mBucketAndReason;
-            mNotificationChannelId = orig.mNotificationChannelId;
-        }
-
-        /**
          * The package name of the source of this event.
          */
         public String getPackageName() {
             return mPackage;
-        }
-
-        /**
-         * Indicates whether it is an instant app.
-         * @hide
-         */
-        @SystemApi
-        public boolean isInstantApp() {
-            return (mFlags & FLAG_IS_PACKAGE_INSTANT_APP) == FLAG_IS_PACKAGE_INSTANT_APP;
         }
 
         /**
@@ -441,38 +131,6 @@ public final class UsageEvents implements Parcelable {
          */
         public String getClassName() {
             return mClass;
-        }
-
-        /**
-         *  An activity can be instantiated multiple times, this is the unique activity instance ID.
-         *  For non-activity class, instance ID is always zero.
-         *  @hide
-         */
-        @SystemApi
-        public int getInstanceId() {
-            return mInstanceId;
-        }
-
-        /**
-         * The package name of the task root when this event was reported.
-         * Or {@code null} for queries from apps without {@link
-         * android.Manifest.permission#PACKAGE_USAGE_STATS}
-         * @hide
-         */
-        @SystemApi
-        public @Nullable String getTaskRootPackageName() {
-            return mTaskRootPackage;
-        }
-
-        /**
-         * The class name of the task root when this event was reported.
-         * Or {@code null} for queries from apps without {@link
-         * android.Manifest.permission#PACKAGE_USAGE_STATS}
-         * @hide
-         */
-        @SystemApi
-        public @Nullable String getTaskRootClassName() {
-            return mTaskRootClass;
         }
 
         /**
@@ -486,14 +144,9 @@ public final class UsageEvents implements Parcelable {
 
         /**
          * The event type.
-         * @see #ACTIVITY_PAUSED
-         * @see #ACTIVITY_RESUMED
-         * @see #CONFIGURATION_CHANGE
-         * @see #USER_INTERACTION
-         * @see #STANDBY_BUCKET_CHANGED
-         * @see #FOREGROUND_SERVICE_START
-         * @see #FOREGROUND_SERVICE_STOP
-         * @see #ACTIVITY_STOPPED
+         *
+         * See {@link #MOVE_TO_BACKGROUND}
+         * See {@link #MOVE_TO_FOREGROUND}
          */
         public int getEventType() {
             return mEventType;
@@ -516,111 +169,41 @@ public final class UsageEvents implements Parcelable {
         public String getShortcutId() {
             return mShortcutId;
         }
-
-        /**
-         * Returns the standby bucket of the app, if the event is of type
-         * {@link #STANDBY_BUCKET_CHANGED}, otherwise returns 0.
-         * @return the standby bucket associated with the event.
-         * @hide
-         */
-        public int getStandbyBucket() {
-            return (mBucketAndReason & 0xFFFF0000) >>> 16;
-        }
-
-        /**
-         * Returns the standby bucket of the app, if the event is of type
-         * {@link #STANDBY_BUCKET_CHANGED}, otherwise returns 0.
-         * @return the standby bucket associated with the event.
-         *
-         */
-        public int getAppStandbyBucket() {
-            return (mBucketAndReason & 0xFFFF0000) >>> 16;
-        }
-
-        /**
-         * Returns the reason for the bucketing, if the event is of type
-         * {@link #STANDBY_BUCKET_CHANGED}, otherwise returns 0. Reason values include
-         * the main reason which is one of REASON_MAIN_*, OR'ed with REASON_SUB_*, if there
-         * are sub-reasons for the main reason, such as REASON_SUB_USAGE_* when the main reason
-         * is REASON_MAIN_USAGE.
-         * @hide
-         */
-        public int getStandbyReason() {
-            return mBucketAndReason & 0x0000FFFF;
-        }
-
-        /**
-         * Returns the ID of the {@link android.app.NotificationChannel} for this event if the
-         * event is of type {@link #NOTIFICATION_INTERRUPTION}, otherwise it returns null;
-         * @hide
-         */
-        @SystemApi
-        public String getNotificationChannelId() {
-            return mNotificationChannelId;
-        }
-
-        /** @hide */
-        public Event getObfuscatedIfInstantApp() {
-            if (!isInstantApp()) {
-                return this;
-            }
-            final Event ret = new Event(this);
-            ret.mPackage = INSTANT_APP_PACKAGE_NAME;
-            ret.mClass = INSTANT_APP_CLASS_NAME;
-
-            // Note there are other string fields too, but they're for app shortcuts and choosers,
-            // which instant apps can't use anyway, so there's no need to hide them.
-            return ret;
-        }
     }
 
     // Only used when creating the resulting events. Not used for reading/unparceling.
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     private List<Event> mEventsToWrite = null;
 
     // Only used for reading/unparceling events.
-    @UnsupportedAppUsage
     private Parcel mParcel = null;
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     private final int mEventCount;
 
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     private int mIndex = 0;
-
-    // Only used when parceling events. If false, task roots will be omitted from the parcel
-    private final boolean mIncludeTaskRoots;
 
     /*
      * In order to save space, since ComponentNames will be duplicated everywhere,
      * we use a map and index into it.
      */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     private String[] mStringPool;
 
     /**
      * Construct the iterator from a parcel.
      * {@hide}
      */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     public UsageEvents(Parcel in) {
-        byte[] bytes = in.readBlob();
-        Parcel data = Parcel.obtain();
-        data.unmarshall(bytes, 0, bytes.length);
-        data.setDataPosition(0);
-        mEventCount = data.readInt();
-        mIndex = data.readInt();
+        mEventCount = in.readInt();
+        mIndex = in.readInt();
         if (mEventCount > 0) {
-            mStringPool = data.createStringArray();
+            mStringPool = in.createStringArray();
 
-            final int listByteLength = data.readInt();
-            final int positionInParcel = data.readInt();
+            final int listByteLength = in.readInt();
+            final int positionInParcel = in.readInt();
             mParcel = Parcel.obtain();
             mParcel.setDataPosition(0);
-            mParcel.appendFrom(data, data.dataPosition(), listByteLength);
+            mParcel.appendFrom(in, in.dataPosition(), listByteLength);
             mParcel.setDataSize(mParcel.dataPosition());
             mParcel.setDataPosition(positionInParcel);
         }
-        mIncludeTaskRoots = true;
     }
 
     /**
@@ -629,27 +212,16 @@ public final class UsageEvents implements Parcelable {
      */
     UsageEvents() {
         mEventCount = 0;
-        mIncludeTaskRoots = true;
     }
 
     /**
      * Construct the iterator in preparation for writing it to a parcel.
-     * Defaults to excluding task roots from the parcel.
      * {@hide}
      */
     public UsageEvents(List<Event> events, String[] stringPool) {
-        this(events, stringPool, false);
-    }
-
-    /**
-     * Construct the iterator in preparation for writing it to a parcel.
-     * {@hide}
-     */
-    public UsageEvents(List<Event> events, String[] stringPool, boolean includeTaskRoots) {
         mStringPool = stringPool;
         mEventCount = events.size();
         mEventsToWrite = events;
-        mIncludeTaskRoots = includeTaskRoots;
     }
 
     /**
@@ -698,7 +270,6 @@ public final class UsageEvents implements Parcelable {
         }
     }
 
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     private int findStringIndex(String str) {
         final int index = Arrays.binarySearch(mStringPool, str);
         if (index < 0) {
@@ -710,7 +281,6 @@ public final class UsageEvents implements Parcelable {
     /**
      * Writes a single event to the parcel. Modify this when updating {@link Event}.
      */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     private void writeEventToParcel(Event event, Parcel p, int flags) {
         final int packageIndex;
         if (event.mPackage != null) {
@@ -725,25 +295,8 @@ public final class UsageEvents implements Parcelable {
         } else {
             classIndex = -1;
         }
-
-        final int taskRootPackageIndex;
-        if (mIncludeTaskRoots && event.mTaskRootPackage != null) {
-            taskRootPackageIndex = findStringIndex(event.mTaskRootPackage);
-        } else {
-            taskRootPackageIndex = -1;
-        }
-
-        final int taskRootClassIndex;
-        if (mIncludeTaskRoots && event.mTaskRootClass != null) {
-            taskRootClassIndex = findStringIndex(event.mTaskRootClass);
-        } else {
-            taskRootClassIndex = -1;
-        }
         p.writeInt(packageIndex);
         p.writeInt(classIndex);
-        p.writeInt(event.mInstanceId);
-        p.writeInt(taskRootPackageIndex);
-        p.writeInt(taskRootClassIndex);
         p.writeInt(event.mEventType);
         p.writeLong(event.mTimeStamp);
 
@@ -754,25 +307,12 @@ public final class UsageEvents implements Parcelable {
             case Event.SHORTCUT_INVOCATION:
                 p.writeString(event.mShortcutId);
                 break;
-            case Event.CHOOSER_ACTION:
-                p.writeString(event.mAction);
-                p.writeString(event.mContentType);
-                p.writeStringArray(event.mContentAnnotations);
-                break;
-            case Event.STANDBY_BUCKET_CHANGED:
-                p.writeInt(event.mBucketAndReason);
-                break;
-            case Event.NOTIFICATION_INTERRUPTION:
-                p.writeString(event.mNotificationChannelId);
-                break;
         }
-        p.writeInt(event.mFlags);
     }
 
     /**
      * Reads a single event from the parcel. Modify this when updating {@link Event}.
      */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     private void readEventFromParcel(Parcel p, Event eventOut) {
         final int packageIndex = p.readInt();
         if (packageIndex >= 0) {
@@ -787,32 +327,12 @@ public final class UsageEvents implements Parcelable {
         } else {
             eventOut.mClass = null;
         }
-        eventOut.mInstanceId = p.readInt();
-
-        final int taskRootPackageIndex = p.readInt();
-        if (taskRootPackageIndex >= 0) {
-            eventOut.mTaskRootPackage = mStringPool[taskRootPackageIndex];
-        } else {
-            eventOut.mTaskRootPackage = null;
-        }
-
-        final int taskRootClassIndex = p.readInt();
-        if (taskRootClassIndex >= 0) {
-            eventOut.mTaskRootClass = mStringPool[taskRootClassIndex];
-        } else {
-            eventOut.mTaskRootClass = null;
-        }
-
         eventOut.mEventType = p.readInt();
         eventOut.mTimeStamp = p.readLong();
 
         // Fill out the event-dependant fields.
         eventOut.mConfiguration = null;
         eventOut.mShortcutId = null;
-        eventOut.mAction = null;
-        eventOut.mContentType = null;
-        eventOut.mContentAnnotations = null;
-        eventOut.mNotificationChannelId = null;
 
         switch (eventOut.mEventType) {
             case Event.CONFIGURATION_CHANGE:
@@ -822,19 +342,7 @@ public final class UsageEvents implements Parcelable {
             case Event.SHORTCUT_INVOCATION:
                 eventOut.mShortcutId = p.readString();
                 break;
-            case Event.CHOOSER_ACTION:
-                eventOut.mAction = p.readString();
-                eventOut.mContentType = p.readString();
-                eventOut.mContentAnnotations = p.createStringArray();
-                break;
-            case Event.STANDBY_BUCKET_CHANGED:
-                eventOut.mBucketAndReason = p.readInt();
-                break;
-            case Event.NOTIFICATION_INTERRUPTION:
-                eventOut.mNotificationChannelId = p.readString();
-                break;
         }
-        eventOut.mFlags = p.readInt();
     }
 
     @Override
@@ -844,11 +352,10 @@ public final class UsageEvents implements Parcelable {
 
     @Override
     public void writeToParcel(Parcel dest, int flags) {
-        Parcel data = Parcel.obtain();
-        data.writeInt(mEventCount);
-        data.writeInt(mIndex);
+        dest.writeInt(mEventCount);
+        dest.writeInt(mIndex);
         if (mEventCount > 0) {
-            data.writeStringArray(mStringPool);
+            dest.writeStringArray(mStringPool);
 
             if (mEventsToWrite != null) {
                 // Write out the events
@@ -863,37 +370,34 @@ public final class UsageEvents implements Parcelable {
                     final int listByteLength = p.dataPosition();
 
                     // Write the total length of the data.
-                    data.writeInt(listByteLength);
+                    dest.writeInt(listByteLength);
 
                     // Write our current position into the data.
-                    data.writeInt(0);
+                    dest.writeInt(0);
 
                     // Write the data.
-                    data.appendFrom(p, 0, listByteLength);
+                    dest.appendFrom(p, 0, listByteLength);
                 } finally {
                     p.recycle();
                 }
 
             } else if (mParcel != null) {
                 // Write the total length of the data.
-                data.writeInt(mParcel.dataSize());
+                dest.writeInt(mParcel.dataSize());
 
                 // Write out current position into the data.
-                data.writeInt(mParcel.dataPosition());
+                dest.writeInt(mParcel.dataPosition());
 
                 // Write the data.
-                data.appendFrom(mParcel, 0, mParcel.dataSize());
+                dest.appendFrom(mParcel, 0, mParcel.dataSize());
             } else {
                 throw new IllegalStateException(
                         "Either mParcel or mEventsToWrite must not be null");
             }
         }
-        // Data can be too large for a transact. Write the data as a Blob, which will be written to
-        // ashmem if too large.
-        dest.writeBlob(data.marshall());
     }
 
-    public static final @android.annotation.NonNull Creator<UsageEvents> CREATOR = new Creator<UsageEvents>() {
+    public static final Creator<UsageEvents> CREATOR = new Creator<UsageEvents>() {
         @Override
         public UsageEvents createFromParcel(Parcel source) {
             return new UsageEvents(source);

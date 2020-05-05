@@ -16,59 +16,39 @@
 
 package com.android.server.am;
 
-import static com.google.common.truth.Truth.assertThat;
-
-import static org.junit.Assert.assertEquals;
-
 import android.app.ActivityManager;
-import android.app.ActivityManager.RecentTaskInfo;
+import android.app.ActivityManagerNative;
 import android.app.IActivityManager;
-import android.os.RemoteException;
+import android.os.ServiceManager;
 import android.os.UserHandle;
-import android.platform.test.annotations.Presubmit;
-
-import androidx.test.filters.FlakyTest;
-
-import org.junit.Before;
-import org.junit.Test;
+import android.os.RemoteException;
+import android.test.AndroidTestCase;
 
 import java.util.List;
 
-/**
- * Tests for {@link ActivityManager}.
- *
- * Build/Install/Run:
- *  atest FrameworksServicesTests:ActivityManagerTest
- */
-@FlakyTest(detail = "Promote to presubmit if stable")
-@Presubmit
-public class ActivityManagerTest {
+public class ActivityManagerTest extends AndroidTestCase {
 
-    private IActivityManager mService;
-
-    @Before
+    IActivityManager service;
+    @Override
     public void setUp() throws Exception {
-        mService = ActivityManager.getService();
+        super.setUp();
+        service = ActivityManagerNative.getDefault();
     }
 
-    @Test
     public void testTaskIdsForRunningUsers() throws RemoteException {
-        int[] runningUserIds = mService.getRunningUserIds();
-        assertThat(runningUserIds).isNotEmpty();
-        for (int userId : runningUserIds) {
+        for(int userId : service.getRunningUserIds()) {
             testTaskIdsForUser(userId);
         }
     }
 
     private void testTaskIdsForUser(int userId) throws RemoteException {
-        List<?> recentTasks = mService.getRecentTasks(100, 0, userId).getList();
-        if (recentTasks != null) {
-            for (Object elem : recentTasks) {
-                assertThat(elem).isInstanceOf(RecentTaskInfo.class);
-                RecentTaskInfo recentTask = (RecentTaskInfo) elem;
-                int taskId = recentTask.taskId;
+        List<ActivityManager.RecentTaskInfo> recentTasks = service.getRecentTasks(
+                100, 0, userId).getList();
+        if(recentTasks != null) {
+            for(ActivityManager.RecentTaskInfo recentTask : recentTasks) {
+                int taskId = recentTask.persistentId;
                 assertEquals("The task id " + taskId + " should not belong to user " + userId,
-                             taskId / UserHandle.PER_USER_RANGE, userId);
+                        taskId / UserHandle.PER_USER_RANGE, userId);
             }
         }
     }

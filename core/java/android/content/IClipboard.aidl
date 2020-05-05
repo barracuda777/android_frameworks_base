@@ -26,18 +26,16 @@ import android.content.IOnPrimaryClipChangedListener;
  * {@hide}
  */
 interface IClipboard {
-    void setPrimaryClip(in ClipData clip, String callingPackage, int userId);
-    void clearPrimaryClip(String callingPackage, int userId);
-    ClipData getPrimaryClip(String pkg, int userId);
-    ClipDescription getPrimaryClipDescription(String callingPackage, int userId);
-    boolean hasPrimaryClip(String callingPackage, int userId);
+    void setPrimaryClip(in ClipData clip, String callingPackage);
+    ClipData getPrimaryClip(String pkg);
+    ClipDescription getPrimaryClipDescription(String callingPackage);
+    boolean hasPrimaryClip(String callingPackage);
     void addPrimaryClipChangedListener(in IOnPrimaryClipChangedListener listener,
-            String callingPackage, int userId);
-    void removePrimaryClipChangedListener(in IOnPrimaryClipChangedListener listener,
-            String callingPackage, int userId);
+            String callingPackage);
+    void removePrimaryClipChangedListener(in IOnPrimaryClipChangedListener listener);
 
     /**
      * Returns true if the clipboard contains text; false otherwise.
      */
-    boolean hasClipboardText(String callingPackage, int userId);
+    boolean hasClipboardText(String callingPackage);
 }

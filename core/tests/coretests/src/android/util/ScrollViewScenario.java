@@ -16,6 +16,8 @@
 
 package android.util;
 
+import com.google.android.collect.Lists;
+
 import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
@@ -26,8 +28,6 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
-
-import com.google.android.collect.Lists;
 
 import java.util.List;
 
@@ -269,6 +269,5 @@ public abstract class ScrollViewScenario extends Activity {
         mScrollView.setSmoothScrollingEnabled(false);
 
         setContentView(mScrollView);
-        mScrollView.post(() -> mScrollView.restoreDefaultFocus());
     }
 }

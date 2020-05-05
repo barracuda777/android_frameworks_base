@@ -16,8 +16,6 @@
 
 package android.graphics;
 
-import android.annotation.UnsupportedAppUsage;
-
 /**
  * The NinePatch class permits drawing a bitmap in nine or more sections.
  * Essentially, it allows the creation of custom graphics that will scale the
@@ -43,7 +41,6 @@ public class NinePatch {
      */
     public static class InsetStruct {
         @SuppressWarnings({"UnusedDeclaration"}) // called from JNI
-        @UnsupportedAppUsage
         InsetStruct(int opticalLeft, int opticalTop, int opticalRight, int opticalBottom,
                 int outlineLeft, int outlineTop, int outlineRight, int outlineBottom,
                 float outlineRadius, int outlineAlpha, float decodeScale) {
@@ -80,7 +77,6 @@ public class NinePatch {
         }
     }
 
-    @UnsupportedAppUsage
     private final Bitmap mBitmap;
 
     /**
@@ -88,7 +84,6 @@ public class NinePatch {
      *
      * @hide
      */
-    @UnsupportedAppUsage
     public long mNativeChunk;
 
     private Paint mPaint;
@@ -261,8 +256,7 @@ public class NinePatch {
      * that are transparent.
      */
     public final Region getTransparentRegion(Rect bounds) {
-        long r = nativeGetTransparentRegion(mBitmap.getNativeInstance(),
-                mNativeChunk, bounds);
+        long r = nativeGetTransparentRegion(mBitmap, mNativeChunk, bounds);
         return r != 0 ? new Region(r) : null;
     }
 
@@ -283,6 +277,5 @@ public class NinePatch {
      */
     private static native long validateNinePatchChunk(byte[] chunk);
     private static native void nativeFinalize(long chunk);
-    private static native long nativeGetTransparentRegion(long bitmapHandle, long chunk,
-        Rect location);
+    private static native long nativeGetTransparentRegion(Bitmap bitmap, long chunk, Rect location);
 }

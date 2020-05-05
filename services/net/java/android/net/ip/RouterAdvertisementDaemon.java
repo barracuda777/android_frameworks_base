@@ -16,31 +16,25 @@
 
 package android.net.ip;
 
-import static android.net.util.NetworkConstants.IPV6_MIN_MTU;
-import static android.net.util.NetworkConstants.RFC7421_PREFIX_LENGTH;
-import static android.system.OsConstants.AF_INET6;
-import static android.system.OsConstants.IPPROTO_ICMPV6;
-import static android.system.OsConstants.SOCK_RAW;
-import static android.system.OsConstants.SOL_SOCKET;
-import static android.system.OsConstants.SO_BINDTODEVICE;
-import static android.system.OsConstants.SO_SNDTIMEO;
+import static android.system.OsConstants.*;
 
 import android.net.IpPrefix;
 import android.net.LinkAddress;
+import android.net.LinkProperties;
 import android.net.NetworkUtils;
-import android.net.TrafficStats;
-import android.net.util.InterfaceParams;
 import android.system.ErrnoException;
 import android.system.Os;
+import android.system.StructGroupReq;
 import android.system.StructTimeval;
 import android.util.Log;
 
 import com.android.internal.annotations.GuardedBy;
-import com.android.internal.util.TrafficStatsConstants;
 
 import libcore.io.IoBridge;
+import libcore.util.HexEncoding;
 
 import java.io.FileDescriptor;
+import java.io.InterruptedIOException;
 import java.io.IOException;
 import java.net.Inet6Address;
 import java.net.InetAddress;
@@ -50,6 +44,7 @@ import java.net.UnknownHostException;
 import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -73,6 +68,7 @@ public class RouterAdvertisementDaemon {
     private static final String TAG = RouterAdvertisementDaemon.class.getSimpleName();
     private static final byte ICMPV6_ND_ROUTER_SOLICIT = asByte(133);
     private static final byte ICMPV6_ND_ROUTER_ADVERT  = asByte(134);
+    private static final int IPV6_MIN_MTU = 1280;
     private static final int MIN_RA_HEADER_SIZE = 16;
 
     // Summary of various timers and lifetimes.
@@ -98,7 +94,9 @@ public class RouterAdvertisementDaemon {
             (byte) 0xff, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
     };
 
-    private final InterfaceParams mInterface;
+    private final String mIfName;
+    private final int mIfIndex;
+    private final byte[] mHwAddr;
     private final InetSocketAddress mAllNodes;
 
     // This lock is to protect the RA from being updated while being
@@ -120,23 +118,13 @@ public class RouterAdvertisementDaemon {
     private volatile UnicastResponder mUnicastResponder;
 
     public static class RaParams {
-        // Tethered traffic will have the hop limit properly decremented.
-        // Consequently, set the hoplimit greater by one than the upstream
-        // unicast hop limit.
-        //
-        // TODO: Dynamically pass down the IPV6_UNICAST_HOPS value from the
-        // upstream interface for more correct behaviour.
-        static final byte DEFAULT_HOPLIMIT = 65;
-
         public boolean hasDefaultRoute;
-        public byte hopLimit;
         public int mtu;
         public HashSet<IpPrefix> prefixes;
         public HashSet<Inet6Address> dnses;
 
         public RaParams() {
             hasDefaultRoute = false;
-            hopLimit = DEFAULT_HOPLIMIT;
             mtu = IPV6_MIN_MTU;
             prefixes = new HashSet<IpPrefix>();
             dnses = new HashSet<Inet6Address>();
@@ -144,7 +132,6 @@ public class RouterAdvertisementDaemon {
 
         public RaParams(RaParams other) {
             hasDefaultRoute = other.hasDefaultRoute;
-            hopLimit = other.hopLimit;
             mtu = other.mtu;
             prefixes = (HashSet) other.prefixes.clone();
             dnses = (HashSet) other.dnses.clone();
@@ -234,9 +221,11 @@ public class RouterAdvertisementDaemon {
     }
 
 
-    public RouterAdvertisementDaemon(InterfaceParams ifParams) {
-        mInterface = ifParams;
-        mAllNodes = new InetSocketAddress(getAllNodesForScopeId(mInterface.index), 0);
+    public RouterAdvertisementDaemon(String ifname, int ifindex, byte[] hwaddr) {
+        mIfName = ifname;
+        mIfIndex = ifindex;
+        mHwAddr = hwaddr;
+        mAllNodes = new InetSocketAddress(getAllNodesForScopeId(mIfIndex), 0);
         mDeprecatedInfoTracker = new DeprecatedInfoTracker();
     }
 
@@ -276,25 +265,19 @@ public class RouterAdvertisementDaemon {
 
     public void stop() {
         closeSocket();
-        // Wake up mMulticastTransmitter thread to interrupt a potential 1 day sleep before
-        // the thread's termination.
-        maybeNotifyMulticastTransmitter();
         mMulticastTransmitter = null;
         mUnicastResponder = null;
     }
 
-    @GuardedBy("mLock")
     private void assembleRaLocked() {
         final ByteBuffer ra = ByteBuffer.wrap(mRA);
         ra.order(ByteOrder.BIG_ENDIAN);
 
-        final boolean haveRaParams = (mRaParams != null);
         boolean shouldSendRA = false;
 
         try {
-            putHeader(ra, haveRaParams && mRaParams.hasDefaultRoute,
-                    haveRaParams ? mRaParams.hopLimit : RaParams.DEFAULT_HOPLIMIT);
-            putSlla(ra, mInterface.macAddr.toByteArray());
+            putHeader(ra, mRaParams != null && mRaParams.hasDefaultRoute);
+            putSlla(ra, mHwAddr);
             mRaLength = ra.position();
 
             // https://tools.ietf.org/html/rfc5175#section-4 says:
@@ -304,7 +287,7 @@ public class RouterAdvertisementDaemon {
             //
             // putExpandedFlagsOption(ra);
 
-            if (haveRaParams) {
+            if (mRaParams != null) {
                 putMtu(ra, mRaParams.mtu);
                 mRaLength = ra.position();
 
@@ -365,7 +348,7 @@ public class RouterAdvertisementDaemon {
     private static byte asByte(int value) { return (byte) value; }
     private static short asShort(int value) { return (short) value; }
 
-    private static void putHeader(ByteBuffer ra, boolean hasDefaultRoute, byte hopLimit) {
+    private static void putHeader(ByteBuffer ra, boolean hasDefaultRoute) {
         /**
             Router Advertisement Message Format
 
@@ -383,10 +366,11 @@ public class RouterAdvertisementDaemon {
             |   Options ...
             +-+-+-+-+-+-+-+-+-+-+-+-
         */
+        final byte DEFAULT_HOPLIMIT = 64;
         ra.put(ICMPV6_ND_ROUTER_ADVERT)
           .put(asByte(0))
           .putShort(asShort(0))
-          .put(hopLimit)
+          .put(DEFAULT_HOPLIMIT)
           // RFC 4191 "high" preference, iff. advertising a default route.
           .put(hasDefaultRoute ? asByte(0x08) : asByte(0))
           .putShort(hasDefaultRoute ? asShort(DEFAULT_LIFETIME) : asShort(0))
@@ -558,14 +542,6 @@ public class RouterAdvertisementDaemon {
             +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
          */
 
-        final HashSet<Inet6Address> filteredDnses = new HashSet<>();
-        for (Inet6Address dns : dnses) {
-            if ((new LinkAddress(dns, RFC7421_PREFIX_LENGTH)).isGlobalPreferred()) {
-                filteredDnses.add(dns);
-            }
-        }
-        if (filteredDnses.isEmpty()) return;
-
         final byte ND_OPTION_RDNSS = 25;
         final byte RDNSS_NUM_8OCTETS = asByte(dnses.size() * 2 + 1);
         ra.put(ND_OPTION_RDNSS)
@@ -573,7 +549,7 @@ public class RouterAdvertisementDaemon {
           .putShort(asShort(0))
           .putInt(lifetime);
 
-        for (Inet6Address dns : filteredDnses) {
+        for (Inet6Address dns : dnses) {
             // NOTE: If the full of list DNS servers doesn't fit in the packet,
             // this code will cause a buffer overflow and the RA won't include
             // this instance of the option at all.
@@ -587,21 +563,17 @@ public class RouterAdvertisementDaemon {
     private boolean createSocket() {
         final int SEND_TIMEOUT_MS = 300;
 
-        final int oldTag = TrafficStats.getAndSetThreadStatsTag(
-                TrafficStatsConstants.TAG_SYSTEM_NEIGHBOR);
         try {
             mSocket = Os.socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
             // Setting SNDTIMEO is purely for defensive purposes.
             Os.setsockoptTimeval(
                     mSocket, SOL_SOCKET, SO_SNDTIMEO, StructTimeval.fromMillis(SEND_TIMEOUT_MS));
-            Os.setsockoptIfreq(mSocket, SOL_SOCKET, SO_BINDTODEVICE, mInterface.name);
+            Os.setsockoptIfreq(mSocket, SOL_SOCKET, SO_BINDTODEVICE, mIfName);
             NetworkUtils.protectFromVpn(mSocket);
-            NetworkUtils.setupRaSocket(mSocket, mInterface.index);
+            NetworkUtils.setupRaSocket(mSocket, mIfIndex);
         } catch (ErrnoException | IOException e) {
             Log.e(TAG, "Failed to create RA daemon socket: " + e);
             return false;
-        } finally {
-            TrafficStats.setThreadStatsTag(oldTag);
         }
 
         return true;
@@ -629,7 +601,7 @@ public class RouterAdvertisementDaemon {
         final InetAddress destip = dest.getAddress();
         return (destip instanceof Inet6Address) &&
                 destip.isLinkLocalAddress() &&
-               (((Inet6Address) destip).getScopeId() == mInterface.index);
+               (((Inet6Address) destip).getScopeId() == mIfIndex);
     }
 
     private void maybeSendRA(InetSocketAddress dest) {

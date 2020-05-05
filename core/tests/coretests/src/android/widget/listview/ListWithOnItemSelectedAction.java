@@ -16,8 +16,8 @@
 
 package android.widget.listview;
 
-import android.util.ListScenario;
 import android.widget.TextView;
+import android.util.ListScenario;
 
 /**
  * The header text view echos the value of the selected item by using (indirectly)

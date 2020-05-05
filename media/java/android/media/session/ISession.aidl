@@ -36,18 +36,24 @@ interface ISession {
     void setActive(boolean active);
     void setMediaButtonReceiver(in PendingIntent mbr);
     void setLaunchPendingIntent(in PendingIntent pi);
-    void destroySession();
+    void destroy();
 
     // These commands are for the TransportPerformer
-    void setMetadata(in MediaMetadata metadata, long duration, String metadataDescription);
+    void setMetadata(in MediaMetadata metadata);
     void setPlaybackState(in PlaybackState state);
     void setQueue(in ParceledListSlice queue);
     void setQueueTitle(CharSequence title);
     void setExtras(in Bundle extras);
     void setRatingType(int type);
+    void playItemResponse(boolean success);
+    void updateNowPlayingEntries(in long[] playList);
+    void updateFolderInfoBrowsedPlayer(String stringUri);
+    void updateNowPlayingContentChange();
 
     // These commands relate to volume handling
     void setPlaybackToLocal(in AudioAttributes attributes);
     void setPlaybackToRemote(int control, int max);
     void setCurrentVolume(int currentVolume);
+
+    String getCallingPackage();
 }

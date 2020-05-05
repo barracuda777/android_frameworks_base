@@ -19,19 +19,13 @@ package android.hardware.camera2;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.IntDef;
-import android.annotation.SystemApi;
-import android.annotation.TestApi;
-import static android.hardware.camera2.ICameraDeviceUser.NORMAL_MODE;
-import static android.hardware.camera2.ICameraDeviceUser.CONSTRAINED_HIGH_SPEED_MODE;
 import android.hardware.camera2.params.InputConfiguration;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.hardware.camera2.params.OutputConfiguration;
-import android.hardware.camera2.params.SessionConfiguration;
 import android.os.Handler;
 import android.view.Surface;
 
 import java.util.List;
-import java.util.Set;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -44,27 +38,19 @@ import java.lang.annotation.RetentionPolicy;
  * {@link android.Manifest.permission#CAMERA Camera} permission in its manifest
  * in order to access camera devices.</p>
  *
- * <p>A given camera device may provide support at one of several levels defined
- * in {@link CameraCharacteristics#INFO_SUPPORTED_HARDWARE_LEVEL}.
- * If a device supports {@link CameraMetadata#INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY LEGACY} level,
- * the camera device is running in backward compatibility mode and has minimum camera2 API support.
- * If a device supports the {@link CameraMetadata#INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED LIMITED}
- * level, then Camera2 exposes a feature set that is roughly equivalent to the older
+ * <p>A given camera device may provide support at one of two levels: limited or
+ * full. If a device only supports the limited level, then Camera2 exposes a
+ * feature set that is roughly equivalent to the older
  * {@link android.hardware.Camera Camera} API, although with a cleaner and more
- * efficient interface.
- * If a device supports the {@link CameraMetadata#INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL EXTERNAL}
- * level, then the device is a removable camera that provides similar but slightly less features
- * as the {@link CameraMetadata#INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED LIMITED} level.
- * Devices that implement the {@link CameraMetadata#INFO_SUPPORTED_HARDWARE_LEVEL_FULL FULL} or
- * {@link CameraMetadata#INFO_SUPPORTED_HARDWARE_LEVEL_3 LEVEL3} level of support
+ * efficient interface.  Devices that implement the full level of support
  * provide substantially improved capabilities over the older camera
- * API. If your application requires a full-level device for
+ * API. Applications that target the limited level devices will run unchanged on
+ * the full-level devices; if your application requires a full-level device for
  * proper operation, declare the "android.hardware.camera.level.full" feature in your
  * manifest.</p>
  *
  * @see CameraManager#openCamera
  * @see android.Manifest.permission#CAMERA
- * @see CameraCharacteristics#INFO_SUPPORTED_HARDWARE_LEVEL
  */
 public abstract class CameraDevice implements AutoCloseable {
 
@@ -83,10 +69,8 @@ public abstract class CameraDevice implements AutoCloseable {
      * Create a request suitable for still image capture. Specifically, this
      * means prioritizing image quality over frame rate. These requests would
      * commonly be used with the {@link CameraCaptureSession#capture} method.
-     * This template is guaranteed to be supported on all camera devices except
-     * {@link CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_DEPTH_OUTPUT DEPTH_OUTPUT} devices
-     * that are not {@link CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE
-     * BACKWARD_COMPATIBLE}.
+     * This template is guaranteed to be supported on all camera devices.
+     *
      * @see #createCaptureRequest
      */
     public static final int TEMPLATE_STILL_CAPTURE = 2;
@@ -96,10 +80,7 @@ public abstract class CameraDevice implements AutoCloseable {
      * that a stable frame rate is used, and post-processing is set for
      * recording quality. These requests would commonly be used with the
      * {@link CameraCaptureSession#setRepeatingRequest} method.
-     * This template is guaranteed to be supported on all camera devices except
-     * {@link CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_DEPTH_OUTPUT DEPTH_OUTPUT} devices
-     * that are not {@link CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE
-     * BACKWARD_COMPATIBLE}.
+     * This template is guaranteed to be supported on all camera devices.
      *
      * @see #createCaptureRequest
      */
@@ -113,10 +94,7 @@ public abstract class CameraDevice implements AutoCloseable {
      * {@link #TEMPLATE_RECORD} is is in use with {@link CameraCaptureSession#setRepeatingRequest}.
      * This template is guaranteed to be supported on all camera devices except
      * legacy devices ({@link CameraCharacteristics#INFO_SUPPORTED_HARDWARE_LEVEL}
-     * {@code == }{@link CameraMetadata#INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY LEGACY}) and
-     * {@link CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_DEPTH_OUTPUT DEPTH_OUTPUT} devices
-     * that are not {@link CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE
-     * BACKWARD_COMPATIBLE}.
+     * {@code == }{@link CameraMetadata#INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY LEGACY})
      *
      * @see #createCaptureRequest
      */
@@ -125,8 +103,7 @@ public abstract class CameraDevice implements AutoCloseable {
     /**
      * Create a request suitable for zero shutter lag still capture. This means
      * means maximizing image quality without compromising preview frame rate.
-     * AE/AWB/AF should be on auto mode. This is intended for application-operated ZSL. For
-     * device-operated ZSL, use {@link CaptureRequest#CONTROL_ENABLE_ZSL} if available.
+     * AE/AWB/AF should be on auto mode.
      * This template is guaranteed to be supported on camera devices that support the
      * {@link CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_PRIVATE_REPROCESSING PRIVATE_REPROCESSING}
      * capability or the
@@ -134,7 +111,6 @@ public abstract class CameraDevice implements AutoCloseable {
      * capability.
      *
      * @see #createCaptureRequest
-     * @see CaptureRequest#CONTROL_ENABLE_ZSL
      */
     public static final int TEMPLATE_ZERO_SHUTTER_LAG = 5;
 
@@ -155,13 +131,13 @@ public abstract class CameraDevice implements AutoCloseable {
 
      /** @hide */
      @Retention(RetentionPolicy.SOURCE)
-     @IntDef(prefix = {"TEMPLATE_"}, value =
+     @IntDef(
          {TEMPLATE_PREVIEW,
           TEMPLATE_STILL_CAPTURE,
           TEMPLATE_RECORD,
           TEMPLATE_VIDEO_SNAPSHOT,
           TEMPLATE_ZERO_SHUTTER_LAG,
-          TEMPLATE_MANUAL})
+          TEMPLATE_MANUAL })
      public @interface RequestTemplate {};
 
     /**
@@ -263,9 +239,9 @@ public abstract class CameraDevice implements AutoCloseable {
      * <p>If a prior CameraCaptureSession already exists when this method is called, the previous
      * session will no longer be able to accept new capture requests and will be closed. Any
      * in-progress capture requests made on the prior session will be completed before it's closed.
-     * {@link CameraCaptureSession.StateCallback#onConfigured} for the new session may be invoked
-     * before {@link CameraCaptureSession.StateCallback#onClosed} is invoked for the prior
-     * session. Once the new session is {@link CameraCaptureSession.StateCallback#onConfigured
+     * {@link CameraCaptureSession.StateListener#onConfigured} for the new session may be invoked
+     * before {@link CameraCaptureSession.StateListener#onClosed} is invoked for the prior
+     * session. Once the new session is {@link CameraCaptureSession.StateListener#onConfigured
      * configured}, it is able to start capturing its own requests. To minimize the transition time,
      * the {@link CameraCaptureSession#abortCaptures} call can be used to discard the remaining
      * requests for the prior capture session before a new one is created. Note that once the new
@@ -289,7 +265,7 @@ public abstract class CameraDevice implements AutoCloseable {
      * but the camera device won't meet the frame rate guarantees as described in
      * {@link StreamConfigurationMap#getOutputMinFrameDuration}. Or third, if the output set
      * cannot be used at all, session creation will fail entirely, with
-     * {@link CameraCaptureSession.StateCallback#onConfigureFailed} being invoked.</p>
+     * {@link CameraCaptureSession.StateListener#onConfigureFailed} being invoked.</p>
      *
      * <p>For the type column, {@code PRIV} refers to any target whose available sizes are found
      * using {@link StreamConfigurationMap#getOutputSizes(Class)} with no direct application-visible
@@ -429,33 +405,9 @@ public abstract class CameraDevice implements AutoCloseable {
      * </table><br>
      * </p>
      *
-     * <p>MONOCHROME-capability ({@link CameraCharacteristics#REQUEST_AVAILABLE_CAPABILITIES}
-     * includes {@link CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_MONOCHROME MONOCHROME}) devices
-     * supporting {@link android.graphics.ImageFormat#Y8 Y8} support substituting {@code YUV}
-     * streams with {@code Y8} in all guaranteed stream combinations for the device's hardware level
-     * and capabilities.</p>
-     *
-     * <p>Devices capable of outputting HEIC formats ({@link StreamConfigurationMap#getOutputFormats}
-     * contains {@link android.graphics.ImageFormat#HEIC}) will support substituting {@code JPEG}
-     * streams with {@code HEIC} in all guaranteed stream combinations for the device's hardware
-     * level and capabilities. Calling createCaptureSession with both JPEG and HEIC outputs is not
-     * supported.</p>
-     *
-     * <p>Clients can access the above mandatory stream combination tables via
-     * {@link android.hardware.camera2.params.MandatoryStreamCombination}.</p>
-     *
      * <p>Since the capabilities of camera devices vary greatly, a given camera device may support
      * target combinations with sizes outside of these guarantees, but this can only be tested for
-     * by calling {@link #isSessionConfigurationSupported} or attempting to create a session with
-     * such targets.</p>
-     *
-     * <p>Exception on 176x144 (QCIF) resolution:
-     * Camera devices usually have a fixed capability for downscaling from larger resolution to
-     * smaller, and the QCIF resolution sometimes is not fully supported due to this
-     * limitation on devices with high-resolution image sensors. Therefore, trying to configure a
-     * QCIF resolution stream together with any other stream larger than 1920x1080 resolution
-     * (either width or height) might not be supported, and capture session creation will fail if it
-     * is not.</p>
+     * by attempting to create a session with such targets.</p>
      *
      * @param outputs The new set of Surfaces that should be made available as
      *                targets for captured image data.
@@ -488,7 +440,7 @@ public abstract class CameraDevice implements AutoCloseable {
      */
     public abstract void createCaptureSessionByOutputConfigurations(
             List<OutputConfiguration> outputConfigurations,
-            CameraCaptureSession.StateCallback callback, @Nullable Handler handler)
+            CameraCaptureSession.StateCallback callback, Handler handler)
             throws CameraAccessException;
     /**
      * Create a new reprocessable camera capture session by providing the desired reprocessing
@@ -637,9 +589,6 @@ public abstract class CameraDevice implements AutoCloseable {
      * </table><br>
      * </p>
      *
-     * <p>Clients can access the above mandatory stream combination tables via
-     * {@link android.hardware.camera2.params.MandatoryStreamCombination}.</p>
-     *
      * @param inputConfig The configuration for the input {@link Surface}
      * @param outputs The new set of Surfaces that should be made available as
      *                targets for captured image data.
@@ -770,105 +719,6 @@ public abstract class CameraDevice implements AutoCloseable {
             throws CameraAccessException;
 
     /**
-     * Standard camera operation mode.
-     *
-     * @see #createCustomCaptureSession
-     * @hide
-     */
-    @SystemApi
-    @TestApi
-    public static final int SESSION_OPERATION_MODE_NORMAL =
-            0; // ICameraDeviceUser.NORMAL_MODE;
-
-    /**
-     * Constrained high-speed operation mode.
-     *
-     * @see #createCustomCaptureSession
-     * @hide
-     */
-    @SystemApi
-    @TestApi
-    public static final int SESSION_OPERATION_MODE_CONSTRAINED_HIGH_SPEED =
-            1; // ICameraDeviceUser.CONSTRAINED_HIGH_SPEED_MODE;
-
-    /**
-     * First vendor-specific operating mode
-     *
-     * @see #createCustomCaptureSession
-     * @hide
-     */
-    @SystemApi
-    @TestApi
-    public static final int SESSION_OPERATION_MODE_VENDOR_START =
-            0x8000; // ICameraDeviceUser.VENDOR_MODE_START;
-
-    /** @hide */
-    @Retention(RetentionPolicy.SOURCE)
-    @IntDef(prefix = {"SESSION_OPERATION_MODE"}, value =
-            {SESSION_OPERATION_MODE_NORMAL,
-             SESSION_OPERATION_MODE_CONSTRAINED_HIGH_SPEED,
-             SESSION_OPERATION_MODE_VENDOR_START})
-    public @interface SessionOperatingMode {};
-
-    /**
-     * Create a new camera capture session with a custom operating mode.
-     *
-     * @param inputConfig The configuration for the input {@link Surface} if a reprocessing session
-     *                is desired, or {@code null} otherwise.
-     * @param outputs The new set of {@link OutputConfiguration OutputConfigurations} that should be
-     *                made available as targets for captured image data.
-     * @param operatingMode The custom operating mode to use; a nonnegative value, either a custom
-     *                vendor value or one of the SESSION_OPERATION_MODE_* values.
-     * @param callback The callback to notify about the status of the new capture session.
-     * @param handler The handler on which the callback should be invoked, or {@code null} to use
-     *                the current thread's {@link android.os.Looper looper}.
-     *
-     * @throws IllegalArgumentException if the input configuration is null or not supported, the set
-     *                                  of output Surfaces do not meet the requirements, the
-     *                                  callback is null, or the handler is null but the current
-     *                                  thread has no looper.
-     * @throws CameraAccessException if the camera device is no longer connected or has
-     *                               encountered a fatal error
-     * @throws IllegalStateException if the camera device has been closed
-     *
-     * @see #createCaptureSession
-     * @see #createReprocessableCaptureSession
-     * @see CameraCaptureSession
-     * @see OutputConfiguration
-     * @hide
-     */
-    @SystemApi
-    @TestApi
-    public abstract void createCustomCaptureSession(
-            InputConfiguration inputConfig,
-            @NonNull List<OutputConfiguration> outputs,
-            @SessionOperatingMode int operatingMode,
-            @NonNull CameraCaptureSession.StateCallback callback,
-            @Nullable Handler handler)
-            throws CameraAccessException;
-
-    /**
-     * <p>Create a new {@link CameraCaptureSession} using a {@link SessionConfiguration} helper
-     * object that aggregates all supported parameters.</p>
-     *
-     * @param config A session configuration (see {@link SessionConfiguration}).
-     *
-     * @throws IllegalArgumentException In case the session configuration is invalid; or the output
-     *                                  configurations are empty; or the session configuration
-     *                                  executor is invalid.
-     * @throws CameraAccessException In case the camera device is no longer connected or has
-     *                               encountered a fatal error.
-     * @see #createCaptureSession(List, CameraCaptureSession.StateCallback, Handler)
-     * @see #createCaptureSessionByOutputConfigurations
-     * @see #createReprocessableCaptureSession
-     * @see #createConstrainedHighSpeedCaptureSession
-     */
-    public void createCaptureSession(
-            SessionConfiguration config) throws CameraAccessException {
-        throw new UnsupportedOperationException("No default implementation");
-    }
-
-    /**
      * <p>Create a {@link CaptureRequest.Builder} for new capture requests,
      * initialized with template for a target use case. The settings are chosen
      * to be the best options for the specific camera device, so it is not
@@ -876,50 +726,15 @@ public abstract class CameraDevice implements AutoCloseable {
      * create a builder specific for that device and template and override the
      * settings as desired, instead.</p>
      *
-     * @param templateType An enumeration selecting the use case for this request. Not all template
-     * types are supported on every device. See the documentation for each template type for
-     * details.
+     * @param templateType An enumeration selecting the use case for this
+     * request; one of the CameraDevice.TEMPLATE_ values. Not all template
+     * types are supported on every device. See the documentation for each
+     * template type for details.
      * @return a builder for a capture request, initialized with default
      * settings for that template, and no output streams
      *
      * @throws IllegalArgumentException if the templateType is not supported by
      * this device.
-     * @throws CameraAccessException if the camera device is no longer connected or has
-     *                               encountered a fatal error
-     * @throws IllegalStateException if the camera device has been closed
-     */
-    @NonNull
-    public abstract CaptureRequest.Builder createCaptureRequest(@RequestTemplate int templateType)
-            throws CameraAccessException;
-
-    /**
-     * <p>Create a {@link CaptureRequest.Builder} for new capture requests,
-     * initialized with template for a target use case. This methods allows
-     * clients to pass physical camera ids which can be used to customize the
-     * request for a specific physical camera. The settings are chosen
-     * to be the best options for the specific logical camera device. If
-     * additional physical camera ids are passed, then they will also use the
-     * same settings template. Clients can further modify individual camera
-     * settings by calling {@link CaptureRequest.Builder#setPhysicalCameraKey}.</p>
-     *
-     * <p>Individual physical camera settings will only be honored for camera session
-     * that was initialiazed with corresponding physical camera id output configuration
-     * {@link OutputConfiguration#setPhysicalCameraId} and the same output targets are
-     * also attached in the request by {@link CaptureRequest.Builder#addTarget}.</p>
-     *
-     * <p>The output is undefined for any logical camera streams in case valid physical camera
-     * settings are attached.</p>
-     *
-     * @param templateType An enumeration selecting the use case for this request. Not all template
-     * types are supported on every device. See the documentation for each template type for
-     * details.
-     * @param physicalCameraIdSet A set of physical camera ids that can be used to customize
-     *                            the request for a specific physical camera.
-     * @return a builder for a capture request, initialized with default
-     * settings for that template, and no output streams
-     *
-     * @throws IllegalArgumentException if the templateType is not supported by
-     * this device, or one of the physical id arguments matches with logical camera id.
      * @throws CameraAccessException if the camera device is no longer connected or has
      *                               encountered a fatal error
      * @throws IllegalStateException if the camera device has been closed
@@ -929,14 +744,10 @@ public abstract class CameraDevice implements AutoCloseable {
      * @see #TEMPLATE_STILL_CAPTURE
      * @see #TEMPLATE_VIDEO_SNAPSHOT
      * @see #TEMPLATE_MANUAL
-     * @see CaptureRequest.Builder#setPhysicalCameraKey
-     * @see CaptureRequest.Builder#getPhysicalCameraKey
      */
     @NonNull
-    public CaptureRequest.Builder createCaptureRequest(@RequestTemplate int templateType,
-            Set<String> physicalCameraIdSet) throws CameraAccessException {
-        throw new UnsupportedOperationException("Subclasses must override this method");
-    }
+    public abstract CaptureRequest.Builder createCaptureRequest(@RequestTemplate int templateType)
+            throws CameraAccessException;
 
     /**
      * <p>Create a {@link CaptureRequest.Builder} for a new reprocess {@link CaptureRequest} from a
@@ -987,42 +798,6 @@ public abstract class CameraDevice implements AutoCloseable {
      */
     @Override
     public abstract void close();
-
-    /**
-     * Checks whether a particular {@link SessionConfiguration} is supported by the camera device.
-     *
-     * <p>This method performs a runtime check of a given {@link SessionConfiguration}. The result
-     * confirms whether or not the passed session configuration can be successfully used to
-     * create a camera capture session using
-     * {@link CameraDevice#createCaptureSession(SessionConfiguration)}.
-     * </p>
-     *
-     * <p>The method can be called at any point before, during and after active capture session.
-     * It must not impact normal camera behavior in any way and must complete significantly
-     * faster than creating a regular or constrained capture session.</p>
-     *
-     * <p>Although this method is faster than creating a new capture session, it is not intended
-     * to be used for exploring the entire space of supported stream combinations. The available
-     * mandatory stream combinations
-     * {@link android.hardware.camera2.params.MandatoryStreamCombination} are better suited for this
-     * purpose.</p>
-     *
-     * <p>Note that session parameters will be ignored and calls to
-     * {@link SessionConfiguration#setSessionParameters} are not required.</p>
-     *
-     * @return {@code true} if the given session configuration is supported by the camera device
-     *         {@code false} otherwise.
-     * @throws UnsupportedOperationException if the query operation is not supported by the camera
-     *                                       device
-     * @throws IllegalArgumentException if the session configuration is invalid
-     * @throws CameraAccessException if the camera device is no longer connected or has
-     *                               encountered a fatal error
-     * @throws IllegalStateException if the camera device has been closed
-     */
-    public boolean isSessionConfigurationSupported(
-            @NonNull SessionConfiguration sessionConfig) throws CameraAccessException {
-        throw new UnsupportedOperationException("Subclasses must override this method");
-    }
 
     /**
      * A callback objects for receiving updates about the state of a camera device.
@@ -1112,7 +887,7 @@ public abstract class CameraDevice implements AutoCloseable {
 
         /** @hide */
         @Retention(RetentionPolicy.SOURCE)
-        @IntDef(prefix = {"ERROR_"}, value =
+        @IntDef(
             {ERROR_CAMERA_IN_USE,
              ERROR_MAX_CAMERAS_IN_USE,
              ERROR_CAMERA_DISABLED,
@@ -1195,7 +970,8 @@ public abstract class CameraDevice implements AutoCloseable {
          * this happens. Further attempts at recovery are error-code specific.</p>
          *
          * @param camera The device reporting the error
-         * @param error The error code.
+         * @param error The error code, one of the
+         *     {@code StateCallback.ERROR_*} values.
          *
          * @see #ERROR_CAMERA_IN_USE
          * @see #ERROR_MAX_CAMERAS_IN_USE
@@ -1205,6 +981,13 @@ public abstract class CameraDevice implements AutoCloseable {
          */
         public abstract void onError(@NonNull CameraDevice camera,
                 @ErrorCode int error); // Must implement
+    }
+
+    /**
+     * Temporary for migrating to Callback naming
+     * @hide
+     */
+    public static abstract class StateListener extends StateCallback {
     }
 
     /**

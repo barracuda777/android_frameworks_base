@@ -15,8 +15,7 @@
 # limitations under the License.
 #
 
-set -e
-
-aapt2 compile --dir res -o compiled.flata
-aapt2 link --manifest AndroidManifest.xml -A assets -o system.apk compiled.flata
-rm compiled.flata
+aapt package -x -M AndroidManifest.xml -S res -F bundle.apk -f && \
+unzip bundle.apk resources.arsc && \
+mv resources.arsc system.arsc && \
+xxd -i system.arsc > system_arsc.h

@@ -31,7 +31,6 @@ interface IMediaScannerService
      * @param listener an optional IMediaScannerListener. 
      * If specified, the caller will be notified when scanning is complete via the listener.
      */
-    @UnsupportedAppUsage
     void requestScanFile(String path, String mimeType, in IMediaScannerListener listener);
 
     /**
@@ -41,6 +40,5 @@ interface IMediaScannerService
      * @param mimeType  an optional mimeType for the file.
      * If mimeType is null, then the mimeType will be inferred from the file extension.
      */
-    @UnsupportedAppUsage
     void scanFile(String path, String mimeType);
 }

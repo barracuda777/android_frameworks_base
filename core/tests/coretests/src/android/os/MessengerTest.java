@@ -20,9 +20,13 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.os.RemoteException;
+import android.os.Handler;
+import android.os.IBinder;
+import android.os.Message;
+import android.os.Messenger;
 import android.test.AndroidTestCase;
-
-import androidx.test.filters.MediumTest;
+import android.test.suitebuilder.annotation.MediumTest;
 
 public class MessengerTest extends AndroidTestCase {
     private Messenger mServiceMessenger;

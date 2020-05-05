@@ -16,33 +16,30 @@
 
 package android.app;
 
+import com.android.internal.app.AlertController;
+
 import android.annotation.ArrayRes;
 import android.annotation.AttrRes;
 import android.annotation.DrawableRes;
 import android.annotation.StringRes;
 import android.annotation.StyleRes;
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.DialogInterface;
-import android.content.res.ResourceId;
-import android.content.res.Resources;
 import android.database.Cursor;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.Message;
-import android.text.Layout;
-import android.text.method.MovementMethod;
 import android.util.TypedValue;
 import android.view.ContextThemeWrapper;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.ListAdapter;
 import android.widget.ListView;
 
 import com.android.internal.R;
-import com.android.internal.app.AlertController;
 
 /**
  * A subclass of Dialog that can display one, two or three buttons. If you only want to
@@ -51,12 +48,12 @@ import com.android.internal.app.AlertController;
  * and add your view to it:
  *
  * <pre>
- * FrameLayout fl = findViewById(android.R.id.custom);
+ * FrameLayout fl = (FrameLayout) findViewById(android.R.id.custom);
  * fl.addView(myView, new LayoutParams(MATCH_PARENT, WRAP_CONTENT));
  * </pre>
  *
  * <p>The AlertDialog class takes care of automatically setting
- * {@link android.view.WindowManager.LayoutParams#FLAG_ALT_FOCUSABLE_IM
+ * {@link WindowManager.LayoutParams#FLAG_ALT_FOCUSABLE_IM
  * WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM} for you based on whether
  * any views in the dialog return true from {@link View#onCheckIsTextEditor()
  * View.onCheckIsTextEditor()}.  Generally you want this set for a Dialog
@@ -71,7 +68,6 @@ import com.android.internal.app.AlertController;
  * </div>
  */
 public class AlertDialog extends Dialog implements DialogInterface {
-    @UnsupportedAppUsage
     private AlertController mAlert;
 
     /**
@@ -208,7 +204,7 @@ public class AlertDialog extends Dialog implements DialogInterface {
         mAlert = AlertController.create(getContext(), this, getWindow());
     }
 
-    static @StyleRes int resolveDialogTheme(Context context, @StyleRes int themeResId) {
+    static int resolveDialogTheme(Context context, int themeResId) {
         if (themeResId == THEME_TRADITIONAL) {
             return R.style.Theme_Dialog_Alert;
         } else if (themeResId == THEME_HOLO_DARK) {
@@ -219,8 +215,7 @@ public class AlertDialog extends Dialog implements DialogInterface {
             return R.style.Theme_DeviceDefault_Dialog_Alert;
         } else if (themeResId == THEME_DEVICE_DEFAULT_LIGHT) {
             return R.style.Theme_DeviceDefault_Light_Dialog_Alert;
-        } else if (ResourceId.isValid(themeResId)) {
-            // start of real resource IDs.
+        } else if (themeResId >= 0x01000000) {   // start of real resource IDs.
             return themeResId;
         } else {
             final TypedValue outValue = new TypedValue();
@@ -267,17 +262,6 @@ public class AlertDialog extends Dialog implements DialogInterface {
 
     public void setMessage(CharSequence message) {
         mAlert.setMessage(message);
-    }
-
-    /** @hide */
-    public void setMessageMovementMethod(MovementMethod movementMethod) {
-        mAlert.setMessageMovementMethod(movementMethod);
-    }
-
-    /** @hide */
-    public void setMessageHyphenationFrequency(
-            @Layout.HyphenationFrequency int hyphenationFrequency) {
-        mAlert.setMessageHyphenationFrequency(hyphenationFrequency);
     }
 
     /**
@@ -398,7 +382,7 @@ public class AlertDialog extends Dialog implements DialogInterface {
      * @param listener The {@link DialogInterface.OnClickListener} to use.
      * @deprecated Use
      *             {@link #setButton(int, CharSequence, android.content.DialogInterface.OnClickListener)}
-     *             with {@link DialogInterface#BUTTON_NEUTRAL}
+     *             with {@link DialogInterface#BUTTON_POSITIVE}
      */
     @Deprecated
     public void setButton3(CharSequence text, final OnClickListener listener) {
@@ -452,7 +436,6 @@ public class AlertDialog extends Dialog implements DialogInterface {
     }
 
     public static class Builder {
-        @UnsupportedAppUsage
         private final AlertController.AlertParams P;
 
         /**
@@ -466,7 +449,7 @@ public class AlertDialog extends Dialog implements DialogInterface {
          * @param context the parent context
          */
         public Builder(Context context) {
-            this(context, resolveDialogTheme(context, Resources.ID_NULL));
+            this(context, resolveDialogTheme(context, 0));
         }
 
         /**
@@ -1053,7 +1036,6 @@ public class AlertDialog extends Dialog implements DialogInterface {
          * @deprecated Set the padding on the view itself.
          */
         @Deprecated
-        @UnsupportedAppUsage
         public Builder setView(View view, int viewSpacingLeft, int viewSpacingTop,
                 int viewSpacingRight, int viewSpacingBottom) {
             P.mView = view;
@@ -1085,7 +1067,6 @@ public class AlertDialog extends Dialog implements DialogInterface {
         /**
          * @hide
          */
-        @UnsupportedAppUsage
         public Builder setRecycleOnMeasureEnabled(boolean enabled) {
             P.mRecycleOnMeasure = enabled;
             return this;

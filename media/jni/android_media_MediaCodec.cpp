@@ -21,23 +21,17 @@
 #include "android_media_MediaCodec.h"
 
 #include "android_media_MediaCrypto.h"
-#include "android_media_MediaDescrambler.h"
-#include "android_media_MediaMetricsJNI.h"
-#include "android_media_Streams.h"
+#include "android_media_Utils.h"
 #include "android_runtime/AndroidRuntime.h"
 #include "android_runtime/android_view_Surface.h"
-#include "android_util_Binder.h"
 #include "jni.h"
-#include <nativehelper/JNIHelp.h>
-#include <nativehelper/ScopedLocalRef.h>
-
-#include <android/hardware/cas/native/1.0/IDescrambler.h>
+#include "JNIHelp.h"
 
 #include <cutils/compiler.h>
 
 #include <gui/Surface.h>
 
-#include <media/MediaCodecBuffer.h>
+#include <media/ICrypto.h>
 #include <media/stagefright/MediaCodec.h>
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/ADebug.h>
@@ -46,7 +40,6 @@
 #include <media/stagefright/foundation/AString.h>
 #include <media/stagefright/MediaErrors.h>
 #include <media/stagefright/PersistentSurface.h>
-#include <mediadrm/ICrypto.h>
 #include <nativehelper/ScopedLocalRef.h>
 
 #include <system/window.h>
@@ -72,10 +65,7 @@ static struct CryptoErrorCodes {
     jint cryptoErrorResourceBusy;
     jint cryptoErrorInsufficientOutputProtection;
     jint cryptoErrorSessionNotOpened;
-    jint cryptoErrorInsufficientSecurity;
     jint cryptoErrorUnsupportedOperation;
-    jint cryptoErrorFrameTooLarge;
-    jint cryptoErrorLostState;
 } gCryptoErrorCodes;
 
 static struct CodecActionCodes {
@@ -102,18 +92,10 @@ static struct {
     jint AesCbc;
 } gCryptoModes;
 
-static struct {
-    jclass capsClazz;
-    jmethodID capsCtorId;
-    jclass profileLevelClazz;
-    jfieldID profileField;
-    jfieldID levelField;
-} gCodecInfo;
 
 struct fields_t {
+    jfieldID context;
     jmethodID postEventFromNativeID;
-    jmethodID lockAndGetContextID;
-    jmethodID setAndUnlockContextID;
     jfieldID cryptoInfoNumSubSamplesID;
     jfieldID cryptoInfoNumBytesOfClearDataID;
     jfieldID cryptoInfoNumBytesOfEncryptedDataID;
@@ -149,16 +131,12 @@ JMediaCodec::JMediaCodec(
     mLooper->start(
             false,      // runOnCallingThread
             true,       // canCallJava
-            ANDROID_PRIORITY_VIDEO);
+            PRIORITY_FOREGROUND);
 
     if (nameIsType) {
         mCodec = MediaCodec::CreateByType(mLooper, name, encoder, &mInitStatus);
-        if (mCodec == nullptr || mCodec->getName(&mNameAtCreation) != OK) {
-            mNameAtCreation = "(null)";
-        }
     } else {
         mCodec = MediaCodec::CreateByComponentName(mLooper, name, &mInitStatus);
-        mNameAtCreation = name;
     }
     CHECK((mCodec != NULL) != (mInitStatus != OK));
 }
@@ -211,22 +189,21 @@ void JMediaCodec::registerSelf() {
 }
 
 void JMediaCodec::release() {
-    std::call_once(mReleaseFlag, [this] {
-        if (mCodec != NULL) {
-            mCodec->release();
-            mInitStatus = NO_INIT;
-        }
+    if (mCodec != NULL) {
+        mCodec->release();
+        mCodec.clear();
+        mInitStatus = NO_INIT;
+    }
 
-        if (mLooper != NULL) {
-            mLooper->unregisterHandler(id());
-            mLooper->stop();
-            mLooper.clear();
-        }
-    });
+    if (mLooper != NULL) {
+        mLooper->unregisterHandler(id());
+        mLooper->stop();
+        mLooper.clear();
+    }
 }
 
 JMediaCodec::~JMediaCodec() {
-    if (mLooper != NULL) {
+    if (mCodec != NULL || mLooper != NULL) {
         /* MediaCodec and looper should have been released explicitly already
          * in setMediaCodec() (see comments in setMediaCodec()).
          *
@@ -290,7 +267,6 @@ status_t JMediaCodec::configure(
         const sp<AMessage> &format,
         const sp<IGraphicBufferProducer> &bufferProducer,
         const sp<ICrypto> &crypto,
-        const sp<IDescrambler> &descrambler,
         int flags) {
     sp<Surface> client;
     if (bufferProducer != NULL) {
@@ -300,8 +276,7 @@ status_t JMediaCodec::configure(
         mSurfaceTextureClient.clear();
     }
 
-    return mCodec->configure(
-            format, mSurfaceTextureClient, crypto, descrambler, flags);
+    return mCodec->configure(format, mSurfaceTextureClient, crypto, flags);
 }
 
 status_t JMediaCodec::setSurface(
@@ -432,7 +407,7 @@ status_t JMediaCodec::getOutputFormat(JNIEnv *env, size_t index, jobject *format
 
 status_t JMediaCodec::getBuffers(
         JNIEnv *env, bool input, jobjectArray *bufArray) const {
-    Vector<sp<MediaCodecBuffer> > buffers;
+    Vector<sp<ABuffer> > buffers;
 
     status_t err =
         input
@@ -450,7 +425,7 @@ status_t JMediaCodec::getBuffers(
     }
 
     for (size_t i = 0; i < buffers.size(); ++i) {
-        const sp<MediaCodecBuffer> &buffer = buffers.itemAt(i);
+        const sp<ABuffer> &buffer = buffers.itemAt(i);
 
         jobject byteBuffer = NULL;
         err = createByteBufferFromABuffer(
@@ -471,9 +446,8 @@ status_t JMediaCodec::getBuffers(
 }
 
 // static
-template <typename T>
 status_t JMediaCodec::createByteBufferFromABuffer(
-        JNIEnv *env, bool readOnly, bool clearBuffer, const sp<T> &buffer,
+        JNIEnv *env, bool readOnly, bool clearBuffer, const sp<ABuffer> &buffer,
         jobject *buf) const {
     // if this is an ABuffer that doesn't actually hold any accessible memory,
     // use a null ByteBuffer
@@ -518,7 +492,7 @@ status_t JMediaCodec::createByteBufferFromABuffer(
 
 status_t JMediaCodec::getBuffer(
         JNIEnv *env, bool input, size_t index, jobject *buf) const {
-    sp<MediaCodecBuffer> buffer;
+    sp<ABuffer> buffer;
 
     status_t err =
         input
@@ -535,7 +509,7 @@ status_t JMediaCodec::getBuffer(
 
 status_t JMediaCodec::getImage(
         JNIEnv *env, bool input, size_t index, jobject *buf) const {
-    sp<MediaCodecBuffer> buffer;
+    sp<ABuffer> buffer;
 
     status_t err =
         input
@@ -642,132 +616,14 @@ status_t JMediaCodec::getName(JNIEnv *env, jstring *nameStr) const {
     return OK;
 }
 
-static jobject getCodecCapabilitiesObject(
-        JNIEnv *env, const char *mime, bool isEncoder,
-        const sp<MediaCodecInfo::Capabilities> &capabilities) {
-    Vector<MediaCodecInfo::ProfileLevel> profileLevels;
-    Vector<uint32_t> colorFormats;
-
-    sp<AMessage> defaultFormat = new AMessage();
-    defaultFormat->setString("mime", mime);
-
-    capabilities->getSupportedColorFormats(&colorFormats);
-    capabilities->getSupportedProfileLevels(&profileLevels);
-    sp<AMessage> details = capabilities->getDetails();
-
-    jobject defaultFormatObj = NULL;
-    if (ConvertMessageToMap(env, defaultFormat, &defaultFormatObj)) {
-        return NULL;
-    }
-    ScopedLocalRef<jobject> defaultFormatRef(env, defaultFormatObj);
-
-    jobject detailsObj = NULL;
-    if (ConvertMessageToMap(env, details, &detailsObj)) {
-        return NULL;
-    }
-    ScopedLocalRef<jobject> detailsRef(env, detailsObj);
-
-    ScopedLocalRef<jobjectArray> profileLevelArray(env, env->NewObjectArray(
-            profileLevels.size(), gCodecInfo.profileLevelClazz, NULL));
-
-    for (size_t i = 0; i < profileLevels.size(); ++i) {
-        const MediaCodecInfo::ProfileLevel &src = profileLevels.itemAt(i);
-
-        ScopedLocalRef<jobject> srcRef(env, env->AllocObject(
-                gCodecInfo.profileLevelClazz));
-
-        env->SetIntField(srcRef.get(), gCodecInfo.profileField, src.mProfile);
-        env->SetIntField(srcRef.get(), gCodecInfo.levelField, src.mLevel);
-
-        env->SetObjectArrayElement(profileLevelArray.get(), i, srcRef.get());
-    }
-
-    ScopedLocalRef<jintArray> colorFormatsArray(
-            env, env->NewIntArray(colorFormats.size()));
-    for (size_t i = 0; i < colorFormats.size(); ++i) {
-        jint val = colorFormats.itemAt(i);
-        env->SetIntArrayRegion(colorFormatsArray.get(), i, 1, &val);
-    }
-
-    return env->NewObject(
-            gCodecInfo.capsClazz, gCodecInfo.capsCtorId,
-            profileLevelArray.get(), colorFormatsArray.get(), isEncoder,
-            defaultFormatRef.get(), detailsRef.get());
-}
-
-status_t JMediaCodec::getCodecInfo(JNIEnv *env, jobject *codecInfoObject) const {
-    sp<MediaCodecInfo> codecInfo;
-
-    status_t err = mCodec->getCodecInfo(&codecInfo);
-
-    if (err != OK) {
-        return err;
-    }
-
-    ScopedLocalRef<jstring> nameObject(env,
-            env->NewStringUTF(mNameAtCreation.c_str()));
-
-    ScopedLocalRef<jstring> canonicalNameObject(env,
-            env->NewStringUTF(codecInfo->getCodecName()));
-
-    MediaCodecInfo::Attributes attributes = codecInfo->getAttributes();
-    bool isEncoder = codecInfo->isEncoder();
-
-    Vector<AString> mediaTypes;
-    codecInfo->getSupportedMediaTypes(&mediaTypes);
-
-    ScopedLocalRef<jobjectArray> capsArrayObj(env,
-        env->NewObjectArray(mediaTypes.size(), gCodecInfo.capsClazz, NULL));
-
-    for (size_t i = 0; i < mediaTypes.size(); i++) {
-        const sp<MediaCodecInfo::Capabilities> caps =
-                codecInfo->getCapabilitiesFor(mediaTypes[i].c_str());
-
-        ScopedLocalRef<jobject> capsObj(env, getCodecCapabilitiesObject(
-                env, mediaTypes[i].c_str(), isEncoder, caps));
-
-        env->SetObjectArrayElement(capsArrayObj.get(), i, capsObj.get());
-    }
-
-    ScopedLocalRef<jclass> codecInfoClazz(env,
-            env->FindClass("android/media/MediaCodecInfo"));
-    CHECK(codecInfoClazz.get() != NULL);
-
-    jmethodID codecInfoCtorID = env->GetMethodID(codecInfoClazz.get(), "<init>",
-            "(Ljava/lang/String;Ljava/lang/String;I[Landroid/media/MediaCodecInfo$CodecCapabilities;)V");
-
-    *codecInfoObject = env->NewObject(codecInfoClazz.get(), codecInfoCtorID,
-            nameObject.get(), canonicalNameObject.get(), attributes, capsArrayObj.get());
-
-    return OK;
-}
-
-status_t JMediaCodec::getMetrics(JNIEnv *, MediaAnalyticsItem * &reply) const {
-
-    status_t status = mCodec->getMetrics(reply);
-    return status;
-}
-
 status_t JMediaCodec::setParameters(const sp<AMessage> &msg) {
     return mCodec->setParameters(msg);
 }
 
 void JMediaCodec::setVideoScalingMode(int mode) {
     if (mSurfaceTextureClient != NULL) {
-        // this works for components that queue to surface
         native_window_set_scaling_mode(mSurfaceTextureClient.get(), mode);
-        // also signal via param for components that queue to IGBP
-        sp<AMessage> msg = new AMessage;
-        msg->setInt32("android._video-scaling", mode);
-        (void)mCodec->setParameters(msg);
     }
-}
-
-void JMediaCodec::selectAudioPresentation(const int32_t presentationId, const int32_t programId) {
-    sp<AMessage> msg = new AMessage;
-    msg->setInt32("audio-presentation-presentation-id", presentationId);
-    msg->setInt32("audio-presentation-program-id", programId);
-    (void)mCodec->setParameters(msg);
 }
 
 static jthrowable createCodecException(
@@ -950,7 +806,7 @@ using namespace android;
 
 static sp<JMediaCodec> setMediaCodec(
         JNIEnv *env, jobject thiz, const sp<JMediaCodec> &codec) {
-    sp<JMediaCodec> old = (JMediaCodec *)env->CallLongMethod(thiz, gFields.lockAndGetContextID);
+    sp<JMediaCodec> old = (JMediaCodec *)env->GetLongField(thiz, gFields.context);
     if (codec != NULL) {
         codec->incStrong(thiz);
     }
@@ -963,15 +819,13 @@ static sp<JMediaCodec> setMediaCodec(
         old->release();
         old->decStrong(thiz);
     }
-    env->CallVoidMethod(thiz, gFields.setAndUnlockContextID, (jlong)codec.get());
+    env->SetLongField(thiz, gFields.context, (jlong)codec.get());
 
     return old;
 }
 
 static sp<JMediaCodec> getMediaCodec(JNIEnv *env, jobject thiz) {
-    sp<JMediaCodec> codec = (JMediaCodec *)env->CallLongMethod(thiz, gFields.lockAndGetContextID);
-    env->CallVoidMethod(thiz, gFields.setAndUnlockContextID, (jlong)codec.get());
-    return codec;
+    return (JMediaCodec *)env->GetLongField(thiz, gFields.context);
 }
 
 static void android_media_MediaCodec_release(JNIEnv *env, jobject thiz) {
@@ -1016,21 +870,9 @@ static void throwCryptoException(JNIEnv *env, status_t err, const char *msg) {
             err = gCryptoErrorCodes.cryptoErrorSessionNotOpened;
             defaultMsg = "Attempted to use a closed session";
             break;
-        case ERROR_DRM_INSUFFICIENT_SECURITY:
-            err = gCryptoErrorCodes.cryptoErrorInsufficientSecurity;
-            defaultMsg = "Required security level is not met";
-            break;
         case ERROR_DRM_CANNOT_HANDLE:
             err = gCryptoErrorCodes.cryptoErrorUnsupportedOperation;
             defaultMsg = "Operation not supported in this configuration";
-            break;
-        case ERROR_DRM_FRAME_TOO_LARGE:
-            err = gCryptoErrorCodes.cryptoErrorFrameTooLarge;
-            defaultMsg = "Decrytped frame exceeds size of output buffer";
-            break;
-        case ERROR_DRM_SESSION_LOST_STATE:
-            err = gCryptoErrorCodes.cryptoErrorLostState;
-            defaultMsg = "Session state was lost, open a new session and retry";
             break;
         default:  /* Other negative DRM error codes go out as is. */
             break;
@@ -1116,7 +958,6 @@ static void android_media_MediaCodec_native_configure(
         jobjectArray keys, jobjectArray values,
         jobject jsurface,
         jobject jcrypto,
-        jobject descramblerBinderObj,
         jint flags) {
     sp<JMediaCodec> codec = getMediaCodec(env, thiz);
 
@@ -1152,12 +993,7 @@ static void android_media_MediaCodec_native_configure(
         crypto = JCrypto::GetCrypto(env, jcrypto);
     }
 
-    sp<IDescrambler> descrambler;
-    if (descramblerBinderObj != NULL) {
-        descrambler = GetDescrambler(env, descramblerBinderObj);
-    }
-
-    err = codec->configure(format, bufferProducer, crypto, descrambler, flags);
+    err = codec->configure(format, bufferProducer, crypto, flags);
 
     throwExceptionAsNecessary(env, err);
 }
@@ -1299,11 +1135,6 @@ static void android_media_MediaCodec_setInputSurface(
     sp<PersistentSurface> persistentSurface =
         android_media_MediaCodec_getPersistentInputSurface(env, object);
 
-    if (persistentSurface == NULL) {
-        throwExceptionAsNecessary(
-                env, BAD_VALUE, ACTION_CODE_FATAL, "input surface not valid");
-        return;
-    }
     status_t err = codec->setInputSurface(persistentSurface);
     if (err != NO_ERROR) {
         throwExceptionAsNecessary(env, err);
@@ -1813,58 +1644,6 @@ static jobject android_media_MediaCodec_getName(
     return NULL;
 }
 
-static jobject android_media_MediaCodec_getOwnCodecInfo(
-        JNIEnv *env, jobject thiz) {
-    ALOGV("android_media_MediaCodec_getOwnCodecInfo");
-
-    sp<JMediaCodec> codec = getMediaCodec(env, thiz);
-
-    if (codec == NULL) {
-        throwExceptionAsNecessary(env, INVALID_OPERATION);
-        return NULL;
-    }
-
-    jobject codecInfoObj;
-    status_t err = codec->getCodecInfo(env, &codecInfoObj);
-
-    if (err == OK) {
-        return codecInfoObj;
-    }
-
-    throwExceptionAsNecessary(env, err);
-
-    return NULL;
-}
-
-static jobject
-android_media_MediaCodec_native_getMetrics(JNIEnv *env, jobject thiz)
-{
-    ALOGV("android_media_MediaCodec_native_getMetrics");
-
-    sp<JMediaCodec> codec = getMediaCodec(env, thiz);
-    if (codec == NULL ) {
-        jniThrowException(env, "java/lang/IllegalStateException", NULL);
-        return 0;
-    }
-
-    // get what we have for the metrics from the codec
-    MediaAnalyticsItem *item = NULL;
-
-    status_t err = codec->getMetrics(env, item);
-    if (err != OK) {
-        ALOGE("getMetrics failed");
-        return (jobject) NULL;
-    }
-
-    jobject mybundle = MediaMetricsJNI::writeMetricsToBundle(env, item, NULL);
-
-    // housekeeping
-    delete item;
-    item = NULL;
-
-    return mybundle;
-}
-
 static void android_media_MediaCodec_setParameters(
         JNIEnv *env, jobject thiz, jobjectArray keys, jobjectArray vals) {
     ALOGV("android_media_MediaCodec_setParameters");
@@ -1897,23 +1676,11 @@ static void android_media_MediaCodec_setVideoScalingMode(
 
     if (mode != NATIVE_WINDOW_SCALING_MODE_SCALE_TO_WINDOW
             && mode != NATIVE_WINDOW_SCALING_MODE_SCALE_CROP) {
-        jniThrowException(env, "java/lang/IllegalArgumentException", NULL);
+        jniThrowException(env, "java/lang/InvalidArgumentException", NULL);
         return;
     }
 
     codec->setVideoScalingMode(mode);
-}
-
-static void android_media_MediaCodec_setAudioPresentation(
-        JNIEnv *env, jobject thiz, jint presentationId, jint programId) {
-    sp<JMediaCodec> codec = getMediaCodec(env, thiz);
-
-    if (codec == NULL) {
-        throwExceptionAsNecessary(env, INVALID_OPERATION);
-        return;
-    }
-
-    codec->selectAudioPresentation((int32_t)presentationId, (int32_t)programId);
 }
 
 static void android_media_MediaCodec_native_init(JNIEnv *env) {
@@ -1921,20 +1688,14 @@ static void android_media_MediaCodec_native_init(JNIEnv *env) {
             env, env->FindClass("android/media/MediaCodec"));
     CHECK(clazz.get() != NULL);
 
+    gFields.context = env->GetFieldID(clazz.get(), "mNativeContext", "J");
+    CHECK(gFields.context != NULL);
+
     gFields.postEventFromNativeID =
         env->GetMethodID(
                 clazz.get(), "postEventFromNative", "(IIILjava/lang/Object;)V");
+
     CHECK(gFields.postEventFromNativeID != NULL);
-
-    gFields.lockAndGetContextID =
-        env->GetMethodID(
-                clazz.get(), "lockAndGetContext", "()J");
-    CHECK(gFields.lockAndGetContextID != NULL);
-
-    gFields.setAndUnlockContextID =
-        env->GetMethodID(
-                clazz.get(), "setAndUnlockContext", "(J)V");
-    CHECK(gFields.setAndUnlockContextID != NULL);
 
     jfieldID field;
     field = env->GetStaticFieldID(clazz.get(), "CRYPTO_MODE_UNENCRYPTED", "I");
@@ -2017,24 +1778,9 @@ static void android_media_MediaCodec_native_init(JNIEnv *env) {
     gCryptoErrorCodes.cryptoErrorSessionNotOpened =
         env->GetStaticIntField(clazz.get(), field);
 
-    field = env->GetStaticFieldID(clazz.get(), "ERROR_INSUFFICIENT_SECURITY", "I");
-    CHECK(field != NULL);
-    gCryptoErrorCodes.cryptoErrorInsufficientSecurity =
-        env->GetStaticIntField(clazz.get(), field);
-
     field = env->GetStaticFieldID(clazz.get(), "ERROR_UNSUPPORTED_OPERATION", "I");
     CHECK(field != NULL);
     gCryptoErrorCodes.cryptoErrorUnsupportedOperation =
-        env->GetStaticIntField(clazz.get(), field);
-
-    field = env->GetStaticFieldID(clazz.get(), "ERROR_FRAME_TOO_LARGE", "I");
-    CHECK(field != NULL);
-    gCryptoErrorCodes.cryptoErrorFrameTooLarge =
-        env->GetStaticIntField(clazz.get(), field);
-
-    field = env->GetStaticFieldID(clazz.get(), "ERROR_LOST_STATE", "I");
-    CHECK(field != NULL);
-    gCryptoErrorCodes.cryptoErrorLostState =
         env->GetStaticIntField(clazz.get(), field);
 
     clazz.reset(env->FindClass("android/media/MediaCodec$CodecException"));
@@ -2081,28 +1827,6 @@ static void android_media_MediaCodec_native_init(JNIEnv *env) {
     field = env->GetFieldID(clazz.get(), "mPersistentObject", "J");
     CHECK(field != NULL);
     gPersistentSurfaceClassInfo.mPersistentObject = field;
-
-    clazz.reset(env->FindClass("android/media/MediaCodecInfo$CodecCapabilities"));
-    CHECK(clazz.get() != NULL);
-    gCodecInfo.capsClazz = (jclass)env->NewGlobalRef(clazz.get());
-
-    method = env->GetMethodID(clazz.get(), "<init>",
-            "([Landroid/media/MediaCodecInfo$CodecProfileLevel;[IZ"
-            "Ljava/util/Map;Ljava/util/Map;)V");
-    CHECK(method != NULL);
-    gCodecInfo.capsCtorId = method;
-
-    clazz.reset(env->FindClass("android/media/MediaCodecInfo$CodecProfileLevel"));
-    CHECK(clazz.get() != NULL);
-    gCodecInfo.profileLevelClazz = (jclass)env->NewGlobalRef(clazz.get());
-
-    field = env->GetFieldID(clazz.get(), "profile", "I");
-    CHECK(field != NULL);
-    gCodecInfo.profileField = field;
-
-    field = env->GetFieldID(clazz.get(), "level", "I");
-    CHECK(field != NULL);
-    gCodecInfo.levelField = field;
 }
 
 static void android_media_MediaCodec_native_setup(
@@ -2178,7 +1902,7 @@ static const JNINativeMethod gMethods[] = {
 
     { "native_configure",
       "([Ljava/lang/String;[Ljava/lang/Object;Landroid/view/Surface;"
-      "Landroid/media/MediaCrypto;Landroid/os/IHwBinder;I)V",
+      "Landroid/media/MediaCrypto;I)V",
       (void *)android_media_MediaCodec_native_configure },
 
     { "native_setSurface",
@@ -2225,23 +1949,14 @@ static const JNINativeMethod gMethods[] = {
     { "getImage", "(ZI)Landroid/media/Image;",
       (void *)android_media_MediaCodec_getImage },
 
-    { "getCanonicalName", "()Ljava/lang/String;",
+    { "getName", "()Ljava/lang/String;",
       (void *)android_media_MediaCodec_getName },
-
-    { "getOwnCodecInfo", "()Landroid/media/MediaCodecInfo;",
-        (void *)android_media_MediaCodec_getOwnCodecInfo },
-
-    { "native_getMetrics", "()Landroid/os/PersistableBundle;",
-      (void *)android_media_MediaCodec_native_getMetrics},
 
     { "setParameters", "([Ljava/lang/String;[Ljava/lang/Object;)V",
       (void *)android_media_MediaCodec_setParameters },
 
     { "setVideoScalingMode", "(I)V",
       (void *)android_media_MediaCodec_setVideoScalingMode },
-
-    { "native_setAudioPresentation", "(II)V",
-      (void *)android_media_MediaCodec_setAudioPresentation },
 
     { "native_init", "()V", (void *)android_media_MediaCodec_native_init },
 

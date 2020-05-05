@@ -16,15 +16,14 @@
 
 package android.widget;
 
+import android.test.suitebuilder.annotation.Suppress;
+import com.google.android.collect.Lists;
+
 import android.content.Context;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.test.AndroidTestCase;
-
-import androidx.test.filters.SmallTest;
-import androidx.test.filters.Suppress;
-
-import com.google.android.collect.Lists;
+import android.test.suitebuilder.annotation.SmallTest;
 
 import java.util.ArrayList;
 import java.util.Random;

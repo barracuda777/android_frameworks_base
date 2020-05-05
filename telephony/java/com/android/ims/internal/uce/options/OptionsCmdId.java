@@ -17,7 +17,6 @@
 package com.android.ims.internal.uce.options;
 
 
-import android.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 import android.os.Parcelable;
 
@@ -56,7 +55,6 @@ public class OptionsCmdId implements Parcelable {
      * Sets the command ID.
      * @hide
      */
-    @UnsupportedAppUsage
     public void setCmdId(int nCmdId) {
         this.mCmdId = nCmdId;
     }
@@ -65,7 +63,6 @@ public class OptionsCmdId implements Parcelable {
      * Constructor for the OptionsCDCmdId class.
      * @hide
      */
-    @UnsupportedAppUsage
     public OptionsCmdId(){};
 
     /** @hide */

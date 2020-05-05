@@ -15,38 +15,23 @@
  */
 package com.android.systemui.statusbar.policy;
 
-import com.android.internal.net.VpnProfile;
-import com.android.systemui.Dumpable;
-import com.android.systemui.statusbar.policy.SecurityController.SecurityControllerCallback;
-
-import java.util.List;
-
-public interface SecurityController extends CallbackController<SecurityControllerCallback>,
-        Dumpable {
+public interface SecurityController {
     /** Whether the device has device owner, even if not on this user. */
     boolean isDeviceManaged();
     boolean hasProfileOwner();
-    boolean hasWorkProfile();
     String getDeviceOwnerName();
     String getProfileOwnerName();
-    CharSequence getDeviceOwnerOrganizationName();
-    CharSequence getWorkProfileOrganizationName();
     boolean isNetworkLoggingEnabled();
     boolean isVpnEnabled();
     boolean isVpnRestricted();
     /** Whether the VPN app should use branded VPN iconography.  */
     boolean isVpnBranded();
     String getPrimaryVpnName();
-    String getWorkProfileVpnName();
-    boolean hasCACertInCurrentUser();
-    boolean hasCACertInWorkProfile();
+    String getProfileVpnName();
     void onUserSwitched(int newUserId);
 
-    List<VpnProfile> getConfiguredLegacyVpns();
-    List<String> getVpnAppPackageNames();
-    void connectLegacyVpn(VpnProfile profile);
-    void launchVpnApp(String packageName);
-    void disconnectPrimaryVpn();
+    void addCallback(SecurityControllerCallback callback);
+    void removeCallback(SecurityControllerCallback callback);
 
     public interface SecurityControllerCallback {
         void onStateChanged();

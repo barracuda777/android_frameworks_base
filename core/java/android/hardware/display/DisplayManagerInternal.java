@@ -16,17 +16,11 @@
 
 package android.hardware.display;
 
-import android.annotation.Nullable;
 import android.hardware.SensorManager;
 import android.os.Handler;
 import android.os.PowerManager;
-import android.util.IntArray;
-import android.util.SparseArray;
 import android.view.Display;
 import android.view.DisplayInfo;
-import android.view.Surface;
-import android.view.SurfaceControl;
-import android.view.SurfaceControl.Transaction;
 
 /**
  * Display manager local system service interface.
@@ -63,14 +57,6 @@ public abstract class DisplayManagerInternal {
      * Returns true if the proximity sensor screen-off function is available.
      */
     public abstract boolean isProximitySensorAvailable();
-
-    /**
-     * Take a screenshot of the specified display and return a buffer.
-     *
-     * @param displayId The display id to take the screenshot of.
-     * @return The buffer or null if we have failed.
-     */
-    public abstract SurfaceControl.ScreenshotGraphicBuffer screenshot(int displayId);
 
     /**
      * Returns information about the specified logical display.
@@ -114,20 +100,10 @@ public abstract class DisplayManagerInternal {
             int displayId, DisplayInfo info);
 
     /**
-     * Get current display info without override from WindowManager.
-     * Current implementation of LogicalDisplay#getDisplayInfoLocked() always returns display info
-     * with overrides from WM if set. This method can be used for getting real display size without
-     * overrides to determine if real changes to display metrics happened.
-     * @param displayId Id of the target display.
-     * @param outInfo {@link DisplayInfo} to fill.
-     */
-    public abstract void getNonOverrideDisplayInfo(int displayId, DisplayInfo outInfo);
-
-    /**
      * Called by the window manager to perform traversals while holding a
      * surface flinger transaction.
      */
-    public abstract void performTraversal(Transaction t);
+    public abstract void performTraversalInTransactionFromWindowManager();
 
     /**
      * Tells the display manager about properties of the display that depend on the windows on it.
@@ -171,70 +147,6 @@ public abstract class DisplayManagerInternal {
     public abstract void setDisplayOffsets(int displayId, int x, int y);
 
     /**
-     * Disables scaling for a display.
-     *
-     * @param displayId The logical display id to disable scaling for.
-     * @param disableScaling {@code true} to disable scaling,
-     * {@code false} to use the default scaling behavior of the logical display.
-     */
-    public abstract void setDisplayScalingDisabled(int displayId, boolean disableScaling);
-
-    /**
-     * Provide a list of UIDs that are present on the display and are allowed to access it.
-     *
-     * @param displayAccessUIDs Mapping displayId -> int array of UIDs.
-     */
-    public abstract void setDisplayAccessUIDs(SparseArray<IntArray> displayAccessUIDs);
-
-    /**
-     * Persist brightness slider events and ambient brightness stats.
-     */
-    public abstract void persistBrightnessTrackerState();
-
-    /**
-     * Notifies the display manager that resource overlays have changed.
-     */
-    public abstract void onOverlayChanged();
-
-    /**
-     * Get the attributes available for display color sampling.
-     * @param displayId id of the display to collect the sample from.
-     *
-     * @return The attributes the display supports, or null if sampling is not supported.
-     */
-    @Nullable
-    public abstract DisplayedContentSamplingAttributes getDisplayedContentSamplingAttributes(
-            int displayId);
-
-    /**
-     * Enable or disable the collection of color samples.
-     *
-     * @param displayId id of the display to collect the sample from.
-     * @param componentMask a bitmask of the color channels to collect samples for, or zero for all
-     *                      available.
-     * @param maxFrames maintain a ringbuffer of the last maxFrames.
-     * @param enable True to enable, False to disable.
-     *
-     * @return True if sampling was enabled, false if failure.
-     */
-    public abstract boolean setDisplayedContentSamplingEnabled(
-            int displayId, boolean enable, int componentMask, int maxFrames);
-
-    /**
-     * Accesses the color histogram statistics of displayed frames on devices that support sampling.
-     *
-     * @param displayId id of the display to collect the sample from
-     * @param maxFrames limit the statistics to the last maxFrames number of frames.
-     * @param timestamp discard statistics that were collected prior to timestamp, where timestamp
-     *                  is given as CLOCK_MONOTONIC.
-     * @return The statistics representing a histogram of the color distribution of the frames
-     *         displayed on-screen, or null if sampling is not supported.
-    */
-    @Nullable
-    public abstract DisplayedContentSample getDisplayedContentSample(
-            int displayId, long maxFrames, long timestamp);
-
-    /**
      * Describes the requested power state of the display.
      *
      * This object is intended to describe the general characteristics of the
@@ -265,23 +177,24 @@ public abstract class DisplayManagerInternal {
         // nearby, turning it off temporarily until the object is moved away.
         public boolean useProximitySensor;
 
-        // An override of the screen brightness. Set to -1 is used if there's no override.
-        public int screenBrightnessOverride;
+        // The desired screen brightness in the range 0 (minimum / off) to 255 (brightest).
+        // The display power controller may choose to clamp the brightness.
+        // When auto-brightness is enabled, this field should specify a nominal default
+        // value to use while waiting for the light sensor to report enough data.
+        public int screenBrightness;
 
-        // An override of the screen auto-brightness adjustment factor in the range -1 (dimmer) to
-        // 1 (brighter). Set to Float.NaN if there's no override.
-        public float screenAutoBrightnessAdjustmentOverride;
+        // The screen auto-brightness adjustment factor in the range -1 (dimmer) to 1 (brighter).
+        public float screenAutoBrightnessAdjustment;
+
+        // Set to true if screenBrightness and screenAutoBrightnessAdjustment were both
+        // set by the user as opposed to being programmatically controlled by apps.
+        public boolean brightnessSetByUser;
 
         // If true, enables automatic brightness control.
         public boolean useAutoBrightness;
 
-        // If true, scales the brightness to a fraction of desired (as defined by
-        // screenLowPowerBrightnessFactor).
+        // If true, scales the brightness to half of desired.
         public boolean lowPowerMode;
-
-        // The factor to adjust the screen brightness in low power mode in the range
-        // 0 (screen off) to 1 (no change)
-        public float screenLowPowerBrightnessFactor;
 
         // If true, applies a brightness boost.
         public boolean boostScreenBrightness;
@@ -303,10 +216,9 @@ public abstract class DisplayManagerInternal {
         public DisplayPowerRequest() {
             policy = POLICY_BRIGHT;
             useProximitySensor = false;
-            screenBrightnessOverride = -1;
+            screenBrightness = PowerManager.BRIGHTNESS_ON;
+            screenAutoBrightnessAdjustment = 0.0f;
             useAutoBrightness = false;
-            screenAutoBrightnessAdjustmentOverride = Float.NaN;
-            screenLowPowerBrightnessFactor = 0.5f;
             blockScreenOn = false;
             dozeScreenBrightness = PowerManager.BRIGHTNESS_DEFAULT;
             dozeScreenState = Display.STATE_UNKNOWN;
@@ -327,10 +239,10 @@ public abstract class DisplayManagerInternal {
         public void copyFrom(DisplayPowerRequest other) {
             policy = other.policy;
             useProximitySensor = other.useProximitySensor;
-            screenBrightnessOverride = other.screenBrightnessOverride;
+            screenBrightness = other.screenBrightness;
+            screenAutoBrightnessAdjustment = other.screenAutoBrightnessAdjustment;
+            brightnessSetByUser = other.brightnessSetByUser;
             useAutoBrightness = other.useAutoBrightness;
-            screenAutoBrightnessAdjustmentOverride = other.screenAutoBrightnessAdjustmentOverride;
-            screenLowPowerBrightnessFactor = other.screenLowPowerBrightnessFactor;
             blockScreenOn = other.blockScreenOn;
             lowPowerMode = other.lowPowerMode;
             boostScreenBrightness = other.boostScreenBrightness;
@@ -348,21 +260,15 @@ public abstract class DisplayManagerInternal {
             return other != null
                     && policy == other.policy
                     && useProximitySensor == other.useProximitySensor
-                    && screenBrightnessOverride == other.screenBrightnessOverride
+                    && screenBrightness == other.screenBrightness
+                    && screenAutoBrightnessAdjustment == other.screenAutoBrightnessAdjustment
+                    && brightnessSetByUser == other.brightnessSetByUser
                     && useAutoBrightness == other.useAutoBrightness
-                    && floatEquals(screenAutoBrightnessAdjustmentOverride,
-                            other.screenAutoBrightnessAdjustmentOverride)
-                    && screenLowPowerBrightnessFactor
-                    == other.screenLowPowerBrightnessFactor
                     && blockScreenOn == other.blockScreenOn
                     && lowPowerMode == other.lowPowerMode
                     && boostScreenBrightness == other.boostScreenBrightness
                     && dozeScreenBrightness == other.dozeScreenBrightness
                     && dozeScreenState == other.dozeScreenState;
-        }
-
-        private boolean floatEquals(float f1, float f2) {
-            return f1 == f2 || Float.isNaN(f1) && Float.isNaN(f2);
         }
 
         @Override
@@ -374,11 +280,10 @@ public abstract class DisplayManagerInternal {
         public String toString() {
             return "policy=" + policyToString(policy)
                     + ", useProximitySensor=" + useProximitySensor
-                    + ", screenBrightnessOverride=" + screenBrightnessOverride
+                    + ", screenBrightness=" + screenBrightness
+                    + ", screenAutoBrightnessAdjustment=" + screenAutoBrightnessAdjustment
+                    + ", brightnessSetByUser=" + brightnessSetByUser
                     + ", useAutoBrightness=" + useAutoBrightness
-                    + ", screenAutoBrightnessAdjustmentOverride="
-                    + screenAutoBrightnessAdjustmentOverride
-                    + ", screenLowPowerBrightnessFactor=" + screenLowPowerBrightnessFactor
                     + ", blockScreenOn=" + blockScreenOn
                     + ", lowPowerMode=" + lowPowerMode
                     + ", boostScreenBrightness=" + boostScreenBrightness
@@ -423,6 +328,6 @@ public abstract class DisplayManagerInternal {
      * update the position of its surfaces as part of the same transaction.
      */
     public interface DisplayTransactionListener {
-        void onDisplayTransaction(Transaction t);
+        void onDisplayTransaction();
     }
 }

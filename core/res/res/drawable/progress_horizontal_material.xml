@@ -18,8 +18,7 @@
     <item android:id="@id/background"
           android:gravity="center_vertical|fill_horizontal">
         <shape android:shape="rectangle"
-               android:tint="?attr/colorProgressBackgroundNormal">
-            <corners android:radius="?attr/progressBarCornerRadius" />
+               android:tint="?attr/colorControlNormal">
             <size android:height="@dimen/progress_bar_height_material" />
             <solid android:color="@color/white_disabled_material" />
         </shape>
@@ -29,7 +28,6 @@
         <scale android:scaleWidth="100%">
             <shape android:shape="rectangle"
                    android:tint="?attr/colorControlActivated">
-                <corners android:radius="?attr/progressBarCornerRadius" />
                 <size android:height="@dimen/progress_bar_height_material" />
                 <solid android:color="@color/white_disabled_material" />
             </shape>
@@ -40,7 +38,6 @@
         <scale android:scaleWidth="100%">
             <shape android:shape="rectangle"
                    android:tint="?attr/colorControlActivated">
-                <corners android:radius="?attr/progressBarCornerRadius" />
                 <size android:height="@dimen/progress_bar_height_material" />
                 <solid android:color="@color/white" />
             </shape>

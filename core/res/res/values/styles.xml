@@ -159,11 +159,6 @@ please see styles_device_defaults.xml.
         <item name="windowExitAnimation">@anim/toast_exit</item>
     </style>
 
-    <style name="Animation.Tooltip">
-        <item name="windowEnterAnimation">@anim/tooltip_enter</item>
-        <item name="windowExitAnimation">@anim/tooltip_exit</item>
-    </style>
-
     <style name="Animation.DropDownDown">
         <item name="windowEnterAnimation">@anim/grow_fade_in</item>
         <item name="windowExitAnimation">@anim/shrink_fade_out</item>
@@ -322,7 +317,6 @@ please see styles_device_defaults.xml.
         <item name="scrollbars">vertical</item>
         <item name="fadingEdge">vertical</item>
         <item name="fastScrollStyle">?attr/fastScrollStyle</item>
-        <item name="defaultFocusHighlightEnabled">false</item>
     </style>
 
     <style name="Widget.GestureOverlayView">
@@ -506,13 +500,11 @@ please see styles_device_defaults.xml.
         <item name="textEditSuggestionHighlightStyle">?attr/textEditSuggestionHighlightStyle</item>
         <item name="textCursorDrawable">?attr/textCursorDrawable</item>
         <item name="breakStrategy">high_quality</item>
-        <item name="hyphenationFrequency">@dimen/config_preferredHyphenationFrequency</item>
+        <item name="hyphenationFrequency">normal</item>
     </style>
 
     <style name="Widget.CheckedTextView">
         <item name="textAlignment">viewStart</item>
-        <item name="breakStrategy">high_quality</item>
-        <item name="hyphenationFrequency">@dimen/config_preferredHyphenationFrequency</item>
     </style>
 
     <style name="Widget.TextView.ListSeparator">
@@ -540,8 +532,7 @@ please see styles_device_defaults.xml.
         <item name="textColor">?attr/editTextColor</item>
         <item name="gravity">center_vertical</item>
         <item name="breakStrategy">simple</item>
-        <item name="hyphenationFrequency">@dimen/config_preferredHyphenationFrequency</item>
-        <item name="defaultFocusHighlightEnabled">false</item>
+        <item name="hyphenationFrequency">normal</item>
     </style>
 
     <style name="Widget.ExpandableListView" parent="Widget.ListView">
@@ -799,16 +790,6 @@ please see styles_device_defaults.xml.
         <item name="textOff">@string/capital_off</item>
     </style>
 
-    <style name="Widget.Magnifier">
-        <item name="magnifierWidth">100dp</item>
-        <item name="magnifierHeight">48dp</item>
-        <item name="magnifierZoom">1.25</item>
-        <item name="magnifierElevation">4dp</item>
-        <item name="magnifierVerticalOffset">-42dp</item>
-        <item name="magnifierHorizontalOffset">0dp</item>
-        <item name="magnifierColorOverlay">#0EFFFFFF</item>
-    </style>
-
     <!-- Text Appearances -->
     <eat-comment />
 
@@ -941,7 +922,7 @@ please see styles_device_defaults.xml.
          <item name="textStyle">normal</item>
          <item name="textColor">?textColorPrimaryInverse</item>
          <item name="textColorHint">?textColorHintInverse</item>
-     </style>
+     </style>	
 
      <!-- @hide -->
      <style name="TextAppearance.SearchResult.Title">
@@ -966,13 +947,7 @@ please see styles_device_defaults.xml.
     </style>
 
     <style name="TextAppearance.Toast">
-        <item name="fontFamily">sans-serif</item>
-        <item name="textSize">14sp</item>
-    </style>
-
-    <style name="TextAppearance.Tooltip">
-        <item name="fontFamily">sans-serif</item>
-        <item name="textSize">14sp</item>
+        <item name="fontFamily">sans-serif-condensed</item>
     </style>
 
     <style name="Widget.ActivityChooserView">
@@ -1265,7 +1240,6 @@ please see styles_device_defaults.xml.
         <item name="contentInsetStart">16dp</item>
         <item name="contentInsetStartWithNavigation">@dimen/action_bar_content_inset_with_nav</item>
         <item name="touchscreenBlocksFocus">true</item>
-        <item name="keyboardNavigationCluster">true</item>
     </style>
 
     <style name="Widget.Toolbar.Button.Navigation" parent="Widget">
@@ -1306,7 +1280,6 @@ please see styles_device_defaults.xml.
     <style name="Widget.ActionButton.Overflow">
         <item name="src">@drawable/ic_menu_more</item>
         <item name="contentDescription">@string/action_menu_overflow_description</item>
-        <item name="tooltipText">@string/action_menu_overflow_description</item>
     </style>
 
     <style name="Widget.ActionButton.CloseMode">
@@ -1490,58 +1463,5 @@ please see styles_device_defaults.xml.
         <item name="minHeight">72dp</item>
         <item name="padding">16dp</item>
     </style>
-
-    <style name="Widget.LockPatternView">
-        <item name="regularColor">@color/lock_pattern_view_regular_color</item>
-        <item name="errorColor">?attr/colorError</item>
-        <item name="successColor">@color/lock_pattern_view_success_color</item>
-    </style>
-
-    <!-- @hide Autofill background for popup window (not for fullscreen) -->
-    <style name="AutofillDatasetPicker">
-        <item name="elevation">4dp</item>
-        <item name="background">@drawable/autofill_dataset_picker_background</item>
-    </style>
-
-    <!-- @hide -->
-    <style name="AutofillHalfScreenAnimation">
-        <item name="android:windowEnterAnimation">@anim/slide_in_up</item>
-        <item name="android:windowExitAnimation">@anim/slide_out_down</item>
-    </style>
-
-    <!-- @hide -->
-    <style name="AutofillSaveAnimation">
-        <item name="android:windowEnterAnimation">@anim/slide_in_up</item>
-        <item name="android:windowExitAnimation">@anim/slide_out_down</item>
-    </style>
-
-    <!-- The style for the container of media actions in a notification. -->
-    <!-- @hide -->
-    <style name="NotificationMediaActionContainer">
-        <item name="layout_width">wrap_content</item>
-        <item name="layout_height">wrap_content</item>
-        <item name="layout_marginTop">-21dp</item>
-        <item name="paddingStart">8dp</item>
-        <item name="paddingBottom">@dimen/media_notification_actions_padding_bottom</item>
-        <item name="gravity">top</item>
-    </style>
-
-    <!-- The style for normal action button on notification -->
-    <style name="NotificationAction" parent="Widget.Material.Light.Button.Borderless.Small">
-      <item name="textColor">@color/notification_action_button_text_color</item>
-      <item name="background">@drawable/notification_material_action_background</item>
-    </style>
-
-    <!-- The style for emphasized action button on notification: Colored bordered ink button -->
-    <style name="NotificationEmphasizedAction" parent="Widget.Material.Button">
-        <item name="background">@drawable/btn_notification_emphasized</item>
-        <item name="stateListAnimator">@anim/flat_button_state_list_anim_material</item>
-    </style>
-
-    <!-- The style for disabled action button on notification -->
-    <style name="NotificationTombstoneAction" parent="NotificationAction">
-      <item name="textColor">#555555</item>
-    </style>
-
 
 </resources>

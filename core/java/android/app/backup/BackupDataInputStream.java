@@ -16,7 +16,6 @@
 
 package android.app.backup;
 
-import android.annotation.UnsupportedAppUsage;
 import java.io.InputStream;
 import java.io.IOException;
 
@@ -38,9 +37,7 @@ import java.io.IOException;
  */
 public class BackupDataInputStream extends InputStream {
 
-    @UnsupportedAppUsage
     String key;
-    @UnsupportedAppUsage
     int dataSize;
 
     BackupDataInput mData;

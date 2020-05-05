@@ -15,8 +15,6 @@
  */
 package com.android.internal.telephony;
 
-import android.annotation.UnsupportedAppUsage;
-
 /**
  * SMS Constants and must be the same as the corresponding
  * deprecated version in SmsMessage.
@@ -60,16 +58,7 @@ public class SmsConstants {
      * See TS 23.038.
      */
     public enum MessageClass{
-        @UnsupportedAppUsage
-        UNKNOWN,
-        @UnsupportedAppUsage
-        CLASS_0,
-        @UnsupportedAppUsage
-        CLASS_1,
-        @UnsupportedAppUsage
-        CLASS_2,
-        @UnsupportedAppUsage
-        CLASS_3;
+        UNKNOWN, CLASS_0, CLASS_1, CLASS_2, CLASS_3;
     }
 
     /**

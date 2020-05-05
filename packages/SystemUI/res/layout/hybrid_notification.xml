@@ -15,24 +15,27 @@
   ~ limitations under the License
   -->
 
-<com.android.systemui.statusbar.notification.row.HybridNotificationView
+<com.android.systemui.statusbar.notification.HybridNotificationView
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:gravity="bottom|start"
-    style="?attr/hybridNotificationStyle">
+    android:paddingStart="@*android:dimen/notification_content_margin_start"
+    android:paddingEnd="12dp"
+    android:gravity="bottom|start">
     <TextView
         android:id="@+id/notification_title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:paddingEnd="4dp"
         android:singleLine="true"
-        style="?attr/hybridNotificationTitleStyle"
+        android:textAppearance="@*android:style/TextAppearance.Material.Notification.Title"
     />
     <TextView
         android:id="@+id/notification_text"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:paddingEnd="4dp"
+        android:textAppearance="@*android:style/TextAppearance.Material.Notification"
         android:singleLine="true"
-        style="?attr/hybridNotificationTextStyle"
-    />
-</com.android.systemui.statusbar.notification.row.HybridNotificationView>
+        />
+</com.android.systemui.statusbar.notification.HybridNotificationView>

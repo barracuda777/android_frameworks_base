@@ -20,7 +20,6 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.TimeInterpolator;
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Path;
@@ -531,7 +530,7 @@ public abstract class Transition implements Cloneable {
             View view = unmatchedStart.keyAt(i);
             if (view != null && isValidTarget(view)) {
                 TransitionValues end = unmatchedEnd.remove(view);
-                if (end != null && isValidTarget(end.view)) {
+                if (end != null && end.view != null && isValidTarget(end.view)) {
                     TransitionValues start = unmatchedStart.removeAt(i);
                     mStartValuesList.add(start);
                     mEndValuesList.add(end);
@@ -738,8 +737,9 @@ public abstract class Transition implements Cloneable {
                     if (end != null) {
                         view = end.view;
                         String[] properties = getTransitionProperties();
-                        if (properties != null && properties.length > 0) {
-                            infoValues = new TransitionValues(view);
+                        if (view != null && properties != null && properties.length > 0) {
+                            infoValues = new TransitionValues();
+                            infoValues.view = view;
                             TransitionValues newValues = endValues.viewValues.get(view);
                             if (newValues != null) {
                                 for (int j = 0; j < properties.length; ++j) {
@@ -799,10 +799,8 @@ public abstract class Transition implements Cloneable {
      * targetId list. If the target parameter is null, then the target list
      * is not checked (this is in the case of ListView items, where the
      * views are ignored and only the ids are used).
-     *
-     * @hide
      */
-    public boolean isValidTarget(View target) {
+    boolean isValidTarget(View target) {
         if (target == null) {
             return false;
         }
@@ -848,7 +846,6 @@ public abstract class Transition implements Cloneable {
         return false;
     }
 
-    @UnsupportedAppUsage
     private static ArrayMap<Animator, AnimationInfo> getRunningAnimators() {
         ArrayMap<Animator, AnimationInfo> runningAnimators = sRunningAnimators.get();
         if (runningAnimators == null) {
@@ -1430,7 +1427,8 @@ public abstract class Transition implements Cloneable {
                 int id = mTargetIds.get(i);
                 View view = sceneRoot.findViewById(id);
                 if (view != null) {
-                    TransitionValues values = new TransitionValues(view);
+                    TransitionValues values = new TransitionValues();
+                    values.view = view;
                     if (start) {
                         captureStartValues(values);
                     } else {
@@ -1447,7 +1445,8 @@ public abstract class Transition implements Cloneable {
             }
             for (int i = 0; i < mTargets.size(); ++i) {
                 View view = mTargets.get(i);
-                TransitionValues values = new TransitionValues(view);
+                TransitionValues values = new TransitionValues();
+                values.view = view;
                 if (start) {
                     captureStartValues(values);
                 } else {
@@ -1573,7 +1572,8 @@ public abstract class Transition implements Cloneable {
             }
         }
         if (view.getParent() instanceof ViewGroup) {
-            TransitionValues values = new TransitionValues(view);
+            TransitionValues values = new TransitionValues();
+            values.view = view;
             if (start) {
                 captureStartValues(values);
             } else {
@@ -1913,7 +1913,6 @@ public abstract class Transition implements Cloneable {
      *
      * @hide
      */
-    @UnsupportedAppUsage
     protected void end() {
         --mNumInstances;
         if (mNumInstances == 0) {
@@ -1947,21 +1946,16 @@ public abstract class Transition implements Cloneable {
      * @hide
      */
     void forceToEnd(ViewGroup sceneRoot) {
-        final ArrayMap<Animator, AnimationInfo> runningAnimators = getRunningAnimators();
+        ArrayMap<Animator, AnimationInfo> runningAnimators = getRunningAnimators();
         int numOldAnims = runningAnimators.size();
-        if (sceneRoot == null || numOldAnims == 0) {
-            return;
-        }
-
-        WindowId windowId = sceneRoot.getWindowId();
-        final ArrayMap<Animator, AnimationInfo> oldAnimators = new ArrayMap(runningAnimators);
-        runningAnimators.clear();
-
-        for (int i = numOldAnims - 1; i >= 0; i--) {
-            AnimationInfo info = oldAnimators.valueAt(i);
-            if (info.view != null && windowId != null && windowId.equals(info.windowId)) {
-                Animator anim = oldAnimators.keyAt(i);
-                anim.end();
+        if (sceneRoot != null) {
+            WindowId windowId = sceneRoot.getWindowId();
+            for (int i = numOldAnims - 1; i >= 0; i--) {
+                AnimationInfo info = runningAnimators.valueAt(i);
+                if (info.view != null && windowId != null && windowId.equals(info.windowId)) {
+                    Animator anim = runningAnimators.keyAt(i);
+                    anim.end();
+                }
             }
         }
     }
@@ -1971,7 +1965,6 @@ public abstract class Transition implements Cloneable {
      *
      * @hide
      */
-    @UnsupportedAppUsage
     protected void cancel() {
         int numAnimators = mCurrentAnimators.size();
         for (int i = numAnimators - 1; i >= 0; i--) {
@@ -2346,6 +2339,34 @@ public abstract class Transition implements Cloneable {
          * @param transition The transition which was resumed.
          */
         void onTransitionResume(Transition transition);
+    }
+
+    /**
+     * Utility adapter class to avoid having to override all three methods
+     * whenever someone just wants to listen for a single event.
+     *
+     * @hide
+     * */
+    public static class TransitionListenerAdapter implements TransitionListener {
+        @Override
+        public void onTransitionStart(Transition transition) {
+        }
+
+        @Override
+        public void onTransitionEnd(Transition transition) {
+        }
+
+        @Override
+        public void onTransitionCancel(Transition transition) {
+        }
+
+        @Override
+        public void onTransitionPause(Transition transition) {
+        }
+
+        @Override
+        public void onTransitionResume(Transition transition) {
+        }
     }
 
     /**

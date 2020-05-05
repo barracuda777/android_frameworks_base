@@ -16,12 +16,13 @@
 
 package android.view;
 
-import android.app.Activity;
-import android.os.Bundle;
-import android.view.View.OnClickListener;
-import android.widget.Button;
-
 import com.android.frameworks.coretests.R;
+
+import android.os.Bundle;
+import android.widget.Button;
+import android.view.View;
+import android.view.View.OnClickListener;
+import android.app.Activity;
 
 /**
  * Exercise View's disabled state.
@@ -33,16 +34,16 @@ public class Disabled extends Activity implements OnClickListener {
         setContentView(R.layout.disabled);
 
         // Find our buttons
-        Button disabledButton = findViewById(R.id.disabledButton);
+        Button disabledButton = (Button) findViewById(R.id.disabledButton);
         disabledButton.setEnabled(false);
         
         // Find our buttons
-        Button disabledButtonA = findViewById(R.id.disabledButtonA);
+        Button disabledButtonA = (Button) findViewById(R.id.disabledButtonA);
         disabledButtonA.setOnClickListener(this);
     }
 
     public void onClick(View v) {
-        Button disabledButtonB = findViewById(R.id.disabledButtonB);
+        Button disabledButtonB = (Button) findViewById(R.id.disabledButtonB);
         disabledButtonB.setEnabled(!disabledButtonB.isEnabled());
     }
 }

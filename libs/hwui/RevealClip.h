@@ -25,7 +25,11 @@ namespace uirenderer {
 
 class RevealClip {
 public:
-    RevealClip() : mShouldClip(false), mX(0), mY(0), mRadius(0) {}
+    RevealClip()
+            : mShouldClip(false)
+            , mX(0)
+            , mY(0)
+            , mRadius(0) {}
 
     void set(bool shouldClip, float x, float y, float radius) {
         mShouldClip = shouldClip;
@@ -39,10 +43,13 @@ public:
         }
     }
 
-    bool willClip() const { return mShouldClip; }
+    bool willClip() const {
+        return mShouldClip;
+    }
 
     void getBounds(Rect* outBounds) const {
-        outBounds->set(mX - mRadius, mY - mRadius, mX + mRadius, mY + mRadius);
+        outBounds->set(mX - mRadius, mY - mRadius,
+                mX + mRadius, mY + mRadius);
     }
 
     float getRadius() const { return mRadius; }

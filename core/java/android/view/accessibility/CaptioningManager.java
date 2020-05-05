@@ -18,8 +18,6 @@ package android.view.accessibility;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.SystemService;
-import android.annotation.UnsupportedAppUsage;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.database.ContentObserver;
@@ -36,8 +34,14 @@ import java.util.Locale;
 /**
  * Contains methods for accessing and monitoring preferred video captioning state and visual
  * properties.
+ * <p>
+ * To obtain a handle to the captioning manager, do the following:
+ * <p>
+ * <code>
+ * <pre>CaptioningManager captioningManager =
+ *        (CaptioningManager) context.getSystemService(Context.CAPTIONING_SERVICE);</pre>
+ * </code>
  */
-@SystemService(Context.CAPTIONING_SERVICE)
 public class CaptioningManager {
     /** Default captioning enabled value. */
     private static final int DEFAULT_ENABLED = 0;
@@ -287,7 +291,6 @@ public class CaptioningManager {
         public static final CaptionStyle DEFAULT;
 
         /** @hide */
-        @UnsupportedAppUsage
         public static final CaptionStyle[] PRESETS;
 
         /** @hide */

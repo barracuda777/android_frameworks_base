@@ -18,10 +18,10 @@ package android.widget.layout.linear;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.os.RemoteException;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
-
 import com.android.frameworks.coretests.R;
 
 /**
@@ -37,7 +37,7 @@ public class LLOfButtons1 extends Activity {
     protected void onCreate(Bundle icicle) {
         super.onCreate(icicle);
         setContentView(R.layout.linear_layout_buttons);
-        mFirstButton = findViewById(R.id.button1);
+        mFirstButton = (Button) findViewById(R.id.button1);
 
         mFirstButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
@@ -48,7 +48,7 @@ public class LLOfButtons1 extends Activity {
     }
 
     public LinearLayout getLayout() {
-        return findViewById(R.id.layout);
+        return (LinearLayout) findViewById(R.id.layout);
     }
 
     public Button getFirstButton() {

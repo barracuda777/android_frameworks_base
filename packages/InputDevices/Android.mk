@@ -19,10 +19,9 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := $(call all-subdir-java-files)
 
-LOCAL_JAVA_LIBRARIES :=
+LOCAL_JAVA_LIBRARIES := 
 
 LOCAL_PACKAGE_NAME := InputDevices
-LOCAL_SDK_VERSION := current
 LOCAL_CERTIFICATE := platform
 LOCAL_PRIVILEGED_MODULE := true
 
@@ -39,7 +38,7 @@ validatekeymaps := $(HOST_OUT_EXECUTABLES)/validatekeymaps$(HOST_EXECUTABLE_SUFF
 input_devices_keymaps := $(wildcard $(LOCAL_PATH)/res/raw/*.kcm)
 $(LOCAL_BUILT_MODULE): PRIVATE_VALIDATEKEYMAPS := $(validatekeymaps)
 $(LOCAL_BUILT_MODULE) : $(input_devices_keymaps) | $(validatekeymaps)
-	$(hide) $(PRIVATE_VALIDATEKEYMAPS) -q $^
+	$(hide) $(PRIVATE_VALIDATEKEYMAPS) $^
 	$(hide) mkdir -p $(dir $@) && touch $@
 
 # Run validatekeymaps unconditionally for platform build.

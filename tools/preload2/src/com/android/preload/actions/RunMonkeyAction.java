@@ -58,12 +58,7 @@ public class RunMonkeyAction extends AbstractAction implements DeviceSpecific {
         if (packages.isEmpty()) {
             packages = DEFAULT_MONKEY_PACKAGES;
         }
-        Runnable r = new RunMonkeyRunnable(packages);
-        if (Main.getUI().isSingleThreaded()) {
-            r.run();
-        } else {
-            new Thread(r).start();
-        }
+        new Thread(new RunMonkeyRunnable(packages)).start();
     }
 
     private class RunMonkeyRunnable implements Runnable {

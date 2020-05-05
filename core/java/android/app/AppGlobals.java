@@ -16,7 +16,6 @@
 
 package android.app;
 
-import android.annotation.UnsupportedAppUsage;
 import android.content.pm.IPackageManager;
 
 /**
@@ -28,7 +27,6 @@ public class AppGlobals {
      * Return the first Application object made in the process.
      * NOTE: Only works on the main thread.
      */
-    @UnsupportedAppUsage
     public static Application getInitialApplication() {
         return ActivityThread.currentApplication();
     }
@@ -37,7 +35,6 @@ public class AppGlobals {
      * Return the package name of the first .apk loaded into the process.
      * NOTE: Only works on the main thread.
      */
-    @UnsupportedAppUsage
     public static String getInitialPackage() {
         return ActivityThread.currentPackageName();
     }
@@ -46,7 +43,6 @@ public class AppGlobals {
      * Return the raw interface to the package manager.
      * @return The package manager.
      */
-    @UnsupportedAppUsage
     public static IPackageManager getPackageManager() {
         return ActivityThread.getPackageManager();
     }

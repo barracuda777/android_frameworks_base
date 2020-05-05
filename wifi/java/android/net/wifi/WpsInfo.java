@@ -16,8 +16,8 @@
 
 package android.net.wifi;
 
-import android.os.Parcel;
 import android.os.Parcelable;
+import android.os.Parcel;
 
 /**
  * A class representing Wi-Fi Protected Setup
@@ -85,7 +85,7 @@ public class WpsInfo implements Parcelable {
     }
 
     /** Implement the Parcelable interface */
-    public static final @android.annotation.NonNull Creator<WpsInfo> CREATOR =
+    public static final Creator<WpsInfo> CREATOR =
         new Creator<WpsInfo>() {
             public WpsInfo createFromParcel(Parcel in) {
                 WpsInfo config = new WpsInfo();

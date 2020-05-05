@@ -16,15 +16,13 @@
 
 package android.util;
 
-import libcore.internal.StringPool;
-
 import java.io.Closeable;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
 import java.util.List;
-
+import libcore.internal.StringPool;
 
 /**
  * Reads a JSON (<a href="http://www.ietf.org/rfc/rfc4627.txt">RFC 4627</a>)
@@ -297,7 +295,7 @@ public final class JsonReader implements Closeable {
 
     /**
      * Consumes the next token from the JSON stream and asserts that it is the
-     * end of the current object.
+     * end of the current array.
      */
     public void endObject() throws IOException {
         expect(JsonToken.END_OBJECT);

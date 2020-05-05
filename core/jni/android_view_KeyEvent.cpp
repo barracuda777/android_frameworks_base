@@ -16,13 +16,13 @@
 
 #define LOG_TAG "KeyEvent-JNI"
 
-#include <nativehelper/JNIHelp.h>
+#include "JNIHelp.h"
 
 #include <android_runtime/AndroidRuntime.h>
 #include <android_runtime/Log.h>
 #include <utils/Log.h>
 #include <input/Input.h>
-#include <nativehelper/ScopedUtfChars.h>
+#include <ScopedUtfChars.h>
 #include "android_view_KeyEvent.h"
 
 #include "core_jni_helpers.h"
@@ -39,7 +39,6 @@ static struct {
 
     jfieldID mDeviceId;
     jfieldID mSource;
-    jfieldID mDisplayId;
     jfieldID mMetaState;
     jfieldID mAction;
     jfieldID mKeyCode;
@@ -66,7 +65,6 @@ jobject android_view_KeyEvent_fromNative(JNIEnv* env, const KeyEvent* event) {
             event->getScanCode(),
             event->getFlags(),
             event->getSource(),
-            event->getDisplayId(),
             NULL);
     if (env->ExceptionCheck()) {
         ALOGE("An exception occurred while obtaining a key event.");
@@ -81,7 +79,6 @@ status_t android_view_KeyEvent_toNative(JNIEnv* env, jobject eventObj,
         KeyEvent* event) {
     jint deviceId = env->GetIntField(eventObj, gKeyEventClassInfo.mDeviceId);
     jint source = env->GetIntField(eventObj, gKeyEventClassInfo.mSource);
-    jint displayId = env->GetIntField(eventObj, gKeyEventClassInfo.mDisplayId);
     jint metaState = env->GetIntField(eventObj, gKeyEventClassInfo.mMetaState);
     jint action = env->GetIntField(eventObj, gKeyEventClassInfo.mAction);
     jint keyCode = env->GetIntField(eventObj, gKeyEventClassInfo.mKeyCode);
@@ -91,8 +88,7 @@ status_t android_view_KeyEvent_toNative(JNIEnv* env, jobject eventObj,
     jlong downTime = env->GetLongField(eventObj, gKeyEventClassInfo.mDownTime);
     jlong eventTime = env->GetLongField(eventObj, gKeyEventClassInfo.mEventTime);
 
-    event->initialize(deviceId, source, displayId, action, flags, keyCode, scanCode, metaState,
-            repeatCount,
+    event->initialize(deviceId, source, action, flags, keyCode, scanCode, metaState, repeatCount,
             milliseconds_to_nanoseconds(downTime),
             milliseconds_to_nanoseconds(eventTime));
     return OK;
@@ -135,14 +131,12 @@ int register_android_view_KeyEvent(JNIEnv* env) {
     gKeyEventClassInfo.clazz = MakeGlobalRefOrDie(env, clazz);
 
     gKeyEventClassInfo.obtain = GetStaticMethodIDOrDie(env, gKeyEventClassInfo.clazz,
-            "obtain", "(JJIIIIIIIIILjava/lang/String;)Landroid/view/KeyEvent;");
+            "obtain", "(JJIIIIIIIILjava/lang/String;)Landroid/view/KeyEvent;");
     gKeyEventClassInfo.recycle = GetMethodIDOrDie(env, gKeyEventClassInfo.clazz,
             "recycle", "()V");
 
     gKeyEventClassInfo.mDeviceId = GetFieldIDOrDie(env, gKeyEventClassInfo.clazz, "mDeviceId", "I");
     gKeyEventClassInfo.mSource = GetFieldIDOrDie(env, gKeyEventClassInfo.clazz, "mSource", "I");
-    gKeyEventClassInfo.mDisplayId = GetFieldIDOrDie(env, gKeyEventClassInfo.clazz, "mDisplayId",
-                                                    "I");
     gKeyEventClassInfo.mMetaState = GetFieldIDOrDie(env, gKeyEventClassInfo.clazz, "mMetaState",
                                                     "I");
     gKeyEventClassInfo.mAction = GetFieldIDOrDie(env, gKeyEventClassInfo.clazz, "mAction", "I");

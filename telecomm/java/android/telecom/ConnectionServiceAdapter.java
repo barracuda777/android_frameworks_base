@@ -93,8 +93,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
             ParcelableConnection connection) {
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
-                adapter.handleCreateConnectionComplete(id, request, connection,
-                        Log.getExternalSession());
+                adapter.handleCreateConnectionComplete(id, request, connection);
             } catch (RemoteException e) {
             }
         }
@@ -109,7 +108,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
     void setActive(String callId) {
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
-                adapter.setActive(callId, Log.getExternalSession());
+                adapter.setActive(callId);
             } catch (RemoteException e) {
             }
         }
@@ -123,7 +122,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
     void setRinging(String callId) {
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
-                adapter.setRinging(callId, Log.getExternalSession());
+                adapter.setRinging(callId);
             } catch (RemoteException e) {
             }
         }
@@ -137,7 +136,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
     void setDialing(String callId) {
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
-                adapter.setDialing(callId, Log.getExternalSession());
+                adapter.setDialing(callId);
             } catch (RemoteException e) {
             }
         }
@@ -152,7 +151,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
     void setPulling(String callId) {
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
-                adapter.setPulling(callId, Log.getExternalSession());
+                adapter.setPulling(callId);
             } catch (RemoteException e) {
             }
         }
@@ -168,7 +167,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
     void setDisconnected(String callId, DisconnectCause disconnectCause) {
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
-                adapter.setDisconnected(callId, disconnectCause, Log.getExternalSession());
+                adapter.setDisconnected(callId, disconnectCause);
             } catch (RemoteException e) {
             }
         }
@@ -182,7 +181,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
     void setOnHold(String callId) {
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
-                adapter.setOnHold(callId, Log.getExternalSession());
+                adapter.setOnHold(callId);
             } catch (RemoteException e) {
             }
         }
@@ -197,7 +196,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
     void setRingbackRequested(String callId, boolean ringback) {
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
-                adapter.setRingbackRequested(callId, ringback, Log.getExternalSession());
+                adapter.setRingbackRequested(callId, ringback);
             } catch (RemoteException e) {
             }
         }
@@ -206,7 +205,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
     void setConnectionCapabilities(String callId, int capabilities) {
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
-                adapter.setConnectionCapabilities(callId, capabilities, Log.getExternalSession());
+                adapter.setConnectionCapabilities(callId, capabilities);
             } catch (RemoteException ignored) {
             }
         }
@@ -215,7 +214,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
     void setConnectionProperties(String callId, int properties) {
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
-                adapter.setConnectionProperties(callId, properties, Log.getExternalSession());
+                adapter.setConnectionProperties(callId, properties);
             } catch (RemoteException ignored) {
             }
         }
@@ -233,7 +232,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
                 Log.d(this, "sending connection %s with conference %s", callId, conferenceCallId);
-                adapter.setIsConferenced(callId, conferenceCallId, Log.getExternalSession());
+                adapter.setIsConferenced(callId, conferenceCallId);
             } catch (RemoteException ignored) {
             }
         }
@@ -248,20 +247,8 @@ final class ConnectionServiceAdapter implements DeathRecipient {
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
                 Log.d(this, "merge failed for call %s", callId);
-                adapter.setConferenceMergeFailed(callId, Log.getExternalSession());
+                adapter.setConferenceMergeFailed(callId);
             } catch (RemoteException ignored) {
-            }
-        }
-    }
-
-    /**
-        * Resets the cdma connection time.
-        */
-    void resetConnectionTime(String callId) {
-        for (IConnectionServiceAdapter adapter : mAdapters) {
-            try {
-                adapter.resetConnectionTime(callId, Log.getExternalSession());
-            } catch (RemoteException e) {
             }
         }
     }
@@ -275,7 +262,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
     void removeCall(String callId) {
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
-                adapter.removeCall(callId, Log.getExternalSession());
+                adapter.removeCall(callId);
             } catch (RemoteException ignored) {
             }
         }
@@ -284,7 +271,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
     void onPostDialWait(String callId, String remaining) {
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
-                adapter.onPostDialWait(callId, remaining, Log.getExternalSession());
+                adapter.onPostDialWait(callId, remaining);
             } catch (RemoteException ignored) {
             }
         }
@@ -293,7 +280,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
     void onPostDialChar(String callId, char nextChar) {
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
-                adapter.onPostDialChar(callId, nextChar, Log.getExternalSession());
+                adapter.onPostDialChar(callId, nextChar);
             } catch (RemoteException ignored) {
             }
         }
@@ -307,7 +294,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
     void addConferenceCall(String callId, ParcelableConference parcelableConference) {
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
-                adapter.addConferenceCall(callId, parcelableConference, Log.getExternalSession());
+                adapter.addConferenceCall(callId, parcelableConference);
             } catch (RemoteException ignored) {
             }
         }
@@ -316,21 +303,11 @@ final class ConnectionServiceAdapter implements DeathRecipient {
     /**
      * Retrieves a list of remote connection services usable to place calls.
      */
-    void queryRemoteConnectionServices(RemoteServiceCallback callback, String callingPackage) {
+    void queryRemoteConnectionServices(RemoteServiceCallback callback) {
         // Only supported when there is only one adapter.
         if (mAdapters.size() == 1) {
             try {
-                mAdapters.iterator().next().queryRemoteConnectionServices(callback, callingPackage,
-                        Log.getExternalSession());
-            } catch (RemoteException e) {
-                Log.e(this, e, "Exception trying to query for remote CSs");
-            }
-        } else {
-            try {
-                // This is not an error condition, so just pass back an empty list.
-                // This happens when querying from a remote connection service, not the connection
-                // manager itself.
-                callback.onResult(Collections.EMPTY_LIST, Collections.EMPTY_LIST);
+                mAdapters.iterator().next().queryRemoteConnectionServices(callback);
             } catch (RemoteException e) {
                 Log.e(this, e, "Exception trying to query for remote CSs");
             }
@@ -349,8 +326,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
             try {
                 adapter.setVideoProvider(
                         callId,
-                        videoProvider == null ? null : videoProvider.getInterface(),
-                        Log.getExternalSession());
+                        videoProvider == null ? null : videoProvider.getInterface());
             } catch (RemoteException e) {
             }
         }
@@ -365,7 +341,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
     void setIsVoipAudioMode(String callId, boolean isVoip) {
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
-                adapter.setIsVoipAudioMode(callId, isVoip, Log.getExternalSession());
+                adapter.setIsVoipAudioMode(callId, isVoip);
             } catch (RemoteException e) {
             }
         }
@@ -374,7 +350,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
     void setStatusHints(String callId, StatusHints statusHints) {
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
-                adapter.setStatusHints(callId, statusHints, Log.getExternalSession());
+                adapter.setStatusHints(callId, statusHints);
             } catch (RemoteException e) {
             }
         }
@@ -383,7 +359,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
     void setAddress(String callId, Uri address, int presentation) {
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
-                adapter.setAddress(callId, address, presentation, Log.getExternalSession());
+                adapter.setAddress(callId, address, presentation);
             } catch (RemoteException e) {
             }
         }
@@ -392,8 +368,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
     void setCallerDisplayName(String callId, String callerDisplayName, int presentation) {
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
-                adapter.setCallerDisplayName(callId, callerDisplayName, presentation,
-                        Log.getExternalSession());
+                adapter.setCallerDisplayName(callId, callerDisplayName, presentation);
             } catch (RemoteException e) {
             }
         }
@@ -414,7 +389,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
         Log.v(this, "setVideoState: %d", videoState);
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
-                adapter.setVideoState(callId, videoState, Log.getExternalSession());
+                adapter.setVideoState(callId, videoState);
             } catch (RemoteException ignored) {
             }
         }
@@ -424,8 +399,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
         Log.v(this, "setConferenceableConnections: %s, %s", callId, conferenceableCallIds);
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
-                adapter.setConferenceableConnections(callId, conferenceableCallIds,
-                        Log.getExternalSession());
+                adapter.setConferenceableConnections(callId, conferenceableCallIds);
             } catch (RemoteException ignored) {
             }
         }
@@ -441,7 +415,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
         Log.v(this, "addExistingConnection: %s", callId);
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
-                adapter.addExistingConnection(callId, connection, Log.getExternalSession());
+                adapter.addExistingConnection(callId, connection);
             } catch (RemoteException ignored) {
             }
         }
@@ -457,7 +431,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
         Log.v(this, "putExtras: %s", callId);
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
-                adapter.putExtras(callId, extras, Log.getExternalSession());
+                adapter.putExtras(callId, extras);
             } catch (RemoteException ignored) {
             }
         }
@@ -476,7 +450,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
             try {
                 Bundle bundle = new Bundle();
                 bundle.putBoolean(key, value);
-                adapter.putExtras(callId, bundle, Log.getExternalSession());
+                adapter.putExtras(callId, bundle);
             } catch (RemoteException ignored) {
             }
         }
@@ -495,7 +469,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
             try {
                 Bundle bundle = new Bundle();
                 bundle.putInt(key, value);
-                adapter.putExtras(callId, bundle, Log.getExternalSession());
+                adapter.putExtras(callId, bundle);
             } catch (RemoteException ignored) {
             }
         }
@@ -514,7 +488,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
             try {
                 Bundle bundle = new Bundle();
                 bundle.putString(key, value);
-                adapter.putExtras(callId, bundle, Log.getExternalSession());
+                adapter.putExtras(callId, bundle);
             } catch (RemoteException ignored) {
             }
         }
@@ -529,31 +503,11 @@ final class ConnectionServiceAdapter implements DeathRecipient {
         Log.v(this, "removeExtras: %s %s", callId, keys);
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
-                adapter.removeExtras(callId, keys, Log.getExternalSession());
+                adapter.removeExtras(callId, keys);
             } catch (RemoteException ignored) {
             }
         }
     }
-
-    /**
-     * Sets the audio route associated with a {@link Connection}.
-     *
-     * @param callId The unique ID of the call.
-     * @param audioRoute The new audio route (see {@code CallAudioState#ROUTE_*}).
-     */
-    void setAudioRoute(String callId, int audioRoute, String bluetoothAddress) {
-        Log.v(this, "setAudioRoute: %s %s %s", callId,
-                CallAudioState.audioRouteToString(audioRoute),
-                bluetoothAddress);
-        for (IConnectionServiceAdapter adapter : mAdapters) {
-            try {
-                adapter.setAudioRoute(callId, audioRoute,
-                        bluetoothAddress, Log.getExternalSession());
-            } catch (RemoteException ignored) {
-            }
-        }
-    }
-
 
     /**
      * Informs Telecom of a connection level event.
@@ -566,116 +520,7 @@ final class ConnectionServiceAdapter implements DeathRecipient {
         Log.v(this, "onConnectionEvent: %s", event);
         for (IConnectionServiceAdapter adapter : mAdapters) {
             try {
-                adapter.onConnectionEvent(callId, event, extras, Log.getExternalSession());
-            } catch (RemoteException ignored) {
-            }
-        }
-    }
-
-    /**
-     * Notifies Telecom that an RTT session was successfully established.
-     *
-     * @param callId The unique ID of the call.
-     */
-    void onRttInitiationSuccess(String callId) {
-        Log.v(this, "onRttInitiationSuccess: %s", callId);
-        for (IConnectionServiceAdapter adapter : mAdapters) {
-            try {
-                adapter.onRttInitiationSuccess(callId, Log.getExternalSession());
-            } catch (RemoteException ignored) {
-            }
-        }
-    }
-
-    /**
-     * Notifies Telecom that a requested RTT session failed to be established.
-     *
-     * @param callId The unique ID of the call.
-     */
-    void onRttInitiationFailure(String callId, int reason) {
-        Log.v(this, "onRttInitiationFailure: %s", callId);
-        for (IConnectionServiceAdapter adapter : mAdapters) {
-            try {
-                adapter.onRttInitiationFailure(callId, reason, Log.getExternalSession());
-            } catch (RemoteException ignored) {
-            }
-        }
-    }
-
-    /**
-     * Notifies Telecom that an established RTT session was terminated by the remote user on
-     * the call.
-     *
-     * @param callId The unique ID of the call.
-     */
-    void onRttSessionRemotelyTerminated(String callId) {
-        Log.v(this, "onRttSessionRemotelyTerminated: %s", callId);
-        for (IConnectionServiceAdapter adapter : mAdapters) {
-            try {
-                adapter.onRttSessionRemotelyTerminated(callId, Log.getExternalSession());
-            } catch (RemoteException ignored) {
-            }
-        }
-    }
-
-    /**
-     * Notifies Telecom that the remote user on the call has requested an upgrade to an RTT
-     * session for this call.
-     *
-     * @param callId The unique ID of the call.
-     */
-    void onRemoteRttRequest(String callId) {
-        Log.v(this, "onRemoteRttRequest: %s", callId);
-        for (IConnectionServiceAdapter adapter : mAdapters) {
-            try {
-                adapter.onRemoteRttRequest(callId, Log.getExternalSession());
-            } catch (RemoteException ignored) {
-            }
-        }
-    }
-
-    /**
-     * Notifies Telecom that a call's PhoneAccountHandle has changed.
-     *
-     * @param callId The unique ID of the call.
-     * @param pHandle The new PhoneAccountHandle associated with the call.
-     */
-    void onPhoneAccountChanged(String callId, PhoneAccountHandle pHandle) {
-        for (IConnectionServiceAdapter adapter : mAdapters) {
-            try {
-                Log.d(this, "onPhoneAccountChanged %s", callId);
-                adapter.onPhoneAccountChanged(callId, pHandle, Log.getExternalSession());
-            } catch (RemoteException ignored) {
-            }
-        }
-    }
-
-    /**
-     * Notifies Telecom that the {@link ConnectionService} has released the call resource.
-     */
-    void onConnectionServiceFocusReleased() {
-        for (IConnectionServiceAdapter adapter : mAdapters) {
-            try {
-                Log.d(this, "onConnectionServiceFocusReleased");
-                adapter.onConnectionServiceFocusReleased(Log.getExternalSession());
-            } catch (RemoteException ignored) {
-            }
-        }
-    }
-
-    /**
-     * Sets whether a conference is treated as a conference or a single party call.
-     * See {@link Conference#setConferenceState(boolean)} for more information.
-     *
-     * @param callId The ID of the telecom call.
-     * @param isConference {@code true} if this call should be treated as a conference,
-     * {@code false} otherwise.
-     */
-    void setConferenceState(String callId, boolean isConference) {
-        Log.v(this, "setConferenceState: %s %b", callId, isConference);
-        for (IConnectionServiceAdapter adapter : mAdapters) {
-            try {
-                adapter.setConferenceState(callId, isConference, Log.getExternalSession());
+                adapter.onConnectionEvent(callId, event, extras);
             } catch (RemoteException ignored) {
             }
         }

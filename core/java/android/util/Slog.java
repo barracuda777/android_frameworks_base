@@ -16,9 +16,6 @@
 
 package android.util;
 
-import android.annotation.UnsupportedAppUsage;
-import android.os.Build;
-
 /**
  * @hide
  */
@@ -27,7 +24,6 @@ public final class Slog {
     private Slog() {
     }
 
-    @UnsupportedAppUsage
     public static int v(String tag, String msg) {
         return Log.println_native(Log.LOG_ID_SYSTEM, Log.VERBOSE, tag, msg);
     }
@@ -37,18 +33,15 @@ public final class Slog {
                 msg + '\n' + Log.getStackTraceString(tr));
     }
 
-    @UnsupportedAppUsage
     public static int d(String tag, String msg) {
         return Log.println_native(Log.LOG_ID_SYSTEM, Log.DEBUG, tag, msg);
     }
 
-    @UnsupportedAppUsage
     public static int d(String tag, String msg, Throwable tr) {
         return Log.println_native(Log.LOG_ID_SYSTEM, Log.DEBUG, tag,
                 msg + '\n' + Log.getStackTraceString(tr));
     }
 
-    @UnsupportedAppUsage
     public static int i(String tag, String msg) {
         return Log.println_native(Log.LOG_ID_SYSTEM, Log.INFO, tag, msg);
     }
@@ -58,12 +51,10 @@ public final class Slog {
                 msg + '\n' + Log.getStackTraceString(tr));
     }
 
-    @UnsupportedAppUsage
     public static int w(String tag, String msg) {
         return Log.println_native(Log.LOG_ID_SYSTEM, Log.WARN, tag, msg);
     }
 
-    @UnsupportedAppUsage
     public static int w(String tag, String msg, Throwable tr) {
         return Log.println_native(Log.LOG_ID_SYSTEM, Log.WARN, tag,
                 msg + '\n' + Log.getStackTraceString(tr));
@@ -73,12 +64,10 @@ public final class Slog {
         return Log.println_native(Log.LOG_ID_SYSTEM, Log.WARN, tag, Log.getStackTraceString(tr));
     }
 
-    @UnsupportedAppUsage
     public static int e(String tag, String msg) {
         return Log.println_native(Log.LOG_ID_SYSTEM, Log.ERROR, tag, msg);
     }
 
-    @UnsupportedAppUsage
     public static int e(String tag, String msg, Throwable tr) {
         return Log.println_native(Log.LOG_ID_SYSTEM, Log.ERROR, tag,
                 msg + '\n' + Log.getStackTraceString(tr));
@@ -89,7 +78,6 @@ public final class Slog {
      * will always be handled asynchronously.  Primarily for use by coding running within
      * the system process.
      */
-    @UnsupportedAppUsage
     public static int wtf(String tag, String msg) {
         return Log.wtf(Log.LOG_ID_SYSTEM, tag, msg, null, false, true);
     }
@@ -106,7 +94,6 @@ public final class Slog {
      * will always be handled asynchronously.  Primarily for use by coding running within
      * the system process.
      */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     public static int wtfStack(String tag, String msg) {
         return Log.wtf(Log.LOG_ID_SYSTEM, tag, msg, null, true, true);
     }
@@ -125,12 +112,10 @@ public final class Slog {
      * and will always be handled asynchronously.  Primarily for use by coding running within
      * the system process.
      */
-    @UnsupportedAppUsage
     public static int wtf(String tag, String msg, Throwable tr) {
         return Log.wtf(Log.LOG_ID_SYSTEM, tag, msg, tr, false, true);
     }
 
-    @UnsupportedAppUsage
     public static int println(int priority, String tag, String msg) {
         return Log.println_native(Log.LOG_ID_SYSTEM, priority, tag, msg);
     }

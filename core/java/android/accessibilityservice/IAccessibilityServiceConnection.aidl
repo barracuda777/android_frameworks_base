@@ -35,23 +35,22 @@ interface IAccessibilityServiceConnection {
 
     void setServiceInfo(in AccessibilityServiceInfo info);
 
-    String[] findAccessibilityNodeInfoByAccessibilityId(int accessibilityWindowId,
+    boolean findAccessibilityNodeInfoByAccessibilityId(int accessibilityWindowId,
         long accessibilityNodeId, int interactionId,
-        IAccessibilityInteractionConnectionCallback callback, int flags, long threadId,
-        in Bundle arguments);
+        IAccessibilityInteractionConnectionCallback callback, int flags, long threadId);
 
-    String[] findAccessibilityNodeInfosByText(int accessibilityWindowId, long accessibilityNodeId,
+    boolean findAccessibilityNodeInfosByText(int accessibilityWindowId, long accessibilityNodeId,
         String text, int interactionId, IAccessibilityInteractionConnectionCallback callback,
         long threadId);
 
-    String[] findAccessibilityNodeInfosByViewId(int accessibilityWindowId,
+    boolean findAccessibilityNodeInfosByViewId(int accessibilityWindowId,
         long accessibilityNodeId, String viewId, int interactionId,
         IAccessibilityInteractionConnectionCallback callback, long threadId);
 
-    String[] findFocus(int accessibilityWindowId, long accessibilityNodeId, int focusType,
+    boolean findFocus(int accessibilityWindowId, long accessibilityNodeId, int focusType,
         int interactionId, IAccessibilityInteractionConnectionCallback callback, long threadId);
 
-    String[] focusSearch(int accessibilityWindowId, long accessibilityNodeId, int direction,
+    boolean focusSearch(int accessibilityWindowId, long accessibilityNodeId, int direction,
         int interactionId, IAccessibilityInteractionConnectionCallback callback, long threadId);
 
     boolean performAccessibilityAction(int accessibilityWindowId, long accessibilityNodeId,
@@ -70,30 +69,24 @@ interface IAccessibilityServiceConnection {
 
     oneway void setOnKeyEventResult(boolean handled, int sequence);
 
-    float getMagnificationScale(int displayId);
+    float getMagnificationScale();
 
-    float getMagnificationCenterX(int displayId);
+    float getMagnificationCenterX();
 
-    float getMagnificationCenterY(int displayId);
+    float getMagnificationCenterY();
 
-    Region getMagnificationRegion(int displayId);
+    Region getMagnificationRegion();
 
-    boolean resetMagnification(int displayId, boolean animate);
+    boolean resetMagnification(boolean animate);
 
-    boolean setMagnificationScaleAndCenter(int displayId, float scale, float centerX, float centerY,
+    boolean setMagnificationScaleAndCenter(float scale, float centerX, float centerY,
         boolean animate);
 
-    void setMagnificationCallbackEnabled(int displayId, boolean enabled);
+    void setMagnificationCallbackEnabled(boolean enabled);
 
     boolean setSoftKeyboardShowMode(int showMode);
 
-    int getSoftKeyboardShowMode();
-
     void setSoftKeyboardCallbackEnabled(boolean enabled);
 
-    boolean isAccessibilityButtonAvailable();
-
     void sendGesture(int sequence, in ParceledListSlice gestureSteps);
-
-    boolean isFingerprintGestureDetectionAvailable();
 }

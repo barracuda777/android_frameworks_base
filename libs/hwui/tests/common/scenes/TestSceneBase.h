@@ -13,10 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef TESTS_SCENES_TESTSCENEBASE_H
+#define TESTS_SCENES_TESTSCENEBASE_H
 
-#pragma once
-
-#include "hwui/Canvas.h"
+#include "DisplayListCanvas.h"
+#include "RecordingCanvas.h"
 #include "RenderNode.h"
 #include "tests/common/TestContext.h"
 #include "tests/common/TestScene.h"
@@ -29,3 +30,5 @@ using namespace android;
 using namespace android::uirenderer;
 using namespace android::uirenderer::renderthread;
 using namespace android::uirenderer::test;
+
+#endif /* TESTS_SCENES_TESTSCENEBASE_H_ */

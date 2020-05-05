@@ -16,10 +16,11 @@
 
 package com.android.systemui.statusbar.phone;
 
-import android.app.admin.DevicePolicyManager;
 import android.content.Context;
+import android.content.Intent;
+import android.os.UserHandle;
 import android.os.UserManager;
-import android.provider.Settings;
+import android.provider.ContactsContract;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.View;
@@ -29,11 +30,7 @@ import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.Button;
 import android.widget.FrameLayout;
 
-import com.android.systemui.Dependency;
-import com.android.systemui.Prefs;
-import com.android.systemui.Prefs.Key;
 import com.android.systemui.R;
-import com.android.systemui.plugins.qs.DetailAdapter;
 import com.android.systemui.qs.QSPanel;
 import com.android.systemui.statusbar.policy.KeyguardUserSwitcher;
 import com.android.systemui.statusbar.policy.UserSwitcherController;
@@ -43,7 +40,7 @@ import com.android.systemui.statusbar.policy.UserSwitcherController;
  */
 public class MultiUserSwitch extends FrameLayout implements View.OnClickListener {
 
-    protected QSPanel mQsPanel;
+    private QSPanel mQsPanel;
     private KeyguardUserSwitcher mKeyguardUserSwitcher;
     private boolean mKeyguardMode;
     private UserSwitcherController.BaseUserAdapter mUserListener;
@@ -52,7 +49,7 @@ public class MultiUserSwitch extends FrameLayout implements View.OnClickListener
 
     private final int[] mTmpInt2 = new int[2];
 
-    protected UserSwitcherController mUserSwitcherController;
+    private UserSwitcherController mUserSwitcherController;
 
     public MultiUserSwitch(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -68,15 +65,14 @@ public class MultiUserSwitch extends FrameLayout implements View.OnClickListener
 
     public void setQsPanel(QSPanel qsPanel) {
         mQsPanel = qsPanel;
-        setUserSwitcherController(Dependency.get(UserSwitcherController.class));
+        setUserSwitcherController(qsPanel.getHost().getUserSwitcherController());
     }
 
     public boolean hasMultipleUsers() {
         if (mUserListener == null) {
             return false;
         }
-        return mUserListener.getUserCount() != 0
-                && Prefs.getBoolean(getContext(), Key.SEEN_MULTI_USER, false);
+        return mUserListener.getCount() != 0;
     }
 
     public void setUserSwitcherController(UserSwitcherController userSwitcherController) {
@@ -92,31 +88,6 @@ public class MultiUserSwitch extends FrameLayout implements View.OnClickListener
     public void setKeyguardMode(boolean keyguardShowing) {
         mKeyguardMode = keyguardShowing;
         registerListener();
-    }
-
-    public boolean isMultiUserEnabled() {
-        // Short-circuiting from UserManager. Needs to be extracted because of SystemUI boolean flag
-        // qs_show_user_switcher_for_single_user
-
-        // The default in UserManager is to show the switcher. We want to not show it unless the
-        // user explicitly requests it in Settings
-        final boolean userSwitcherEnabled = Settings.Global.getInt(mContext.getContentResolver(),
-                Settings.Global.USER_SWITCHER_ENABLED, 0) != 0;
-
-        // TODO(b/138661450) Move IPC calls to background
-        if (!userSwitcherEnabled
-                || !UserManager.supportsMultipleUsers()
-                || UserManager.isDeviceInDemoMode(mContext)
-                || mUserManager.hasUserRestriction(UserManager.DISALLOW_USER_SWITCH)) {
-            return false;
-        }
-
-        final boolean guestEnabled = !mContext.getSystemService(DevicePolicyManager.class)
-                .getGuestUserDisabled(null);
-        return mUserSwitcherController.getSwitchableUserCount() > 1
-                // If we cannot add guests even if they are enabled, do not show
-                || (guestEnabled && !mUserManager.hasUserRestriction(UserManager.DISALLOW_ADD_USER))
-                || mContext.getResources().getBoolean(R.bool.qs_show_user_switcher_for_single_user);
     }
 
     private void registerListener() {
@@ -142,20 +113,29 @@ public class MultiUserSwitch extends FrameLayout implements View.OnClickListener
 
     @Override
     public void onClick(View v) {
-        if (mKeyguardMode) {
-            if (mKeyguardUserSwitcher != null) {
-                mKeyguardUserSwitcher.show(true /* animate */);
+        if (mUserManager.isUserSwitcherEnabled()) {
+            if (mKeyguardMode) {
+                if (mKeyguardUserSwitcher != null) {
+                    mKeyguardUserSwitcher.show(true /* animate */);
+                }
+            } else if (mQsPanel != null && mUserSwitcherController != null) {
+                View center = getChildCount() > 0 ? getChildAt(0) : this;
+
+                center.getLocationInWindow(mTmpInt2);
+                mTmpInt2[0] += center.getWidth() / 2;
+                mTmpInt2[1] += center.getHeight() / 2;
+
+                mQsPanel.showDetailAdapter(true,
+                        mUserSwitcherController.userDetailAdapter,
+                        mTmpInt2);
             }
-        } else if (mQsPanel != null && mUserSwitcherController != null) {
-            View center = getChildCount() > 0 ? getChildAt(0) : this;
-
-            center.getLocationInWindow(mTmpInt2);
-            mTmpInt2[0] += center.getWidth() / 2;
-            mTmpInt2[1] += center.getHeight() / 2;
-
-            mQsPanel.showDetailAdapter(true,
-                    getUserDetailAdapter(),
-                    mTmpInt2);
+        } else {
+            if (mQsPanel != null) {
+                Intent intent = ContactsContract.QuickContact.composeQuickContactsIntent(
+                        getContext(), v, ContactsContract.Profile.CONTENT_URI,
+                        ContactsContract.QuickContact.MODE_LARGE, null);
+                mQsPanel.getHost().startActivityDismissingKeyguard(intent);
+            }
         }
     }
 
@@ -202,7 +182,4 @@ public class MultiUserSwitch extends FrameLayout implements View.OnClickListener
         return false;
     }
 
-    protected DetailAdapter getUserDetailAdapter() {
-        return mUserSwitcherController.userDetailAdapter;
-    }
 }

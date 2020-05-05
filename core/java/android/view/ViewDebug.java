@@ -17,21 +17,13 @@
 package android.view;
 
 import android.annotation.NonNull;
-import android.annotation.Nullable;
-import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
-import android.graphics.HardwareRenderer;
-import android.graphics.Picture;
-import android.graphics.RecordingCanvas;
 import android.graphics.Rect;
-import android.graphics.RenderNode;
 import android.os.Debug;
 import android.os.Handler;
-import android.os.Looper;
 import android.os.RemoteException;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -52,20 +44,16 @@ import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.FutureTask;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Function;
 
 /**
  * Various debugging/tracing tools related to {@link View} and the view hierarchy.
@@ -119,10 +107,10 @@ public class ViewDebug {
          * these human readable values:
          *
          * <pre>
-         * {@literal @}ViewDebug.ExportedProperty(mapping = {
-         *     {@literal @}ViewDebug.IntToString(from = 0, to = "VISIBLE"),
-         *     {@literal @}ViewDebug.IntToString(from = 4, to = "INVISIBLE"),
-         *     {@literal @}ViewDebug.IntToString(from = 8, to = "GONE")
+         * @ViewDebug.ExportedProperty(mapping = {
+         *     @ViewDebug.IntToString(from = 0, to = "VISIBLE"),
+         *     @ViewDebug.IntToString(from = 4, to = "INVISIBLE"),
+         *     @ViewDebug.IntToString(from = 8, to = "GONE")
          * })
          * public int getVisibility() { ...
          * <pre>
@@ -139,10 +127,10 @@ public class ViewDebug {
          * of an array:
          *
          * <pre>
-         * {@literal @}ViewDebug.ExportedProperty(indexMapping = {
-         *     {@literal @}ViewDebug.IntToString(from = 0, to = "INVALID"),
-         *     {@literal @}ViewDebug.IntToString(from = 1, to = "FIRST"),
-         *     {@literal @}ViewDebug.IntToString(from = 2, to = "SECOND")
+         * @ViewDebug.ExportedProperty(indexMapping = {
+         *     @ViewDebug.IntToString(from = 0, to = "INVALID"),
+         *     @ViewDebug.IntToString(from = 1, to = "FIRST"),
+         *     @ViewDebug.IntToString(from = 2, to = "SECOND")
          * })
          * private int[] mElements;
          * <pre>
@@ -160,11 +148,9 @@ public class ViewDebug {
          * for the flags of an integer:
          *
          * <pre>
-         * {@literal @}ViewDebug.ExportedProperty(flagMapping = {
-         *     {@literal @}ViewDebug.FlagToString(mask = ENABLED_MASK, equals = ENABLED,
-         *             name = "ENABLED"),
-         *     {@literal @}ViewDebug.FlagToString(mask = ENABLED_MASK, equals = DISABLED,
-         *             name = "DISABLED"),
+         * @ViewDebug.ExportedProperty(flagMapping = {
+         *     @ViewDebug.FlagToString(mask = ENABLED_MASK, equals = ENABLED, name = "ENABLED"),
+         *     @ViewDebug.FlagToString(mask = ENABLED_MASK, equals = DISABLED, name = "DISABLED"),
          * })
          * private int mFlags;
          * <pre>
@@ -383,7 +369,6 @@ public class ViewDebug {
      *
      * @hide
      */
-    @UnsupportedAppUsage
     public static long getViewInstanceCount() {
         return Debug.countInstancesOfClass(View.class);
     }
@@ -395,7 +380,6 @@ public class ViewDebug {
      *
      * @hide
      */
-    @UnsupportedAppUsage
     public static long getViewRootImplCount() {
         return Debug.countInstancesOfClass(ViewRootImpl.class);
     }
@@ -447,7 +431,6 @@ public class ViewDebug {
     public static void stopHierarchyTracing() {
     }
 
-    @UnsupportedAppUsage
     static void dispatchCommand(View view, String command, String parameters,
             OutputStream clientStream) throws IOException {
 
@@ -543,22 +526,84 @@ public class ViewDebug {
     /** @hide */
     public static void profileViewAndChildren(final View view, BufferedWriter out)
             throws IOException {
-        RenderNode node = RenderNode.create("ViewDebug", null);
-        profileViewAndChildren(view, node, out, true);
+        profileViewAndChildren(view, out, true);
     }
 
-    private static void profileViewAndChildren(View view, RenderNode node, BufferedWriter out,
-            boolean root) throws IOException {
+    private static void profileViewAndChildren(final View view, BufferedWriter out, boolean root)
+            throws IOException {
+
         long durationMeasure =
                 (root || (view.mPrivateFlags & View.PFLAG_MEASURED_DIMENSION_SET) != 0)
-                        ? profileViewMeasure(view) : 0;
+                        ? profileViewOperation(view, new ViewOperation<Void>() {
+                    public Void[] pre() {
+                        forceLayout(view);
+                        return null;
+                    }
+
+                    private void forceLayout(View view) {
+                        view.forceLayout();
+                        if (view instanceof ViewGroup) {
+                            ViewGroup group = (ViewGroup) view;
+                            final int count = group.getChildCount();
+                            for (int i = 0; i < count; i++) {
+                                forceLayout(group.getChildAt(i));
+                            }
+                        }
+                    }
+
+                    public void run(Void... data) {
+                        view.measure(view.mOldWidthMeasureSpec, view.mOldHeightMeasureSpec);
+                    }
+
+                    public void post(Void... data) {
+                    }
+                })
+                        : 0;
         long durationLayout =
                 (root || (view.mPrivateFlags & View.PFLAG_LAYOUT_REQUIRED) != 0)
-                        ? profileViewLayout(view) : 0;
+                        ? profileViewOperation(view, new ViewOperation<Void>() {
+                    public Void[] pre() {
+                        return null;
+                    }
+
+                    public void run(Void... data) {
+                        view.layout(view.mLeft, view.mTop, view.mRight, view.mBottom);
+                    }
+
+                    public void post(Void... data) {
+                    }
+                }) : 0;
         long durationDraw =
                 (root || !view.willNotDraw() || (view.mPrivateFlags & View.PFLAG_DRAWN) != 0)
-                        ? profileViewDraw(view, node) : 0;
+                        ? profileViewOperation(view, new ViewOperation<Object>() {
+                    public Object[] pre() {
+                        final DisplayMetrics metrics =
+                                (view != null && view.getResources() != null) ?
+                                        view.getResources().getDisplayMetrics() : null;
+                        final Bitmap bitmap = metrics != null ?
+                                Bitmap.createBitmap(metrics, metrics.widthPixels,
+                                        metrics.heightPixels, Bitmap.Config.RGB_565) : null;
+                        final Canvas canvas = bitmap != null ? new Canvas(bitmap) : null;
+                        return new Object[] {
+                                bitmap, canvas
+                        };
+                    }
 
+                    public void run(Object... data) {
+                        if (data[1] != null) {
+                            view.draw((Canvas) data[1]);
+                        }
+                    }
+
+                    public void post(Object... data) {
+                        if (data[1] != null) {
+                            ((Canvas) data[1]).setBitmap(null);
+                        }
+                        if (data[0] != null) {
+                            ((Bitmap) data[0]).recycle();
+                        }
+                    }
+                }) : 0;
         out.write(String.valueOf(durationMeasure));
         out.write(' ');
         out.write(String.valueOf(durationLayout));
@@ -569,86 +614,34 @@ public class ViewDebug {
             ViewGroup group = (ViewGroup) view;
             final int count = group.getChildCount();
             for (int i = 0; i < count; i++) {
-                profileViewAndChildren(group.getChildAt(i), node, out, false);
+                profileViewAndChildren(group.getChildAt(i), out, false);
             }
         }
     }
 
-    private static long profileViewMeasure(final View view) {
-        return profileViewOperation(view, new ViewOperation() {
-            @Override
-            public void pre() {
-                forceLayout(view);
-            }
-
-            private void forceLayout(View view) {
-                view.forceLayout();
-                if (view instanceof ViewGroup) {
-                    ViewGroup group = (ViewGroup) view;
-                    final int count = group.getChildCount();
-                    for (int i = 0; i < count; i++) {
-                        forceLayout(group.getChildAt(i));
-                    }
-                }
-            }
-
-            @Override
-            public void run() {
-                view.measure(view.mOldWidthMeasureSpec, view.mOldHeightMeasureSpec);
-            }
-        });
+    interface ViewOperation<T> {
+        T[] pre();
+        void run(T... data);
+        void post(T... data);
     }
 
-    private static long profileViewLayout(View view) {
-        return profileViewOperation(view,
-                () -> view.layout(view.mLeft, view.mTop, view.mRight, view.mBottom));
-    }
-
-    private static long profileViewDraw(View view, RenderNode node) {
-        DisplayMetrics dm = view.getResources().getDisplayMetrics();
-        if (dm == null) {
-            return 0;
-        }
-
-        if (view.isHardwareAccelerated()) {
-            RecordingCanvas canvas = node.beginRecording(dm.widthPixels, dm.heightPixels);
-            try {
-                return profileViewOperation(view, () -> view.draw(canvas));
-            } finally {
-                node.endRecording();
-            }
-        } else {
-            Bitmap bitmap = Bitmap.createBitmap(
-                    dm, dm.widthPixels, dm.heightPixels, Bitmap.Config.RGB_565);
-            Canvas canvas = new Canvas(bitmap);
-            try {
-                return profileViewOperation(view, () -> view.draw(canvas));
-            } finally {
-                canvas.setBitmap(null);
-                bitmap.recycle();
-            }
-        }
-    }
-
-    interface ViewOperation {
-        default void pre() {}
-
-        void run();
-    }
-
-    private static long profileViewOperation(View view, final ViewOperation operation) {
+    private static <T> long profileViewOperation(View view, final ViewOperation<T> operation) {
         final CountDownLatch latch = new CountDownLatch(1);
         final long[] duration = new long[1];
 
-        view.post(() -> {
-            try {
-                operation.pre();
-                long start = Debug.threadCpuTimeNanos();
-                //noinspection unchecked
-                operation.run();
-                duration[0] = Debug.threadCpuTimeNanos() - start;
-            } finally {
-                latch.countDown();
+        view.post(new Runnable() {
+            public void run() {
+                try {
+                    T[] data = operation.pre();
+                    long start = Debug.threadCpuTimeNanos();
+                    //noinspection unchecked
+                    operation.run(data);
+                    duration[0] = Debug.threadCpuTimeNanos() - start;
+                    //noinspection unchecked
+                    operation.post(data);
+                } finally {
+                    latch.countDown();
+                }
             }
         });
 
@@ -749,263 +742,6 @@ public class ViewDebug {
         root.getViewRootImpl().outputDisplayList(target);
     }
 
-    private static class PictureCallbackHandler implements AutoCloseable,
-            HardwareRenderer.PictureCapturedCallback, Runnable {
-        private final HardwareRenderer mRenderer;
-        private final Function<Picture, Boolean> mCallback;
-        private final Executor mExecutor;
-        private final ReentrantLock mLock = new ReentrantLock(false);
-        private final ArrayDeque<Picture> mQueue = new ArrayDeque<>(3);
-        private boolean mStopListening;
-        private Thread mRenderThread;
-
-        private PictureCallbackHandler(HardwareRenderer renderer,
-                Function<Picture, Boolean> callback, Executor executor) {
-            mRenderer = renderer;
-            mCallback = callback;
-            mExecutor = executor;
-            mRenderer.setPictureCaptureCallback(this);
-        }
-
-        @Override
-        public void close() {
-            mLock.lock();
-            mStopListening = true;
-            mLock.unlock();
-            mRenderer.setPictureCaptureCallback(null);
-        }
-
-        @Override
-        public void onPictureCaptured(Picture picture) {
-            mLock.lock();
-            if (mStopListening) {
-                mLock.unlock();
-                mRenderer.setPictureCaptureCallback(null);
-                return;
-            }
-            if (mRenderThread == null) {
-                mRenderThread = Thread.currentThread();
-            }
-            Picture toDestroy = null;
-            if (mQueue.size() == 3) {
-                toDestroy = mQueue.removeLast();
-            }
-            mQueue.add(picture);
-            mLock.unlock();
-            if (toDestroy == null) {
-                mExecutor.execute(this);
-            } else {
-                toDestroy.close();
-            }
-        }
-
-        @Override
-        public void run() {
-            mLock.lock();
-            final Picture picture = mQueue.poll();
-            final boolean isStopped = mStopListening;
-            mLock.unlock();
-            if (Thread.currentThread() == mRenderThread) {
-                close();
-                throw new IllegalStateException(
-                        "ViewDebug#startRenderingCommandsCapture must be given an executor that "
-                        + "invokes asynchronously");
-            }
-            if (isStopped) {
-                picture.close();
-                return;
-            }
-            final boolean keepReceiving = mCallback.apply(picture);
-            if (!keepReceiving) {
-                close();
-            }
-        }
-    }
-
-    /**
-     * Begins capturing the entire rendering commands for the view tree referenced by the given
-     * view. The view passed may be any View in the tree as long as it is attached. That is,
-     * {@link View#isAttachedToWindow()} must be true.
-     *
-     * Every time a frame is rendered a Picture will be passed to the given callback via the given
-     * executor. As long as the callback returns 'true' it will continue to receive new frames.
-     * The system will only invoke the callback at a rate that the callback is able to keep up with.
-     * That is, if it takes 48ms for the callback to complete and there is a 60fps animation running
-     * then the callback will only receive 33% of the frames produced.
-     *
-     * This method must be called on the same thread as the View tree.
-     *
-     * @param tree The View tree to capture the rendering commands.
-     * @param callback The callback to invoke on every frame produced. Should return true to
-     *                 continue receiving new frames, false to stop capturing.
-     * @param executor The executor to invoke the callback on. Recommend using a background thread
-     *                 to avoid stalling the UI thread. Must be an asynchronous invoke or an
-     *                 exception will be thrown.
-     * @return a closeable that can be used to stop capturing. May be invoked on any thread. Note
-     * that the callback may continue to receive another frame or two depending on thread timings.
-     * Returns null if the capture stream cannot be started, such as if there's no
-     * HardwareRenderer for the given view tree.
-     * @hide
-     * @deprecated use {@link #startRenderingCommandsCapture(View, Executor, Callable)} instead.
-     */
-    @TestApi
-    @Nullable
-    @Deprecated
-    public static AutoCloseable startRenderingCommandsCapture(View tree, Executor executor,
-            Function<Picture, Boolean> callback) {
-        final View.AttachInfo attachInfo = tree.mAttachInfo;
-        if (attachInfo == null) {
-            throw new IllegalArgumentException("Given view isn't attached");
-        }
-        if (attachInfo.mHandler.getLooper() != Looper.myLooper()) {
-            throw new IllegalStateException("Called on the wrong thread."
-                    + " Must be called on the thread that owns the given View");
-        }
-        final HardwareRenderer renderer = attachInfo.mThreadedRenderer;
-        if (renderer != null) {
-            return new PictureCallbackHandler(renderer, callback, executor);
-        }
-        return null;
-    }
-
-    private static class StreamingPictureCallbackHandler implements AutoCloseable,
-            HardwareRenderer.PictureCapturedCallback, Runnable {
-        private final HardwareRenderer mRenderer;
-        private final Callable<OutputStream> mCallback;
-        private final Executor mExecutor;
-        private final ReentrantLock mLock = new ReentrantLock(false);
-        private final ArrayDeque<byte[]> mQueue = new ArrayDeque<>(3);
-        private final ByteArrayOutputStream mByteStream = new ByteArrayOutputStream();
-        private boolean mStopListening;
-        private Thread mRenderThread;
-
-        private StreamingPictureCallbackHandler(HardwareRenderer renderer,
-                Callable<OutputStream> callback, Executor executor) {
-            mRenderer = renderer;
-            mCallback = callback;
-            mExecutor = executor;
-            mRenderer.setPictureCaptureCallback(this);
-        }
-
-        @Override
-        public void close() {
-            mLock.lock();
-            mStopListening = true;
-            mLock.unlock();
-            mRenderer.setPictureCaptureCallback(null);
-        }
-
-        @Override
-        public void onPictureCaptured(Picture picture) {
-            mLock.lock();
-            if (mStopListening) {
-                mLock.unlock();
-                mRenderer.setPictureCaptureCallback(null);
-                return;
-            }
-            if (mRenderThread == null) {
-                mRenderThread = Thread.currentThread();
-            }
-            boolean needsInvoke = true;
-            if (mQueue.size() == 3) {
-                mQueue.removeLast();
-                needsInvoke = false;
-            }
-            picture.writeToStream(mByteStream);
-            mQueue.add(mByteStream.toByteArray());
-            mByteStream.reset();
-            mLock.unlock();
-
-            if (needsInvoke) {
-                mExecutor.execute(this);
-            }
-        }
-
-        @Override
-        public void run() {
-            mLock.lock();
-            final byte[] picture = mQueue.poll();
-            final boolean isStopped = mStopListening;
-            mLock.unlock();
-            if (Thread.currentThread() == mRenderThread) {
-                close();
-                throw new IllegalStateException(
-                        "ViewDebug#startRenderingCommandsCapture must be given an executor that "
-                        + "invokes asynchronously");
-            }
-            if (isStopped) {
-                return;
-            }
-            OutputStream stream = null;
-            try {
-                stream = mCallback.call();
-            } catch (Exception ex) {
-                Log.w("ViewDebug", "Aborting rendering commands capture "
-                        + "because callback threw exception", ex);
-            }
-            if (stream != null) {
-                try {
-                    stream.write(picture);
-                } catch (IOException ex) {
-                    Log.w("ViewDebug", "Aborting rendering commands capture "
-                            + "due to IOException writing to output stream", ex);
-                }
-            } else {
-                close();
-            }
-        }
-    }
-
-    /**
-     * Begins capturing the entire rendering commands for the view tree referenced by the given
-     * view. The view passed may be any View in the tree as long as it is attached. That is,
-     * {@link View#isAttachedToWindow()} must be true.
-     *
-     * Every time a frame is rendered the callback will be invoked on the given executor to
-     * provide an OutputStream to serialize to. As long as the callback returns a valid
-     * OutputStream the capturing will continue. The system will only invoke the callback at a rate
-     * that the callback & OutputStream is able to keep up with. That is, if it takes 48ms for the
-     * callback & serialization to complete and there is a 60fps animation running
-     * then the callback will only receive 33% of the frames produced.
-     *
-     * This method must be called on the same thread as the View tree.
-     *
-     * @param tree The View tree to capture the rendering commands.
-     * @param callback The callback to invoke on every frame produced. Should return an
-     *                 OutputStream to write the data to. Return null to cancel capture. The
-     *                 same stream may be returned each time as the serialized data contains
-     *                 start & end markers. The callback will not be invoked while a previous
-     *                 serialization is being performed, so if a single continuous stream is being
-     *                 used it is valid for the callback to write its own metadata to that stream
-     *                 in response to callback invocation.
-     * @param executor The executor to invoke the callback on. Recommend using a background thread
-     *                 to avoid stalling the UI thread. Must be an asynchronous invoke or an
-     *                 exception will be thrown.
-     * @return a closeable that can be used to stop capturing. May be invoked on any thread. Note
-     * that the callback may continue to receive another frame or two depending on thread timings.
-     * Returns null if the capture stream cannot be started, such as if there's no
-     * HardwareRenderer for the given view tree.
-     * @hide
-     */
-    @TestApi
-    @Nullable
-    public static AutoCloseable startRenderingCommandsCapture(View tree, Executor executor,
-            Callable<OutputStream> callback) {
-        final View.AttachInfo attachInfo = tree.mAttachInfo;
-        if (attachInfo == null) {
-            throw new IllegalArgumentException("Given view isn't attached");
-        }
-        if (attachInfo.mHandler.getLooper() != Looper.myLooper()) {
-            throw new IllegalStateException("Called on the wrong thread."
-                    + " Must be called on the thread that owns the given View");
-        }
-        final HardwareRenderer renderer = attachInfo.mThreadedRenderer;
-        if (renderer != null) {
-            return new StreamingPictureCallbackHandler(renderer, callback, executor);
-        }
-        return null;
-    }
-
     private static void capture(View root, final OutputStream clientStream, String parameter)
             throws IOException {
 
@@ -1044,15 +780,16 @@ public class ViewDebug {
             final CountDownLatch latch = new CountDownLatch(1);
             final Bitmap[] cache = new Bitmap[1];
 
-            captureView.post(() -> {
-                try {
-                    CanvasProvider provider = captureView.isHardwareAccelerated()
-                            ? new HardwareCanvasProvider() : new SoftwareCanvasProvider();
-                    cache[0] = captureView.createSnapshot(provider, skipChildren);
-                } catch (OutOfMemoryError e) {
-                    Log.w("View", "Out of memory for bitmap");
-                } finally {
-                    latch.countDown();
+            captureView.post(new Runnable() {
+                public void run() {
+                    try {
+                        cache[0] = captureView.createSnapshot(
+                                Bitmap.Config.ARGB_8888, 0, skipChildren);
+                    } catch (OutOfMemoryError e) {
+                        Log.w("View", "Out of memory for bitmap");
+                    } finally {
+                        latch.countDown();
+                    }
                 }
             });
 
@@ -1073,8 +810,6 @@ public class ViewDebug {
      * @deprecated See {@link #dumpv2(View, ByteArrayOutputStream)} below.
      * @hide
      */
-    @Deprecated
-    @UnsupportedAppUsage
     public static void dump(View root, boolean skipChildren, boolean includeProperties,
             OutputStream clientStream) throws IOException {
         BufferedWriter out = null;
@@ -1110,8 +845,6 @@ public class ViewDebug {
         view.post(new Runnable() {
             @Override
             public void run() {
-                encoder.addProperty("window:left", view.mAttachInfo.mWindowLeft);
-                encoder.addProperty("window:top", view.mAttachInfo.mWindowTop);
                 view.encode(encoder);
                 latch.countDown();
             }
@@ -1637,81 +1370,6 @@ public class ViewDebug {
         }
     }
 
-    /**
-     * Converts an integer from a field that is mapped with {@link IntToString} to its string
-     * representation.
-     *
-     * @param clazz The class the field is defined on.
-     * @param field The field on which the {@link ExportedProperty} is defined on.
-     * @param integer The value to convert.
-     * @return The value converted into its string representation.
-     * @hide
-     */
-    public static String intToString(Class<?> clazz, String field, int integer) {
-        final IntToString[] mapping = getMapping(clazz, field);
-        if (mapping == null) {
-            return Integer.toString(integer);
-        }
-        final int count = mapping.length;
-        for (int j = 0; j < count; j++) {
-            final IntToString map = mapping[j];
-            if (map.from() == integer) {
-                return map.to();
-            }
-        }
-        return Integer.toString(integer);
-    }
-
-    /**
-     * Converts a set of flags from a field that is mapped with {@link FlagToString} to its string
-     * representation.
-     *
-     * @param clazz The class the field is defined on.
-     * @param field The field on which the {@link ExportedProperty} is defined on.
-     * @param flags The flags to convert.
-     * @return The flags converted into their string representations.
-     * @hide
-     */
-    public static String flagsToString(Class<?> clazz, String field, int flags) {
-        final FlagToString[] mapping = getFlagMapping(clazz, field);
-        if (mapping == null) {
-            return Integer.toHexString(flags);
-        }
-        final StringBuilder result = new StringBuilder();
-        final int count = mapping.length;
-        for (int j = 0; j < count; j++) {
-            final FlagToString flagMapping = mapping[j];
-            final boolean ifTrue = flagMapping.outputIf();
-            final int maskResult = flags & flagMapping.mask();
-            final boolean test = maskResult == flagMapping.equals();
-            if (test && ifTrue) {
-                final String name = flagMapping.name();
-                result.append(name).append(' ');
-            }
-        }
-        if (result.length() > 0) {
-            result.deleteCharAt(result.length() - 1);
-        }
-        return result.toString();
-    }
-
-    private static FlagToString[] getFlagMapping(Class<?> clazz, String field) {
-        try {
-            return clazz.getDeclaredField(field).getAnnotation(ExportedProperty.class)
-                    .flagMapping();
-        } catch (NoSuchFieldException e) {
-            return null;
-        }
-    }
-
-    private static IntToString[] getMapping(Class<?> clazz, String field) {
-        try {
-            return clazz.getDeclaredField(field).getAnnotation(ExportedProperty.class).mapping();
-        } catch (NoSuchFieldException e) {
-            return null;
-        }
-    }
-
     private static void exportUnrolledArray(Context context, BufferedWriter out,
             ExportedProperty property, int[] array, String prefix, String suffix)
             throws IOException {
@@ -2010,78 +1668,5 @@ public class ViewDebug {
                 view.setLayoutParams(p);
             }
         });
-    }
-
-    /**
-     * @hide
-     */
-    public static class SoftwareCanvasProvider implements CanvasProvider {
-
-        private Canvas mCanvas;
-        private Bitmap mBitmap;
-        private boolean mEnabledHwBitmapsInSwMode;
-
-        @Override
-        public Canvas getCanvas(View view, int width, int height) {
-            mBitmap = Bitmap.createBitmap(view.getResources().getDisplayMetrics(),
-                    width, height, Bitmap.Config.ARGB_8888);
-            if (mBitmap == null) {
-                throw new OutOfMemoryError();
-            }
-            mBitmap.setDensity(view.getResources().getDisplayMetrics().densityDpi);
-
-            if (view.mAttachInfo != null) {
-                mCanvas = view.mAttachInfo.mCanvas;
-            }
-            if (mCanvas == null) {
-                mCanvas = new Canvas();
-            }
-            mEnabledHwBitmapsInSwMode = mCanvas.isHwBitmapsInSwModeEnabled();
-            mCanvas.setBitmap(mBitmap);
-            return mCanvas;
-        }
-
-        @Override
-        public Bitmap createBitmap() {
-            mCanvas.setBitmap(null);
-            mCanvas.setHwBitmapsInSwModeEnabled(mEnabledHwBitmapsInSwMode);
-            return mBitmap;
-        }
-    }
-
-    /**
-     * @hide
-     */
-    public static class HardwareCanvasProvider implements CanvasProvider {
-        private Picture mPicture;
-
-        @Override
-        public Canvas getCanvas(View view, int width, int height) {
-            mPicture = new Picture();
-            return mPicture.beginRecording(width, height);
-        }
-
-        @Override
-        public Bitmap createBitmap() {
-            mPicture.endRecording();
-            return Bitmap.createBitmap(mPicture);
-        }
-    }
-
-    /**
-     * @hide
-     */
-    public interface CanvasProvider {
-
-        /**
-         * Returns a canvas which can be used to draw {@param view}
-         */
-        Canvas getCanvas(View view, int width, int height);
-
-        /**
-         * Creates a bitmap from previously returned canvas
-         * @return
-         */
-        Bitmap createBitmap();
     }
 }

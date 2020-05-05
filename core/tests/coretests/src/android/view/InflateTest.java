@@ -20,11 +20,13 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.test.AndroidTestCase;
 import android.test.PerformanceTestCase;
+import android.test.suitebuilder.annotation.SmallTest;
 import android.util.AttributeSet;
-
-import androidx.test.filters.SmallTest;
-
+import android.view.LayoutInflater;
+import android.view.View;
 import com.android.frameworks.coretests.R;
+
+import java.util.Map;
 
 public class InflateTest extends AndroidTestCase implements PerformanceTestCase {
     private LayoutInflater mInflater;

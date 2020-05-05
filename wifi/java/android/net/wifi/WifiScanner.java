@@ -16,11 +16,7 @@
 
 package android.net.wifi;
 
-import android.Manifest;
-import android.annotation.RequiresPermission;
-import android.annotation.SuppressLint;
 import android.annotation.SystemApi;
-import android.annotation.SystemService;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
@@ -38,16 +34,17 @@ import com.android.internal.util.AsyncChannel;
 import com.android.internal.util.Preconditions;
 import com.android.internal.util.Protocol;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+
 
 /**
  * This class provides a way to scan the Wifi universe around the device
+ * Get an instance of this class by calling
+ * {@link android.content.Context#getSystemService(String) Context.getSystemService(Context
+ * .WIFI_SCANNING_SERVICE)}.
  * @hide
  */
 @SystemApi
-@SystemService(Context.WIFI_SCANNING_SERVICE)
 public class WifiScanner {
 
     /** no band specified; use channel list instead */
@@ -161,63 +158,27 @@ public class WifiScanner {
      */
     public static final int REPORT_EVENT_NO_BATCH = (1 << 2);
 
-    /**
-     * This is used to indicate the purpose of the scan to the wifi chip in
-     * {@link ScanSettings#type}.
-     * On devices with multiple hardware radio chains (and hence different modes of scan),
-     * this type serves as an indication to the hardware on what mode of scan to perform.
-     * Only apps holding android.Manifest.permission.NETWORK_STACK permission can set this value.
-     *
-     * Note: This serves as an intent and not as a stipulation, the wifi chip
-     * might honor or ignore the indication based on the current radio conditions. Always
-     * use the {@link ScanResult#radioChainInfos} to figure out the radio chain configuration used
-     * to receive the corresponding scan result.
-     */
-    /** {@hide} */
-    public static final int TYPE_LOW_LATENCY = 0;
-    /** {@hide} */
-    public static final int TYPE_LOW_POWER = 1;
-    /** {@hide} */
-    public static final int TYPE_HIGH_ACCURACY = 2;
 
     /** {@hide} */
     public static final String SCAN_PARAMS_SCAN_SETTINGS_KEY = "ScanSettings";
     /** {@hide} */
     public static final String SCAN_PARAMS_WORK_SOURCE_KEY = "WorkSource";
-    /** {@hide} */
-    public static final String REQUEST_PACKAGE_NAME_KEY = "PackageName";
-
     /**
      * scan configuration parameters to be sent to {@link #startBackgroundScan}
      */
     public static class ScanSettings implements Parcelable {
-        /**
-         * Hidden network to be scanned for.
-         * {@hide}
-         */
-        public static class HiddenNetwork {
-            /** SSID of the network */
-            public String ssid;
-
-            /**
-             * Default constructor for HiddenNetwork.
-             */
-            public HiddenNetwork(String ssid) {
-                this.ssid = ssid;
-            }
-        }
 
         /** one of the WIFI_BAND values */
         public int band;
         /** list of channels; used when band is set to WIFI_BAND_UNSPECIFIED */
         public ChannelSpec[] channels;
         /**
-         * list of hidden networks to scan for. Explicit probe requests are sent out for such
-         * networks during scan. Only valid for single scan requests.
+         * list of networkId's of hidden networks to scan for.
+         * These Id's should correspond to the wpa_supplicant's networkId's and will be used
+         * in connectivity scans using wpa_supplicant.
          * {@hide}
-         */
-        @RequiresPermission(android.Manifest.permission.NETWORK_STACK)
-        public HiddenNetwork[] hiddenNetworks;
+         * */
+        public int[] hiddenNetworkIds;
         /** period of background scan; in millisecond, 0 => single shot scan */
         public int periodInMs;
         /** must have a valid REPORT_EVENT value */
@@ -246,30 +207,6 @@ public class WifiScanner {
          * {@hide}
          */
         public boolean isPnoScan;
-        /**
-         * Indicate the type of scan to be performed by the wifi chip.
-         * Default value: {@link #TYPE_LOW_LATENCY}.
-         * {@hide}
-         */
-        @RequiresPermission(android.Manifest.permission.NETWORK_STACK)
-        public int type = TYPE_LOW_LATENCY;
-        /**
-         * This scan request may ignore location settings while receiving scans. This should only
-         * be used in emergency situations.
-         * {@hide}
-         */
-        @SystemApi
-        public boolean ignoreLocationSettings;
-        /**
-         * This scan request will be hidden from app-ops noting for location information. This
-         * should only be used by FLP/NLP module on the device which is using the scan results to
-         * compute results for behalf on their clients. FLP/NLP module using this flag should ensure
-         * that they note in app-ops the eventual delivery of location information computed using
-         * these results to their client .
-         * {@hide}
-         */
-        @SystemApi
-        public boolean hideFromAppOps;
 
         /** Implement the Parcelable interface {@hide} */
         public int describeContents() {
@@ -286,9 +223,6 @@ public class WifiScanner {
             dest.writeInt(maxPeriodInMs);
             dest.writeInt(stepCount);
             dest.writeInt(isPnoScan ? 1 : 0);
-            dest.writeInt(type);
-            dest.writeInt(ignoreLocationSettings ? 1 : 0);
-            dest.writeInt(hideFromAppOps ? 1 : 0);
             if (channels != null) {
                 dest.writeInt(channels.length);
                 for (int i = 0; i < channels.length; i++) {
@@ -299,18 +233,11 @@ public class WifiScanner {
             } else {
                 dest.writeInt(0);
             }
-            if (hiddenNetworks != null) {
-                dest.writeInt(hiddenNetworks.length);
-                for (int i = 0; i < hiddenNetworks.length; i++) {
-                    dest.writeString(hiddenNetworks[i].ssid);
-                }
-            } else {
-                dest.writeInt(0);
-            }
+            dest.writeIntArray(hiddenNetworkIds);
         }
 
         /** Implement the Parcelable interface {@hide} */
-        public static final @android.annotation.NonNull Creator<ScanSettings> CREATOR =
+        public static final Creator<ScanSettings> CREATOR =
                 new Creator<ScanSettings>() {
                     public ScanSettings createFromParcel(Parcel in) {
                         ScanSettings settings = new ScanSettings();
@@ -322,9 +249,6 @@ public class WifiScanner {
                         settings.maxPeriodInMs = in.readInt();
                         settings.stepCount = in.readInt();
                         settings.isPnoScan = in.readInt() == 1;
-                        settings.type = in.readInt();
-                        settings.ignoreLocationSettings = in.readInt() == 1;
-                        settings.hideFromAppOps = in.readInt() == 1;
                         int num_channels = in.readInt();
                         settings.channels = new ChannelSpec[num_channels];
                         for (int i = 0; i < num_channels; i++) {
@@ -334,12 +258,7 @@ public class WifiScanner {
                             spec.passive = in.readInt() == 1;
                             settings.channels[i] = spec;
                         }
-                        int numNetworks = in.readInt();
-                        settings.hiddenNetworks = new HiddenNetwork[numNetworks];
-                        for (int i = 0; i < numNetworks; i++) {
-                            String ssid = in.readString();
-                            settings.hiddenNetworks[i] = new HiddenNetwork(ssid);;
-                        }
+                        settings.hiddenNetworkIds = in.createIntArray();
                         return settings;
                     }
 
@@ -368,12 +287,11 @@ public class WifiScanner {
          */
         private int mBucketsScanned;
         /**
-         * Bands scanned. One of the WIFI_BAND values.
-         * Will be {@link #WIFI_BAND_UNSPECIFIED} if the list of channels do not fully cover
-         * any of the bands.
+         * Indicates that the scan results received are as a result of a scan of all available
+         * channels. This should only be expected to function for single scans.
          * {@hide}
          */
-        private int mBandScanned;
+        private boolean mAllChannelsScanned;
         /** all scan results discovered in this scan, sorted by timestamp in ascending order */
         private ScanResult mResults[];
 
@@ -386,12 +304,12 @@ public class WifiScanner {
         }
 
         /** {@hide} */
-        public ScanData(int id, int flags, int bucketsScanned, int bandScanned,
-                        ScanResult[] results) {
+        public ScanData(int id, int flags, int bucketsScanned, boolean allChannelsScanned,
+                ScanResult[] results) {
             mId = id;
             mFlags = flags;
             mBucketsScanned = bucketsScanned;
-            mBandScanned = bandScanned;
+            mAllChannelsScanned = allChannelsScanned;
             mResults = results;
         }
 
@@ -399,7 +317,7 @@ public class WifiScanner {
             mId = s.mId;
             mFlags = s.mFlags;
             mBucketsScanned = s.mBucketsScanned;
-            mBandScanned = s.mBandScanned;
+            mAllChannelsScanned = s.mAllChannelsScanned;
             mResults = new ScanResult[s.mResults.length];
             for (int i = 0; i < s.mResults.length; i++) {
                 ScanResult result = s.mResults[i];
@@ -422,8 +340,8 @@ public class WifiScanner {
         }
 
         /** {@hide} */
-        public int getBandScanned() {
-            return mBandScanned;
+        public boolean isAllChannelsScanned() {
+            return mAllChannelsScanned;
         }
 
         public ScanResult[] getResults() {
@@ -441,7 +359,7 @@ public class WifiScanner {
                 dest.writeInt(mId);
                 dest.writeInt(mFlags);
                 dest.writeInt(mBucketsScanned);
-                dest.writeInt(mBandScanned);
+                dest.writeInt(mAllChannelsScanned ? 1 : 0);
                 dest.writeInt(mResults.length);
                 for (int i = 0; i < mResults.length; i++) {
                     ScanResult result = mResults[i];
@@ -453,19 +371,19 @@ public class WifiScanner {
         }
 
         /** Implement the Parcelable interface {@hide} */
-        public static final @android.annotation.NonNull Creator<ScanData> CREATOR =
+        public static final Creator<ScanData> CREATOR =
                 new Creator<ScanData>() {
                     public ScanData createFromParcel(Parcel in) {
                         int id = in.readInt();
                         int flags = in.readInt();
                         int bucketsScanned = in.readInt();
-                        int bandScanned = in.readInt();
+                        boolean allChannelsScanned = in.readInt() != 0;
                         int n = in.readInt();
                         ScanResult results[] = new ScanResult[n];
                         for (int i = 0; i < n; i++) {
                             results[i] = ScanResult.CREATOR.createFromParcel(in);
                         }
-                        return new ScanData(id, flags, bucketsScanned, bandScanned, results);
+                        return new ScanData(id, flags, bucketsScanned, allChannelsScanned, results);
                     }
 
                     public ScanData[] newArray(int size) {
@@ -505,7 +423,7 @@ public class WifiScanner {
         }
 
         /** Implement the Parcelable interface {@hide} */
-        public static final @android.annotation.NonNull Creator<ParcelableScanData> CREATOR =
+        public static final Creator<ParcelableScanData> CREATOR =
                 new Creator<ParcelableScanData>() {
                     public ParcelableScanData createFromParcel(Parcel in) {
                         int n = in.readInt();
@@ -553,7 +471,7 @@ public class WifiScanner {
         }
 
         /** Implement the Parcelable interface {@hide} */
-        public static final @android.annotation.NonNull Creator<ParcelableScanResults> CREATOR =
+        public static final Creator<ParcelableScanResults> CREATOR =
                 new Creator<ParcelableScanResults>() {
                     public ParcelableScanResults createFromParcel(Parcel in) {
                         int n = in.readInt();
@@ -618,18 +536,22 @@ public class WifiScanner {
 
             /** SSID of the network */
             public String ssid;
+            /** Network ID in wpa_supplicant */
+            public int networkId;
+            /** Assigned priority for the network */
+            public int priority;
             /** Bitmask of the FLAG_XXX */
-            public byte flags = 0;
+            public byte flags;
             /** Bitmask of the ATUH_XXX */
-            public byte authBitField = 0;
-            /** frequencies on which the particular network needs to be scanned for */
-            public int[] frequencies = {};
+            public byte authBitField;
 
             /**
              * default constructor for PnoNetwork
              */
             public PnoNetwork(String ssid) {
                 this.ssid = ssid;
+                flags = 0;
+                authBitField = 0;
             }
         }
 
@@ -674,9 +596,10 @@ public class WifiScanner {
                 dest.writeInt(networkList.length);
                 for (int i = 0; i < networkList.length; i++) {
                     dest.writeString(networkList[i].ssid);
+                    dest.writeInt(networkList[i].networkId);
+                    dest.writeInt(networkList[i].priority);
                     dest.writeByte(networkList[i].flags);
                     dest.writeByte(networkList[i].authBitField);
-                    dest.writeIntArray(networkList[i].frequencies);
                 }
             } else {
                 dest.writeInt(0);
@@ -684,7 +607,7 @@ public class WifiScanner {
         }
 
         /** Implement the Parcelable interface {@hide} */
-        public static final @android.annotation.NonNull Creator<PnoSettings> CREATOR =
+        public static final Creator<PnoSettings> CREATOR =
                 new Creator<PnoSettings>() {
                     public PnoSettings createFromParcel(Parcel in) {
                         PnoSettings settings = new PnoSettings();
@@ -701,9 +624,10 @@ public class WifiScanner {
                         for (int i = 0; i < numNetworks; i++) {
                             String ssid = in.readString();
                             PnoNetwork network = new PnoNetwork(ssid);
+                            network.networkId = in.readInt();
+                            network.priority = in.readInt();
                             network.flags = in.readByte();
                             network.authBitField = in.readByte();
-                            network.frequencies = in.createIntArray();
                             settings.networkList[i] = network;
                         }
                         return settings;
@@ -749,17 +673,6 @@ public class WifiScanner {
     }
 
     /**
-     * Enable/Disable wifi scanning.
-     *
-     * {@hide}
-     */
-    @RequiresPermission(Manifest.permission.NETWORK_STACK)
-    public void setScanningEnabled(boolean enable) {
-        validateChannel();
-        mAsyncChannel.sendMessage(enable ? CMD_ENABLE : CMD_DISABLE);
-    }
-
-    /**
      * Register a listener that will receive results from all single scans
      * Either the onSuccess/onFailure will be called once when the listener is registered. After
      * (assuming onSuccess was called) all subsequent single scan results will be delivered to the
@@ -771,7 +684,6 @@ public class WifiScanner {
      *                 Multiple requests should also not share this object.
      * {@hide}
      */
-    @RequiresPermission(Manifest.permission.NETWORK_STACK)
     public void registerScanListener(ScanListener listener) {
         Preconditions.checkNotNull(listener, "listener cannot be null");
         int key = addListener(listener);
@@ -801,7 +713,6 @@ public class WifiScanner {
      *                 key for this scan, and must also be specified to cancel the scan. Multiple
      *                 scans should also not share this object.
      */
-    @RequiresPermission(android.Manifest.permission.LOCATION_HARDWARE)
     public void startBackgroundScan(ScanSettings settings, ScanListener listener) {
         startBackgroundScan(settings, listener, null);
     }
@@ -814,7 +725,6 @@ public class WifiScanner {
      *                 key for this scan, and must also be specified to cancel the scan. Multiple
      *                 scans should also not share this object.
      */
-    @RequiresPermission(android.Manifest.permission.LOCATION_HARDWARE)
     public void startBackgroundScan(ScanSettings settings, ScanListener listener,
             WorkSource workSource) {
         Preconditions.checkNotNull(listener, "listener cannot be null");
@@ -824,7 +734,6 @@ public class WifiScanner {
         Bundle scanParams = new Bundle();
         scanParams.putParcelable(SCAN_PARAMS_SCAN_SETTINGS_KEY, settings);
         scanParams.putParcelable(SCAN_PARAMS_WORK_SOURCE_KEY, workSource);
-        scanParams.putString(REQUEST_PACKAGE_NAME_KEY, mContext.getOpPackageName());
         mAsyncChannel.sendMessage(CMD_START_BACKGROUND_SCAN, 0, key, scanParams);
     }
 
@@ -833,28 +742,20 @@ public class WifiScanner {
      * @param listener specifies which scan to cancel; must be same object as passed in {@link
      *  #startBackgroundScan}
      */
-    @RequiresPermission(android.Manifest.permission.LOCATION_HARDWARE)
     public void stopBackgroundScan(ScanListener listener) {
         Preconditions.checkNotNull(listener, "listener cannot be null");
         int key = removeListener(listener);
         if (key == INVALID_KEY) return;
         validateChannel();
-        Bundle scanParams = new Bundle();
-        scanParams.putString(REQUEST_PACKAGE_NAME_KEY, mContext.getOpPackageName());
-        mAsyncChannel.sendMessage(CMD_STOP_BACKGROUND_SCAN, 0, key, scanParams);
+        mAsyncChannel.sendMessage(CMD_STOP_BACKGROUND_SCAN, 0, key);
     }
-
     /**
      * reports currently available scan results on appropriate listeners
      * @return true if all scan results were reported correctly
      */
-    @RequiresPermission(android.Manifest.permission.LOCATION_HARDWARE)
     public boolean getScanResults() {
         validateChannel();
-        Bundle scanParams = new Bundle();
-        scanParams.putString(REQUEST_PACKAGE_NAME_KEY, mContext.getOpPackageName());
-        Message reply =
-                mAsyncChannel.sendMessageSynchronously(CMD_GET_SCAN_RESULTS, 0, 0, scanParams);
+        Message reply = mAsyncChannel.sendMessageSynchronously(CMD_GET_SCAN_RESULTS, 0);
         return reply.what == CMD_OP_SUCCEEDED;
     }
 
@@ -866,7 +767,6 @@ public class WifiScanner {
      *                 key for this scan, and must also be specified to cancel the scan. Multiple
      *                 scans should also not share this object.
      */
-    @RequiresPermission(android.Manifest.permission.LOCATION_HARDWARE)
     public void startScan(ScanSettings settings, ScanListener listener) {
         startScan(settings, listener, null);
     }
@@ -880,7 +780,6 @@ public class WifiScanner {
      *                 key for this scan, and must also be specified to cancel the scan. Multiple
      *                 scans should also not share this object.
      */
-    @RequiresPermission(android.Manifest.permission.LOCATION_HARDWARE)
     public void startScan(ScanSettings settings, ScanListener listener, WorkSource workSource) {
         Preconditions.checkNotNull(listener, "listener cannot be null");
         int key = addListener(listener);
@@ -889,7 +788,6 @@ public class WifiScanner {
         Bundle scanParams = new Bundle();
         scanParams.putParcelable(SCAN_PARAMS_SCAN_SETTINGS_KEY, settings);
         scanParams.putParcelable(SCAN_PARAMS_WORK_SOURCE_KEY, workSource);
-        scanParams.putString(REQUEST_PACKAGE_NAME_KEY, mContext.getOpPackageName());
         mAsyncChannel.sendMessage(CMD_START_SINGLE_SCAN, 0, key, scanParams);
     }
 
@@ -898,34 +796,12 @@ public class WifiScanner {
      * hasn't been called on the listener, ignored otherwise
      * @param listener
      */
-    @RequiresPermission(android.Manifest.permission.LOCATION_HARDWARE)
     public void stopScan(ScanListener listener) {
         Preconditions.checkNotNull(listener, "listener cannot be null");
         int key = removeListener(listener);
         if (key == INVALID_KEY) return;
         validateChannel();
-        Bundle scanParams = new Bundle();
-        scanParams.putString(REQUEST_PACKAGE_NAME_KEY, mContext.getOpPackageName());
-        mAsyncChannel.sendMessage(CMD_STOP_SINGLE_SCAN, 0, key, scanParams);
-    }
-
-    /**
-     * Retrieve the most recent scan results from a single scan request.
-     * {@hide}
-     */
-    public List<ScanResult> getSingleScanResults() {
-        validateChannel();
-        Bundle scanParams = new Bundle();
-        scanParams.putString(REQUEST_PACKAGE_NAME_KEY, mContext.getOpPackageName());
-        Message reply = mAsyncChannel.sendMessageSynchronously(CMD_GET_SINGLE_SCAN_RESULTS, 0, 0,
-                scanParams);
-        if (reply.what == WifiScanner.CMD_OP_SUCCEEDED) {
-            return Arrays.asList(((ParcelableScanResults) reply.obj).getResults());
-        }
-        OperationResult result = (OperationResult) reply.obj;
-        Log.e(TAG, "Error retrieving SingleScan results reason: " + result.reason
-                + " description: " + result.description);
-        return new ArrayList<ScanResult>();
+        mAsyncChannel.sendMessage(CMD_STOP_SINGLE_SCAN, 0, key);
     }
 
     private void startPnoScan(ScanSettings scanSettings, PnoSettings pnoSettings, int key) {
@@ -969,7 +845,6 @@ public class WifiScanner {
      *                 scans should also not share this object.
      * {@hide}
      */
-    @RequiresPermission(android.Manifest.permission.NETWORK_STACK)
     public void startDisconnectedPnoScan(ScanSettings scanSettings, PnoSettings pnoSettings,
             PnoScanListener listener) {
         Preconditions.checkNotNull(listener, "listener cannot be null");
@@ -984,9 +859,9 @@ public class WifiScanner {
      * Stop an ongoing wifi PNO scan
      * @param listener specifies which scan to cancel; must be same object as passed in {@link
      *  #startPnoScan}
+     * TODO(rpius): Check if we can remove pnoSettings param in stop.
      * {@hide}
      */
-    @RequiresPermission(android.Manifest.permission.NETWORK_STACK)
     public void stopPnoScan(ScanListener listener) {
         Preconditions.checkNotNull(listener, "listener cannot be null");
         int key = removeListener(listener);
@@ -996,7 +871,6 @@ public class WifiScanner {
     }
 
     /** specifies information about an access point of interest */
-    @Deprecated
     public static class BssidInfo {
         /** bssid of the access point; in XX:XX:XX:XX:XX:XX format */
         public String bssid;
@@ -1010,7 +884,6 @@ public class WifiScanner {
 
     /** @hide */
     @SystemApi
-    @Deprecated
     public static class WifiChangeSettings implements Parcelable {
         public int rssiSampleSize;                          /* sample size for RSSI averaging */
         public int lostApSampleSize;                        /* samples to confirm AP's loss */
@@ -1026,13 +899,46 @@ public class WifiScanner {
 
         /** Implement the Parcelable interface {@hide} */
         public void writeToParcel(Parcel dest, int flags) {
+            dest.writeInt(rssiSampleSize);
+            dest.writeInt(lostApSampleSize);
+            dest.writeInt(unchangedSampleSize);
+            dest.writeInt(minApsBreachingThreshold);
+            dest.writeInt(periodInMs);
+            if (bssidInfos != null) {
+                dest.writeInt(bssidInfos.length);
+                for (int i = 0; i < bssidInfos.length; i++) {
+                    BssidInfo info = bssidInfos[i];
+                    dest.writeString(info.bssid);
+                    dest.writeInt(info.low);
+                    dest.writeInt(info.high);
+                    dest.writeInt(info.frequencyHint);
+                }
+            } else {
+                dest.writeInt(0);
+            }
         }
 
         /** Implement the Parcelable interface {@hide} */
-        public static final @android.annotation.NonNull Creator<WifiChangeSettings> CREATOR =
+        public static final Creator<WifiChangeSettings> CREATOR =
                 new Creator<WifiChangeSettings>() {
                     public WifiChangeSettings createFromParcel(Parcel in) {
-                        return new WifiChangeSettings();
+                        WifiChangeSettings settings = new WifiChangeSettings();
+                        settings.rssiSampleSize = in.readInt();
+                        settings.lostApSampleSize = in.readInt();
+                        settings.unchangedSampleSize = in.readInt();
+                        settings.minApsBreachingThreshold = in.readInt();
+                        settings.periodInMs = in.readInt();
+                        int len = in.readInt();
+                        settings.bssidInfos = new BssidInfo[len];
+                        for (int i = 0; i < len; i++) {
+                            BssidInfo info = new BssidInfo();
+                            info.bssid = in.readString();
+                            info.low = in.readInt();
+                            info.high = in.readInt();
+                            info.frequencyHint = in.readInt();
+                            settings.bssidInfos[i] = info;
+                        }
+                        return settings;
                     }
 
                     public WifiChangeSettings[] newArray(int size) {
@@ -1051,24 +957,31 @@ public class WifiScanner {
      * @param periodInMs indicates period of scan to find changes
      * @param bssidInfos access points to watch
      */
-    @Deprecated
-    @SuppressLint("Doclava125")
     public void configureWifiChange(
             int rssiSampleSize,                             /* sample size for RSSI averaging */
             int lostApSampleSize,                           /* samples to confirm AP's loss */
             int unchangedSampleSize,                        /* samples to confirm no change */
             int minApsBreachingThreshold,                   /* change threshold to trigger event */
             int periodInMs,                                 /* period of scan */
-            BssidInfo[] bssidInfos                          /* signal thresholds to cross */
+            BssidInfo[] bssidInfos                          /* signal thresholds to crosss */
             )
     {
-        throw new UnsupportedOperationException();
+        validateChannel();
+
+        WifiChangeSettings settings = new WifiChangeSettings();
+        settings.rssiSampleSize = rssiSampleSize;
+        settings.lostApSampleSize = lostApSampleSize;
+        settings.unchangedSampleSize = unchangedSampleSize;
+        settings.minApsBreachingThreshold = minApsBreachingThreshold;
+        settings.periodInMs = periodInMs;
+        settings.bssidInfos = bssidInfos;
+
+        configureWifiChange(settings);
     }
 
     /**
      * interface to get wifi change events on; use this on {@link #startTrackingWifiChange}
      */
-    @Deprecated
     public interface WifiChangeListener extends ActionListener {
         /** indicates that changes were detected in wifi environment
          * @param results indicate the access points that exhibited change
@@ -1085,10 +998,12 @@ public class WifiScanner {
      * @param listener object to report events on; this object must be unique and must also be
      *                 provided on {@link #stopTrackingWifiChange}
      */
-    @Deprecated
-    @SuppressLint("Doclava125")
     public void startTrackingWifiChange(WifiChangeListener listener) {
-        throw new UnsupportedOperationException();
+        Preconditions.checkNotNull(listener, "listener cannot be null");
+        int key = addListener(listener);
+        if (key == INVALID_KEY) return;
+        validateChannel();
+        mAsyncChannel.sendMessage(CMD_START_TRACKING_CHANGE, 0, key);
     }
 
     /**
@@ -1096,22 +1011,21 @@ public class WifiScanner {
      * @param listener object that was provided to report events on {@link
      * #stopTrackingWifiChange}
      */
-    @Deprecated
-    @SuppressLint("Doclava125")
     public void stopTrackingWifiChange(WifiChangeListener listener) {
-        throw new UnsupportedOperationException();
+        int key = removeListener(listener);
+        if (key == INVALID_KEY) return;
+        validateChannel();
+        mAsyncChannel.sendMessage(CMD_STOP_TRACKING_CHANGE, 0, key);
     }
 
     /** @hide */
     @SystemApi
-    @Deprecated
-    @SuppressLint("Doclava125")
     public void configureWifiChange(WifiChangeSettings settings) {
-        throw new UnsupportedOperationException();
+        validateChannel();
+        mAsyncChannel.sendMessage(CMD_CONFIGURE_WIFI_CHANGE, 0, 0, settings);
     }
 
     /** interface to receive hotlist events on; use this on {@link #setHotlist} */
-    @Deprecated
     public static interface BssidListener extends ActionListener {
         /** indicates that access points were found by on going scans
          * @param results list of scan results, one for each access point visible currently
@@ -1125,7 +1039,6 @@ public class WifiScanner {
 
     /** @hide */
     @SystemApi
-    @Deprecated
     public static class HotlistSettings implements Parcelable {
         public BssidInfo[] bssidInfos;
         public int apLostThreshold;
@@ -1137,13 +1050,38 @@ public class WifiScanner {
 
         /** Implement the Parcelable interface {@hide} */
         public void writeToParcel(Parcel dest, int flags) {
+            dest.writeInt(apLostThreshold);
+
+            if (bssidInfos != null) {
+                dest.writeInt(bssidInfos.length);
+                for (int i = 0; i < bssidInfos.length; i++) {
+                    BssidInfo info = bssidInfos[i];
+                    dest.writeString(info.bssid);
+                    dest.writeInt(info.low);
+                    dest.writeInt(info.high);
+                    dest.writeInt(info.frequencyHint);
+                }
+            } else {
+                dest.writeInt(0);
+            }
         }
 
         /** Implement the Parcelable interface {@hide} */
-        public static final @android.annotation.NonNull Creator<HotlistSettings> CREATOR =
+        public static final Creator<HotlistSettings> CREATOR =
                 new Creator<HotlistSettings>() {
                     public HotlistSettings createFromParcel(Parcel in) {
                         HotlistSettings settings = new HotlistSettings();
+                        settings.apLostThreshold = in.readInt();
+                        int n = in.readInt();
+                        settings.bssidInfos = new BssidInfo[n];
+                        for (int i = 0; i < n; i++) {
+                            BssidInfo info = new BssidInfo();
+                            info.bssid = in.readString();
+                            info.low = in.readInt();
+                            info.high = in.readInt();
+                            info.frequencyHint = in.readInt();
+                            settings.bssidInfos[i] = info;
+                        }
                         return settings;
                     }
 
@@ -1160,21 +1098,28 @@ public class WifiScanner {
      * @param listener object provided to report events on; this object must be unique and must
      *                 also be provided on {@link #stopTrackingBssids}
      */
-    @Deprecated
-    @SuppressLint("Doclava125")
     public void startTrackingBssids(BssidInfo[] bssidInfos,
                                     int apLostThreshold, BssidListener listener) {
-        throw new UnsupportedOperationException();
+        Preconditions.checkNotNull(listener, "listener cannot be null");
+        int key = addListener(listener);
+        if (key == INVALID_KEY) return;
+        validateChannel();
+        HotlistSettings settings = new HotlistSettings();
+        settings.bssidInfos = bssidInfos;
+        settings.apLostThreshold = apLostThreshold;
+        mAsyncChannel.sendMessage(CMD_SET_HOTLIST, 0, key, settings);
     }
 
     /**
      * remove tracking of interesting access points
      * @param listener same object provided in {@link #startTrackingBssids}
      */
-    @Deprecated
-    @SuppressLint("Doclava125")
     public void stopTrackingBssids(BssidListener listener) {
-        throw new UnsupportedOperationException();
+        Preconditions.checkNotNull(listener, "listener cannot be null");
+        int key = removeListener(listener);
+        if (key == INVALID_KEY) return;
+        validateChannel();
+        mAsyncChannel.sendMessage(CMD_RESET_HOTLIST, 0, key);
     }
 
 
@@ -1187,6 +1132,8 @@ public class WifiScanner {
     private static final int BASE = Protocol.BASE_WIFI_SCANNER;
 
     /** @hide */
+    public static final int CMD_SCAN                        = BASE + 0;
+    /** @hide */
     public static final int CMD_START_BACKGROUND_SCAN       = BASE + 2;
     /** @hide */
     public static final int CMD_STOP_BACKGROUND_SCAN        = BASE + 3;
@@ -1195,9 +1142,29 @@ public class WifiScanner {
     /** @hide */
     public static final int CMD_SCAN_RESULT                 = BASE + 5;
     /** @hide */
+    public static final int CMD_SET_HOTLIST                 = BASE + 6;
+    /** @hide */
+    public static final int CMD_RESET_HOTLIST               = BASE + 7;
+    /** @hide */
+    public static final int CMD_AP_FOUND                    = BASE + 9;
+    /** @hide */
+    public static final int CMD_AP_LOST                     = BASE + 10;
+    /** @hide */
+    public static final int CMD_START_TRACKING_CHANGE       = BASE + 11;
+    /** @hide */
+    public static final int CMD_STOP_TRACKING_CHANGE        = BASE + 12;
+    /** @hide */
+    public static final int CMD_CONFIGURE_WIFI_CHANGE       = BASE + 13;
+    /** @hide */
+    public static final int CMD_WIFI_CHANGE_DETECTED        = BASE + 15;
+    /** @hide */
+    public static final int CMD_WIFI_CHANGES_STABILIZED     = BASE + 16;
+    /** @hide */
     public static final int CMD_OP_SUCCEEDED                = BASE + 17;
     /** @hide */
     public static final int CMD_OP_FAILED                   = BASE + 18;
+    /** @hide */
+    public static final int CMD_PERIOD_CHANGED              = BASE + 19;
     /** @hide */
     public static final int CMD_FULL_SCAN_RESULT            = BASE + 20;
     /** @hide */
@@ -1216,12 +1183,6 @@ public class WifiScanner {
     public static final int CMD_REGISTER_SCAN_LISTENER      = BASE + 27;
     /** @hide */
     public static final int CMD_DEREGISTER_SCAN_LISTENER    = BASE + 28;
-    /** @hide */
-    public static final int CMD_GET_SINGLE_SCAN_RESULTS     = BASE + 29;
-    /** @hide */
-    public static final int CMD_ENABLE                      = BASE + 30;
-    /** @hide */
-    public static final int CMD_DISABLE                     = BASE + 31;
 
     private Context mContext;
     private IWifiScanner mService;
@@ -1373,7 +1334,7 @@ public class WifiScanner {
         }
 
         /** Implement the Parcelable interface {@hide} */
-        public static final @android.annotation.NonNull Creator<OperationResult> CREATOR =
+        public static final Creator<OperationResult> CREATOR =
                 new Creator<OperationResult>() {
                     public OperationResult createFromParcel(Parcel in) {
                         int reason = in.readInt();
@@ -1432,6 +1393,25 @@ public class WifiScanner {
                 case CMD_FULL_SCAN_RESULT :
                     ScanResult result = (ScanResult) msg.obj;
                     ((ScanListener) listener).onFullResult(result);
+                    return;
+                case CMD_PERIOD_CHANGED:
+                    ((ScanListener) listener).onPeriodChanged(msg.arg1);
+                    return;
+                case CMD_AP_FOUND:
+                    ((BssidListener) listener).onFound(
+                            ((ParcelableScanResults) msg.obj).getResults());
+                    return;
+                case CMD_AP_LOST:
+                    ((BssidListener) listener).onLost(
+                            ((ParcelableScanResults) msg.obj).getResults());
+                    return;
+                case CMD_WIFI_CHANGE_DETECTED:
+                    ((WifiChangeListener) listener).onChanging(
+                            ((ParcelableScanResults) msg.obj).getResults());
+                   return;
+                case CMD_WIFI_CHANGES_STABILIZED:
+                    ((WifiChangeListener) listener).onQuiescence(
+                            ((ParcelableScanResults) msg.obj).getResults());
                     return;
                 case CMD_SINGLE_SCAN_COMPLETED:
                     if (DBG) Log.d(TAG, "removing listener for single scan");

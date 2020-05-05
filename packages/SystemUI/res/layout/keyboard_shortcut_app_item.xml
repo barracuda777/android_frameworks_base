@@ -14,8 +14,7 @@
   ~ See the License for the specific language governing permissions and
   ~ limitations under the License
   -->
-<com.android.systemui.statusbar.KeyboardShortcutAppItemLayout
-        xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
         android:orientation="horizontal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -38,8 +37,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:paddingEnd="12dp"
-            android:paddingBottom="4dp"
-            android:textColor="?android:attr/textColorPrimary"
+            android:textColor="@color/ksh_keyword_color"
             android:textSize="16sp"
             android:maxLines="5"
             android:singleLine="false"
@@ -57,4 +55,4 @@
             android:scrollHorizontally="false"
             android:layout_centerVertical="true"
             android:focusable="true"/>
-</com.android.systemui.statusbar.KeyboardShortcutAppItemLayout>
+</RelativeLayout>

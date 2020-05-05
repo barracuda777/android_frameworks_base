@@ -196,10 +196,11 @@ public class ExifInterfaceTest extends AndroidTestCase {
     private void printExifTagsAndValues(String fileName, ExifInterface exifInterface) {
         // Prints thumbnail information.
         if (exifInterface.hasThumbnail()) {
-            byte[] thumbnailBytes = exifInterface.getThumbnailBytes();
+            byte[] thumbnailBytes = exifInterface.getThumbnail();
             if (thumbnailBytes != null) {
                 Log.v(TAG, fileName + " Thumbnail size = " + thumbnailBytes.length);
-                Bitmap bitmap = exifInterface.getThumbnailBitmap();
+                Bitmap bitmap = BitmapFactory.decodeByteArray(
+                        thumbnailBytes, 0, thumbnailBytes.length);
                 if (bitmap == null) {
                     Log.e(TAG, fileName + " Corrupted thumbnail!");
                 } else {
@@ -252,7 +253,6 @@ public class ExifInterfaceTest extends AndroidTestCase {
         if (stringValue != null) {
             stringValue = stringValue.trim();
         }
-        stringValue = (stringValue == "") ? null : stringValue;
 
         assertEquals(expectedValue, stringValue);
     }
@@ -265,9 +265,10 @@ public class ExifInterfaceTest extends AndroidTestCase {
         // Checks a thumbnail image.
         assertEquals(expectedValue.hasThumbnail, exifInterface.hasThumbnail());
         if (expectedValue.hasThumbnail) {
-            byte[] thumbnailBytes = exifInterface.getThumbnailBytes();
+            byte[] thumbnailBytes = exifInterface.getThumbnail();
             assertNotNull(thumbnailBytes);
-            Bitmap thumbnailBitmap = exifInterface.getThumbnailBitmap();
+            Bitmap thumbnailBitmap =
+                    BitmapFactory.decodeByteArray(thumbnailBytes, 0, thumbnailBytes.length);
             assertNotNull(thumbnailBitmap);
             assertEquals(expectedValue.thumbnailWidth, thumbnailBitmap.getWidth());
             assertEquals(expectedValue.thumbnailHeight, thumbnailBitmap.getHeight());

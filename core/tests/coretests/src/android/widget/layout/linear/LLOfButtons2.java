@@ -22,4 +22,5 @@ package android.widget.layout.linear;
  */
 public class LLOfButtons2  extends LLOfButtons1 {
 
+
 }

@@ -18,20 +18,16 @@ package android.net;
 
 import android.net.DataUsageRequest;
 import android.net.INetworkStatsSession;
-import android.net.Network;
-import android.net.NetworkState;
 import android.net.NetworkStats;
 import android.net.NetworkStatsHistory;
 import android.net.NetworkTemplate;
 import android.os.IBinder;
 import android.os.Messenger;
-import com.android.internal.net.VpnInfo;
 
 /** {@hide} */
 interface INetworkStatsService {
 
     /** Start a statistics query session. */
-    @UnsupportedAppUsage
     INetworkStatsSession openSession();
 
     /** Start a statistics query session. If calling package is profile or device owner then it is
@@ -40,37 +36,29 @@ interface INetworkStatsService {
      *  PACKAGE_USAGE_STATS permission is always checked. If PACKAGE_USAGE_STATS is not granted
      *  READ_NETWORK_USAGE_STATS is checked for.
      */
-    @UnsupportedAppUsage
-    INetworkStatsSession openSessionForUsageStats(int flags, String callingPackage);
+    INetworkStatsSession openSessionForUsageStats(String callingPackage);
+
+    /** Return network layer usage total for traffic that matches template. */
+    long getNetworkTotalBytes(in NetworkTemplate template, long start, long end);
 
     /** Return data layer snapshot of UID network usage. */
-    @UnsupportedAppUsage
     NetworkStats getDataLayerSnapshotForUid(int uid);
-
-    /** Get a detailed snapshot of stats since boot for all UIDs.
-    *
-    * <p>Results will not always be limited to stats on requiredIfaces when specified: stats for
-    * interfaces stacked on the specified interfaces, or for interfaces on which the specified
-    * interfaces are stacked on, will also be included.
-    * @param requiredIfaces Interface names to get data for, or {@link NetworkStats#INTERFACES_ALL}.
-    */
-    NetworkStats getDetailedUidStats(in String[] requiredIfaces);
-
     /** Return set of any ifaces associated with mobile networks since boot. */
-    @UnsupportedAppUsage
     String[] getMobileIfaces();
 
     /** Increment data layer count of operations performed for UID and tag. */
     void incrementOperationCount(int uid, int tag, int operationCount);
 
+    /** Mark given UID as being in foreground for stats purposes. */
+    void setUidForeground(int uid, boolean uidForeground);
+
     /** Force update of ifaces. */
-    void forceUpdateIfaces(
-         in Network[] defaultNetworks,
-         in NetworkState[] networkStates,
-         in String activeIface);
+    void forceUpdateIfaces();
     /** Force update of statistics. */
-    @UnsupportedAppUsage
     void forceUpdate();
+
+    /** Advise persistance threshold; may be overridden internally. */
+    void advisePersistThreshold(long thresholdBytes);
 
     /** Registers a callback on data usage. */
     DataUsageRequest registerUsageCallback(String callingPackage,
@@ -79,13 +67,6 @@ interface INetworkStatsService {
     /** Unregisters a callback on data usage. */
     void unregisterUsageRequest(in DataUsageRequest request);
 
-    /** Get the uid stats information since boot */
-    long getUidStats(int uid, int type);
-
-    /** Get the iface stats information since boot */
-    long getIfaceStats(String iface, int type);
-
-    /** Get the total network stats information since boot */
-    long getTotalStats(int type);
-
+    /** record video call data usage. */
+    void recordVideoCallData(String iface, int ifaceType, long rxBytes, long txBytes);
 }

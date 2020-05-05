@@ -16,6 +16,7 @@
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="label_copies_summary">Kopioj:</string>
+    <string name="all_printers">Ĉiuj presiloj…</string>
     <string name="print_button">Presi</string>
     <string name="search">Serĉi</string>
     <string name="all_printers_label">Ĉiuj presiloj</string>

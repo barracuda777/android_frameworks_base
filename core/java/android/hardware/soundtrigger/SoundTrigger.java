@@ -16,16 +16,6 @@
 
 package android.hardware.soundtrigger;
 
-import static android.system.OsConstants.EINVAL;
-import static android.system.OsConstants.ENODEV;
-import static android.system.OsConstants.ENOSYS;
-import static android.system.OsConstants.EPERM;
-import static android.system.OsConstants.EPIPE;
-
-import android.annotation.Nullable;
-import android.annotation.SystemApi;
-import android.annotation.UnsupportedAppUsage;
-import android.app.ActivityThread;
 import android.media.AudioFormat;
 import android.os.Handler;
 import android.os.Parcel;
@@ -35,33 +25,22 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.UUID;
 
+import static android.system.OsConstants.*;
+
 /**
  * The SoundTrigger class provides access via JNI to the native service managing
  * the sound trigger HAL.
  *
  * @hide
  */
-@SystemApi
 public class SoundTrigger {
 
-    private SoundTrigger() {
-    }
-
-    /**
-     * Status code used when the operation succeeded
-     */
     public static final int STATUS_OK = 0;
-    /** @hide */
     public static final int STATUS_ERROR = Integer.MIN_VALUE;
-    /** @hide */
     public static final int STATUS_PERMISSION_DENIED = -EPERM;
-    /** @hide */
     public static final int STATUS_NO_INIT = -ENODEV;
-    /** @hide */
     public static final int STATUS_BAD_VALUE = -EINVAL;
-    /** @hide */
     public static final int STATUS_DEAD_OBJECT = -EPIPE;
-    /** @hide */
     public static final int STATUS_INVALID_OPERATION = -ENOSYS;
 
     /*****************************************************************************
@@ -69,12 +48,9 @@ public class SoundTrigger {
      * managed by the native sound trigger service. Each module has a unique
      * ID used to target any API call to this paricular module. Module
      * properties are returned by listModules() method.
-     *
-     * @hide
      ****************************************************************************/
     public static class ModuleProperties implements Parcelable {
         /** Unique module ID provided by the native service */
-        @UnsupportedAppUsage
         public final int id;
 
         /** human readable voice detection engine implementor */
@@ -84,14 +60,12 @@ public class SoundTrigger {
         public final String description;
 
         /** Unique voice engine Id (changes with each version) */
-        @UnsupportedAppUsage
         public final UUID uuid;
 
         /** Voice detection engine version */
         public final int version;
 
         /** Maximum number of active sound models */
-        @UnsupportedAppUsage
         public final int maxSoundModels;
 
         /** Maximum number of key phrases */
@@ -119,7 +93,6 @@ public class SoundTrigger {
          * recognition callback event */
         public final boolean returnsTriggerInEvent;
 
-        @UnsupportedAppUsage
         ModuleProperties(int id, String implementor, String description,
                 String uuid, int version, int maxSoundModels, int maxKeyphrases,
                 int maxUsers, int recognitionModes, boolean supportsCaptureTransition,
@@ -141,7 +114,7 @@ public class SoundTrigger {
             this.returnsTriggerInEvent = returnsTriggerInEvent;
         }
 
-        public static final @android.annotation.NonNull Parcelable.Creator<ModuleProperties> CREATOR
+        public static final Parcelable.Creator<ModuleProperties> CREATOR
                 = new Parcelable.Creator<ModuleProperties>() {
             public ModuleProperties createFromParcel(Parcel in) {
                 return ModuleProperties.fromParcel(in);
@@ -214,8 +187,6 @@ public class SoundTrigger {
      * implementation to detect a particular sound pattern.
      * A specialized version {@link KeyphraseSoundModel} is defined for key phrase
      * sound models.
-     *
-     * @hide
      ****************************************************************************/
     public static class SoundModel {
         /** Undefined sound model type */
@@ -231,18 +202,15 @@ public class SoundTrigger {
         public static final int TYPE_GENERIC_SOUND = 1;
 
         /** Unique sound model identifier */
-        @UnsupportedAppUsage
         public final UUID uuid;
 
         /** Sound model type (e.g. TYPE_KEYPHRASE); */
         public final int type;
 
         /** Unique sound model vendor identifier */
-        @UnsupportedAppUsage
         public final UUID vendorUuid;
 
         /** Opaque data. For use by vendor implementation and enrollment application */
-        @UnsupportedAppUsage
         public final byte[] data;
 
         public SoundModel(UUID uuid, UUID vendorUuid, int type, byte[] data) {
@@ -293,32 +261,24 @@ public class SoundTrigger {
     /*****************************************************************************
      * A Keyphrase describes a key phrase that can be detected by a
      * {@link KeyphraseSoundModel}
-     *
-     * @hide
      ****************************************************************************/
     public static class Keyphrase implements Parcelable {
         /** Unique identifier for this keyphrase */
-        @UnsupportedAppUsage
         public final int id;
 
         /** Recognition modes supported for this key phrase in the model */
-        @UnsupportedAppUsage
         public final int recognitionModes;
 
         /** Locale of the keyphrase. JAVA Locale string e.g en_US */
-        @UnsupportedAppUsage
         public final String locale;
 
         /** Key phrase text */
-        @UnsupportedAppUsage
         public final String text;
 
         /** Users this key phrase has been trained for. countains sound trigger specific user IDs
          * derived from system user IDs {@link android.os.UserHandle#getIdentifier()}. */
-        @UnsupportedAppUsage
         public final int[] users;
 
-        @UnsupportedAppUsage
         public Keyphrase(int id, int recognitionModes, String locale, String text, int[] users) {
             this.id = id;
             this.recognitionModes = recognitionModes;
@@ -327,7 +287,7 @@ public class SoundTrigger {
             this.users = users;
         }
 
-        public static final @android.annotation.NonNull Parcelable.Creator<Keyphrase> CREATOR
+        public static final Parcelable.Creator<Keyphrase> CREATOR
                 = new Parcelable.Creator<Keyphrase>() {
             public Keyphrase createFromParcel(Parcel in) {
                 return Keyphrase.fromParcel(in);
@@ -422,22 +382,18 @@ public class SoundTrigger {
      * A KeyphraseSoundModel is a specialized {@link SoundModel} for key phrases.
      * It contains data needed by the hardware to detect a certain number of key phrases
      * and the list of corresponding {@link Keyphrase} descriptors.
-     *
-     * @hide
      ****************************************************************************/
     public static class KeyphraseSoundModel extends SoundModel implements Parcelable {
         /** Key phrases in this sound model */
-        @UnsupportedAppUsage
         public final Keyphrase[] keyphrases; // keyword phrases in model
 
-        @UnsupportedAppUsage
         public KeyphraseSoundModel(
                 UUID uuid, UUID vendorUuid, byte[] data, Keyphrase[] keyphrases) {
             super(uuid, vendorUuid, TYPE_KEYPHRASE, data);
             this.keyphrases = keyphrases;
         }
 
-        public static final @android.annotation.NonNull Parcelable.Creator<KeyphraseSoundModel> CREATOR
+        public static final Parcelable.Creator<KeyphraseSoundModel> CREATOR
                 = new Parcelable.Creator<KeyphraseSoundModel>() {
             public KeyphraseSoundModel createFromParcel(Parcel in) {
                 return KeyphraseSoundModel.fromParcel(in);
@@ -512,12 +468,10 @@ public class SoundTrigger {
     /*****************************************************************************
      * A GenericSoundModel is a specialized {@link SoundModel} for non-voice sound
      * patterns.
-     *
-     * @hide
      ****************************************************************************/
     public static class GenericSoundModel extends SoundModel implements Parcelable {
 
-        public static final @android.annotation.NonNull Parcelable.Creator<GenericSoundModel> CREATOR
+        public static final Parcelable.Creator<GenericSoundModel> CREATOR
                 = new Parcelable.Creator<GenericSoundModel>() {
             public GenericSoundModel createFromParcel(Parcel in) {
                 return GenericSoundModel.fromParcel(in);
@@ -528,7 +482,6 @@ public class SoundTrigger {
             }
         };
 
-        @UnsupportedAppUsage
         public GenericSoundModel(UUID uuid, UUID vendorUuid, byte[] data) {
             super(uuid, vendorUuid, TYPE_GENERIC_SOUND, data);
         }
@@ -571,128 +524,52 @@ public class SoundTrigger {
     /**
      *  Modes for key phrase recognition
      */
-
-    /**
-     * Simple recognition of the key phrase
-     *
-     * @hide
-     */
+    /** Simple recognition of the key phrase */
     public static final int RECOGNITION_MODE_VOICE_TRIGGER = 0x1;
-    /**
-     * Trigger only if one user is identified
-     *
-     * @hide
-     */
+    /** Trigger only if one user is identified */
     public static final int RECOGNITION_MODE_USER_IDENTIFICATION = 0x2;
-    /**
-     * Trigger only if one user is authenticated
-     *
-     * @hide
-     */
+    /** Trigger only if one user is authenticated */
     public static final int RECOGNITION_MODE_USER_AUTHENTICATION = 0x4;
 
     /**
      *  Status codes for {@link RecognitionEvent}
      */
-    /**
-     * Recognition success
-     *
-     * @hide
-     */
+    /** Recognition success */
     public static final int RECOGNITION_STATUS_SUCCESS = 0;
-    /**
-     * Recognition aborted (e.g. capture preempted by anotehr use case
-     *
-     * @hide
-     */
+    /** Recognition aborted (e.g. capture preempted by anotehr use case */
     public static final int RECOGNITION_STATUS_ABORT = 1;
-    /**
-     * Recognition failure
-     *
-     * @hide
-     */
+    /** Recognition failure */
     public static final int RECOGNITION_STATUS_FAILURE = 2;
-    /**
-     * Recognition event was triggered by a getModelState request, not by the
-     * DSP.
-     *
-     * @hide
-     */
-    public static final int RECOGNITION_STATUS_GET_STATE_RESPONSE = 3;
 
     /**
      *  A RecognitionEvent is provided by the
-     *  {@code StatusListener#onRecognition(RecognitionEvent)}
+     *  {@link StatusListener#onRecognition(RecognitionEvent)}
      *  callback upon recognition success or failure.
      */
-    public static class RecognitionEvent {
-        /**
-         * Recognition status e.g RECOGNITION_STATUS_SUCCESS
-         *
-         * @hide
-         */
-        @UnsupportedAppUsage
+    public static class RecognitionEvent implements Parcelable {
+        /** Recognition status e.g {@link #RECOGNITION_STATUS_SUCCESS} */
         public final int status;
-        /**
-         *
-         * Sound Model corresponding to this event callback
-         *
-         * @hide
-         */
-        @UnsupportedAppUsage
+        /** Sound Model corresponding to this event callback */
         public final int soundModelHandle;
-        /**
-         * True if it is possible to capture audio from this utterance buffered by the hardware
-         *
-         * @hide
-         */
-        @UnsupportedAppUsage
+        /** True if it is possible to capture audio from this utterance buffered by the hardware */
         public final boolean captureAvailable;
-        /**
-         * Audio session ID to be used when capturing the utterance with an AudioRecord
-         * if captureAvailable() is true.
-         *
-         * @hide
-         */
-        @UnsupportedAppUsage
+        /** Audio session ID to be used when capturing the utterance with an AudioRecord
+         * if captureAvailable() is true. */
         public final int captureSession;
-        /**
-         * Delay in ms between end of model detection and start of audio available for capture.
-         * A negative value is possible (e.g. if keyphrase is also available for capture)
-         *
-         * @hide
-         */
+        /** Delay in ms between end of model detection and start of audio available for capture.
+         * A negative value is possible (e.g. if keyphrase is also available for capture) */
         public final int captureDelayMs;
-        /**
-         * Duration in ms of audio captured before the start of the trigger. 0 if none.
-         *
-         * @hide
-         */
+        /** Duration in ms of audio captured before the start of the trigger. 0 if none. */
         public final int capturePreambleMs;
-        /**
-         * True if  the trigger (key phrase capture is present in binary data
-         *
-         * @hide
-         */
+        /** True if  the trigger (key phrase capture is present in binary data */
         public final boolean triggerInData;
-        /**
-         * Audio format of either the trigger in event data or to use for capture of the
-         * rest of the utterance
-         *
-         * @hide
-         */
-        public final AudioFormat captureFormat;
-        /**
-         * Opaque data for use by system applications who know about voice engine internals,
-         * typically during enrollment.
-         *
-         * @hide
-         */
-        @UnsupportedAppUsage
+        /** Audio format of either the trigger in event data or to use for capture of the
+          * rest of the utterance */
+        public AudioFormat captureFormat;
+        /** Opaque data for use by system applications who know about voice engine internals,
+         * typically during enrollment. */
         public final byte[] data;
 
-        /** @hide */
-        @UnsupportedAppUsage
         public RecognitionEvent(int status, int soundModelHandle, boolean captureAvailable,
                 int captureSession, int captureDelayMs, int capturePreambleMs,
                 boolean triggerInData, AudioFormat captureFormat, byte[] data) {
@@ -707,47 +584,7 @@ public class SoundTrigger {
             this.data = data;
         }
 
-        /**
-         * Check if is possible to capture audio from this utterance buffered by the hardware.
-         *
-         * @return {@code true} iff a capturing is possible
-         */
-        public boolean isCaptureAvailable() {
-            return captureAvailable;
-        }
-
-        /**
-         * Get the audio format of either the trigger in event data or to use for capture of the
-         * rest of the utterance
-         *
-         * @return the audio format
-         */
-        @Nullable public AudioFormat getCaptureFormat() {
-            return captureFormat;
-        }
-
-        /**
-         * Get Audio session ID to be used when capturing the utterance with an {@link AudioRecord}
-         * if {@link #isCaptureAvailable()} is true.
-         *
-         * @return The id of the capture session
-         */
-        public int getCaptureSession() {
-            return captureSession;
-        }
-
-        /**
-         * Get the opaque data for use by system applications who know about voice engine
-         * internals, typically during enrollment.
-         *
-         * @return The data of the event
-         */
-        public byte[] getData() {
-            return data;
-        }
-
-        /** @hide */
-        public static final @android.annotation.NonNull Parcelable.Creator<RecognitionEvent> CREATOR
+        public static final Parcelable.Creator<RecognitionEvent> CREATOR
                 = new Parcelable.Creator<RecognitionEvent>() {
             public RecognitionEvent createFromParcel(Parcel in) {
                 return RecognitionEvent.fromParcel(in);
@@ -758,7 +595,6 @@ public class SoundTrigger {
             }
         };
 
-        /** @hide */
         protected static RecognitionEvent fromParcel(Parcel in) {
             int status = in.readInt();
             int soundModelHandle = in.readInt();
@@ -783,12 +619,12 @@ public class SoundTrigger {
                     captureDelayMs, capturePreambleMs, triggerInData, captureFormat, data);
         }
 
-        /** @hide */
+        @Override
         public int describeContents() {
             return 0;
         }
 
-        /** @hide */
+        @Override
         public void writeToParcel(Parcel dest, int flags) {
             dest.writeInt(status);
             dest.writeInt(soundModelHandle);
@@ -890,13 +726,10 @@ public class SoundTrigger {
      *  A RecognitionConfig is provided to
      *  {@link SoundTriggerModule#startRecognition(int, RecognitionConfig)} to configure the
      *  recognition request.
-     *
-     *  @hide
      */
     public static class RecognitionConfig implements Parcelable {
         /** True if the DSP should capture the trigger sound and make it available for further
          * capture. */
-        @UnsupportedAppUsage
         public final boolean captureRequested;
         /**
          * True if the service should restart listening after the DSP triggers.
@@ -905,23 +738,20 @@ public class SoundTrigger {
         public final boolean allowMultipleTriggers;
         /** List of all keyphrases in the sound model for which recognition should be performed with
          * options for each keyphrase. */
-        @UnsupportedAppUsage
         public final KeyphraseRecognitionExtra keyphrases[];
         /** Opaque data for use by system applications who know about voice engine internals,
          * typically during enrollment. */
-        @UnsupportedAppUsage
         public final byte[] data;
 
-        @UnsupportedAppUsage
         public RecognitionConfig(boolean captureRequested, boolean allowMultipleTriggers,
-                KeyphraseRecognitionExtra[] keyphrases, byte[] data) {
+                KeyphraseRecognitionExtra keyphrases[], byte[] data) {
             this.captureRequested = captureRequested;
             this.allowMultipleTriggers = allowMultipleTriggers;
             this.keyphrases = keyphrases;
             this.data = data;
         }
 
-        public static final @android.annotation.NonNull Parcelable.Creator<RecognitionConfig> CREATOR
+        public static final Parcelable.Creator<RecognitionConfig> CREATOR
                 = new Parcelable.Creator<RecognitionConfig>() {
             public RecognitionConfig createFromParcel(Parcel in) {
                 return RecognitionConfig.fromParcel(in);
@@ -969,22 +799,17 @@ public class SoundTrigger {
      * When used in a {@link RecognitionConfig} it indicates the minimum confidence level that
      * should trigger a recognition.
      * - The user ID is derived from the system ID {@link android.os.UserHandle#getIdentifier()}.
-     *
-     * @hide
      */
     public static class ConfidenceLevel implements Parcelable {
-        @UnsupportedAppUsage
         public final int userId;
-        @UnsupportedAppUsage
         public final int confidenceLevel;
 
-        @UnsupportedAppUsage
         public ConfidenceLevel(int userId, int confidenceLevel) {
             this.userId = userId;
             this.confidenceLevel = confidenceLevel;
         }
 
-        public static final @android.annotation.NonNull Parcelable.Creator<ConfidenceLevel> CREATOR
+        public static final Parcelable.Creator<ConfidenceLevel> CREATOR
                 = new Parcelable.Creator<ConfidenceLevel>() {
             public ConfidenceLevel createFromParcel(Parcel in) {
                 return ConfidenceLevel.fromParcel(in);
@@ -1047,29 +872,22 @@ public class SoundTrigger {
     /**
      *  Additional data conveyed by a {@link KeyphraseRecognitionEvent}
      *  for a key phrase detection.
-     *
-     * @hide
      */
     public static class KeyphraseRecognitionExtra implements Parcelable {
         /** The keyphrase ID */
-        @UnsupportedAppUsage
         public final int id;
 
         /** Recognition modes matched for this event */
-        @UnsupportedAppUsage
         public final int recognitionModes;
 
         /** Confidence level for mode RECOGNITION_MODE_VOICE_TRIGGER when user identification
          * is not performed */
-        @UnsupportedAppUsage
         public final int coarseConfidenceLevel;
 
         /** Confidence levels for all users recognized (KeyphraseRecognitionEvent) or to
          * be recognized (RecognitionConfig) */
-        @UnsupportedAppUsage
         public final ConfidenceLevel[] confidenceLevels;
 
-        @UnsupportedAppUsage
         public KeyphraseRecognitionExtra(int id, int recognitionModes, int coarseConfidenceLevel,
                 ConfidenceLevel[] confidenceLevels) {
             this.id = id;
@@ -1078,7 +896,7 @@ public class SoundTrigger {
             this.confidenceLevels = confidenceLevels;
         }
 
-        public static final @android.annotation.NonNull Parcelable.Creator<KeyphraseRecognitionExtra> CREATOR
+        public static final Parcelable.Creator<KeyphraseRecognitionExtra> CREATOR
                 = new Parcelable.Creator<KeyphraseRecognitionExtra>() {
             public KeyphraseRecognitionExtra createFromParcel(Parcel in) {
                 return KeyphraseRecognitionExtra.fromParcel(in);
@@ -1152,15 +970,11 @@ public class SoundTrigger {
 
     /**
      *  Specialized {@link RecognitionEvent} for a key phrase detection.
-     *
-     *  @hide
      */
-    public static class KeyphraseRecognitionEvent extends RecognitionEvent implements Parcelable {
+    public static class KeyphraseRecognitionEvent extends RecognitionEvent {
         /** Indicates if the key phrase is present in the buffered audio available for capture */
-        @UnsupportedAppUsage
         public final KeyphraseRecognitionExtra[] keyphraseExtras;
 
-        @UnsupportedAppUsage
         public KeyphraseRecognitionEvent(int status, int soundModelHandle, boolean captureAvailable,
                int captureSession, int captureDelayMs, int capturePreambleMs,
                boolean triggerInData, AudioFormat captureFormat, byte[] data,
@@ -1170,7 +984,7 @@ public class SoundTrigger {
             this.keyphraseExtras = keyphraseExtras;
         }
 
-        public static final @android.annotation.NonNull Parcelable.Creator<KeyphraseRecognitionEvent> CREATOR
+        public static final Parcelable.Creator<KeyphraseRecognitionEvent> CREATOR
                 = new Parcelable.Creator<KeyphraseRecognitionEvent>() {
             public KeyphraseRecognitionEvent createFromParcel(Parcel in) {
                 return KeyphraseRecognitionEvent.fromParcelForKeyphrase(in);
@@ -1277,11 +1091,8 @@ public class SoundTrigger {
     /**
      * Sub-class of RecognitionEvent specifically for sound-trigger based sound
      * models(non-keyphrase). Currently does not contain any additional fields.
-     *
-     * @hide
      */
-    public static class GenericRecognitionEvent extends RecognitionEvent implements Parcelable {
-        @UnsupportedAppUsage
+    public static class GenericRecognitionEvent extends RecognitionEvent {
         public GenericRecognitionEvent(int status, int soundModelHandle,
                 boolean captureAvailable, int captureSession, int captureDelayMs,
                 int capturePreambleMs, boolean triggerInData, AudioFormat captureFormat,
@@ -1291,7 +1102,7 @@ public class SoundTrigger {
                     data);
         }
 
-        public static final @android.annotation.NonNull Parcelable.Creator<GenericRecognitionEvent> CREATOR
+        public static final Parcelable.Creator<GenericRecognitionEvent> CREATOR
                 = new Parcelable.Creator<GenericRecognitionEvent>() {
             public GenericRecognitionEvent createFromParcel(Parcel in) {
                 return GenericRecognitionEvent.fromParcelForGeneric(in);
@@ -1329,19 +1140,13 @@ public class SoundTrigger {
     /**
      *  Status codes for {@link SoundModelEvent}
      */
-    /**
-     * Sound Model was updated
-     *
-     * @hide
-     */
+    /** Sound Model was updated */
     public static final int SOUNDMODEL_STATUS_UPDATED = 0;
 
     /**
      *  A SoundModelEvent is provided by the
      *  {@link StatusListener#onSoundModelUpdate(SoundModelEvent)}
      *  callback when a sound model has been updated by the implementation
-     *
-     *  @hide
      */
     public static class SoundModelEvent implements Parcelable {
         /** Status e.g {@link #SOUNDMODEL_STATUS_UPDATED} */
@@ -1351,14 +1156,13 @@ public class SoundTrigger {
         /** New sound model data */
         public final byte[] data;
 
-        @UnsupportedAppUsage
         SoundModelEvent(int status, int soundModelHandle, byte[] data) {
             this.status = status;
             this.soundModelHandle = soundModelHandle;
             this.data = data;
         }
 
-        public static final @android.annotation.NonNull Parcelable.Creator<SoundModelEvent> CREATOR
+        public static final Parcelable.Creator<SoundModelEvent> CREATOR
                 = new Parcelable.Creator<SoundModelEvent>() {
             public SoundModelEvent createFromParcel(Parcel in) {
                 return SoundModelEvent.fromParcel(in);
@@ -1427,31 +1231,12 @@ public class SoundTrigger {
      *  Native service state. {@link StatusListener#onServiceStateChange(int)}
      */
     // Keep in sync with system/core/include/system/sound_trigger.h
-    /**
-     * Sound trigger service is enabled
-     *
-     * @hide
-     */
+    /** Sound trigger service is enabled */
     public static final int SERVICE_STATE_ENABLED = 0;
-    /**
-     * Sound trigger service is disabled
-     *
-     * @hide
-     */
+    /** Sound trigger service is disabled */
     public static final int SERVICE_STATE_DISABLED = 1;
 
     /**
-     * @return returns current package name.
-     */
-    static String getCurrentOpPackageName() {
-        String packageName = ActivityThread.currentOpPackageName();
-        if (packageName == null) {
-            return "";
-        }
-        return packageName;
-    }
-
-    /**
      * Returns a list of descriptors for all hardware modules loaded.
      * @param modules A ModuleProperties array where the list will be returned.
      * @return - {@link #STATUS_OK} in case of success
@@ -1460,27 +1245,8 @@ public class SoundTrigger {
      *         - {@link #STATUS_NO_INIT} if the native service cannot be reached
      *         - {@link #STATUS_BAD_VALUE} if modules is null
      *         - {@link #STATUS_DEAD_OBJECT} if the binder transaction to the native service fails
-     *
-     * @hide
      */
-    @UnsupportedAppUsage
-    public static int listModules(ArrayList<ModuleProperties> modules) {
-        return listModules(getCurrentOpPackageName(), modules);
-    }
-
-    /**
-     * Returns a list of descriptors for all hardware modules loaded.
-     * @param opPackageName
-     * @param modules A ModuleProperties array where the list will be returned.
-     * @return - {@link #STATUS_OK} in case of success
-     *         - {@link #STATUS_ERROR} in case of unspecified error
-     *         - {@link #STATUS_PERMISSION_DENIED} if the caller does not have system permission
-     *         - {@link #STATUS_NO_INIT} if the native service cannot be reached
-     *         - {@link #STATUS_BAD_VALUE} if modules is null
-     *         - {@link #STATUS_DEAD_OBJECT} if the binder transaction to the native service fails
-     */
-    private static native int listModules(String opPackageName,
-                                          ArrayList<ModuleProperties> modules);
+    public static native int listModules(ArrayList <ModuleProperties> modules);
 
     /**
      * Get an interface on a hardware module to control sound models and recognition on
@@ -1490,10 +1256,7 @@ public class SoundTrigger {
      * @param handler the Handler that will receive the callabcks. Can be null if default handler
      *                is OK.
      * @return a valid sound module in case of success or null in case of error.
-     *
-     * @hide
      */
-    @UnsupportedAppUsage
     public static SoundTriggerModule attachModule(int moduleId,
                                                   StatusListener listener,
                                                   Handler handler) {
@@ -1507,8 +1270,6 @@ public class SoundTrigger {
     /**
      * Interface provided by the client application when attaching to a {@link SoundTriggerModule}
      * to received recognition and error notifications.
-     *
-     * @hide
      */
     public static interface StatusListener {
         /**

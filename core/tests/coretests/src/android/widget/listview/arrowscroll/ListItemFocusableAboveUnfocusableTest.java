@@ -17,11 +17,10 @@
 package android.widget.listview.arrowscroll;
 
 import android.test.ActivityInstrumentationTestCase;
-import android.view.KeyEvent;
+import android.test.suitebuilder.annotation.MediumTest;
 import android.widget.ListView;
+import android.view.KeyEvent;
 import android.widget.listview.ListItemFocusableAboveUnfocusable;
-
-import androidx.test.filters.MediumTest;
 
 public class ListItemFocusableAboveUnfocusableTest extends ActivityInstrumentationTestCase<ListItemFocusableAboveUnfocusable> {
     private ListView mListView;

@@ -360,15 +360,9 @@ String16 PseudoMethodBidi::text(const String16& source)
     String16 result;
     bool lastspace = true;
     bool space = true;
-    bool escape = false;
-    const char16_t ESCAPE_CHAR = '\\';
     for (size_t i=0; i<source.size(); i++) {
         char16_t c = s[i];
-        if (!escape && c == ESCAPE_CHAR) {
-          escape = true;
-          continue;
-        }
-        space = (!escape && is_space(c)) || (escape && (c == 'n' || c == 't'));
+        space = is_space(c);
         if (lastspace && !space) {
           // Word start
           result += k_rlm + k_rlo;
@@ -377,10 +371,6 @@ String16 PseudoMethodBidi::text(const String16& source)
           result += k_pdf + k_rlm;
         }
         lastspace = space;
-        if (escape) {
-          result.append(&ESCAPE_CHAR, 1);
-          escape=false;
-        }
         result.append(&c, 1);
     }
     if (!lastspace) {

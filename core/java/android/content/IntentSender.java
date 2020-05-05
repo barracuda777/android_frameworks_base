@@ -16,8 +16,7 @@
 
 package android.content;
 
-import android.annotation.UnsupportedAppUsage;
-import android.app.ActivityManager;
+import android.app.ActivityManagerNative;
 import android.os.Bundle;
 import android.os.RemoteException;
 import android.os.Handler;
@@ -56,9 +55,7 @@ import android.util.AndroidException;
  * {@link android.app.PendingIntent#getIntentSender() PendingIntent.getIntentSender()}.
  */
 public class IntentSender implements Parcelable {
-    @UnsupportedAppUsage
     private final IIntentSender mTarget;
-    IBinder mWhitelistToken;
 
     /**
      * Exception thrown when trying to send through a PendingIntent that
@@ -190,7 +187,7 @@ public class IntentSender implements Parcelable {
             String resolvedType = intent != null ?
                     intent.resolveTypeIfNeeded(context.getContentResolver())
                     : null;
-            int res = ActivityManager.getService().sendIntentSender(mTarget, mWhitelistToken,
+            int res = ActivityManagerNative.getDefault().sendIntentSender(mTarget,
                     code, intent, resolvedType,
                     onFinished != null
                             ? new FinishedDispatcher(this, onFinished, handler)
@@ -210,7 +207,7 @@ public class IntentSender implements Parcelable {
     @Deprecated
     public String getTargetPackage() {
         try {
-            return ActivityManager.getService()
+            return ActivityManagerNative.getDefault()
                 .getPackageForIntentSender(mTarget);
         } catch (RemoteException e) {
             // Should never happen.
@@ -229,7 +226,7 @@ public class IntentSender implements Parcelable {
      */
     public String getCreatorPackage() {
         try {
-            return ActivityManager.getService()
+            return ActivityManagerNative.getDefault()
                 .getPackageForIntentSender(mTarget);
         } catch (RemoteException e) {
             // Should never happen.
@@ -248,7 +245,7 @@ public class IntentSender implements Parcelable {
      */
     public int getCreatorUid() {
         try {
-            return ActivityManager.getService()
+            return ActivityManagerNative.getDefault()
                 .getUidForIntentSender(mTarget);
         } catch (RemoteException e) {
             // Should never happen.
@@ -269,7 +266,7 @@ public class IntentSender implements Parcelable {
      */
     public UserHandle getCreatorUserHandle() {
         try {
-            int uid = ActivityManager.getService()
+            int uid = ActivityManagerNative.getDefault()
                 .getUidForIntentSender(mTarget);
             return uid > 0 ? new UserHandle(UserHandle.getUserId(uid)) : null;
         } catch (RemoteException e) {
@@ -316,7 +313,7 @@ public class IntentSender implements Parcelable {
         out.writeStrongBinder(mTarget.asBinder());
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<IntentSender> CREATOR
+    public static final Parcelable.Creator<IntentSender> CREATOR
             = new Parcelable.Creator<IntentSender>() {
         public IntentSender createFromParcel(Parcel in) {
             IBinder target = in.readStrongBinder();
@@ -358,26 +355,13 @@ public class IntentSender implements Parcelable {
     }
 
     /** @hide */
-    @UnsupportedAppUsage
     public IIntentSender getTarget() {
         return mTarget;
     }
 
     /** @hide */
-    public IBinder getWhitelistToken() {
-        return mWhitelistToken;
-    }
-
-    /** @hide */
-    @UnsupportedAppUsage
     public IntentSender(IIntentSender target) {
         mTarget = target;
-    }
-
-    /** @hide */
-    public IntentSender(IIntentSender target, IBinder whitelistToken) {
-        mTarget = target;
-        mWhitelistToken = whitelistToken;
     }
 
     /** @hide */

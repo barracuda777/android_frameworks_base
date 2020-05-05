@@ -16,15 +16,8 @@
 
 package android.hardware.usb;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
-import android.app.ActivityThread;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.os.RemoteException;
-
-import com.android.internal.util.Preconditions;
 
 /**
  * This class represents a USB device attached to the android device with the android device
@@ -41,7 +34,7 @@ import com.android.internal.util.Preconditions;
  * <div class="special reference">
  * <h3>Developer Guides</h3>
  * <p>For more information about communicating with USB hardware, read the
- * <a href="{@docRoot}guide/topics/connectivity/usb/index.html">USB</a> developer guide.</p>
+ * <a href="{@docRoot}guide/topics/usb/index.html">USB</a> developer guide.</p>
  * </div>
  */
 public class UsbDevice implements Parcelable {
@@ -49,32 +42,29 @@ public class UsbDevice implements Parcelable {
     private static final String TAG = "UsbDevice";
     private static final boolean DEBUG = false;
 
-    private final @NonNull String mName;
-    private final @Nullable String mManufacturerName;
-    private final @Nullable String mProductName;
-    private final @NonNull String mVersion;
-    private final @NonNull UsbConfiguration[] mConfigurations;
-    private final @NonNull IUsbSerialReader mSerialNumberReader;
+    private final String mName;
+    private final String mManufacturerName;
+    private final String mProductName;
+    private final String mVersion;
+    private final String mSerialNumber;
     private final int mVendorId;
     private final int mProductId;
     private final int mClass;
     private final int mSubclass;
     private final int mProtocol;
+    private Parcelable[] mConfigurations;
 
-    /** All interfaces on the device. Initialized on first call to getInterfaceList */
-    @UnsupportedAppUsage
-    private @Nullable UsbInterface[] mInterfaces;
+    // list of all interfaces on the device
+    private UsbInterface[] mInterfaces;
 
     /**
-     * Create a new UsbDevice object. Only called by {@link Builder#build(IUsbSerialReader)}
-     *
+     * UsbDevice should only be instantiated by UsbService implementation
      * @hide
      */
-    private UsbDevice(@NonNull String name, int vendorId, int productId, int Class, int subClass,
-            int protocol, @Nullable String manufacturerName, @Nullable String productName,
-            @NonNull String version, @NonNull UsbConfiguration[] configurations,
-            @NonNull IUsbSerialReader serialNumberReader) {
-        mName = Preconditions.checkNotNull(name);
+    public UsbDevice(String name, int vendorId, int productId,
+            int Class, int subClass, int protocol,
+            String manufacturerName, String productName, String version, String serialNumber) {
+        mName = name;
         mVendorId = vendorId;
         mProductId = productId;
         mClass = Class;
@@ -82,14 +72,8 @@ public class UsbDevice implements Parcelable {
         mProtocol = protocol;
         mManufacturerName = manufacturerName;
         mProductName = productName;
-        mVersion = Preconditions.checkStringNotEmpty(version);
-        mConfigurations = Preconditions.checkArrayElementsNotNull(configurations, "configurations");
-        mSerialNumberReader = Preconditions.checkNotNull(serialNumberReader);
-
-        // Make sure the binder belongs to the system
-        if (ActivityThread.isSystem()) {
-            Preconditions.checkArgument(mSerialNumberReader instanceof IUsbSerialReader.Stub);
-        }
+        mVersion = version;
+        mSerialNumber = serialNumber;
     }
 
     /**
@@ -99,25 +83,25 @@ public class UsbDevice implements Parcelable {
      *
      * @return the device name
      */
-    public @NonNull String getDeviceName() {
+    public String getDeviceName() {
         return mName;
     }
 
     /**
      * Returns the manufacturer name of the device.
      *
-     * @return the manufacturer name, or {@code null} if the property could not be read
+     * @return the manufacturer name
      */
-    public @Nullable String getManufacturerName() {
+    public String getManufacturerName() {
         return mManufacturerName;
     }
 
     /**
      * Returns the product name of the device.
      *
-     * @return the product name, or {@code null} if the property could not be read
+     * @return the product name
      */
-    public @Nullable String getProductName() {
+    public String getProductName() {
         return mProductName;
     }
 
@@ -126,25 +110,17 @@ public class UsbDevice implements Parcelable {
      *
      * @return the device version
      */
-    public @NonNull String getVersion() {
+    public String getVersion() {
         return mVersion;
     }
 
     /**
      * Returns the serial number of the device.
      *
-     * @return the serial number name, or {@code null} if the property could not be read
-     *
-     * @throws SecurityException if the app targets SDK >= {@value android.os.Build.VERSION_CODES#Q}
-     *                           and the app does not have permission to read from the device.
+     * @return the serial number name
      */
-    public @Nullable String getSerialNumber() {
-        try {
-            return mSerialNumberReader.getSerial(ActivityThread.currentPackageName());
-        } catch (RemoteException e) {
-            e.rethrowFromSystemServer();
-            return null;
-        }
+    public String getSerialNumber() {
+        return mSerialNumber;
     }
 
     /**
@@ -219,23 +195,23 @@ public class UsbDevice implements Parcelable {
      *
      * @return the configuration
      */
-    public @NonNull UsbConfiguration getConfiguration(int index) {
-        return mConfigurations[index];
+    public UsbConfiguration getConfiguration(int index) {
+        return (UsbConfiguration)mConfigurations[index];
     }
 
-    private @Nullable UsbInterface[] getInterfaceList() {
+    private UsbInterface[] getInterfaceList() {
         if (mInterfaces == null) {
             int configurationCount = mConfigurations.length;
             int interfaceCount = 0;
             for (int i = 0; i < configurationCount; i++) {
-                UsbConfiguration configuration = mConfigurations[i];
+                UsbConfiguration configuration = (UsbConfiguration)mConfigurations[i];
                 interfaceCount += configuration.getInterfaceCount();
             }
 
             mInterfaces = new UsbInterface[interfaceCount];
             int offset = 0;
             for (int i = 0; i < configurationCount; i++) {
-                UsbConfiguration configuration = mConfigurations[i];
+                UsbConfiguration configuration = (UsbConfiguration)mConfigurations[i];
                 interfaceCount = configuration.getInterfaceCount();
                 for (int j = 0; j < interfaceCount; j++) {
                     mInterfaces[offset++] = configuration.getInterface(j);
@@ -264,8 +240,16 @@ public class UsbDevice implements Parcelable {
      *
      * @return the interface
      */
-    public @NonNull UsbInterface getInterface(int index) {
+    public UsbInterface getInterface(int index) {
         return getInterfaceList()[index];
+    }
+
+    /**
+     * Only used by UsbService implementation
+     * @hide
+     */
+    public void setConfigurations(Parcelable[] configuration) {
+        mConfigurations = configuration;
     }
 
     @Override
@@ -290,8 +274,7 @@ public class UsbDevice implements Parcelable {
                 ",mVendorId=" + mVendorId + ",mProductId=" + mProductId +
                 ",mClass=" + mClass + ",mSubclass=" + mSubclass + ",mProtocol=" + mProtocol +
                 ",mManufacturerName=" + mManufacturerName + ",mProductName=" + mProductName +
-                ",mVersion=" + mVersion + ",mSerialNumberReader=" + mSerialNumberReader
-                + ",mConfigurations=[");
+                ",mVersion=" + mVersion + ",mSerialNumber=" + mSerialNumber + ",mConfigurations=[");
         for (int i = 0; i < mConfigurations.length; i++) {
             builder.append("\n");
             builder.append(mConfigurations[i].toString());
@@ -300,7 +283,7 @@ public class UsbDevice implements Parcelable {
         return builder.toString();
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<UsbDevice> CREATOR =
+    public static final Parcelable.Creator<UsbDevice> CREATOR =
         new Parcelable.Creator<UsbDevice>() {
         public UsbDevice createFromParcel(Parcel in) {
             String name = in.readString();
@@ -312,13 +295,11 @@ public class UsbDevice implements Parcelable {
             String manufacturerName = in.readString();
             String productName = in.readString();
             String version = in.readString();
-            IUsbSerialReader serialNumberReader =
-                    IUsbSerialReader.Stub.asInterface(in.readStrongBinder());
-            UsbConfiguration[] configurations = in.readParcelableArray(
-                    UsbConfiguration.class.getClassLoader(), UsbConfiguration.class);
+            String serialNumber = in.readString();
+            Parcelable[] configurations = in.readParcelableArray(UsbInterface.class.getClassLoader());
             UsbDevice device = new UsbDevice(name, vendorId, productId, clasz, subClass, protocol,
-                                 manufacturerName, productName, version, configurations,
-                    serialNumberReader);
+                                 manufacturerName, productName, version, serialNumber);
+            device.setConfigurations(configurations);
             return device;
         }
 
@@ -341,7 +322,7 @@ public class UsbDevice implements Parcelable {
         parcel.writeString(mManufacturerName);
         parcel.writeString(mProductName);
         parcel.writeString(mVersion);
-        parcel.writeStrongBinder(mSerialNumberReader.asBinder());
+        parcel.writeString(mSerialNumber);
         parcel.writeParcelableArray(mConfigurations, 0);
    }
 
@@ -355,53 +336,4 @@ public class UsbDevice implements Parcelable {
 
     private static native int native_get_device_id(String name);
     private static native String native_get_device_name(int id);
-
-    /**
-     * @hide
-     */
-    public static class Builder {
-        private final @NonNull String mName;
-        private final int mVendorId;
-        private final int mProductId;
-        private final int mClass;
-        private final int mSubclass;
-        private final int mProtocol;
-        private final @Nullable String mManufacturerName;
-        private final @Nullable String mProductName;
-        private final @NonNull String mVersion;
-        private final @NonNull UsbConfiguration[] mConfigurations;
-
-        // Temporary storage for serial number. Serial number reader need to be wrapped in a
-        // IUsbSerialReader as they might be used as PII.
-        public final @Nullable String serialNumber;
-
-        public Builder(@NonNull String name, int vendorId, int productId, int Class, int subClass,
-                int protocol, @Nullable String manufacturerName, @Nullable String productName,
-                @NonNull String version, @NonNull UsbConfiguration[] configurations,
-                @Nullable String serialNumber) {
-            mName = Preconditions.checkNotNull(name);
-            mVendorId = vendorId;
-            mProductId = productId;
-            mClass = Class;
-            mSubclass = subClass;
-            mProtocol = protocol;
-            mManufacturerName = manufacturerName;
-            mProductName = productName;
-            mVersion = Preconditions.checkStringNotEmpty(version);
-            mConfigurations = configurations;
-            this.serialNumber = serialNumber;
-        }
-
-        /**
-         * Create a new {@link UsbDevice}
-         *
-         * @param serialReader The method to read the serial number.
-         *
-         * @return The usb device
-         */
-        public UsbDevice build(@NonNull IUsbSerialReader serialReader) {
-            return new UsbDevice(mName, mVendorId, mProductId, mClass, mSubclass, mProtocol,
-                    mManufacturerName, mProductName, mVersion, mConfigurations, serialReader);
-        }
-    }
 }

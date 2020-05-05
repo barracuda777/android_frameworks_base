@@ -17,14 +17,12 @@
 package android.os;
 
 import android.test.AndroidTestCase;
-
-import androidx.test.filters.LargeTest;
-import androidx.test.filters.SmallTest;
+import android.test.suitebuilder.annotation.LargeTest;
+import android.test.suitebuilder.annotation.SmallTest;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.BufferOverflowException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -112,7 +110,7 @@ public class MemoryFileTest extends AndroidTestCase {
         try {
             os.write(new byte[] { -1, -1 });
             fail();
-        } catch (IndexOutOfBoundsException | BufferOverflowException expected) {
+        } catch (IndexOutOfBoundsException expected) {
         }
 
         byte[] copy = new byte[file.length()];

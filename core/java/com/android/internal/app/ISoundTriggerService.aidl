@@ -16,11 +16,8 @@
 
 package com.android.internal.app;
 
-import android.app.PendingIntent;
-import android.content.ComponentName;
 import android.hardware.soundtrigger.IRecognitionStatusCallback;
 import android.hardware.soundtrigger.SoundTrigger;
-import android.os.Bundle;
 import android.os.ParcelUuid;
 
 /**
@@ -28,6 +25,7 @@ import android.os.ParcelUuid;
  * @hide
  */
 interface ISoundTriggerService {
+
 
     SoundTrigger.GenericSoundModel getSoundModel(in ParcelUuid soundModelId);
 
@@ -38,20 +36,8 @@ interface ISoundTriggerService {
     int startRecognition(in ParcelUuid soundModelId, in IRecognitionStatusCallback callback,
          in SoundTrigger.RecognitionConfig config);
 
+    /**
+     * Stops recognition.
+     */
     int stopRecognition(in ParcelUuid soundModelId, in IRecognitionStatusCallback callback);
-
-    int loadGenericSoundModel(in SoundTrigger.GenericSoundModel soundModel);
-    int loadKeyphraseSoundModel(in SoundTrigger.KeyphraseSoundModel soundModel);
-
-    int startRecognitionForService(in ParcelUuid soundModelId, in Bundle params,
-         in ComponentName callbackIntent,in SoundTrigger.RecognitionConfig config);
-
-    int stopRecognitionForService(in ParcelUuid soundModelId);
-
-    int unloadSoundModel(in ParcelUuid soundModelId);
-
-    /** For both ...Intent and ...Service based usage */
-    boolean isRecognitionActive(in ParcelUuid parcelUuid);
-
-    int getModelState(in ParcelUuid soundModelId);
 }

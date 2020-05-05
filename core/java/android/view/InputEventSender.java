@@ -16,12 +16,11 @@
 
 package android.view;
 
-import android.annotation.UnsupportedAppUsage;
+import dalvik.system.CloseGuard;
+
 import android.os.Looper;
 import android.os.MessageQueue;
 import android.util.Log;
-
-import dalvik.system.CloseGuard;
 
 import java.lang.ref.WeakReference;
 
@@ -138,7 +137,6 @@ public abstract class InputEventSender {
 
     // Called from native code.
     @SuppressWarnings("unused")
-    @UnsupportedAppUsage
     private void dispatchInputEventFinished(int seq, boolean handled) {
         onInputEventFinished(seq, handled);
     }

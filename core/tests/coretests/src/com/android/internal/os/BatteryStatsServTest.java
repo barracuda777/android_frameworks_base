@@ -18,8 +18,7 @@ package com.android.internal.os;
 
 import android.os.BatteryStats;
 import android.os.Parcel;
-
-import androidx.test.filters.SmallTest;
+import android.support.test.filters.SmallTest;
 
 import junit.framework.Assert;
 import junit.framework.TestCase;
@@ -44,6 +43,15 @@ public class BatteryStatsServTest extends TestCase {
             mLaunchedSince = 6064;
             mLaunched = true;
             mLaunches = 8085;
+            mLoadedStartTime = 9096;
+            mLoadedStarts = 10017;
+            mLoadedLaunches = 11118;
+            mLastStartTime = 12219;
+            mLastStarts = 13310;
+            mLastLaunches = 14411;
+            mUnpluggedStartTime = 15512;
+            mUnpluggedStarts = 16613;
+            mUnpluggedLaunches = 17714;
         }
 
         long getStartTime() {
@@ -85,6 +93,42 @@ public class BatteryStatsServTest extends TestCase {
         int getLaunches() {
             return mLaunches;
         }
+
+        long getLoadedStartTime() {
+            return mLoadedStartTime;
+        }
+
+        int getLoadedStarts() {
+            return mLoadedStarts;
+        }
+
+        int getLoadedLaunches() {
+            return mLoadedLaunches;
+        }
+
+        long getLastStartTime() {
+            return mLastStartTime;
+        }
+
+        int getLastStarts() {
+            return mLastStarts;
+        }
+
+        int getLastLaunches() {
+            return mLastLaunches;
+        }
+
+        long getUnpluggedStartTime() {
+            return mUnpluggedStartTime;
+        }
+
+        int getUnpluggedStarts() {
+            return mUnpluggedStarts;
+        }
+
+        int getUnpluggedLaunches() {
+            return mUnpluggedLaunches;
+        }
     }
 
     /**
@@ -99,6 +143,29 @@ public class BatteryStatsServTest extends TestCase {
 
         serv.detach();
         Assert.assertFalse(bsi.getOnBatteryTimeBase().hasObserver(serv));
+    }
+
+    /**
+     * Test OnTimeStarted
+     */
+    @SmallTest
+    public void testOnTimeStarted() throws Exception  {
+        MockBatteryStatsImpl bsi = new MockBatteryStatsImpl();
+        TestServ serv = new TestServ(bsi);
+
+        serv.populate();
+        serv.setRunning(true);
+        serv.onTimeStarted(111111, 20000, 222222);
+        Assert.assertEquals(18989, serv.getUnpluggedStartTime());
+        Assert.assertEquals(4042, serv.getUnpluggedStarts());
+        Assert.assertEquals(8085, serv.getUnpluggedLaunches());
+
+        serv.populate();
+        serv.setRunning(false);
+        serv.onTimeStarted(111111, 20000, 222222);
+        Assert.assertEquals(1010, serv.getUnpluggedStartTime());
+        Assert.assertEquals(4042, serv.getUnpluggedStarts());
+        Assert.assertEquals(8085, serv.getUnpluggedLaunches());
     }
 
     /**
@@ -117,7 +184,7 @@ public class BatteryStatsServTest extends TestCase {
 
         TestServ serv = new TestServ(bsi);
         serv.readFromParcelLocked(parcel);
-
+   
         Assert.assertEquals(1010, serv.getStartTime());
         Assert.assertEquals(2021, serv.getRunningSince());
         Assert.assertTrue(serv.getRunning());
@@ -126,8 +193,15 @@ public class BatteryStatsServTest extends TestCase {
         Assert.assertEquals(6064, serv.getLaunchedSince());
         Assert.assertTrue(serv.getLaunched());
         Assert.assertEquals(8085, serv.getLaunches());
-
-        parcel.recycle();
+        Assert.assertEquals(9096, serv.getLoadedStartTime());
+        Assert.assertEquals(10017, serv.getLoadedStarts());
+        Assert.assertEquals(11118, serv.getLoadedLaunches());
+        Assert.assertEquals(0, serv.getLastStartTime());
+        Assert.assertEquals(0, serv.getLastStarts());
+        Assert.assertEquals(0, serv.getLastLaunches());
+        Assert.assertEquals(15512, serv.getUnpluggedStartTime());
+        Assert.assertEquals(16613, serv.getUnpluggedStarts());
+        Assert.assertEquals(17714, serv.getUnpluggedLaunches());
     }
 
     /**
@@ -192,6 +266,15 @@ public class BatteryStatsServTest extends TestCase {
         Assert.assertEquals(6064, serv.getLaunchedSince());
         Assert.assertTrue(serv.getLaunched());
         Assert.assertEquals(8085, serv.getLaunches());
+        Assert.assertEquals(9096, serv.getLoadedStartTime());
+        Assert.assertEquals(10017, serv.getLoadedStarts());
+        Assert.assertEquals(11118, serv.getLoadedLaunches());
+        Assert.assertEquals(12219, serv.getLastStartTime());
+        Assert.assertEquals(13310, serv.getLastStarts());
+        Assert.assertEquals(14411, serv.getLastLaunches());
+        Assert.assertEquals(15512, serv.getUnpluggedStartTime());
+        Assert.assertEquals(16613, serv.getUnpluggedStarts());
+        Assert.assertEquals(17714, serv.getUnpluggedLaunches());
     }
 
     /**
@@ -219,6 +302,15 @@ public class BatteryStatsServTest extends TestCase {
         Assert.assertEquals(777777L, serv.getLaunchedSince()); // <-- changed
         Assert.assertTrue(serv.getLaunched()); // <-- changed
         Assert.assertEquals(8086, serv.getLaunches()); // <-- changed
+        Assert.assertEquals(9096, serv.getLoadedStartTime());
+        Assert.assertEquals(10017, serv.getLoadedStarts());
+        Assert.assertEquals(11118, serv.getLoadedLaunches());
+        Assert.assertEquals(12219, serv.getLastStartTime());
+        Assert.assertEquals(13310, serv.getLastStarts());
+        Assert.assertEquals(14411, serv.getLastLaunches());
+        Assert.assertEquals(15512, serv.getUnpluggedStartTime());
+        Assert.assertEquals(16613, serv.getUnpluggedStarts());
+        Assert.assertEquals(17714, serv.getUnpluggedLaunches());
     }
 
     /**
@@ -248,6 +340,15 @@ public class BatteryStatsServTest extends TestCase {
         Assert.assertEquals(6064, serv.getLaunchedSince());
         Assert.assertFalse(serv.getLaunched());
         Assert.assertEquals(8085, serv.getLaunches());
+        Assert.assertEquals(9096, serv.getLoadedStartTime());
+        Assert.assertEquals(10017, serv.getLoadedStarts());
+        Assert.assertEquals(11118, serv.getLoadedLaunches());
+        Assert.assertEquals(12219, serv.getLastStartTime());
+        Assert.assertEquals(13310, serv.getLastStarts());
+        Assert.assertEquals(14411, serv.getLastLaunches());
+        Assert.assertEquals(15512, serv.getUnpluggedStartTime());
+        Assert.assertEquals(16613, serv.getUnpluggedStarts());
+        Assert.assertEquals(17714, serv.getUnpluggedLaunches());
     }
 
     /**
@@ -273,10 +374,19 @@ public class BatteryStatsServTest extends TestCase {
         Assert.assertEquals(2021, serv.getRunningSince());
         Assert.assertTrue(serv.getRunning());
         Assert.assertEquals(4042, serv.getStarts());
-        Assert.assertEquals(777777L-6064+5053, serv.getLaunchedTime()); // <-- changed
+        Assert.assertEquals(777777L-6064+5053, serv.getLaunchedTime()); // <-- changed 
         Assert.assertEquals(6064, serv.getLaunchedSince());
         Assert.assertFalse(serv.getLaunched());
         Assert.assertEquals(8085, serv.getLaunches());
+        Assert.assertEquals(9096, serv.getLoadedStartTime());
+        Assert.assertEquals(10017, serv.getLoadedStarts());
+        Assert.assertEquals(11118, serv.getLoadedLaunches());
+        Assert.assertEquals(12219, serv.getLastStartTime());
+        Assert.assertEquals(13310, serv.getLastStarts());
+        Assert.assertEquals(14411, serv.getLastLaunches());
+        Assert.assertEquals(15512, serv.getUnpluggedStartTime());
+        Assert.assertEquals(16613, serv.getUnpluggedStarts());
+        Assert.assertEquals(17714, serv.getUnpluggedLaunches());
     }
 
     /**
@@ -305,7 +415,16 @@ public class BatteryStatsServTest extends TestCase {
         Assert.assertEquals(5053, serv.getLaunchedTime());
         Assert.assertEquals(6064, serv.getLaunchedSince());
         Assert.assertFalse(serv.getLaunched());
-        Assert.assertEquals(8085-1, serv.getLaunches()); // <-- changed
+        Assert.assertEquals(8085-1, serv.getLaunches()); // <-- changed 
+        Assert.assertEquals(9096, serv.getLoadedStartTime());
+        Assert.assertEquals(10017, serv.getLoadedStarts());
+        Assert.assertEquals(11118, serv.getLoadedLaunches());
+        Assert.assertEquals(12219, serv.getLastStartTime());
+        Assert.assertEquals(13310, serv.getLastStarts());
+        Assert.assertEquals(14411, serv.getLastLaunches());
+        Assert.assertEquals(15512, serv.getUnpluggedStartTime());
+        Assert.assertEquals(16613, serv.getUnpluggedStarts());
+        Assert.assertEquals(17714, serv.getUnpluggedLaunches());
     }
 
     /**
@@ -335,6 +454,15 @@ public class BatteryStatsServTest extends TestCase {
         Assert.assertEquals(6064, serv.getLaunchedSince());
         Assert.assertTrue(serv.getLaunched());
         Assert.assertEquals(8085, serv.getLaunches());
+        Assert.assertEquals(9096, serv.getLoadedStartTime());
+        Assert.assertEquals(10017, serv.getLoadedStarts());
+        Assert.assertEquals(11118, serv.getLoadedLaunches());
+        Assert.assertEquals(12219, serv.getLastStartTime());
+        Assert.assertEquals(13310, serv.getLastStarts());
+        Assert.assertEquals(14411, serv.getLastLaunches());
+        Assert.assertEquals(15512, serv.getUnpluggedStartTime());
+        Assert.assertEquals(16613, serv.getUnpluggedStarts());
+        Assert.assertEquals(17714, serv.getUnpluggedLaunches());
     }
 
     /**
@@ -363,6 +491,15 @@ public class BatteryStatsServTest extends TestCase {
         Assert.assertEquals(6064, serv.getLaunchedSince());
         Assert.assertTrue(serv.getLaunched());
         Assert.assertEquals(8085, serv.getLaunches());
+        Assert.assertEquals(9096, serv.getLoadedStartTime());
+        Assert.assertEquals(10017, serv.getLoadedStarts());
+        Assert.assertEquals(11118, serv.getLoadedLaunches());
+        Assert.assertEquals(12219, serv.getLastStartTime());
+        Assert.assertEquals(13310, serv.getLastStarts());
+        Assert.assertEquals(14411, serv.getLastLaunches());
+        Assert.assertEquals(15512, serv.getUnpluggedStartTime());
+        Assert.assertEquals(16613, serv.getUnpluggedStarts());
+        Assert.assertEquals(17714, serv.getUnpluggedLaunches());
     }
 
     /**
@@ -392,6 +529,15 @@ public class BatteryStatsServTest extends TestCase {
         Assert.assertEquals(6064, serv.getLaunchedSince());
         Assert.assertTrue(serv.getLaunched());
         Assert.assertEquals(8085, serv.getLaunches());
+        Assert.assertEquals(9096, serv.getLoadedStartTime());
+        Assert.assertEquals(10017, serv.getLoadedStarts());
+        Assert.assertEquals(11118, serv.getLoadedLaunches());
+        Assert.assertEquals(12219, serv.getLastStartTime());
+        Assert.assertEquals(13310, serv.getLastStarts());
+        Assert.assertEquals(14411, serv.getLastLaunches());
+        Assert.assertEquals(15512, serv.getUnpluggedStartTime());
+        Assert.assertEquals(16613, serv.getUnpluggedStarts());
+        Assert.assertEquals(17714, serv.getUnpluggedLaunches());
     }
 
     /**
@@ -421,6 +567,15 @@ public class BatteryStatsServTest extends TestCase {
         Assert.assertEquals(6064, serv.getLaunchedSince());
         Assert.assertTrue(serv.getLaunched());
         Assert.assertEquals(8085, serv.getLaunches());
+        Assert.assertEquals(9096, serv.getLoadedStartTime());
+        Assert.assertEquals(10017, serv.getLoadedStarts());
+        Assert.assertEquals(11118, serv.getLoadedLaunches());
+        Assert.assertEquals(12219, serv.getLastStartTime());
+        Assert.assertEquals(13310, serv.getLastStarts());
+        Assert.assertEquals(14411, serv.getLastLaunches());
+        Assert.assertEquals(15512, serv.getUnpluggedStartTime());
+        Assert.assertEquals(16613, serv.getUnpluggedStarts());
+        Assert.assertEquals(17714, serv.getUnpluggedLaunches());
     }
 
     /**
@@ -444,6 +599,8 @@ public class BatteryStatsServTest extends TestCase {
         serv.populate();
 
         Assert.assertEquals(8085, serv.getLaunches(BatteryStats.STATS_SINCE_CHARGED));
+        Assert.assertEquals(8085-11118, serv.getLaunches(BatteryStats.STATS_CURRENT));
+        Assert.assertEquals(8085-17714, serv.getLaunches(BatteryStats.STATS_SINCE_UNPLUGGED));
 
         // No change to fields
         Assert.assertEquals(1010, serv.getStartTime());
@@ -454,6 +611,15 @@ public class BatteryStatsServTest extends TestCase {
         Assert.assertEquals(6064, serv.getLaunchedSince());
         Assert.assertTrue(serv.getLaunched());
         Assert.assertEquals(8085, serv.getLaunches());
+        Assert.assertEquals(9096, serv.getLoadedStartTime());
+        Assert.assertEquals(10017, serv.getLoadedStarts());
+        Assert.assertEquals(11118, serv.getLoadedLaunches());
+        Assert.assertEquals(12219, serv.getLastStartTime());
+        Assert.assertEquals(13310, serv.getLastStarts());
+        Assert.assertEquals(14411, serv.getLastLaunches());
+        Assert.assertEquals(15512, serv.getUnpluggedStartTime());
+        Assert.assertEquals(16613, serv.getUnpluggedStarts());
+        Assert.assertEquals(17714, serv.getUnpluggedLaunches());
     }
 
     /**
@@ -470,6 +636,10 @@ public class BatteryStatsServTest extends TestCase {
 
         Assert.assertEquals(startTimeToNow,
                 serv.getStartTime(20000, BatteryStats.STATS_SINCE_CHARGED));
+        Assert.assertEquals(startTimeToNow-9096,
+                serv.getStartTime(20000, BatteryStats.STATS_CURRENT));
+        Assert.assertEquals(startTimeToNow-15512,
+                serv.getStartTime(20000, BatteryStats.STATS_SINCE_UNPLUGGED));
 
         // No change to fields
         Assert.assertEquals(1010, serv.getStartTime());
@@ -480,6 +650,15 @@ public class BatteryStatsServTest extends TestCase {
         Assert.assertEquals(6064, serv.getLaunchedSince());
         Assert.assertTrue(serv.getLaunched());
         Assert.assertEquals(8085, serv.getLaunches());
+        Assert.assertEquals(9096, serv.getLoadedStartTime());
+        Assert.assertEquals(10017, serv.getLoadedStarts());
+        Assert.assertEquals(11118, serv.getLoadedLaunches());
+        Assert.assertEquals(12219, serv.getLastStartTime());
+        Assert.assertEquals(13310, serv.getLastStarts());
+        Assert.assertEquals(14411, serv.getLastLaunches());
+        Assert.assertEquals(15512, serv.getUnpluggedStartTime());
+        Assert.assertEquals(16613, serv.getUnpluggedStarts());
+        Assert.assertEquals(17714, serv.getUnpluggedLaunches());
     }
 
     /**
@@ -496,6 +675,10 @@ public class BatteryStatsServTest extends TestCase {
 
         Assert.assertEquals(startTimeToNow,
                 serv.getStartTime(20000, BatteryStats.STATS_SINCE_CHARGED));
+        Assert.assertEquals(startTimeToNow-9096,
+                serv.getStartTime(20000, BatteryStats.STATS_CURRENT));
+        Assert.assertEquals(startTimeToNow-15512,
+                serv.getStartTime(20000, BatteryStats.STATS_SINCE_UNPLUGGED));
 
         // No change to fields
         Assert.assertEquals(1010, serv.getStartTime());
@@ -506,6 +689,15 @@ public class BatteryStatsServTest extends TestCase {
         Assert.assertEquals(6064, serv.getLaunchedSince());
         Assert.assertTrue(serv.getLaunched());
         Assert.assertEquals(8085, serv.getLaunches());
+        Assert.assertEquals(9096, serv.getLoadedStartTime());
+        Assert.assertEquals(10017, serv.getLoadedStarts());
+        Assert.assertEquals(11118, serv.getLoadedLaunches());
+        Assert.assertEquals(12219, serv.getLastStartTime());
+        Assert.assertEquals(13310, serv.getLastStarts());
+        Assert.assertEquals(14411, serv.getLastLaunches());
+        Assert.assertEquals(15512, serv.getUnpluggedStartTime());
+        Assert.assertEquals(16613, serv.getUnpluggedStarts());
+        Assert.assertEquals(17714, serv.getUnpluggedLaunches());
     }
 
 
@@ -519,6 +711,8 @@ public class BatteryStatsServTest extends TestCase {
         serv.populate();
 
         Assert.assertEquals(4042, serv.getStarts(BatteryStats.STATS_SINCE_CHARGED));
+        Assert.assertEquals(4042-10017, serv.getStarts(BatteryStats.STATS_CURRENT));
+        Assert.assertEquals(4042-16613, serv.getStarts(BatteryStats.STATS_SINCE_UNPLUGGED));
 
         // No change to fields
         Assert.assertEquals(1010, serv.getStartTime());
@@ -529,6 +723,15 @@ public class BatteryStatsServTest extends TestCase {
         Assert.assertEquals(6064, serv.getLaunchedSince());
         Assert.assertTrue(serv.getLaunched());
         Assert.assertEquals(8085, serv.getLaunches());
+        Assert.assertEquals(9096, serv.getLoadedStartTime());
+        Assert.assertEquals(10017, serv.getLoadedStarts());
+        Assert.assertEquals(11118, serv.getLoadedLaunches());
+        Assert.assertEquals(12219, serv.getLastStartTime());
+        Assert.assertEquals(13310, serv.getLastStarts());
+        Assert.assertEquals(14411, serv.getLastLaunches());
+        Assert.assertEquals(15512, serv.getUnpluggedStartTime());
+        Assert.assertEquals(16613, serv.getUnpluggedStarts());
+        Assert.assertEquals(17714, serv.getUnpluggedLaunches());
     }
     
 }

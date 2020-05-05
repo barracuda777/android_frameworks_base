@@ -18,6 +18,7 @@ package android.os;
 
 import android.app.Service;
 import android.content.Intent;
+import android.text.TextUtils;
 import android.util.Log;
 
 /**

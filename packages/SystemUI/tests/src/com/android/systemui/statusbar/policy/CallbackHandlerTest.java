@@ -15,26 +15,14 @@
  */
 package com.android.systemui.statusbar.policy;
 
-import static junit.framework.Assert.assertEquals;
-import static junit.framework.Assert.assertTrue;
-
-import static org.mockito.Matchers.eq;
-
 import android.os.HandlerThread;
 import android.telephony.SubscriptionInfo;
+import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
-
-import androidx.test.runner.AndroidJUnit4;
-
 import com.android.systemui.R;
-import com.android.systemui.SysuiTestCase;
 import com.android.systemui.statusbar.policy.NetworkController.EmergencyListener;
 import com.android.systemui.statusbar.policy.NetworkController.IconState;
 import com.android.systemui.statusbar.policy.NetworkController.SignalCallback;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -43,9 +31,10 @@ import org.mockito.MockitoAnnotations;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.mockito.Matchers.eq;
+
 @SmallTest
-@RunWith(AndroidJUnit4.class)
-public class CallbackHandlerTest extends SysuiTestCase {
+public class CallbackHandlerTest extends AndroidTestCase {
 
     private CallbackHandler mHandler;
     private HandlerThread mHandlerThread;
@@ -55,8 +44,10 @@ public class CallbackHandlerTest extends SysuiTestCase {
     @Mock
     private SignalCallback mSignalCallback;
 
-    @Before
-    public void setUp() throws Exception {
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp();
+
         mHandlerThread = new HandlerThread("TestThread");
         mHandlerThread.start();
         mHandler = new CallbackHandler(mHandlerThread.getLooper());
@@ -66,7 +57,6 @@ public class CallbackHandlerTest extends SysuiTestCase {
         mHandler.setListening(mSignalCallback, true);
     }
 
-    @Test
     public void testEmergencyListener() {
         mHandler.setEmergencyCallsOnly(true);
         waitForCallbacks();
@@ -76,7 +66,6 @@ public class CallbackHandlerTest extends SysuiTestCase {
         assertTrue(captor.getValue());
     }
 
-    @Test
     public void testSignalCallback_setWifiIndicators() {
         boolean enabled = true;
         IconState status = new IconState(true, 0, "");
@@ -84,8 +73,7 @@ public class CallbackHandlerTest extends SysuiTestCase {
         boolean in = true;
         boolean out = true;
         String description = "Test";
-        String secondaryLabel = "Secondary label";
-        mHandler.setWifiIndicators(enabled, status, qs, in, out, description, true, secondaryLabel);
+        mHandler.setWifiIndicators(enabled, status, qs, in, out, description);
         waitForCallbacks();
 
         ArgumentCaptor<Boolean> enableArg = ArgumentCaptor.forClass(Boolean.class);
@@ -94,37 +82,31 @@ public class CallbackHandlerTest extends SysuiTestCase {
         ArgumentCaptor<Boolean> inArg = ArgumentCaptor.forClass(Boolean.class);
         ArgumentCaptor<Boolean> outArg = ArgumentCaptor.forClass(Boolean.class);
         ArgumentCaptor<String> descArg = ArgumentCaptor.forClass(String.class);
-        ArgumentCaptor<Boolean> isTransient = ArgumentCaptor.forClass(Boolean.class);
-        ArgumentCaptor<String> secondary = ArgumentCaptor.forClass(String.class);
         Mockito.verify(mSignalCallback).setWifiIndicators(enableArg.capture(),
                 statusArg.capture(), qsArg.capture(), inArg.capture(), outArg.capture(),
-                descArg.capture(), isTransient.capture(), secondary.capture());
+                descArg.capture());
         assertEquals(enabled, (boolean) enableArg.getValue());
         assertEquals(status, statusArg.getValue());
         assertEquals(qs, qsArg.getValue());
         assertEquals(in, (boolean) inArg.getValue());
         assertEquals(out, (boolean) outArg.getValue());
         assertEquals(description, descArg.getValue());
-        assertTrue(isTransient.getValue());
-        assertEquals(secondaryLabel, secondary.getValue());
     }
 
-    @Test
     public void testSignalCallback_setMobileDataIndicators() {
         IconState status = new IconState(true, 0, "");
         IconState qs = new IconState(true, 1, "");
         boolean in = true;
         boolean out = true;
-        CharSequence typeDescription = "Test 1";
-        CharSequence typeDescriptionHtml = "<b>Test 1</b>";
-        CharSequence description = "Test 2";
-        int type = TelephonyIcons.ICON_1X;
-        int qsType = TelephonyIcons.ICON_1X;
+        String typeDescription = "Test 1";
+        String description = "Test 2";
+        int type = R.drawable.stat_sys_data_fully_connected_1x;
+        int qsType = R.drawable.ic_qs_signal_1x;
         boolean wide = true;
         int subId = 5;
         boolean roaming = true;
         mHandler.setMobileDataIndicators(status, qs, type, qsType, in, out, typeDescription,
-                typeDescriptionHtml, description, wide, subId, roaming);
+                description, wide, subId, roaming);
         waitForCallbacks();
 
         ArgumentCaptor<IconState> statusArg = ArgumentCaptor.forClass(IconState.class);
@@ -133,16 +115,14 @@ public class CallbackHandlerTest extends SysuiTestCase {
         ArgumentCaptor<Integer> qsTypeIconArg = ArgumentCaptor.forClass(Integer.class);
         ArgumentCaptor<Boolean> inArg = ArgumentCaptor.forClass(Boolean.class);
         ArgumentCaptor<Boolean> outArg = ArgumentCaptor.forClass(Boolean.class);
-        ArgumentCaptor<CharSequence> typeContentArg = ArgumentCaptor.forClass(CharSequence.class);
-        ArgumentCaptor<CharSequence> typeContentHtmlArg =
-                ArgumentCaptor.forClass(CharSequence.class);
-        ArgumentCaptor<CharSequence> descArg = ArgumentCaptor.forClass(CharSequence.class);
+        ArgumentCaptor<String> typeContentArg = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> descArg = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Boolean> wideArg = ArgumentCaptor.forClass(Boolean.class);
         ArgumentCaptor<Integer> subIdArg = ArgumentCaptor.forClass(Integer.class);
         Mockito.verify(mSignalCallback).setMobileDataIndicators(statusArg.capture(),
                 qsArg.capture(), typeIconArg.capture(), qsTypeIconArg.capture(), inArg.capture(),
-                outArg.capture(), typeContentArg.capture(), typeContentHtmlArg.capture(),
-                descArg.capture(), wideArg.capture(), subIdArg.capture(), eq(roaming));
+                outArg.capture(), typeContentArg.capture(), descArg.capture(), wideArg.capture(),
+                subIdArg.capture(), eq(roaming));
         assertEquals(status, statusArg.getValue());
         assertEquals(qs, qsArg.getValue());
         assertEquals(type, (int) typeIconArg.getValue());
@@ -150,14 +130,12 @@ public class CallbackHandlerTest extends SysuiTestCase {
         assertEquals(in, (boolean) inArg.getValue());
         assertEquals(out, (boolean) outArg.getValue());
         assertEquals(typeDescription, typeContentArg.getValue());
-        assertEquals(typeDescriptionHtml, typeContentHtmlArg.getValue());
         assertEquals(description, descArg.getValue());
         assertEquals(wide, (boolean) wideArg.getValue());
         assertEquals(subId, (int) subIdArg.getValue());
     }
 
     @SuppressWarnings("unchecked")
-    @Test
     public void testSignalCallback_setSubs() {
         List<SubscriptionInfo> subs = new ArrayList<>();
         mHandler.setSubs(subs);
@@ -168,17 +146,16 @@ public class CallbackHandlerTest extends SysuiTestCase {
         assertTrue(subs == subsArg.getValue());
     }
 
-    @Test
     public void testSignalCallback_setNoSims() {
         boolean noSims = true;
-        boolean simDetected = false;
-        mHandler.setNoSims(noSims, simDetected);
+        mHandler.setNoSims(noSims);
         waitForCallbacks();
 
-        Mockito.verify(mSignalCallback).setNoSims(eq(noSims), eq(simDetected));
+        ArgumentCaptor<Boolean> noSimsArg = ArgumentCaptor.forClass(Boolean.class);
+        Mockito.verify(mSignalCallback).setNoSims(noSimsArg.capture());
+        assertEquals(noSims, (boolean) noSimsArg.getValue());
     }
 
-    @Test
     public void testSignalCallback_setEthernetIndicators() {
         IconState state = new IconState(true, R.drawable.stat_sys_ethernet, "Test Description");
         mHandler.setEthernetIndicators(state);
@@ -189,7 +166,6 @@ public class CallbackHandlerTest extends SysuiTestCase {
         assertEquals(state, iconArg.getValue());
     }
 
-    @Test
     public void testSignalCallback_setIsAirplaneMode() {
         IconState state = new IconState(true, R.drawable.stat_sys_airplane_mode, "Test Description");
         mHandler.setIsAirplaneMode(state);

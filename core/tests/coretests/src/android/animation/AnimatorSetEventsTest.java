@@ -13,17 +13,13 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-
 package android.animation;
 
 import android.os.Handler;
+import android.test.suitebuilder.annotation.MediumTest;
+import android.test.suitebuilder.annotation.SmallTest;
 import android.widget.Button;
-
-import androidx.test.filters.MediumTest;
-
 import com.android.frameworks.coretests.R;
-
-import org.junit.Test;
 
 import java.util.concurrent.TimeUnit;
 
@@ -38,7 +34,7 @@ public class AnimatorSetEventsTest extends EventsTest {
 
     @Override
     public void setUp() throws Exception {
-        button =  mActivityRule.getActivity().findViewById(R.id.animatingButton);
+        button = (Button) getActivity().findViewById(R.id.animatingButton);
         mAnimator = new AnimatorSet();
         ((AnimatorSet)mAnimator).playSequentially(xAnim, yAnim);
         super.setUp();
@@ -55,21 +51,23 @@ public class AnimatorSetEventsTest extends EventsTest {
      * its children
      */
     @MediumTest
-    @Test
-    public void testPlayingCancelDuringChildDelay() throws Throwable {
+    public void testPlayingCancelDuringChildDelay() throws Exception {
         yAnim.setStartDelay(500);
         final AnimatorSet animSet = new AnimatorSet();
         animSet.playSequentially(xAnim, yAnim);
         mFutureListener = new FutureReleaseListener(mFuture);
-        mActivityRule.runOnUiThread(() -> {
-            try {
-                Handler handler = new Handler();
-                animSet.addListener(mFutureListener);
-                mRunning = true;
-                animSet.start();
-                handler.postDelayed(new Canceler(animSet, mFuture), ANIM_DURATION + 250);
-            } catch (junit.framework.AssertionFailedError e) {
-                mFuture.setException(new RuntimeException(e));
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Handler handler = new Handler();
+                    animSet.addListener(mFutureListener);
+                    mRunning = true;
+                    animSet.start();
+                    handler.postDelayed(new Canceler(animSet, mFuture), ANIM_DURATION + 250);
+                } catch (junit.framework.AssertionFailedError e) {
+                    mFuture.setException(new RuntimeException(e));
+                }
             }
         });
         mFuture.get(getTimeout(), TimeUnit.MILLISECONDS);

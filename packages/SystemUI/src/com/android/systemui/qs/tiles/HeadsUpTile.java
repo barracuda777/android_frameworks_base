@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2015 The CyanogenMod Project
- * Copyright (C) 2017 The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,33 +16,26 @@
 
 package com.android.systemui.qs.tiles;
 
+import android.content.Context;
 import android.content.Intent;
 import android.provider.Settings;
 import android.provider.Settings.Global;
-import android.service.quicksettings.Tile;
 
-import com.android.systemui.plugins.qs.QSTile.BooleanState;
 import com.android.systemui.qs.GlobalSetting;
-import com.android.systemui.qs.QSHost;
-import com.android.systemui.qs.tileimpl.QSTileImpl;
+import com.android.systemui.qs.QSTile;
 import com.android.systemui.R;
 
-import org.lineageos.internal.logging.LineageMetricsLogger;
-
-import javax.inject.Inject;
+import org.cyanogenmod.internal.logging.CMMetricsLogger;
 
 /** Quick settings tile: Heads up **/
-public class HeadsUpTile extends QSTileImpl<BooleanState> {
-
-    private final Icon mIcon = ResourceIcon.get(R.drawable.ic_qs_heads_up);
+public class HeadsUpTile extends QSTile<QSTile.BooleanState> {
 
     private static final Intent NOTIFICATION_SETTINGS =
-            new Intent("android.settings.NOTIFICATION_SETTINGS");
+            new Intent("android.settings.NOTIFICATION_MANAGER");
 
     private final GlobalSetting mSetting;
 
-    @Inject
-    public HeadsUpTile(QSHost host) {
+    public HeadsUpTile(Host host) {
         super(host);
 
         mSetting = new GlobalSetting(mContext, mHandler, Global.HEADS_UP_NOTIFICATIONS_ENABLED) {
@@ -66,8 +58,12 @@ public class HeadsUpTile extends QSTileImpl<BooleanState> {
     }
 
     @Override
+    protected void handleLongClick() {
+    }
+
+    @Override
     public Intent getLongClickIntent() {
-        return NOTIFICATION_SETTINGS;
+        return null;
     }
 
     private void setEnabled(boolean enabled) {
@@ -78,19 +74,18 @@ public class HeadsUpTile extends QSTileImpl<BooleanState> {
 
     @Override
     protected void handleUpdateState(BooleanState state, Object arg) {
-        final int value = arg instanceof Integer ? (Integer) arg : mSetting.getValue();
+        final int value = arg instanceof Integer ? (Integer)arg : mSetting.getValue();
         final boolean headsUp = value != 0;
         state.value = headsUp;
         state.label = mContext.getString(R.string.quick_settings_heads_up_label);
-        state.icon = mIcon;
         if (headsUp) {
+            state.icon = ResourceIcon.get(R.drawable.ic_qs_heads_up_on);
             state.contentDescription =  mContext.getString(
                     R.string.accessibility_quick_settings_heads_up_on);
-            state.state = Tile.STATE_ACTIVE;
         } else {
+            state.icon = ResourceIcon.get(R.drawable.ic_qs_heads_up_off);
             state.contentDescription =  mContext.getString(
                     R.string.accessibility_quick_settings_heads_up_off);
-            state.state = Tile.STATE_INACTIVE;
         }
     }
 
@@ -110,11 +105,11 @@ public class HeadsUpTile extends QSTileImpl<BooleanState> {
 
     @Override
     public int getMetricsCategory() {
-        return LineageMetricsLogger.TILE_HEADS_UP;
+        return CMMetricsLogger.TILE_HEADS_UP;
     }
 
     @Override
-    public void handleSetListening(boolean listening) {
+    public void setListening(boolean listening) {
         // Do nothing
     }
 }

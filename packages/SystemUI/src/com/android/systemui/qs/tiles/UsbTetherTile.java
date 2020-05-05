@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2015 The Android Open Source Project
- * Copyright (C) 2017-2018 The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,45 +17,35 @@
 package com.android.systemui.qs.tiles;
 
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.hardware.usb.UsbManager;
 import android.provider.Settings;
 import android.net.ConnectivityManager;
-import android.service.quicksettings.Tile;
 
-import com.android.systemui.plugins.qs.QSTile.BooleanState;
-import com.android.systemui.qs.QSHost;
-import com.android.systemui.qs.tileimpl.QSTileImpl;
 import com.android.systemui.R;
+import com.android.systemui.qs.QSTile;
 
-import org.lineageos.internal.logging.LineageMetricsLogger;
-
-import javax.inject.Inject;
+import org.cyanogenmod.internal.logging.CMMetricsLogger;
 
 /**
  * USB Tether quick settings tile
  */
-public class UsbTetherTile extends QSTileImpl<BooleanState> {
-
-    private final Icon mIcon = ResourceIcon.get(R.drawable.ic_qs_usb_tether);
-
-    private static final Intent TETHER_SETTINGS = new Intent().setComponent(new ComponentName(
-            "com.android.settings", "com.android.settings.TetherSettings"));
+public class UsbTetherTile extends QSTile<QSTile.BooleanState> {
+    private static final Intent WIRELESS_SETTINGS = new Intent(Settings.ACTION_WIRELESS_SETTINGS);
 
     private final ConnectivityManager mConnectivityManager;
 
     private boolean mListening;
 
+    private boolean mUsbTethered = false;
     private boolean mUsbConnected = false;
-    private boolean mUsbTetherEnabled = false;
 
-    @Inject
-    public UsbTetherTile(QSHost host) {
+    public UsbTetherTile(Host host) {
         super(host);
-        mConnectivityManager = mContext.getSystemService(ConnectivityManager.class);
+        mConnectivityManager = (ConnectivityManager) mContext
+                .getSystemService(Context.CONNECTIVITY_SERVICE);
     }
 
     public BooleanState newTileState() {
@@ -64,10 +53,9 @@ public class UsbTetherTile extends QSTileImpl<BooleanState> {
     }
 
     @Override
-    public void handleSetListening(boolean listening) {
-        if (mListening == listening) {
+    public void setListening(boolean listening) {
+        if (mListening == listening)
             return;
-        }
         mListening = listening;
         if (listening) {
             final IntentFilter filter = new IntentFilter();
@@ -81,13 +69,33 @@ public class UsbTetherTile extends QSTileImpl<BooleanState> {
     @Override
     protected void handleClick() {
         if (mUsbConnected) {
-            mConnectivityManager.setUsbTethering(!mUsbTetherEnabled);
+            mConnectivityManager.setUsbTethering(!mUsbTethered);
         }
     }
 
     @Override
+    protected void handleLongClick() {
+        mHost.startActivityDismissingKeyguard(WIRELESS_SETTINGS);
+    }
+
+    @Override
     public Intent getLongClickIntent() {
-        return new Intent(TETHER_SETTINGS);
+        return null;
+    }
+
+    private void updateState() {
+        String[] tetheredIfaces = mConnectivityManager.getTetheredIfaces();
+        String[] usbRegexs = mConnectivityManager.getTetherableUsbRegexs();
+
+        mUsbTethered = false;
+        for (String s : tetheredIfaces) {
+            for (String regex : usbRegexs) {
+                if (s.matches(regex)) {
+                    mUsbTethered = true;
+                    return;
+                }
+            }
+        }
     }
 
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
@@ -95,9 +103,9 @@ public class UsbTetherTile extends QSTileImpl<BooleanState> {
         public void onReceive(Context context, Intent intent) {
             mUsbConnected = intent.getBooleanExtra(UsbManager.USB_CONNECTED, false);
             if (mUsbConnected && mConnectivityManager.isTetheringSupported()) {
-                mUsbTetherEnabled = intent.getBooleanExtra(UsbManager.USB_FUNCTION_RNDIS, false);
+                updateState();
             } else {
-                mUsbTetherEnabled = false;
+                mUsbTethered = false;
             }
             refreshState();
         }
@@ -105,11 +113,10 @@ public class UsbTetherTile extends QSTileImpl<BooleanState> {
 
     @Override
     protected void handleUpdateState(BooleanState state, Object arg) {
-        state.value = mUsbTetherEnabled;
+        state.value = mUsbTethered;
         state.label = mContext.getString(R.string.quick_settings_usb_tether_label);
-        state.icon = mIcon;
-        state.state = !mUsbConnected ? Tile.STATE_UNAVAILABLE
-                : mUsbTetherEnabled ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
+        state.icon = mUsbTethered ? ResourceIcon.get(R.drawable.ic_qs_usb_tether_on)
+                : ResourceIcon.get(R.drawable.ic_qs_usb_tether_off);
     }
 
     @Override
@@ -119,6 +126,6 @@ public class UsbTetherTile extends QSTileImpl<BooleanState> {
 
     @Override
     public int getMetricsCategory() {
-        return LineageMetricsLogger.TILE_USB_TETHER;
+        return CMMetricsLogger.TILE_USB_TETHER;
     }
 }

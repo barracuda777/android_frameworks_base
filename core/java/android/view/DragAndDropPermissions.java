@@ -17,7 +17,7 @@
 package android.view;
 
 import android.app.Activity;
-import android.os.Binder;
+import android.app.ActivityManagerNative;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -37,7 +37,7 @@ import com.android.internal.view.IDragAndDropPermissions;
  * View.startDragAndDrop} by the app that started the drag operation.
  * </p>
  * <p>
- * The lifecycle of the permissions is bound to the activity used to call {@link
+ * The life cycle of the permissions is bound to the activity used to call {@link
  * android.app.Activity#requestDragAndDropPermissions(DragEvent) requestDragAndDropPermissions}. The
  * permissions are revoked when this activity is destroyed, or when {@link #release()} is called,
  * whichever occurs first.
@@ -49,16 +49,12 @@ import com.android.internal.view.IDragAndDropPermissions;
  * {@link Activity#onSaveInstanceState} bundle and later retrieved in order to manually release
  * the permissions once they are no longer needed.
  * </p>
- * <p>
- * Learn more about <a href="/guide/topics/ui/drag-drop#DragPermissionsMultiWindow">drag permissions
- * in multi-window mode</a>.
- * </p>
  */
 public final class DragAndDropPermissions implements Parcelable {
 
     private final IDragAndDropPermissions mDragAndDropPermissions;
 
-    private IBinder mTransientToken;
+    private IBinder mPermissionOwnerToken;
 
     /**
      * Create a new {@link DragAndDropPermissions} object to control the access permissions for
@@ -102,8 +98,9 @@ public final class DragAndDropPermissions implements Parcelable {
      */
     public boolean takeTransient() {
         try {
-            mTransientToken = new Binder();
-            mDragAndDropPermissions.takeTransient(mTransientToken);
+            mPermissionOwnerToken = ActivityManagerNative.getDefault().
+                    newUriPermissionOwner("drop");
+            mDragAndDropPermissions.takeTransient(mPermissionOwnerToken);
         } catch (RemoteException e) {
             return false;
         }
@@ -116,12 +113,12 @@ public final class DragAndDropPermissions implements Parcelable {
     public void release() {
         try {
             mDragAndDropPermissions.release();
-            mTransientToken = null;
+            mPermissionOwnerToken = null;
         } catch (RemoteException e) {
         }
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<DragAndDropPermissions> CREATOR =
+    public static final Parcelable.Creator<DragAndDropPermissions> CREATOR =
             new Parcelable.Creator<DragAndDropPermissions> () {
         @Override
         public DragAndDropPermissions createFromParcel(Parcel source) {
@@ -142,11 +139,11 @@ public final class DragAndDropPermissions implements Parcelable {
     @Override
     public void writeToParcel(Parcel destination, int flags) {
         destination.writeStrongInterface(mDragAndDropPermissions);
-        destination.writeStrongBinder(mTransientToken);
+        destination.writeStrongBinder(mPermissionOwnerToken);
     }
 
     private DragAndDropPermissions(Parcel in) {
         mDragAndDropPermissions = IDragAndDropPermissions.Stub.asInterface(in.readStrongBinder());
-        mTransientToken = in.readStrongBinder();
+        mPermissionOwnerToken = in.readStrongBinder();
     }
 }

@@ -13,19 +13,17 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-
 package android.content.res;
 
 import android.annotation.NonNull;
 import android.app.ResourcesManager;
 import android.os.Binder;
 import android.os.LocaleList;
+import android.support.test.filters.SmallTest;
 import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.view.Display;
 import android.view.DisplayAdjustments;
-
-import androidx.test.filters.SmallTest;
 
 import junit.framework.TestCase;
 
@@ -149,7 +147,6 @@ public class ResourcesManagerTest extends TestCase {
         mResourcesManager.applyConfigurationToResourcesLocked(newConfig, null);
 
         final Configuration expectedConfig = new Configuration();
-        expectedConfig.setToDefaults();
         expectedConfig.setLocales(LocaleList.getAdjustedDefault());
         expectedConfig.densityDpi = mDisplayMetrics.densityDpi;
         expectedConfig.orientation = Configuration.ORIENTATION_LANDSCAPE;
@@ -199,8 +196,7 @@ public class ResourcesManagerTest extends TestCase {
 
         final Configuration overrideConfig = new Configuration();
         overrideConfig.orientation = Configuration.ORIENTATION_LANDSCAPE;
-        mResourcesManager.updateResourcesForActivity(activity1, overrideConfig,
-                Display.DEFAULT_DISPLAY, false /* movedToDifferentDisplay */);
+        mResourcesManager.updateResourcesForActivity(activity1, overrideConfig);
         assertSame(resources1, theme.getResources());
 
         // Make sure we can still access the data.
@@ -233,7 +229,6 @@ public class ResourcesManagerTest extends TestCase {
         assertNotSame(resources1.getImpl(), resources2.getImpl());
 
         final Configuration expectedConfig1 = new Configuration();
-        expectedConfig1.setToDefaults();
         expectedConfig1.setLocales(LocaleList.getAdjustedDefault());
         expectedConfig1.densityDpi = 280;
         assertEquals(expectedConfig1, resources1.getConfiguration());
@@ -241,7 +236,6 @@ public class ResourcesManagerTest extends TestCase {
         // resources2 should be based on the Activity's override config, so the density should
         // be the same as resources1.
         final Configuration expectedConfig2 = new Configuration();
-        expectedConfig2.setToDefaults();
         expectedConfig2.setLocales(LocaleList.getAdjustedDefault());
         expectedConfig2.densityDpi = 280;
         expectedConfig2.screenLayout |= Configuration.SCREENLAYOUT_ROUND_YES;
@@ -249,8 +243,7 @@ public class ResourcesManagerTest extends TestCase {
 
         // Now update the Activity base override, and both resources should update.
         config1.orientation = Configuration.ORIENTATION_LANDSCAPE;
-        mResourcesManager.updateResourcesForActivity(activity1, config1, Display.DEFAULT_DISPLAY,
-                false /* movedToDifferentDisplay */);
+        mResourcesManager.updateResourcesForActivity(activity1, config1);
 
         expectedConfig1.orientation = Configuration.ORIENTATION_LANDSCAPE;
         assertEquals(expectedConfig1, resources1.getConfiguration());

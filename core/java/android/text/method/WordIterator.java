@@ -1,3 +1,4 @@
+
 /*
  * Copyright (C) 2011 The Android Open Source Project
  *
@@ -16,14 +17,10 @@
 
 package android.text.method;
 
-import android.annotation.NonNull;
-import android.annotation.UnsupportedAppUsage;
-import android.icu.lang.UCharacter;
-import android.icu.lang.UProperty;
-import android.icu.text.BreakIterator;
-import android.text.CharSequenceCharacterIterator;
 import android.text.Selection;
+import android.text.SpannableStringBuilder;
 
+import android.icu.text.BreakIterator;
 import java.util.Locale;
 
 /**
@@ -38,9 +35,10 @@ public class WordIterator implements Selection.PositionIterator {
     // Size of the window for the word iterator, should be greater than the longest word's length
     private static final int WINDOW_WIDTH = 50;
 
-    private int mStart, mEnd;
-    private CharSequence mCharSeq;
-    private final BreakIterator mIterator;
+    private String mString;
+    private int mOffsetShift;
+
+    private BreakIterator mIterator;
 
     /**
      * Constructs a WordIterator using the default locale.
@@ -51,54 +49,57 @@ public class WordIterator implements Selection.PositionIterator {
 
     /**
      * Constructs a new WordIterator for the specified locale.
-     * @param locale The locale to be used for analyzing the text.
+     * @param locale The locale to be used when analysing the text.
      */
-    @UnsupportedAppUsage
     public WordIterator(Locale locale) {
         mIterator = BreakIterator.getWordInstance(locale);
     }
 
-    @UnsupportedAppUsage
-    public void setCharSequence(@NonNull CharSequence charSequence, int start, int end) {
-        if (0 <= start && end <= charSequence.length()) {
-            mCharSeq = charSequence;
-            mStart = Math.max(0, start - WINDOW_WIDTH);
-            mEnd = Math.min(charSequence.length(), end + WINDOW_WIDTH);
-            mIterator.setText(new CharSequenceCharacterIterator(charSequence, mStart, mEnd));
+    public void setCharSequence(CharSequence charSequence, int start, int end) {
+        mOffsetShift = Math.max(0, start - WINDOW_WIDTH);
+        final int windowEnd = Math.min(charSequence.length(), end + WINDOW_WIDTH);
+
+        if (charSequence instanceof SpannableStringBuilder) {
+            mString = ((SpannableStringBuilder) charSequence).substring(mOffsetShift, windowEnd);
         } else {
-            throw new IndexOutOfBoundsException("input indexes are outside the CharSequence");
+            mString = charSequence.subSequence(mOffsetShift, windowEnd).toString();
         }
+        mIterator.setText(mString);
     }
 
     /** {@inheritDoc} */
-    @UnsupportedAppUsage
     public int preceding(int offset) {
-        checkOffsetIsValid(offset);
-        while (true) {
-            offset = mIterator.preceding(offset);
-            if (offset == BreakIterator.DONE || isOnLetterOrDigit(offset)) {
-                return offset;
+        int shiftedOffset = offset - mOffsetShift;
+        do {
+            shiftedOffset = mIterator.preceding(shiftedOffset);
+            if (shiftedOffset == BreakIterator.DONE) {
+                return BreakIterator.DONE;
             }
-        }
+            if (isOnLetterOrDigit(shiftedOffset)) {
+                return shiftedOffset + mOffsetShift;
+            }
+        } while (true);
     }
 
     /** {@inheritDoc} */
-    @UnsupportedAppUsage
     public int following(int offset) {
-        checkOffsetIsValid(offset);
-        while (true) {
-            offset = mIterator.following(offset);
-            if (offset == BreakIterator.DONE || isAfterLetterOrDigit(offset)) {
-                return offset;
+        int shiftedOffset = offset - mOffsetShift;
+        do {
+            shiftedOffset = mIterator.following(shiftedOffset);
+            if (shiftedOffset == BreakIterator.DONE) {
+                return BreakIterator.DONE;
             }
-        }
+            if (isAfterLetterOrDigit(shiftedOffset)) {
+                return shiftedOffset + mOffsetShift;
+            }
+        } while (true);
     }
 
     /** {@inheritDoc} */
-    @UnsupportedAppUsage
     public boolean isBoundary(int offset) {
-        checkOffsetIsValid(offset);
-        return mIterator.isBoundary(offset);
+        int shiftedOffset = offset - mOffsetShift;
+        checkOffsetIsValid(shiftedOffset);
+        return mIterator.isBoundary(shiftedOffset);
     }
 
     /**
@@ -108,10 +109,13 @@ public class WordIterator implements Selection.PositionIterator {
      * @param offset the given start position to search from.
      * @return the position of the last boundary preceding the given offset.
      */
-    @UnsupportedAppUsage
     public int nextBoundary(int offset) {
-        checkOffsetIsValid(offset);
-        return mIterator.following(offset);
+        int shiftedOffset = offset - mOffsetShift;
+        shiftedOffset = mIterator.following(shiftedOffset);
+        if (shiftedOffset == BreakIterator.DONE) {
+            return BreakIterator.DONE;
+        }
+        return shiftedOffset + mOffsetShift;
     }
 
     /**
@@ -121,10 +125,13 @@ public class WordIterator implements Selection.PositionIterator {
      * @param offset the given start position to search from.
      * @return the position of the last boundary preceding the given offset.
      */
-    @UnsupportedAppUsage
     public int prevBoundary(int offset) {
-        checkOffsetIsValid(offset);
-        return mIterator.preceding(offset);
+        int shiftedOffset = offset - mOffsetShift;
+        shiftedOffset = mIterator.preceding(shiftedOffset);
+        if (shiftedOffset == BreakIterator.DONE) {
+            return BreakIterator.DONE;
+        }
+        return shiftedOffset + mOffsetShift;
     }
 
     /** If <code>offset</code> is within a word, returns the index of the first character of that
@@ -139,7 +146,6 @@ public class WordIterator implements Selection.PositionIterator {
      *
      * @throws IllegalArgumentException is offset is not valid.
      */
-    @UnsupportedAppUsage
     public int getBeginning(int offset) {
         // TODO: Check if usage of this can be updated to getBeginning(offset, true) if
         // so this method can be removed.
@@ -159,7 +165,6 @@ public class WordIterator implements Selection.PositionIterator {
      *
      * @throws IllegalArgumentException is offset is not valid.
      */
-    @UnsupportedAppUsage
     public int getEnd(int offset) {
         // TODO: Check if usage of this can be updated to getEnd(offset, true), if
         // so this method can be removed.
@@ -180,7 +185,6 @@ public class WordIterator implements Selection.PositionIterator {
      *
      * @throws IllegalArgumentException is offset is not valid.
      */
-    @UnsupportedAppUsage
     public int getPrevWordBeginningOnTwoWordsBoundary(int offset) {
         return getBeginning(offset, true);
     }
@@ -199,7 +203,6 @@ public class WordIterator implements Selection.PositionIterator {
      *
      * @throws IllegalArgumentException is offset is not valid.
      */
-    @UnsupportedAppUsage
     public int getNextWordEndOnTwoWordBoundary(int offset) {
         return getEnd(offset, true);
     }
@@ -221,19 +224,20 @@ public class WordIterator implements Selection.PositionIterator {
      * @throws IllegalArgumentException is offset is not valid.
      */
     private int getBeginning(int offset, boolean getPrevWordBeginningOnTwoWordsBoundary) {
-        checkOffsetIsValid(offset);
+        final int shiftedOffset = offset - mOffsetShift;
+        checkOffsetIsValid(shiftedOffset);
 
-        if (isOnLetterOrDigit(offset)) {
-            if (mIterator.isBoundary(offset)
-                    && (!isAfterLetterOrDigit(offset)
+        if (isOnLetterOrDigit(shiftedOffset)) {
+            if (mIterator.isBoundary(shiftedOffset)
+                    && (!isAfterLetterOrDigit(shiftedOffset)
                             || !getPrevWordBeginningOnTwoWordsBoundary)) {
-                return offset;
+                return shiftedOffset + mOffsetShift;
             } else {
-                return mIterator.preceding(offset);
+                return mIterator.preceding(shiftedOffset) + mOffsetShift;
             }
         } else {
-            if (isAfterLetterOrDigit(offset)) {
-                return mIterator.preceding(offset);
+            if (isAfterLetterOrDigit(shiftedOffset)) {
+                return mIterator.preceding(shiftedOffset) + mOffsetShift;
             }
         }
         return BreakIterator.DONE;
@@ -256,18 +260,19 @@ public class WordIterator implements Selection.PositionIterator {
      * @throws IllegalArgumentException is offset is not valid.
      */
     private int getEnd(int offset, boolean getNextWordEndOnTwoWordBoundary) {
-        checkOffsetIsValid(offset);
+        final int shiftedOffset = offset - mOffsetShift;
+        checkOffsetIsValid(shiftedOffset);
 
-        if (isAfterLetterOrDigit(offset)) {
-            if (mIterator.isBoundary(offset)
-                    && (!isOnLetterOrDigit(offset) || !getNextWordEndOnTwoWordBoundary)) {
-                return offset;
+        if (isAfterLetterOrDigit(shiftedOffset)) {
+            if (mIterator.isBoundary(shiftedOffset)
+                    && (!isOnLetterOrDigit(shiftedOffset) || !getNextWordEndOnTwoWordBoundary)) {
+                return shiftedOffset + mOffsetShift;
             } else {
-                return mIterator.following(offset);
+                return mIterator.following(shiftedOffset) + mOffsetShift;
             }
         } else {
-            if (isOnLetterOrDigit(offset)) {
-                return mIterator.following(offset);
+            if (isOnLetterOrDigit(shiftedOffset)) {
+                return mIterator.following(shiftedOffset) + mOffsetShift;
             }
         }
         return BreakIterator.DONE;
@@ -280,9 +285,7 @@ public class WordIterator implements Selection.PositionIterator {
      *
      * @param offset the offset to search from.
      */
-    @UnsupportedAppUsage
     public int getPunctuationBeginning(int offset) {
-        checkOffsetIsValid(offset);
         while (offset != BreakIterator.DONE && !isPunctuationStartBoundary(offset)) {
             offset = prevBoundary(offset);
         }
@@ -297,9 +300,7 @@ public class WordIterator implements Selection.PositionIterator {
      *
      * @param offset the offset to search from.
      */
-    @UnsupportedAppUsage
     public int getPunctuationEnd(int offset) {
-        checkOffsetIsValid(offset);
         while (offset != BreakIterator.DONE && !isPunctuationEndBoundary(offset)) {
             offset = nextBoundary(offset);
         }
@@ -314,10 +315,10 @@ public class WordIterator implements Selection.PositionIterator {
      * @param offset the offset to check from.
      * @return Whether the offset is after a punctuation character.
      */
-    @UnsupportedAppUsage
     public boolean isAfterPunctuation(int offset) {
-        if (mStart < offset && offset <= mEnd) {
-            final int codePoint = Character.codePointBefore(mCharSeq, offset);
+        final int shiftedOffset = offset - mOffsetShift;
+        if (shiftedOffset >= 1 && shiftedOffset <= mString.length()) {
+            final int codePoint = mString.codePointBefore(shiftedOffset);
             return isPunctuation(codePoint);
         }
         return false;
@@ -330,34 +331,13 @@ public class WordIterator implements Selection.PositionIterator {
      * @param offset the offset to check from.
      * @return Whether the offset is at a punctuation character.
      */
-    @UnsupportedAppUsage
     public boolean isOnPunctuation(int offset) {
-        if (mStart <= offset && offset < mEnd) {
-            final int codePoint = Character.codePointAt(mCharSeq, offset);
+        final int shiftedOffset = offset - mOffsetShift;
+        if (shiftedOffset >= 0 && shiftedOffset < mString.length()) {
+            final int codePoint = mString.codePointAt(shiftedOffset);
             return isPunctuation(codePoint);
         }
         return false;
-    }
-
-    /**
-     * Indicates if the codepoint is a mid-word-only punctuation.
-     *
-     * At the moment, this is locale-independent, and includes all the characters in
-     * the MidLetter, MidNumLet, and Single_Quote class of Unicode word breaking algorithm (see
-     * UAX #29 "Unicode Text Segmentation" at http://unicode.org/reports/tr29/). These are all the
-     * characters that according to the rules WB6 and WB7 of UAX #29 prevent word breaks if they are
-     * in the middle of a word, but they become word breaks if they happen at the end of a word
-     * (accroding to rule WB999 that breaks word in any place that is not prohibited otherwise).
-     *
-     * @param locale the locale to consider the codepoint in. Presently ignored.
-     * @param codePoint the codepoint to check.
-     * @return True if the codepoint is a mid-word punctuation.
-     */
-    public static boolean isMidWordPunctuation(Locale locale, int codePoint) {
-        final int wb = UCharacter.getIntPropertyValue(codePoint, UProperty.WORD_BREAK);
-        return (wb == UCharacter.WordBreak.MIDLETTER
-                || wb == UCharacter.WordBreak.MIDNUMLET
-                || wb == UCharacter.WordBreak.SINGLE_QUOTE);
     }
 
     private boolean isPunctuationStartBoundary(int offset) {
@@ -368,37 +348,38 @@ public class WordIterator implements Selection.PositionIterator {
         return !isOnPunctuation(offset) && isAfterPunctuation(offset);
     }
 
-    private static boolean isPunctuation(int cp) {
-        final int type = Character.getType(cp);
-        return (type == Character.CONNECTOR_PUNCTUATION
-                || type == Character.DASH_PUNCTUATION
-                || type == Character.END_PUNCTUATION
-                || type == Character.FINAL_QUOTE_PUNCTUATION
-                || type == Character.INITIAL_QUOTE_PUNCTUATION
-                || type == Character.OTHER_PUNCTUATION
-                || type == Character.START_PUNCTUATION);
+    private boolean isPunctuation(int cp) {
+        int type = Character.getType(cp);
+        return (type == Character.CONNECTOR_PUNCTUATION ||
+                type == Character.DASH_PUNCTUATION ||
+                type == Character.END_PUNCTUATION ||
+                type == Character.FINAL_QUOTE_PUNCTUATION ||
+                type == Character.INITIAL_QUOTE_PUNCTUATION ||
+                type == Character.OTHER_PUNCTUATION ||
+                type == Character.START_PUNCTUATION);
     }
 
-    private boolean isAfterLetterOrDigit(int offset) {
-        if (mStart < offset && offset <= mEnd) {
-            final int codePoint = Character.codePointBefore(mCharSeq, offset);
+    private boolean isAfterLetterOrDigit(int shiftedOffset) {
+        if (shiftedOffset >= 1 && shiftedOffset <= mString.length()) {
+            final int codePoint = mString.codePointBefore(shiftedOffset);
             if (Character.isLetterOrDigit(codePoint)) return true;
         }
         return false;
     }
 
-    private boolean isOnLetterOrDigit(int offset) {
-        if (mStart <= offset && offset < mEnd) {
-            final int codePoint = Character.codePointAt(mCharSeq, offset);
+    private boolean isOnLetterOrDigit(int shiftedOffset) {
+        if (shiftedOffset >= 0 && shiftedOffset < mString.length()) {
+            final int codePoint = mString.codePointAt(shiftedOffset);
             if (Character.isLetterOrDigit(codePoint)) return true;
         }
         return false;
     }
 
-    private void checkOffsetIsValid(int offset) {
-        if (!(mStart <= offset && offset <= mEnd)) {
-            throw new IllegalArgumentException("Invalid offset: " + (offset) +
-                    ". Valid range is [" + mStart + ", " + mEnd + "]");
+    private void checkOffsetIsValid(int shiftedOffset) {
+        if (shiftedOffset < 0 || shiftedOffset > mString.length()) {
+            throw new IllegalArgumentException("Invalid offset: " + (shiftedOffset + mOffsetShift) +
+                    ". Valid range is [" + mOffsetShift + ", " + (mString.length() + mOffsetShift) +
+                    "]");
         }
     }
 }

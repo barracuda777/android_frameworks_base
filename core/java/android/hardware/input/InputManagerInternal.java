@@ -16,10 +16,11 @@
 
 package android.hardware.input;
 
+import android.annotation.Nullable;
 import android.hardware.display.DisplayViewport;
 import android.view.InputEvent;
-
-import java.util.List;
+import android.view.inputmethod.InputMethodInfo;
+import android.view.inputmethod.InputMethodSubtype;
 
 /**
  * Input manager local system service interface.
@@ -27,26 +28,30 @@ import java.util.List;
  * @hide Only for use within the system server.
  */
 public abstract class InputManagerInternal {
-    /**
-     * Inject an input event.
-     *
-     * @param event The InputEvent to inject
-     * @param mode Synchronous or asynchronous mode
-     * @return True if injection has succeeded
-     */
-    public abstract boolean injectInputEvent(InputEvent event, int mode);
+    public abstract boolean injectInputEvent(InputEvent event, int displayId, int mode);
 
     /**
      * Called by the display manager to set information about the displays as needed
      * by the input system.  The input system must copy this information to retain it.
      */
-    public abstract void setDisplayViewports(List<DisplayViewport> viewports);
+    public abstract void setDisplayViewports(DisplayViewport defaultViewport,
+            DisplayViewport externalTouchViewport);
 
     /**
      * Called by the power manager to tell the input manager whether it should start
      * watching for wake events.
      */
     public abstract void setInteractive(boolean interactive);
+
+    /**
+     * Notifies that InputMethodManagerService switched the current input method subtype.
+     *
+     * @param userId user id that indicates who is using the specified input method and subtype.
+     * @param inputMethodInfo {@code null} when no input method is selected.
+     * @param subtype {@code null} when {@code inputMethodInfo} does has no subtype.
+     */
+    public abstract void onInputMethodSubtypeChanged(int userId,
+            @Nullable InputMethodInfo inputMethodInfo, @Nullable InputMethodSubtype subtype);
 
     /**
      * Toggles Caps Lock state for input device with specific id.

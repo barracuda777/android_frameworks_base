@@ -18,9 +18,11 @@ package android.net;
 
 /** {@hide} */
 oneway interface INetworkPolicyListener {
+
     void onUidRulesChanged(int uid, int uidRules);
     void onMeteredIfacesChanged(in String[] meteredIfaces);
     void onRestrictBackgroundChanged(boolean restrictBackground);
-    void onUidPoliciesChanged(int uid, int uidPolicies);
-    void onSubscriptionOverride(int subId, int overrideMask, int overrideValue);
+    void onRestrictBackgroundWhitelistChanged(int uid, boolean whitelisted);
+    void onRestrictBackgroundBlacklistChanged(int uid, boolean blacklisted);
+
 }

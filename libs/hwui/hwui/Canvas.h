@@ -14,102 +14,63 @@
  * limitations under the License.
  */
 
-#pragma once
+#ifndef ANDROID_GRAPHICS_CANVAS_H
+#define ANDROID_GRAPHICS_CANVAS_H
 
 #include <cutils/compiler.h>
 #include <utils/Functor.h>
 
-#include <androidfw/ResourceTypes.h>
 #include "GlFunctorLifecycleListener.h"
-#include "Properties.h"
-#include "utils/Macros.h"
+#include "utils/NinePatch.h"
 
 #include <SkBitmap.h>
 #include <SkCanvas.h>
 #include <SkMatrix.h>
 
-class SkAnimatedImage;
-class SkCanvasState;
-class SkVertices;
-
-namespace minikin {
-class Layout;
-class MeasuredText;
-enum class Bidi : uint8_t;
-}
-
 namespace android {
-class PaintFilter;
 
 namespace uirenderer {
-class CanvasPropertyPaint;
-class CanvasPropertyPrimitive;
-class DeferredLayerUpdater;
-class RenderNode;
-
-namespace skiapipeline {
-class SkiaDisplayList;
-}
-
-/**
- * Data structure that holds the list of commands used in display list stream
- */
-using DisplayList = skiapipeline::SkiaDisplayList;
+    class CanvasPropertyPaint;
+    class CanvasPropertyPrimitive;
+    class DeferredLayerUpdater;
+    class DisplayList;
+    class RenderNode;
 }
 
 namespace SaveFlags {
 
 // These must match the corresponding Canvas API constants.
 enum {
-    Matrix = 0x01,
-    Clip = 0x02,
+    Matrix        = 0x01,
+    Clip          = 0x02,
     HasAlphaLayer = 0x04,
-    ClipToLayer = 0x10,
+    ClipToLayer   = 0x10,
 
     // Helper constant
-    MatrixClip = Matrix | Clip,
+    MatrixClip    = Matrix | Clip,
 };
 typedef uint32_t Flags;
 
-}  // namespace SaveFlags
+} // namespace SaveFlags
 
 namespace uirenderer {
+class SkiaCanvasProxy;
 namespace VectorDrawable {
 class Tree;
-}
-}
+};
+};
 typedef uirenderer::VectorDrawable::Tree VectorDrawableRoot;
 
-typedef std::function<void(uint16_t* text, float* positions)> ReadGlyphFunc;
-
-class AnimatedImageDrawable;
-class Bitmap;
 class Paint;
 struct Typeface;
 
 class ANDROID_API Canvas {
 public:
-    virtual ~Canvas(){};
+    virtual ~Canvas() {};
 
     static Canvas* create_canvas(const SkBitmap& bitmap);
 
-    /**
-     *  Create a new Canvas object that records view system drawing operations for deferred
-     *  rendering. A canvas returned by this call supports calls to the resetRecording(...) and
-     *  finishRecording() calls.  The latter call returns a DisplayList that is specific to the
-     *  RenderPipeline defined by Properties::getRenderPipelineType().
-     *
-     *  @param width of the requested Canvas.
-     *  @param height of the requested Canvas.
-     *  @param renderNode is an optional parameter that specifies the node that will consume the
-     *      DisplayList produced by the returned Canvas.  This enables the reuse of select C++
-     *      objects as a speed optimization.
-     *  @return new non-null Canvas Object.  The type of DisplayList produced by this canvas is
-            determined based on Properties::getRenderPipelineType().
-     *
-     */
-    static WARN_UNUSED_RESULT Canvas* create_recording_canvas(
-            int width, int height, uirenderer::RenderNode* renderNode = nullptr);
+    static Canvas* create_recording_canvas(int width, int height);
 
     /**
      *  Create a new Canvas object which delegates to an SkCanvas.
@@ -118,18 +79,9 @@ public:
      *      delegated to this object. This function will call ref() on the
      *      SkCanvas, and the returned Canvas will unref() it upon
      *      destruction.
-     *  @return new non-null Canvas Object.  The type of DisplayList produced by this canvas is
-     *      determined based on  Properties::getRenderPipelineType().
+     *  @return new Canvas object. Will not return NULL.
      */
     static Canvas* create_canvas(SkCanvas* skiaCanvas);
-
-    /**
-     *  Sets the target SDK version used to build the app.
-     *
-     *  @param apiLevel API level
-     *
-     */
-    static void setCompatibilityVersion(int apiLevel);
 
     /**
      *  Provides a Skia SkCanvas interface that acts as a proxy to this Canvas.
@@ -145,59 +97,51 @@ public:
      */
     virtual SkCanvas* asSkCanvas() = 0;
 
+
     virtual void setBitmap(const SkBitmap& bitmap) = 0;
 
     virtual bool isOpaque() = 0;
     virtual int width() = 0;
     virtual int height() = 0;
 
-    // ----------------------------------------------------------------------------
-    // View System operations (not exposed in public Canvas API)
-    // ----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+// View System operations (not exposed in public Canvas API)
+// ----------------------------------------------------------------------------
 
-    virtual void resetRecording(int width, int height,
-                                uirenderer::RenderNode* renderNode = nullptr) = 0;
+    virtual void resetRecording(int width, int height) = 0;
     virtual uirenderer::DisplayList* finishRecording() = 0;
     virtual void insertReorderBarrier(bool enableReorder) = 0;
 
-    bool isHighContrastText() const { return uirenderer::Properties::enableHighContrastText; }
+    virtual void setHighContrastText(bool highContrastText) = 0;
+    virtual bool isHighContrastText() = 0;
 
     virtual void drawRoundRect(uirenderer::CanvasPropertyPrimitive* left,
-                               uirenderer::CanvasPropertyPrimitive* top,
-                               uirenderer::CanvasPropertyPrimitive* right,
-                               uirenderer::CanvasPropertyPrimitive* bottom,
-                               uirenderer::CanvasPropertyPrimitive* rx,
-                               uirenderer::CanvasPropertyPrimitive* ry,
-                               uirenderer::CanvasPropertyPaint* paint) = 0;
+            uirenderer::CanvasPropertyPrimitive* top, uirenderer::CanvasPropertyPrimitive* right,
+            uirenderer::CanvasPropertyPrimitive* bottom, uirenderer::CanvasPropertyPrimitive* rx,
+            uirenderer::CanvasPropertyPrimitive* ry, uirenderer::CanvasPropertyPaint* paint) = 0;
     virtual void drawCircle(uirenderer::CanvasPropertyPrimitive* x,
-                            uirenderer::CanvasPropertyPrimitive* y,
-                            uirenderer::CanvasPropertyPrimitive* radius,
-                            uirenderer::CanvasPropertyPaint* paint) = 0;
+            uirenderer::CanvasPropertyPrimitive* y, uirenderer::CanvasPropertyPrimitive* radius,
+            uirenderer::CanvasPropertyPaint* paint) = 0;
 
     virtual void drawLayer(uirenderer::DeferredLayerUpdater* layerHandle) = 0;
     virtual void drawRenderNode(uirenderer::RenderNode* renderNode) = 0;
     virtual void callDrawGLFunction(Functor* functor,
-                                    uirenderer::GlFunctorLifecycleListener* listener) = 0;
-    virtual void drawWebViewFunctor(int /*functor*/) {
-        LOG_ALWAYS_FATAL("Not supported");
-    }
+            uirenderer::GlFunctorLifecycleListener* listener) = 0;
 
-    // ----------------------------------------------------------------------------
-    // Canvas state operations
-    // ----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+// Canvas state operations
+// ----------------------------------------------------------------------------
 
     // Save (layer)
     virtual int getSaveCount() const = 0;
     virtual int save(SaveFlags::Flags flags) = 0;
     virtual void restore() = 0;
     virtual void restoreToCount(int saveCount) = 0;
-    virtual void restoreUnclippedLayer(int saveCount, const SkPaint& paint) = 0;
 
-    virtual int saveLayer(float left, float top, float right, float bottom, const SkPaint* paint,
-                          SaveFlags::Flags flags) = 0;
-    virtual int saveLayerAlpha(float left, float top, float right, float bottom, int alpha,
-                               SaveFlags::Flags flags) = 0;
-    virtual int saveUnclippedLayer(int, int, int, int) = 0;
+    virtual int saveLayer(float left, float top, float right, float bottom,
+                const SkPaint* paint, SaveFlags::Flags flags) = 0;
+    virtual int saveLayerAlpha(float left, float top, float right, float bottom,
+            int alpha, SaveFlags::Flags flags) = 0;
 
     // Matrix
     virtual void getMatrix(SkMatrix* outMatrix) const = 0;
@@ -214,56 +158,55 @@ public:
     virtual bool quickRejectRect(float left, float top, float right, float bottom) const = 0;
     virtual bool quickRejectPath(const SkPath& path) const = 0;
 
-    virtual bool clipRect(float left, float top, float right, float bottom, SkClipOp op) = 0;
-    virtual bool clipPath(const SkPath* path, SkClipOp op) = 0;
+    virtual bool clipRect(float left, float top, float right, float bottom,
+            SkRegion::Op op = SkRegion::kIntersect_Op) = 0;
+    virtual bool clipPath(const SkPath* path, SkRegion::Op op) = 0;
+    virtual bool clipRegion(const SkRegion* region, SkRegion::Op op) = 0;
 
     // filters
-    virtual PaintFilter* getPaintFilter() = 0;
-    virtual void setPaintFilter(sk_sp<PaintFilter> paintFilter) = 0;
+    virtual SkDrawFilter* getDrawFilter() = 0;
+    virtual void setDrawFilter(SkDrawFilter* drawFilter) = 0;
 
-    // WebView only
-    virtual SkCanvasState* captureCanvasState() const { return nullptr; }
-
-    // ----------------------------------------------------------------------------
-    // Canvas draw operations
-    // ----------------------------------------------------------------------------
-    virtual void drawColor(int color, SkBlendMode mode) = 0;
+// ----------------------------------------------------------------------------
+// Canvas draw operations
+// ----------------------------------------------------------------------------
+    virtual void drawColor(int color, SkXfermode::Mode mode) = 0;
     virtual void drawPaint(const SkPaint& paint) = 0;
 
     // Geometry
     virtual void drawPoint(float x, float y, const SkPaint& paint) = 0;
     virtual void drawPoints(const float* points, int floatCount, const SkPaint& paint) = 0;
     virtual void drawLine(float startX, float startY, float stopX, float stopY,
-                          const SkPaint& paint) = 0;
+                const SkPaint& paint) = 0;
     virtual void drawLines(const float* points, int floatCount, const SkPaint& paint) = 0;
     virtual void drawRect(float left, float top, float right, float bottom,
-                          const SkPaint& paint) = 0;
+            const SkPaint& paint) = 0;
     virtual void drawRegion(const SkRegion& region, const SkPaint& paint) = 0;
-    virtual void drawRoundRect(float left, float top, float right, float bottom, float rx, float ry,
-                               const SkPaint& paint) = 0;
-    virtual void drawDoubleRoundRect(const SkRRect& outer, const SkRRect& inner,
-                                const SkPaint& paint) = 0;
+    virtual void drawRoundRect(float left, float top, float right, float bottom,
+            float rx, float ry, const SkPaint& paint) = 0;
     virtual void drawCircle(float x, float y, float radius, const SkPaint& paint) = 0;
     virtual void drawOval(float left, float top, float right, float bottom,
-                          const SkPaint& paint) = 0;
-    virtual void drawArc(float left, float top, float right, float bottom, float startAngle,
-                         float sweepAngle, bool useCenter, const SkPaint& paint) = 0;
+            const SkPaint& paint) = 0;
+    virtual void drawArc(float left, float top, float right, float bottom,
+            float startAngle, float sweepAngle, bool useCenter, const SkPaint& paint) = 0;
     virtual void drawPath(const SkPath& path, const SkPaint& paint) = 0;
-    virtual void drawVertices(const SkVertices*, SkBlendMode, const SkPaint& paint) = 0;
+    virtual void drawVertices(SkCanvas::VertexMode vertexMode, int vertexCount,
+                              const float* verts, const float* tex, const int* colors,
+                              const uint16_t* indices, int indexCount, const SkPaint& paint) = 0;
 
     // Bitmap-based
-    virtual void drawBitmap(Bitmap& bitmap, float left, float top, const SkPaint* paint) = 0;
-    virtual void drawBitmap(Bitmap& bitmap, const SkMatrix& matrix, const SkPaint* paint) = 0;
-    virtual void drawBitmap(Bitmap& bitmap, float srcLeft, float srcTop, float srcRight,
-                            float srcBottom, float dstLeft, float dstTop, float dstRight,
-                            float dstBottom, const SkPaint* paint) = 0;
-    virtual void drawBitmapMesh(Bitmap& bitmap, int meshWidth, int meshHeight,
-                                const float* vertices, const int* colors, const SkPaint* paint) = 0;
-    virtual void drawNinePatch(Bitmap& bitmap, const android::Res_png_9patch& chunk, float dstLeft,
-                               float dstTop, float dstRight, float dstBottom,
-                               const SkPaint* paint) = 0;
-
-    virtual double drawAnimatedImage(AnimatedImageDrawable* imgDrawable) = 0;
+    virtual void drawBitmap(const SkBitmap& bitmap, float left, float top,
+            const SkPaint* paint) = 0;
+    virtual void drawBitmap(const SkBitmap& bitmap, const SkMatrix& matrix,
+            const SkPaint* paint) = 0;
+    virtual void drawBitmap(const SkBitmap& bitmap, float srcLeft, float srcTop,
+            float srcRight, float srcBottom, float dstLeft, float dstTop,
+            float dstRight, float dstBottom, const SkPaint* paint) = 0;
+    virtual void drawBitmapMesh(const SkBitmap& bitmap, int meshWidth, int meshHeight,
+            const float* vertices, const int* colors, const SkPaint* paint) = 0;
+    virtual void drawNinePatch(const SkBitmap& bitmap, const android::Res_png_9patch& chunk,
+            float dstLeft, float dstTop, float dstRight, float dstBottom,
+            const SkPaint* paint) = 0;
 
     /**
      * Specifies if the positions passed to ::drawText are absolute or relative
@@ -277,50 +220,37 @@ public:
     /**
      * Draws a VectorDrawable onto the canvas.
      */
-    virtual void drawVectorDrawable(VectorDrawableRoot* tree) = 0;
+    virtual void drawVectorDrawable(VectorDrawableRoot* tree);
 
     /**
      * Converts utf16 text to glyphs, calculating position and boundary,
      * and delegating the final draw to virtual drawGlyphs method.
      */
-    void drawText(const uint16_t* text, int textSize, int start, int count, int contextStart,
-                  int contextCount, float x, float y, minikin::Bidi bidiFlags,
-                  const Paint& origPaint, const Typeface* typeface, minikin::MeasuredText* mt);
+    void drawText(const uint16_t* text, int start, int count, int contextCount,
+            float x, float y, int bidiFlags, const Paint& origPaint, Typeface* typeface);
 
-    void drawTextOnPath(const uint16_t* text, int count, minikin::Bidi bidiFlags,
-                        const SkPath& path, float hOffset, float vOffset, const Paint& paint,
-                        const Typeface* typeface);
-
-    void drawDoubleRoundRectXY(float outerLeft, float outerTop, float outerRight,
-                                float outerBottom, float outerRx, float outerRy, float innerLeft,
-                                float innerTop, float innerRight, float innerBottom, float innerRx,
-                                float innerRy, const SkPaint& paint);
-
-    void drawDoubleRoundRectRadii(float outerLeft, float outerTop, float outerRight,
-                                float outerBottom, const float* outerRadii, float innerLeft,
-                                float innerTop, float innerRight, float innerBottom,
-                                const float* innerRadii, const SkPaint& paint);
-
-    static int GetApiLevel() { return sApiLevel; }
+    void drawTextOnPath(const uint16_t* text, int count, int bidiFlags, const SkPath& path,
+            float hOffset, float vOffset, const Paint& paint, Typeface* typeface);
 
 protected:
-    void drawTextDecorations(float x, float y, float length, const Paint& paint);
+    void drawTextDecorations(float x, float y, float length, const SkPaint& paint);
 
     /**
-     * glyphFunc: valid only for the duration of the call and should not be cached.
      * drawText: count is of glyphs
      * totalAdvance: used to define width of text decorations (underlines, strikethroughs).
      */
-    virtual void drawGlyphs(ReadGlyphFunc glyphFunc, int count, const Paint& paint, float x,
-                            float y, float boundsLeft, float boundsTop, float boundsRight,
-                            float boundsBottom, float totalAdvance) = 0;
-    virtual void drawLayoutOnPath(const minikin::Layout& layout, float hOffset, float vOffset,
-                                  const Paint& paint, const SkPath& path, size_t start,
-                                  size_t end) = 0;
-    static int sApiLevel;
+    virtual void drawGlyphs(const uint16_t* glyphs, const float* positions, int count,
+            const SkPaint& paint, float x, float y,
+            float boundsLeft, float boundsTop, float boundsRight, float boundsBottom,
+            float totalAdvance) = 0;
+    /** drawTextOnPath: count is of glyphs */
+    virtual void drawGlyphsOnPath(const uint16_t* glyphs, int count, const SkPath& path,
+            float hOffset, float vOffset, const SkPaint& paint) = 0;
 
     friend class DrawTextFunctor;
     friend class DrawTextOnPathFunctor;
+    friend class uirenderer::SkiaCanvasProxy;
 };
 
-}  // namespace android
+}; // namespace android
+#endif // ANDROID_GRAPHICS_CANVAS_H

@@ -18,7 +18,6 @@ package com.android.server.storage;
 
 import android.content.pm.PackageStats;
 import android.os.Environment;
-import android.os.UserHandle;
 import android.util.ArrayMap;
 import android.util.Log;
 
@@ -56,12 +55,10 @@ public class DiskStatsFileLogger {
     public static final String SYSTEM_KEY = "systemSize";
     public static final String MISC_KEY = "otherSize";
     public static final String APP_SIZE_AGG_KEY = "appSize";
-    public static final String APP_DATA_SIZE_AGG_KEY = "appDataSize";
     public static final String APP_CACHE_AGG_KEY = "cacheSize";
     public static final String PACKAGE_NAMES_KEY = "packageNames";
     public static final String APP_SIZES_KEY = "appSizes";
     public static final String APP_CACHES_KEY = "cacheSizes";
-    public static final String APP_DATA_KEY = "appDataSizes";
     public static final String LAST_QUERY_TIMESTAMP_KEY = "queryTime";
 
     private MeasurementResult mResult;
@@ -116,53 +113,42 @@ public class DiskStatsFileLogger {
     private void addAppsToJson(JSONObject json) throws JSONException {
         JSONArray names = new JSONArray();
         JSONArray appSizeList = new JSONArray();
-        JSONArray appDataSizeList = new JSONArray();
         JSONArray cacheSizeList = new JSONArray();
 
         long appSizeSum = 0L;
-        long appDataSizeSum = 0L;
         long cacheSizeSum = 0L;
         boolean isExternal = Environment.isExternalStorageEmulated();
-        for (Map.Entry<String, PackageStats> entry : filterOnlyPrimaryUser().entrySet()) {
+        for (Map.Entry<String, PackageStats> entry : mergePackagesAcrossUsers().entrySet()) {
             PackageStats stat = entry.getValue();
-            long appSize = stat.codeSize;
-            long appDataSize = stat.dataSize;
+            long appSize = stat.codeSize + stat.dataSize;
             long cacheSize = stat.cacheSize;
             if (isExternal) {
-                appSize += stat.externalCodeSize;
-                appDataSize += stat.externalDataSize;
+                appSize += stat.externalCodeSize + stat.externalDataSize;
                 cacheSize += stat.externalCacheSize;
             }
             appSizeSum += appSize;
-            appDataSizeSum += appDataSize;
             cacheSizeSum += cacheSize;
 
             names.put(stat.packageName);
             appSizeList.put(appSize);
-            appDataSizeList.put(appDataSize);
             cacheSizeList.put(cacheSize);
         }
         json.put(PACKAGE_NAMES_KEY, names);
         json.put(APP_SIZES_KEY, appSizeList);
         json.put(APP_CACHES_KEY, cacheSizeList);
-        json.put(APP_DATA_KEY, appDataSizeList);
         json.put(APP_SIZE_AGG_KEY, appSizeSum);
         json.put(APP_CACHE_AGG_KEY, cacheSizeSum);
-        json.put(APP_DATA_SIZE_AGG_KEY, appDataSizeSum);
     }
 
     /**
-     * A given package may exist for multiple users with distinct sizes. This function filters
-     * the packages that do not belong to user 0 out to ensure that we get good stats for a subset.
+     * A given package may exist for multiple users with distinct sizes. This function merges
+     * the duplicated packages together and sums up their sizes to get the actual totals for the
+     * package.
      * @return A mapping of package name to merged package stats.
      */
-    private ArrayMap<String, PackageStats> filterOnlyPrimaryUser() {
+    private ArrayMap<String, PackageStats> mergePackagesAcrossUsers() {
         ArrayMap<String, PackageStats> packageMap = new ArrayMap<>();
         for (PackageStats stat : mPackageStats) {
-            if (stat.userHandle != UserHandle.USER_SYSTEM) {
-                continue;
-            }
-
             PackageStats existingStats = packageMap.get(stat.packageName);
             if (existingStats != null) {
                 existingStats.cacheSize += stat.cacheSize;

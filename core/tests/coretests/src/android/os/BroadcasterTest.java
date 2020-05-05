@@ -16,8 +16,11 @@
 
 package android.os;
 
-import androidx.test.filters.MediumTest;
-
+import android.os.Broadcaster;
+import android.os.Handler;
+import android.os.Message;
+import android.test.suitebuilder.annotation.MediumTest;
+import android.test.suitebuilder.annotation.SmallTest;
 import junit.framework.TestCase;
 
 public class BroadcasterTest extends TestCase {

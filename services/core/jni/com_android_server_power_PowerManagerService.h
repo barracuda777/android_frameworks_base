@@ -17,15 +17,14 @@
 #ifndef _ANDROID_SERVER_POWER_MANAGER_SERVICE_H
 #define _ANDROID_SERVER_POWER_MANAGER_SERVICE_H
 
-#include <nativehelper/JNIHelp.h>
+#include "JNIHelp.h"
 #include "jni.h"
 
 #include <powermanager/PowerManager.h>
 
 namespace android {
 
-extern void android_server_PowerManagerService_userActivity(nsecs_t eventTime, int32_t eventType,
-        int32_t keyCode);
+extern void android_server_PowerManagerService_userActivity(nsecs_t eventTime, int32_t eventType, int32_t keyCode);
 
 } // namespace android
 

@@ -1,5 +1,5 @@
 <!--
-     Copyright (C) 2017 The Android Open Source Project
+     Copyright (C) 2015 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -14,12 +14,13 @@
      limitations under the License.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:height="24dp"
-    android:width="24dp"
-    android:viewportHeight="24"
-    android:viewportWidth="24">
+    android:height="24.0dp"
+    android:viewportHeight="48.0"
+    android:viewportWidth="48.0"
+    android:width="24.0dp" >
+
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M13,8h-2v5.41l3.79,3.8 1.42,-1.42 -3.21,-3.2zM12,4c-4.97,0 -9,4.03 -9,9s4.03,9 9,9 9,-4.03 9,-9 -4.03,-9 -9,-9zM12,20c-3.86,0 -7,-3.14 -7,-7s3.14,-7 7,-7 7,3.14 7,7 -3.14,7 -7,7zM16.056,3.346l1.282,-1.535 4.607,3.85 -1.28,1.54zM2.056,5.654L6.663,1.81l1.28,1.536L3.338,7.19z"/>
+        android:fillColor="@color/volume_icon_color"
+        android:pathData="M44.0,11.44l-9.19,-7.71 -2.57,3.06 9.19,7.71 2.57,-3.06zm-28.24,-4.66l-2.57,-3.06 -9.19,7.71 2.57,3.06 9.19,-7.71zm9.24,9.22l-3.0,0.0l0.0,12.0l9.49,5.71 1.51,-2.47 -8.0,-4.74l0.0,-10.5zm-1.01,-8.0c-9.95,0.0 -17.99,8.06 -17.99,18.0s8.04,18.0 17.99,18.0 18.01,-8.06 18.01,-18.0 -8.06,-18.0 -18.01,-18.0zm0.01,32.0c-7.73,0.0 -14.0,-6.27 -14.0,-14.0s6.27,-14.0 14.0,-14.0 14.0,6.27 14.0,14.0 -6.26,14.0 -14.0,14.0z" />
 
 </vector>

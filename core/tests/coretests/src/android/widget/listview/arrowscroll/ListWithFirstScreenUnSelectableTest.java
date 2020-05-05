@@ -16,15 +16,12 @@
 
 package android.widget.listview.arrowscroll;
 
+import android.widget.listview.ListWithFirstScreenUnSelectable;
 import android.test.ActivityInstrumentationTestCase2;
 import android.view.KeyEvent;
-import android.widget.AdapterView;
 import android.widget.ListView;
-import android.widget.listview.ListWithFirstScreenUnSelectable;
+import android.widget.AdapterView;
 
-import androidx.test.filters.LargeTest;
-
-@LargeTest
 public class ListWithFirstScreenUnSelectableTest
         extends ActivityInstrumentationTestCase2<ListWithFirstScreenUnSelectable> {
     private ListView mListView;

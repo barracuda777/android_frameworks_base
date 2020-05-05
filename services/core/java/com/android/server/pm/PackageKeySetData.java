@@ -107,7 +107,10 @@ public class PackageKeySetData {
     }
 
     protected void removeAllDefinedKeySets() {
-        mKeySetAliases.erase();
+        final int aliasSize = mKeySetAliases.size();
+        for (int i = 0; i < aliasSize; i++) {
+            mKeySetAliases.removeAt(i);
+        }
     }
 
     protected boolean isUsingDefinedKeySets() {

@@ -20,8 +20,10 @@
     android:id="@android:id/title"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:gravity="center"
     android:paddingTop="20dp"
+    android:paddingStart="16dp"
+    android:paddingEnd="8dp"
     android:paddingBottom="13dp"
-    android:textAppearance="@style/TextAppearance.QSEdit.Headers"
+    android:textAppearance="@android:style/TextAppearance.Material.Body2"
+    android:textColor="?android:attr/colorAccent"
     android:text="@string/drag_to_add_tiles" />

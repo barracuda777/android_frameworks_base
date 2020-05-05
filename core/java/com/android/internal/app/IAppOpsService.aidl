@@ -17,72 +17,42 @@
 package com.android.internal.app;
 
 import android.app.AppOpsManager;
-import android.app.AppOpsManager;
-import android.content.pm.ParceledListSlice;
 import android.os.Bundle;
-import android.os.RemoteCallback;
 import com.android.internal.app.IAppOpsCallback;
-import com.android.internal.app.IAppOpsActiveCallback;
-import com.android.internal.app.IAppOpsNotedCallback;
 
 interface IAppOpsService {
-    // These methods are also called by native code, so must
-    // be kept in sync with frameworks/native/libs/binder/include/binder/IAppOpsService.h
-    // and not be reordered
+    // These first methods are also called by native code, so must
+    // be kept in sync with frameworks/native/include/binder/IAppOpsService.h
     int checkOperation(int code, int uid, String packageName);
     int noteOperation(int code, int uid, String packageName);
-    int startOperation(IBinder token, int code, int uid, String packageName,
-            boolean startIfModeDefault);
-    @UnsupportedAppUsage
+    int startOperation(IBinder token, int code, int uid, String packageName);
     void finishOperation(IBinder token, int code, int uid, String packageName);
     void startWatchingMode(int op, String packageName, IAppOpsCallback callback);
     void stopWatchingMode(IAppOpsCallback callback);
     IBinder getToken(IBinder clientToken);
     int permissionToOpCode(String permission);
-    int checkAudioOperation(int code, int usage, int uid, String packageName);
-    // End of methods also called by native code.
-    // Any new method exposed to native must be added after the last one, do not reorder
-
-    int noteProxyOperation(int code, int proxyUid, String proxyPackageName,
+    int noteProxyOperation(int code, String proxyPackageName,
                 int callingUid, String callingPackageName);
 
     // Remaining methods are only used in Java.
     int checkPackage(int uid, String packageName);
-    @UnsupportedAppUsage
     List<AppOpsManager.PackageOps> getPackagesForOps(in int[] ops);
-    @UnsupportedAppUsage
     List<AppOpsManager.PackageOps> getOpsForPackage(int uid, String packageName, in int[] ops);
-    void getHistoricalOps(int uid, String packageName, in List<String> ops, long beginTimeMillis,
-            long endTimeMillis, int flags, in RemoteCallback callback);
-    void getHistoricalOpsFromDiskRaw(int uid, String packageName, in List<String> ops,
-            long beginTimeMillis, long endTimeMillis, int flags, in RemoteCallback callback);
-    void offsetHistory(long duration);
-    void setHistoryParameters(int mode, long baseSnapshotInterval, int compressionStep);
-    void addHistoricalOps(in AppOpsManager.HistoricalOps ops);
-    void resetHistoryParameters();
-    void clearHistory();
-    List<AppOpsManager.PackageOps> getUidOps(int uid, in int[] ops);
     void setUidMode(int code, int uid, int mode);
-    @UnsupportedAppUsage
     void setMode(int code, int uid, String packageName, int mode);
-    @UnsupportedAppUsage
     void resetAllModes(int reqUserId, String reqPackageName);
+    int checkAudioOperation(int code, int usage, int uid, String packageName);
     void setAudioRestriction(int code, int usage, int uid, int mode, in String[] exceptionPackages);
 
     void setUserRestrictions(in Bundle restrictions, IBinder token, int userHandle);
     void setUserRestriction(int code, boolean restricted, IBinder token, int userHandle, in String[] exceptionPackages);
     void removeUser(int userHandle);
+    boolean isControlAllowed(int code, String packageName);
 
-    void startWatchingActive(in int[] ops, IAppOpsActiveCallback callback);
-    void stopWatchingActive(IAppOpsActiveCallback callback);
-    boolean isOperationActive(int code, int uid, String packageName);
+    // Privacy guard methods
+    boolean getPrivacyGuardSettingForPackage(int uid, String packageName);
+    void setPrivacyGuardSettingForPackage(int uid, String packageName, boolean state);
 
-    void startWatchingModeWithFlags(int op, String packageName, int flags, IAppOpsCallback callback);
-
-    void startWatchingNoted(in int[] ops, IAppOpsNotedCallback callback);
-    void stopWatchingNoted(IAppOpsNotedCallback callback);
-
-    int checkOperationRaw(int code, int uid, String packageName);
-
-    void reloadNonHistoricalState();
+    // AppOps accounting
+    void resetCounters();
 }

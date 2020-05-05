@@ -16,7 +16,6 @@
 
 package com.android.internal.widget;
 
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.widget.ImageView;
@@ -30,7 +29,6 @@ public class PreferenceImageView extends ImageView {
         this(context, null);
     }
 
-    @UnsupportedAppUsage
     public PreferenceImageView(Context context, AttributeSet attrs) {
         this(context, attrs, 0);
     }

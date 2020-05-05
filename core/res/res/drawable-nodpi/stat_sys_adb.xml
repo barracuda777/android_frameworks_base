@@ -1,5 +1,5 @@
 <!--
-Copyright (C) 2019 The Android Open Source Project
+Copyright (C) 2017 The LineageOS Project
 
    Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -16,15 +16,11 @@ Copyright (C) 2019 The Android Open Source Project
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
         android:width="24dp"
         android:height="24dp"
-        android:viewportWidth="24.0"
-        android:viewportHeight="24.0">
+        android:viewportWidth="24"
+        android:viewportHeight="24">
     <path
-        android:fillColor="#FF000000"
-        android:pathData="M16.28,16.19A6,6 0,1 0,6 12c0,0.1 0,0.19 0,0.29L9.2,9.11Z"/>
-    <path
-        android:fillColor="#FF000000"
-        android:pathData="M16,19.48a8.57,8.57 0,1 1,2 -1.52l1.77,1.77a11.07,11.07 0,1 0,-2 1.57Z"/>
-    <path
-        android:fillColor="#FF000000"
-        android:pathData="M12,18a5.77,5.77 0,0 0,2 -0.34l0.19,-0.07 -0.87,-0.87L9.2,12.64 6.82,15A6,6 0,0 0,12 18Z"/>
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,6 C15.3,6,18,8.7,18,12 S15.3,18,12,18 S6,15.3,6,12 S8.7,6,12,6 M12,4
+C7.6,4,4,7.6,4,12 S7.6,20,12,20 S20,16.4,20,12 S16.4,4,12,4 Z M12,9
+C10.3,9,9,10.3,9,12 S10.3,15,12,15 S15,13.7,15,12 S13.7,9,12,9 Z" />
 </vector>

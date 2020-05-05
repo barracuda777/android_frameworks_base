@@ -18,8 +18,6 @@ package android.os.test;
 
 import static org.junit.Assert.assertTrue;
 
-import android.os.Handler;
-import android.os.HandlerExecutor;
 import android.os.Looper;
 import android.os.Message;
 import android.os.MessageQueue;
@@ -30,7 +28,6 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.concurrent.Executor;
 
 /**
  * Creates a looper whose message queue can be manipulated
@@ -84,10 +81,6 @@ public class TestLooper {
 
     public Looper getLooper() {
         return mLooper;
-    }
-
-    public Executor getNewExecutor() {
-        return new HandlerExecutor(new Handler(getLooper()));
     }
 
     private Message getMessageLinkedList() {

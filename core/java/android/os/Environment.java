@@ -16,33 +16,20 @@
 
 package android.os;
 
-import android.Manifest;
-import android.annotation.NonNull;
-import android.annotation.SystemApi;
-import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
-import android.app.AppGlobals;
-import android.app.AppOpsManager;
 import android.app.admin.DevicePolicyManager;
 import android.content.Context;
-import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
-import android.provider.MediaStore;
 import android.text.TextUtils;
 import android.util.Log;
 
 import java.io.File;
-import java.util.LinkedList;
 
 /**
  * Provides access to environment variables.
  */
 public class Environment {
     private static final String TAG = "Environment";
-
-    // NOTE: keep credential-protected paths in sync with StrictMode.java
 
     private static final String ENV_EXTERNAL_STORAGE = "EXTERNAL_STORAGE";
     private static final String ENV_ANDROID_ROOT = "ANDROID_ROOT";
@@ -53,8 +40,6 @@ public class Environment {
     private static final String ENV_OEM_ROOT = "OEM_ROOT";
     private static final String ENV_ODM_ROOT = "ODM_ROOT";
     private static final String ENV_VENDOR_ROOT = "VENDOR_ROOT";
-    private static final String ENV_PRODUCT_ROOT = "PRODUCT_ROOT";
-    private static final String ENV_PRODUCT_SERVICES_ROOT = "PRODUCT_SERVICES_ROOT";
 
     /** {@hide} */
     public static final String DIR_ANDROID = "Android";
@@ -76,11 +61,7 @@ public class Environment {
     private static final File DIR_OEM_ROOT = getDirectory(ENV_OEM_ROOT, "/oem");
     private static final File DIR_ODM_ROOT = getDirectory(ENV_ODM_ROOT, "/odm");
     private static final File DIR_VENDOR_ROOT = getDirectory(ENV_VENDOR_ROOT, "/vendor");
-    private static final File DIR_PRODUCT_ROOT = getDirectory(ENV_PRODUCT_ROOT, "/product");
-    private static final File DIR_PRODUCT_SERVICES_ROOT = getDirectory(ENV_PRODUCT_SERVICES_ROOT,
-                                                           "/product_services");
 
-    @UnsupportedAppUsage
     private static UserEnvironment sCurrentUser;
     private static boolean sUserRequired;
 
@@ -89,7 +70,6 @@ public class Environment {
     }
 
     /** {@hide} */
-    @UnsupportedAppUsage
     public static void initForCurrentUser() {
         final int userId = UserHandle.myUserId();
         sCurrentUser = new UserEnvironment(userId);
@@ -99,12 +79,10 @@ public class Environment {
     public static class UserEnvironment {
         private final int mUserId;
 
-        @UnsupportedAppUsage
         public UserEnvironment(int userId) {
             mUserId = userId;
         }
 
-        @UnsupportedAppUsage
         public File[] getExternalDirs() {
             final StorageVolume[] volumes = StorageManager.getVolumeList(mUserId,
                     StorageManager.FLAG_FOR_WRITE);
@@ -115,13 +93,11 @@ public class Environment {
             return files;
         }
 
-        @UnsupportedAppUsage
         @Deprecated
         public File getExternalStorageDirectory() {
             return getExternalDirs()[0];
         }
 
-        @UnsupportedAppUsage
         @Deprecated
         public File getExternalStoragePublicDirectory(String type) {
             return buildExternalStoragePublicDirs(type)[0];
@@ -164,13 +140,12 @@ public class Environment {
      * Return root of the "system" partition holding the core Android OS.
      * Always present and mounted read-only.
      */
-    public static @NonNull File getRootDirectory() {
+    public static File getRootDirectory() {
         return DIR_ANDROID_ROOT;
     }
 
     /** {@hide} */
-    @TestApi
-    public static @NonNull File getStorageDirectory() {
+    public static File getStorageDirectory() {
         return DIR_ANDROID_STORAGE;
     }
 
@@ -180,8 +155,7 @@ public class Environment {
      *
      * @hide
      */
-    @SystemApi
-    public static @NonNull File getOemDirectory() {
+    public static File getOemDirectory() {
         return DIR_OEM_ROOT;
     }
 
@@ -191,8 +165,7 @@ public class Environment {
      *
      * @hide
      */
-    @SystemApi
-    public static @NonNull File getOdmDirectory() {
+    public static File getOdmDirectory() {
         return DIR_ODM_ROOT;
     }
 
@@ -201,32 +174,8 @@ public class Environment {
      * software that should persist across simple reflashing of the "system" partition.
      * @hide
      */
-    @SystemApi
-    public static @NonNull File getVendorDirectory() {
+    public static File getVendorDirectory() {
         return DIR_VENDOR_ROOT;
-    }
-
-    /**
-     * Return root directory of the "product" partition holding product-specific
-     * customizations if any. If present, the partition is mounted read-only.
-     *
-     * @hide
-     */
-    @SystemApi
-    @TestApi
-    public static @NonNull File getProductDirectory() {
-        return DIR_PRODUCT_ROOT;
-    }
-
-    /**
-     * Return root directory of the "product_services" partition holding middleware
-     * services if any. If present, the partition is mounted read-only.
-     *
-     * @hide
-     */
-    @SystemApi
-    public static @NonNull File getProductServicesDirectory() {
-        return DIR_PRODUCT_SERVICES_ROOT;
     }
 
     /**
@@ -234,11 +183,12 @@ public class Environment {
      * services to store files relating to the user. This directory will be
      * automatically deleted when the user is removed.
      *
-     * @deprecated This directory is valid and still exists, but but callers
-     *             should <em>strongly</em> consider switching to using either
-     *             {@link #getDataSystemCeDirectory(int)} or
-     *             {@link #getDataSystemDeDirectory(int)}, both of which support
-     *             fast user wipe.
+     * @deprecated This directory is valid and still exists, but callers should
+     *             <em>strongly</em> consider switching to
+     *             {@link #getDataSystemCeDirectory(int)} which is protected
+     *             with user credentials or
+     *             {@link #getDataSystemDeDirectory(int)} which supports fast
+     *             user wipe.
      * @hide
      */
     @Deprecated
@@ -286,7 +236,6 @@ public class Environment {
     }
 
     /** {@hide} */
-    @UnsupportedAppUsage
     public static File getDataSystemDirectory() {
         return new File(getDataDirectory(), "system");
     }
@@ -307,42 +256,12 @@ public class Environment {
         return buildPath(getDataDirectory(), "system_ce");
     }
 
-    /**
-     * Return the "credential encrypted" system directory for a user. This is
-     * for use by system services to store files relating to the user. This
-     * directory supports fast user wipe, and will be automatically deleted when
-     * the user is removed.
-     * <p>
-     * Data stored under this path is "credential encrypted", which uses an
-     * encryption key that is entangled with user credentials, such as a PIN or
-     * password. The contents will only be available once the user has been
-     * unlocked, as reported by {@code SystemService.onUnlockUser()}.
-     * <p>
-     * New code should <em>strongly</em> prefer storing sensitive data in these
-     * credential encrypted areas.
-     *
-     * @hide
-     */
+    /** {@hide} */
     public static File getDataSystemCeDirectory(int userId) {
         return buildPath(getDataDirectory(), "system_ce", String.valueOf(userId));
     }
 
-    /**
-     * Return the "device encrypted" system directory for a user. This is for
-     * use by system services to store files relating to the user. This
-     * directory supports fast user wipe, and will be automatically deleted when
-     * the user is removed.
-     * <p>
-     * Data stored under this path is "device encrypted", which uses an
-     * encryption key that is tied to the physical device. The contents will
-     * only be available once the device has finished a {@code dm-verity}
-     * protected boot.
-     * <p>
-     * New code should <em>strongly</em> avoid storing sensitive data in these
-     * device encrypted areas.
-     *
-     * @hide
-     */
+    /** {@hide} */
     public static File getDataSystemDeDirectory(int userId) {
         return buildPath(getDataDirectory(), "system_de", String.valueOf(userId));
     }
@@ -350,11 +269,6 @@ public class Environment {
     /** {@hide} */
     public static File getDataMiscDirectory() {
         return new File(getDataDirectory(), "misc");
-    }
-
-    /** {@hide} */
-    public static File getDataMiscCeDirectory() {
-        return buildPath(getDataDirectory(), "misc_ce");
     }
 
     /** {@hide} */
@@ -372,17 +286,7 @@ public class Environment {
     }
 
     /** {@hide} */
-    public static File getDataVendorCeDirectory(int userId) {
-        return buildPath(getDataDirectory(), "vendor_ce", String.valueOf(userId));
-    }
-
-    /** {@hide} */
-    public static File getDataVendorDeDirectory(int userId) {
-        return buildPath(getDataDirectory(), "vendor_de", String.valueOf(userId));
-    }
-
-    /** {@hide} */
-    public static File getDataRefProfilesDePackageDirectory(String packageName) {
+    public static File getReferenceProfile(String packageName) {
         return buildPath(getDataDirectory(), "misc", "profiles", "ref", packageName);
     }
 
@@ -392,13 +296,18 @@ public class Environment {
     }
 
     /** {@hide} */
+    public static File getDataProfilesDeForeignDexDirectory(int userId) {
+        return buildPath(getDataProfilesDeDirectory(userId), "foreign-dex");
+    }
+
+    /** {@hide} */
     public static File getDataAppDirectory(String volumeUuid) {
         return new File(getDataDirectory(volumeUuid), "app");
     }
 
     /** {@hide} */
-    public static File getDataStagingDirectory(String volumeUuid) {
-        return new File(getDataDirectory(volumeUuid), "app-staging");
+    public static File getDataAppEphemeralDirectory(String volumeUuid) {
+        return new File(getDataDirectory(volumeUuid), "app-ephemeral");
     }
 
     /** {@hide} */
@@ -471,32 +380,6 @@ public class Environment {
     }
 
     /**
-     * Returns location of preloaded cache directory for package name
-     * @see #getDataPreloadsDirectory()
-     * {@hide}
-     */
-    public static File getDataPreloadsFileCacheDirectory(String packageName) {
-        return new File(getDataPreloadsFileCacheDirectory(), packageName);
-    }
-
-    /**
-     * Returns location of preloaded cache directory.
-     * @see #getDataPreloadsDirectory()
-     * {@hide}
-     */
-    public static File getDataPreloadsFileCacheDirectory() {
-        return new File(getDataPreloadsDirectory(), "file_cache");
-    }
-
-    /**
-     * Returns location of packages cache directory.
-     * {@hide}
-     */
-    public static File getPackageCacheDirectory() {
-        return new File(getDataSystemDirectory(), "package_cache");
-    }
-
-    /**
      * Return the primary shared/external storage directory. This directory may
      * not currently be accessible if it has been mounted by the user on their
      * computer, has been removed from the device, or some other problem has
@@ -533,8 +416,7 @@ public class Environment {
      * <p>
      * Writing to this path requires the
      * {@link android.Manifest.permission#WRITE_EXTERNAL_STORAGE} permission,
-     * and starting in {@link android.os.Build.VERSION_CODES#KITKAT}, read
-     * access requires the
+     * and starting in {@link android.os.Build.VERSION_CODES#KITKAT}, read access requires the
      * {@link android.Manifest.permission#READ_EXTERNAL_STORAGE} permission,
      * which is automatically granted if you hold the write permission.
      * <p>
@@ -556,29 +438,18 @@ public class Environment {
      *
      * @see #getExternalStorageState()
      * @see #isExternalStorageRemovable()
-     * @deprecated To improve user privacy, direct access to shared/external
-     *             storage devices is deprecated. When an app targets
-     *             {@link android.os.Build.VERSION_CODES#Q}, the path returned
-     *             from this method is no longer directly accessible to apps.
-     *             Apps can continue to access content stored on shared/external
-     *             storage by migrating to alternatives such as
-     *             {@link Context#getExternalFilesDir(String)},
-     *             {@link MediaStore}, or {@link Intent#ACTION_OPEN_DOCUMENT}.
      */
-    @Deprecated
     public static File getExternalStorageDirectory() {
         throwIfUserRequired();
         return sCurrentUser.getExternalDirs()[0];
     }
 
     /** {@hide} */
-    @UnsupportedAppUsage
     public static File getLegacyExternalStorageDirectory() {
         return new File(System.getenv(ENV_EXTERNAL_STORAGE));
     }
 
     /** {@hide} */
-    @UnsupportedAppUsage
     public static File getLegacyExternalStorageObbDirectory() {
         return buildPath(getLegacyExternalStorageDirectory(), DIR_ANDROID, DIR_OBB);
     }
@@ -682,19 +553,6 @@ public class Environment {
     public static String DIRECTORY_DOCUMENTS = "Documents";
 
     /**
-     * Standard directory in which to place screenshots that have been taken by
-     * the user. Typically used as a secondary directory under
-     * {@link #DIRECTORY_PICTURES}.
-     */
-    public static String DIRECTORY_SCREENSHOTS = "Screenshots";
-
-    /**
-     * Standard directory in which to place any audio files which are
-     * audiobooks.
-     */
-    public static String DIRECTORY_AUDIOBOOKS = "Audiobooks";
-
-    /**
      * List of standard storage directories.
      * <p>
      * Each of its values have its own constant:
@@ -709,7 +567,6 @@ public class Environment {
      *   <li>{@link #DIRECTORY_DOWNLOADS}
      *   <li>{@link #DIRECTORY_DCIM}
      *   <li>{@link #DIRECTORY_DOCUMENTS}
-     *   <li>{@link #DIRECTORY_AUDIOBOOKS}
      * </ul>
      * @hide
      */
@@ -723,8 +580,7 @@ public class Environment {
             DIRECTORY_MOVIES,
             DIRECTORY_DOWNLOADS,
             DIRECTORY_DCIM,
-            DIRECTORY_DOCUMENTS,
-            DIRECTORY_AUDIOBOOKS,
+            DIRECTORY_DOCUMENTS
     };
 
     /**
@@ -737,81 +593,6 @@ public class Environment {
             }
         }
         return false;
-    }
-
-    /** {@hide} */ public static final int HAS_MUSIC = 1 << 0;
-    /** {@hide} */ public static final int HAS_PODCASTS = 1 << 1;
-    /** {@hide} */ public static final int HAS_RINGTONES = 1 << 2;
-    /** {@hide} */ public static final int HAS_ALARMS = 1 << 3;
-    /** {@hide} */ public static final int HAS_NOTIFICATIONS = 1 << 4;
-    /** {@hide} */ public static final int HAS_PICTURES = 1 << 5;
-    /** {@hide} */ public static final int HAS_MOVIES = 1 << 6;
-    /** {@hide} */ public static final int HAS_DOWNLOADS = 1 << 7;
-    /** {@hide} */ public static final int HAS_DCIM = 1 << 8;
-    /** {@hide} */ public static final int HAS_DOCUMENTS = 1 << 9;
-    /** {@hide} */ public static final int HAS_AUDIOBOOKS = 1 << 10;
-
-    /** {@hide} */ public static final int HAS_ANDROID = 1 << 16;
-    /** {@hide} */ public static final int HAS_OTHER = 1 << 17;
-
-    /**
-     * Classify the content types present on the given external storage device.
-     * <p>
-     * This is typically useful for deciding if an inserted SD card is empty, or
-     * if it contains content like photos that should be preserved.
-     *
-     * @hide
-     */
-    public static int classifyExternalStorageDirectory(File dir) {
-        int res = 0;
-        for (File f : FileUtils.listFilesOrEmpty(dir)) {
-            if (f.isFile() && isInterestingFile(f)) {
-                res |= HAS_OTHER;
-            } else if (f.isDirectory() && hasInterestingFiles(f)) {
-                final String name = f.getName();
-                if (DIRECTORY_MUSIC.equals(name)) res |= HAS_MUSIC;
-                else if (DIRECTORY_PODCASTS.equals(name)) res |= HAS_PODCASTS;
-                else if (DIRECTORY_RINGTONES.equals(name)) res |= HAS_RINGTONES;
-                else if (DIRECTORY_ALARMS.equals(name)) res |= HAS_ALARMS;
-                else if (DIRECTORY_NOTIFICATIONS.equals(name)) res |= HAS_NOTIFICATIONS;
-                else if (DIRECTORY_PICTURES.equals(name)) res |= HAS_PICTURES;
-                else if (DIRECTORY_MOVIES.equals(name)) res |= HAS_MOVIES;
-                else if (DIRECTORY_DOWNLOADS.equals(name)) res |= HAS_DOWNLOADS;
-                else if (DIRECTORY_DCIM.equals(name)) res |= HAS_DCIM;
-                else if (DIRECTORY_DOCUMENTS.equals(name)) res |= HAS_DOCUMENTS;
-                else if (DIRECTORY_AUDIOBOOKS.equals(name)) res |= HAS_AUDIOBOOKS;
-                else if (DIRECTORY_ANDROID.equals(name)) res |= HAS_ANDROID;
-                else res |= HAS_OTHER;
-            }
-        }
-        return res;
-    }
-
-    private static boolean hasInterestingFiles(File dir) {
-        final LinkedList<File> explore = new LinkedList<>();
-        explore.add(dir);
-        while (!explore.isEmpty()) {
-            dir = explore.pop();
-            for (File f : FileUtils.listFilesOrEmpty(dir)) {
-                if (isInterestingFile(f)) return true;
-                if (f.isDirectory()) explore.add(f);
-            }
-        }
-        return false;
-    }
-
-    private static boolean isInterestingFile(File file) {
-        if (file.isFile()) {
-            final String name = file.getName().toLowerCase();
-            if (name.endsWith(".exe") || name.equals("autorun.inf")
-                    || name.equals("launchpad.zip") || name.equals(".nomedia")) {
-                return false;
-            } else {
-                return true;
-            }
-        } else {
-            return false;
-        }
     }
 
     /**
@@ -841,16 +622,7 @@ public class Environment {
      * @return Returns the File path for the directory. Note that this directory
      *         may not yet exist, so you must make sure it exists before using
      *         it such as with {@link File#mkdirs File.mkdirs()}.
-     * @deprecated To improve user privacy, direct access to shared/external
-     *             storage devices is deprecated. When an app targets
-     *             {@link android.os.Build.VERSION_CODES#Q}, the path returned
-     *             from this method is no longer directly accessible to apps.
-     *             Apps can continue to access content stored on shared/external
-     *             storage by migrating to alternatives such as
-     *             {@link Context#getExternalFilesDir(String)},
-     *             {@link MediaStore}, or {@link Intent#ACTION_OPEN_DOCUMENT}.
      */
-    @Deprecated
     public static File getExternalStoragePublicDirectory(String type) {
         throwIfUserRequired();
         return sCurrentUser.buildExternalStoragePublicDirs(type)[0];
@@ -860,7 +632,6 @@ public class Environment {
      * Returns the path for android-specific data on the SD card.
      * @hide
      */
-    @UnsupportedAppUsage
     public static File[] buildExternalStorageAndroidDataDirs() {
         throwIfUserRequired();
         return sCurrentUser.buildExternalStorageAndroidDataDirs();
@@ -870,7 +641,6 @@ public class Environment {
      * Generates the raw path to an application's data
      * @hide
      */
-    @UnsupportedAppUsage
     public static File[] buildExternalStorageAppDataDirs(String packageName) {
         throwIfUserRequired();
         return sCurrentUser.buildExternalStorageAppDataDirs(packageName);
@@ -880,7 +650,6 @@ public class Environment {
      * Generates the raw path to an application's media
      * @hide
      */
-    @UnsupportedAppUsage
     public static File[] buildExternalStorageAppMediaDirs(String packageName) {
         throwIfUserRequired();
         return sCurrentUser.buildExternalStorageAppMediaDirs(packageName);
@@ -890,7 +659,6 @@ public class Environment {
      * Generates the raw path to an application's OBB files
      * @hide
      */
-    @UnsupportedAppUsage
     public static File[] buildExternalStorageAppObbDirs(String packageName) {
         throwIfUserRequired();
         return sCurrentUser.buildExternalStorageAppObbDirs(packageName);
@@ -900,7 +668,6 @@ public class Environment {
      * Generates the path to an application's files.
      * @hide
      */
-    @UnsupportedAppUsage
     public static File[] buildExternalStorageAppFilesDirs(String packageName) {
         throwIfUserRequired();
         return sCurrentUser.buildExternalStorageAppFilesDirs(packageName);
@@ -910,16 +677,9 @@ public class Environment {
      * Generates the path to an application's cache.
      * @hide
      */
-    @UnsupportedAppUsage
     public static File[] buildExternalStorageAppCacheDirs(String packageName) {
         throwIfUserRequired();
         return sCurrentUser.buildExternalStorageAppCacheDirs(packageName);
-    }
-
-    /** @hide */
-    public static File[] buildExternalStoragePublicDirs(@NonNull String dirType) {
-        throwIfUserRequired();
-        return sCurrentUser.buildExternalStoragePublicDirs(dirType);
     }
 
     /**
@@ -1063,6 +823,7 @@ public class Environment {
      *         physically removed.
      */
     public static boolean isExternalStorageRemovable() {
+        if (isStorageDisabled()) return false;
         final File externalDir = sCurrentUser.getExternalDirs()[0];
         return isExternalStorageRemovable(externalDir);
     }
@@ -1077,7 +838,7 @@ public class Environment {
      * @throws IllegalArgumentException if the path is not a valid storage
      *             device.
      */
-    public static boolean isExternalStorageRemovable(@NonNull File path) {
+    public static boolean isExternalStorageRemovable(File path) {
         final StorageVolume volume = StorageManager.getStorageVolume(path, UserHandle.myUserId());
         if (volume != null) {
             return volume.isRemovable();
@@ -1101,6 +862,7 @@ public class Environment {
      *      boolean)
      */
     public static boolean isExternalStorageEmulated() {
+        if (isStorageDisabled()) return false;
         final File externalDir = sCurrentUser.getExternalDirs()[0];
         return isExternalStorageEmulated(externalDir);
     }
@@ -1120,77 +882,13 @@ public class Environment {
      * @throws IllegalArgumentException if the path is not a valid storage
      *             device.
      */
-    public static boolean isExternalStorageEmulated(@NonNull File path) {
+    public static boolean isExternalStorageEmulated(File path) {
         final StorageVolume volume = StorageManager.getStorageVolume(path, UserHandle.myUserId());
         if (volume != null) {
             return volume.isEmulated();
         } else {
             throw new IllegalArgumentException("Failed to find storage device at " + path);
         }
-    }
-
-    /**
-     * Returns whether the primary shared/external storage media is a legacy
-     * view that includes files not owned by the app.
-     * <p>
-     * This value may be different from the value requested by
-     * {@code requestLegacyExternalStorage} in the app's manifest, since an app
-     * may inherit its legacy state based on when it was first installed.
-     * <p>
-     * Non-legacy apps can continue to discover and read media belonging to
-     * other apps via {@link android.provider.MediaStore}.
-     */
-    public static boolean isExternalStorageLegacy() {
-        final File externalDir = sCurrentUser.getExternalDirs()[0];
-        return isExternalStorageLegacy(externalDir);
-    }
-
-    /**
-     * Returns whether the shared/external storage media at the given path is a
-     * legacy view that includes files not owned by the app.
-     * <p>
-     * This value may be different from the value requested by
-     * {@code requestLegacyExternalStorage} in the app's manifest, since an app
-     * may inherit its legacy state based on when it was first installed.
-     * <p>
-     * Non-legacy apps can continue to discover and read media belonging to
-     * other apps via {@link android.provider.MediaStore}.
-     *
-     * @throws IllegalArgumentException if the path is not a valid storage
-     *             device.
-     */
-    public static boolean isExternalStorageLegacy(@NonNull File path) {
-        final Context context = AppGlobals.getInitialApplication();
-        final int uid = context.getApplicationInfo().uid;
-        if (Process.isIsolated(uid)) {
-            return false;
-        }
-
-        final PackageManager packageManager = context.getPackageManager();
-        if (packageManager.isInstantApp()) {
-            return false;
-        }
-
-        if (packageManager.checkPermission(Manifest.permission.WRITE_MEDIA_STORAGE,
-                context.getPackageName()) == PackageManager.PERMISSION_GRANTED) {
-            return true;
-        }
-
-        if (packageManager.checkPermission(Manifest.permission.INSTALL_PACKAGES,
-                context.getPackageName()) == PackageManager.PERMISSION_GRANTED) {
-            return true;
-        }
-        final AppOpsManager appOps = context.getSystemService(AppOpsManager.class);
-        final String[] packagesForUid = packageManager.getPackagesForUid(uid);
-        for (String packageName : packagesForUid) {
-            if (appOps.checkOpNoThrow(AppOpsManager.OP_REQUEST_INSTALL_PACKAGES,
-                    uid, packageName) == AppOpsManager.MODE_ALLOWED) {
-                return true;
-            }
-        }
-
-        return appOps.checkOpNoThrow(AppOpsManager.OP_LEGACY_STORAGE,
-                uid, context.getOpPackageName()) == AppOpsManager.MODE_ALLOWED;
     }
 
     static File getDirectory(String variableName, String defaultPath) {
@@ -1215,7 +913,6 @@ public class Environment {
      *
      * @hide
      */
-    @UnsupportedAppUsage
     public static File[] buildPaths(File[] base, String... segments) {
         File[] result = new File[base.length];
         for (int i = 0; i < base.length; i++) {
@@ -1229,7 +926,6 @@ public class Environment {
      *
      * @hide
      */
-    @TestApi
     public static File buildPath(File base, String... segments) {
         File cur = base;
         for (String segment : segments) {
@@ -1242,6 +938,10 @@ public class Environment {
         return cur;
     }
 
+    private static boolean isStorageDisabled() {
+        return SystemProperties.getBoolean("config.disable_storage", false);
+    }
+
     /**
      * If the given path exists on emulated external storage, return the
      * translated backing path hosted on internal storage. This bypasses any
@@ -1252,11 +952,8 @@ public class Environment {
      * must hold {@link android.Manifest.permission#WRITE_MEDIA_STORAGE}
      * permission.
      *
-     * @deprecated disabled now that FUSE has been replaced by sdcardfs
      * @hide
      */
-    @UnsupportedAppUsage
-    @Deprecated
     public static File maybeTranslateEmulatedPathToInternal(File path) {
         return StorageManager.maybeTranslateEmulatedPathToInternal(path);
     }

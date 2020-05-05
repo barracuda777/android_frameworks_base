@@ -1,39 +1,35 @@
-/*
- * Copyright (C) 2016 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+#ifndef __TEST_HELPERS_H
+#define __TEST_HELPERS_H
 
-#ifndef ANDROIDFW_TEST_TESTHELPERS_H
-#define ANDROIDFW_TEST_TESTHELPERS_H
+#include <ostream>
 
-#include <string>
+#include <androidfw/ResourceTypes.h>
+#include <utils/String8.h>
+#include <utils/String16.h>
+#include <gtest/gtest.h>
 
-#include "androidfw/ResourceTypes.h"
-#include "gmock/gmock.h"
-#include "gtest/gtest.h"
+static inline ::std::ostream& operator<<(::std::ostream& out, const android::String8& str) {
+    return out << str.string();
+}
 
-#include "CommonHelpers.h"
+static inline ::std::ostream& operator<<(::std::ostream& out, const android::String16& str) {
+    return out << android::String8(str).string();
+}
 
 namespace android {
 
-::testing::AssertionResult ReadFileFromZipToString(const std::string& zip_path,
-                                                   const std::string& file,
-                                                   std::string* out_contents);
+enum { MAY_NOT_BE_BAG = false };
 
-::testing::AssertionResult IsStringEqual(const ResTable& table, uint32_t resource_id,
-                                         const char* expected_str);
+static inline bool operator==(const android::ResTable_config& a, const android::ResTable_config& b) {
+    return a.compare(b) == 0;
+}
 
-}  // namespace android
+static inline ::std::ostream& operator<<(::std::ostream& out, const android::ResTable_config& c) {
+    return out << c.toString().string();
+}
 
-#endif  // ANDROIDFW_TEST_TESTHELPERS_H
+::testing::AssertionResult IsStringEqual(const ResTable& table, uint32_t resourceId, const char* expectedStr);
+
+} // namespace android
+
+#endif // __TEST_HELPERS_H

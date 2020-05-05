@@ -16,7 +16,6 @@
 
 package android.widget;
 
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.hardware.SensorManager;
 import android.util.Log;
@@ -33,10 +32,8 @@ public class OverScroller {
     private int mMode;
 
     private final SplineOverScroller mScrollerX;
-    @UnsupportedAppUsage
     private final SplineOverScroller mScrollerY;
 
-    @UnsupportedAppUsage
     private Interpolator mInterpolator;
 
     private final boolean mFlywheel;
@@ -71,7 +68,6 @@ public class OverScroller {
      * @param flywheel If true, successive fling motions will keep on increasing scroll speed.
      * @hide
      */
-    @UnsupportedAppUsage
     public OverScroller(Context context, Interpolator interpolator, boolean flywheel) {
         if (interpolator == null) {
             mInterpolator = new Scroller.ViscousFluidInterpolator();
@@ -93,9 +89,8 @@ public class OverScroller {
      * means no bounce. This behavior is no longer supported and this coefficient has no effect.
      * @param bounceCoefficientY Same as bounceCoefficientX but for the vertical direction. This
      * behavior is no longer supported and this coefficient has no effect.
-     * @deprecated Use {@link #OverScroller(Context, Interpolator)} instead.
+     * !deprecated Use {!link #OverScroller(Context, Interpolator, boolean)} instead.
      */
-    @Deprecated
     public OverScroller(Context context, Interpolator interpolator,
             float bounceCoefficientX, float bounceCoefficientY) {
         this(context, interpolator, true);
@@ -112,15 +107,13 @@ public class OverScroller {
      * @param bounceCoefficientY Same as bounceCoefficientX but for the vertical direction. This
      * behavior is no longer supported and this coefficient has no effect.
      * @param flywheel If true, successive fling motions will keep on increasing scroll speed.
-     * @deprecated Use {@link #OverScroller(Context, Interpolator)} instead.
+     * !deprecated Use {!link OverScroller(Context, Interpolator, boolean)} instead.
      */
-    @Deprecated
     public OverScroller(Context context, Interpolator interpolator,
             float bounceCoefficientX, float bounceCoefficientY, boolean flywheel) {
         this(context, interpolator, flywheel);
     }
 
-    @UnsupportedAppUsage
     void setInterpolator(Interpolator interpolator) {
         if (interpolator == null) {
             mInterpolator = new Scroller.ViscousFluidInterpolator();
@@ -255,7 +248,6 @@ public class OverScroller {
      *             to begin a new animation.
      */
     @Deprecated
-    @UnsupportedAppUsage
     public void extendDuration(int extend) {
         mScrollerX.extendDuration(extend);
         mScrollerY.extendDuration(extend);
@@ -536,7 +528,6 @@ public class OverScroller {
     /**
      * @hide
      */
-    @UnsupportedAppUsage
     public boolean isScrollingInDirection(float xvel, float yvel) {
         final int dx = mScrollerX.mFinal - mScrollerX.mStart;
         final int dy = mScrollerY.mFinal - mScrollerY.mStart;
@@ -558,7 +549,6 @@ public class OverScroller {
         private int mVelocity;
 
         // Current velocity
-        @UnsupportedAppUsage
         private float mCurrVelocity;
 
         // Constant current deceleration

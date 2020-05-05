@@ -16,24 +16,13 @@
 
 package android.text;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
 import android.text.Layout.Alignment;
-
-import androidx.test.filters.SmallTest;
-import androidx.test.runner.AndroidJUnit4;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import junit.framework.TestCase;
 
 /**
  * Tests for text measuring methods of StaticLayout.
  */
-@SmallTest
-@RunWith(AndroidJUnit4.class)
-public class StaticLayoutTextMeasuringTest {
+public class StaticLayoutTextMeasuringTest extends TestCase {
     private static final float SPACE_MULTI = 1.0f;
     private static final float SPACE_ADD = 0.0f;
     private static final int DEFAULT_OUTER_WIDTH = 150;
@@ -41,36 +30,34 @@ public class StaticLayoutTextMeasuringTest {
 
     private TextPaint mDefaultPaint;
 
-    @Before
-    public void setup() {
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp();
         if (mDefaultPaint == null) {
             mDefaultPaint = new TextPaint();
         }
     }
 
-    @Test
     public void testGetPrimaryHorizontal_zwnbsp() {
         // a, ZERO WIDTH NO-BREAK SPACE
         String testString = "a\uFEFF";
         StaticLayout layout = new StaticLayout(testString, mDefaultPaint,
                 DEFAULT_OUTER_WIDTH, DEFAULT_ALIGN, SPACE_MULTI, SPACE_ADD, true);
 
-        assertEquals(0.0f, layout.getPrimaryHorizontal(0), 0f);
-        assertEquals(layout.getPrimaryHorizontal(2), layout.getPrimaryHorizontal(1), 0f);
+        assertEquals(0.0f, layout.getPrimaryHorizontal(0));
+        assertEquals(layout.getPrimaryHorizontal(2), layout.getPrimaryHorizontal(1));
     }
 
-    @Test
     public void testGetPrimaryHorizontal_devanagari() {
         // DEVANAGARI LETTER KA, DEVANAGARI VOWEL SIGN AA
         String testString = "\u0915\u093E";
         StaticLayout layout = new StaticLayout(testString, mDefaultPaint,
                 DEFAULT_OUTER_WIDTH, DEFAULT_ALIGN, SPACE_MULTI, SPACE_ADD, true);
 
-        assertEquals(0.0f, layout.getPrimaryHorizontal(0), 0f);
-        assertEquals(layout.getPrimaryHorizontal(2), layout.getPrimaryHorizontal(1), 0f);
+        assertEquals(0.0f, layout.getPrimaryHorizontal(0));
+        assertEquals(layout.getPrimaryHorizontal(2), layout.getPrimaryHorizontal(1));
     }
 
-    @Test
     public void testGetPrimaryHorizontal_flagEmoji() {
         // REGIONAL INDICATOR SYMBOL LETTER U, REGIONAL INDICATOR SYMBOL LETTER S, REGIONAL
         // INDICATOR SYMBOL LETTER Z
@@ -79,12 +66,12 @@ public class StaticLayoutTextMeasuringTest {
         StaticLayout layout = new StaticLayout(testString, mDefaultPaint,
                 DEFAULT_OUTER_WIDTH, DEFAULT_ALIGN, SPACE_MULTI, SPACE_ADD, true);
 
-        assertEquals(0.0f, layout.getPrimaryHorizontal(0), 0f);
-        assertEquals(layout.getPrimaryHorizontal(4), layout.getPrimaryHorizontal(1), 0f);
-        assertEquals(layout.getPrimaryHorizontal(4), layout.getPrimaryHorizontal(2), 0f);
-        assertEquals(layout.getPrimaryHorizontal(4), layout.getPrimaryHorizontal(3), 0f);
+        assertEquals(0.0f, layout.getPrimaryHorizontal(0));
+        assertEquals(layout.getPrimaryHorizontal(4), layout.getPrimaryHorizontal(1));
+        assertEquals(layout.getPrimaryHorizontal(4), layout.getPrimaryHorizontal(2));
+        assertEquals(layout.getPrimaryHorizontal(4), layout.getPrimaryHorizontal(3));
 
         assertTrue(layout.getPrimaryHorizontal(6) > layout.getPrimaryHorizontal(4));
-        assertEquals(layout.getPrimaryHorizontal(6), layout.getPrimaryHorizontal(5), 0f);
+        assertEquals(layout.getPrimaryHorizontal(6), layout.getPrimaryHorizontal(5));
     }
 }

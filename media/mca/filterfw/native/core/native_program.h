@@ -75,8 +75,7 @@ class NativeProgram {
     // Pointer to user data
     void* user_data_;
 
-    NativeProgram(const NativeProgram&) = delete;
-    NativeProgram& operator=(const NativeProgram&) = delete;
+    DISALLOW_COPY_AND_ASSIGN(NativeProgram);
 };
 
 } // namespace filterfw

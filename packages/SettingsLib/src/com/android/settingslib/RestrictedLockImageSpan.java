@@ -37,7 +37,7 @@ public class RestrictedLockImageSpan extends ImageSpan {
         mContext = context;
         mExtraPadding = mContext.getResources().getDimensionPixelSize(
                 R.dimen.restricted_icon_padding);
-        mRestrictedPadlock = RestrictedLockUtilsInternal.getRestrictedPadlock(mContext);
+        mRestrictedPadlock = RestrictedLockUtils.getRestrictedPadlock(mContext);
     }
 
     @Override

@@ -23,15 +23,9 @@ import android.os.PersistableBundle;
  */
 interface ICarrierConfigLoader {
 
-    @UnsupportedAppUsage
-    PersistableBundle getConfigForSubId(int subId, String callingPackage);
-
-    void overrideConfig(int subId, in PersistableBundle overrides);
+    PersistableBundle getConfigForSubId(int subId);
 
     void notifyConfigChangedForSubId(int subId);
 
     void updateConfigForPhoneId(int phoneId, String simState);
-
-    String getDefaultCarrierServicePackageName();
-
 }

@@ -16,15 +16,14 @@
 
 package com.android.systemui.statusbar.policy;
 
-import com.android.systemui.Dumpable;
-import com.android.systemui.statusbar.policy.CastController.Callback;
+import java.util.Set;
 
-import java.util.List;
-
-public interface CastController extends CallbackController<Callback>, Dumpable {
+public interface CastController {
+    void addCallback(Callback callback);
+    void removeCallback(Callback callback);
     void setDiscovering(boolean request);
     void setCurrentUserId(int currentUserId);
-    List<CastDevice> getCastDevices();
+    Set<CastDevice> getCastDevices();
     void startCasting(CastDevice device);
     void stopCasting(CastDevice device);
 

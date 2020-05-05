@@ -89,7 +89,7 @@ public final class GnssNavigationMessage implements Parcelable {
      */
     public static abstract class Callback {
         /**
-         * The status of GNSS Navigation Message event.
+         * The status of GNSS measurements event.
          * @hide
          */
         @Retention(RetentionPolicy.SOURCE)
@@ -365,7 +365,7 @@ public final class GnssNavigationMessage implements Parcelable {
         }
     }
 
-    public static final @android.annotation.NonNull Creator<GnssNavigationMessage> CREATOR =
+    public static final Creator<GnssNavigationMessage> CREATOR =
             new Creator<GnssNavigationMessage>() {
         @Override
         public GnssNavigationMessage createFromParcel(Parcel parcel) {

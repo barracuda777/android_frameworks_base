@@ -32,7 +32,7 @@ class AaptFile;
 
 class ApkBuilder : public android::RefBase {
 public:
-    explicit ApkBuilder(const sp<WeakResourceFilter>& configFilter);
+    ApkBuilder(const sp<WeakResourceFilter>& configFilter);
 
     /**
      * Tells the builder to generate a separate APK for resources that

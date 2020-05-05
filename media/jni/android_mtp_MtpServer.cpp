@@ -25,7 +25,7 @@
 #include <utils/threads.h>
 
 #include "jni.h"
-#include <nativehelper/JNIHelp.h>
+#include "JNIHelp.h"
 #include "android_runtime/AndroidRuntime.h"
 #include "private/android_filesystem_config.h"
 
@@ -41,6 +41,7 @@ static jfieldID field_MtpServer_nativeContext;
 static jfieldID field_MtpStorage_storageId;
 static jfieldID field_MtpStorage_path;
 static jfieldID field_MtpStorage_description;
+static jfieldID field_MtpStorage_reserveSpace;
 static jfieldID field_MtpStorage_removable;
 static jfieldID field_MtpStorage_maxFileSize;
 
@@ -49,41 +50,23 @@ static Mutex sMutex;
 // ----------------------------------------------------------------------------
 
 // in android_mtp_MtpDatabase.cpp
-extern IMtpDatabase* getMtpDatabase(JNIEnv *env, jobject database);
+extern MtpDatabase* getMtpDatabase(JNIEnv *env, jobject database);
 
 static inline MtpServer* getMtpServer(JNIEnv *env, jobject thiz) {
     return (MtpServer*)env->GetLongField(thiz, field_MtpServer_nativeContext);
 }
 
 static void
-android_mtp_MtpServer_setup(JNIEnv *env, jobject thiz, jobject javaDatabase, jobject jControlFd,
-        jboolean usePtp, jstring deviceInfoManufacturer, jstring deviceInfoModel,
-        jstring deviceInfoDeviceVersion, jstring deviceInfoSerialNumber)
+android_mtp_MtpServer_setup(JNIEnv *env, jobject thiz, jobject javaDatabase, jboolean usePtp)
 {
-    const char *deviceInfoManufacturerStr = env->GetStringUTFChars(deviceInfoManufacturer, NULL);
-    const char *deviceInfoModelStr = env->GetStringUTFChars(deviceInfoModel, NULL);
-    const char *deviceInfoDeviceVersionStr = env->GetStringUTFChars(deviceInfoDeviceVersion, NULL);
-    const char *deviceInfoSerialNumberStr = env->GetStringUTFChars(deviceInfoSerialNumber, NULL);
-    int controlFd = dup(jniGetFDFromFileDescriptor(env, jControlFd));
-    MtpServer* server = new MtpServer(getMtpDatabase(env, javaDatabase), controlFd,
-            usePtp,
-            (deviceInfoManufacturerStr != NULL) ? deviceInfoManufacturerStr : "",
-            (deviceInfoModelStr != NULL) ? deviceInfoModelStr : "",
-            (deviceInfoDeviceVersionStr != NULL) ? deviceInfoDeviceVersionStr : "",
-            (deviceInfoSerialNumberStr != NULL) ? deviceInfoSerialNumberStr : "");
-    if (deviceInfoManufacturerStr != NULL) {
-        env->ReleaseStringUTFChars(deviceInfoManufacturer, deviceInfoManufacturerStr);
+    int fd = open("/dev/mtp_usb", O_RDWR);
+    if (fd >= 0) {
+        MtpServer* server = new MtpServer(fd, getMtpDatabase(env, javaDatabase),
+                usePtp, AID_MEDIA_RW, 0664, 0775);
+        env->SetLongField(thiz, field_MtpServer_nativeContext, (jlong)server);
+    } else {
+        ALOGE("could not open MTP driver, errno: %d", errno);
     }
-    if (deviceInfoModelStr != NULL) {
-        env->ReleaseStringUTFChars(deviceInfoModel, deviceInfoModelStr);
-    }
-    if (deviceInfoDeviceVersionStr != NULL) {
-        env->ReleaseStringUTFChars(deviceInfoDeviceVersion, deviceInfoDeviceVersionStr);
-    }
-    if (deviceInfoSerialNumberStr != NULL) {
-        env->ReleaseStringUTFChars(deviceInfoSerialNumber, deviceInfoSerialNumberStr);
-    }
-    env->SetLongField(thiz, field_MtpServer_nativeContext, (jlong)server);
 }
 
 static void
@@ -135,18 +118,6 @@ android_mtp_MtpServer_send_object_removed(JNIEnv *env, jobject thiz, jint handle
 }
 
 static void
-android_mtp_MtpServer_send_object_info_changed(JNIEnv *env, jobject thiz, jint handle)
-{
-    Mutex::Autolock autoLock(sMutex);
-
-    MtpServer* server = getMtpServer(env, thiz);
-    if (server)
-        server->sendObjectInfoChanged(handle);
-    else
-        ALOGE("server is null in send_object_info_changed");
-}
-
-static void
 android_mtp_MtpServer_send_device_property_changed(JNIEnv *env, jobject thiz, jint property)
 {
     Mutex::Autolock autoLock(sMutex);
@@ -159,6 +130,18 @@ android_mtp_MtpServer_send_device_property_changed(JNIEnv *env, jobject thiz, ji
 }
 
 static void
+android_mtp_MtpServer_send_object_updated(JNIEnv *env, jobject thiz, jint handle)
+{
+    Mutex::Autolock autoLock(sMutex);
+
+    MtpServer* server = getMtpServer(env, thiz);
+    if (server)
+        server->sendObjectUpdated(handle);
+    else
+        ALOGE("server is null in send_object_updated");
+}
+
+static void
 android_mtp_MtpServer_add_storage(JNIEnv *env, jobject thiz, jobject jstorage)
 {
     Mutex::Autolock autoLock(sMutex);
@@ -168,6 +151,7 @@ android_mtp_MtpServer_add_storage(JNIEnv *env, jobject thiz, jobject jstorage)
         jint storageID = env->GetIntField(jstorage, field_MtpStorage_storageId);
         jstring path = (jstring)env->GetObjectField(jstorage, field_MtpStorage_path);
         jstring description = (jstring)env->GetObjectField(jstorage, field_MtpStorage_description);
+        jlong reserveSpace = env->GetLongField(jstorage, field_MtpStorage_reserveSpace);
         jboolean removable = env->GetBooleanField(jstorage, field_MtpStorage_removable);
         jlong maxFileSize = env->GetLongField(jstorage, field_MtpStorage_maxFileSize);
 
@@ -176,7 +160,7 @@ android_mtp_MtpServer_add_storage(JNIEnv *env, jobject thiz, jobject jstorage)
             const char *descriptionStr = env->GetStringUTFChars(description, NULL);
             if (descriptionStr != NULL) {
                 MtpStorage* storage = new MtpStorage(storageID, pathStr, descriptionStr,
-                        removable, maxFileSize);
+                        reserveSpace, removable, maxFileSize);
                 server->addStorage(storage);
                 env->ReleaseStringUTFChars(path, pathStr);
                 env->ReleaseStringUTFChars(description, descriptionStr);
@@ -208,15 +192,15 @@ android_mtp_MtpServer_remove_storage(JNIEnv *env, jobject thiz, jint storageId)
 // ----------------------------------------------------------------------------
 
 static const JNINativeMethod gMethods[] = {
-    {"native_setup",                "(Landroid/mtp/MtpDatabase;Ljava/io/FileDescriptor;ZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V",
+    {"native_setup",                "(Landroid/mtp/MtpDatabase;Z)V",
                                             (void *)android_mtp_MtpServer_setup},
     {"native_run",                  "()V",  (void *)android_mtp_MtpServer_run},
     {"native_cleanup",              "()V",  (void *)android_mtp_MtpServer_cleanup},
     {"native_send_object_added",    "(I)V", (void *)android_mtp_MtpServer_send_object_added},
     {"native_send_object_removed",  "(I)V", (void *)android_mtp_MtpServer_send_object_removed},
-    {"native_send_object_info_changed",  "(I)V", (void *)android_mtp_MtpServer_send_object_info_changed},
     {"native_send_device_property_changed",  "(I)V",
                                     (void *)android_mtp_MtpServer_send_device_property_changed},
+    {"native_send_object_updated",  "(I)V", (void *)android_mtp_MtpServer_send_object_updated},
     {"native_add_storage",          "(Landroid/mtp/MtpStorage;)V",
                                             (void *)android_mtp_MtpServer_add_storage},
     {"native_remove_storage",       "(I)V", (void *)android_mtp_MtpServer_remove_storage},
@@ -244,6 +228,11 @@ int register_android_mtp_MtpServer(JNIEnv *env)
     field_MtpStorage_description = env->GetFieldID(clazz, "mDescription", "Ljava/lang/String;");
     if (field_MtpStorage_description == NULL) {
         ALOGE("Can't find MtpStorage.mDescription");
+        return -1;
+    }
+    field_MtpStorage_reserveSpace = env->GetFieldID(clazz, "mReserveSpace", "J");
+    if (field_MtpStorage_reserveSpace == NULL) {
+        ALOGE("Can't find MtpStorage.mReserveSpace");
         return -1;
     }
     field_MtpStorage_removable = env->GetFieldID(clazz, "mRemovable", "Z");

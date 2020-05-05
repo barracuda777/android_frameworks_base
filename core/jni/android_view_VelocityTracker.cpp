@@ -16,7 +16,7 @@
 
 #define LOG_TAG "VelocityTracker-JNI"
 
-#include <nativehelper/JNIHelp.h>
+#include "JNIHelp.h"
 
 #include <android_runtime/AndroidRuntime.h>
 #include <utils/Log.h>
@@ -24,7 +24,7 @@
 #include <input/VelocityTracker.h>
 #include "android_view_MotionEvent.h"
 
-#include <nativehelper/ScopedUtfChars.h>
+#include <ScopedUtfChars.h>
 
 #include "core_jni_helpers.h"
 
@@ -45,7 +45,7 @@ static struct {
 
 class VelocityTrackerState {
 public:
-    explicit VelocityTrackerState(const char* strategy);
+    VelocityTrackerState(const char* strategy);
 
     void clear();
     void addMovement(const MotionEvent* event);

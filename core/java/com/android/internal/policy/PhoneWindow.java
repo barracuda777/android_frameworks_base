@@ -19,57 +19,13 @@ package com.android.internal.policy;
 import static android.provider.Settings.Global.DEVELOPMENT_FORCE_RESIZABLE_ACTIVITIES;
 import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
 import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
-import static android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS;
-import static android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN;
-import static android.view.WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR;
-import static android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_OVERSCAN;
-import static android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
-import static android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
-import static android.view.WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER;
-import static android.view.WindowManager.LayoutParams.FLAG_SPLIT_TOUCH;
-import static android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION;
-import static android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS;
-import static android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT;
-import static android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_NEVER;
-import static android.view.WindowManager.LayoutParams.PRIVATE_FLAG_FORCE_DRAW_BAR_BACKGROUNDS;
+import static android.view.WindowManager.LayoutParams.*;
 
-import android.annotation.NonNull;
-import android.annotation.UnsupportedAppUsage;
-import android.app.ActivityManager;
-import android.app.KeyguardManager;
+import android.app.ActivityManagerNative;
 import android.app.SearchManager;
-import android.content.Context;
-import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.content.res.Configuration;
-import android.content.res.Resources.Theme;
-import android.content.res.TypedArray;
-import android.graphics.Color;
-import android.graphics.Rect;
-import android.graphics.drawable.Drawable;
-import android.media.AudioManager;
-import android.media.session.MediaController;
-import android.media.session.MediaSessionManager;
-import android.net.Uri;
-import android.os.Build;
-import android.os.Bundle;
-import android.os.Handler;
-import android.os.Parcel;
-import android.os.Parcelable;
-import android.os.RemoteException;
-import android.os.ServiceManager;
-import android.provider.Settings;
+import android.os.UserHandle;
+
 import android.text.TextUtils;
-import android.transition.Scene;
-import android.transition.Transition;
-import android.transition.TransitionInflater;
-import android.transition.TransitionManager;
-import android.transition.TransitionSet;
-import android.util.AndroidRuntimeException;
-import android.util.EventLog;
-import android.util.Log;
-import android.util.SparseArray;
-import android.util.TypedValue;
 import android.view.ContextThemeWrapper;
 import android.view.Gravity;
 import android.view.IRotationWatcher.Stub;
@@ -91,17 +47,8 @@ import android.view.ViewGroup;
 import android.view.ViewManager;
 import android.view.ViewParent;
 import android.view.ViewRootImpl;
-import android.view.ViewRootImpl.ActivityConfigCallback;
 import android.view.Window;
-import android.view.WindowInsetsController;
 import android.view.WindowManager;
-import android.view.animation.Animation;
-import android.view.animation.AnimationUtils;
-import android.widget.FrameLayout;
-import android.widget.ImageView;
-import android.widget.ProgressBar;
-import android.widget.TextView;
-
 import com.android.internal.R;
 import com.android.internal.view.menu.ContextMenuBuilder;
 import com.android.internal.view.menu.IconMenuPresenter;
@@ -114,9 +61,46 @@ import com.android.internal.view.menu.MenuView;
 import com.android.internal.widget.DecorContentParent;
 import com.android.internal.widget.SwipeDismissLayout;
 
+import android.app.ActivityManager;
+import android.app.KeyguardManager;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.res.Configuration;
+import android.content.res.Resources.Theme;
+import android.content.res.TypedArray;
+import android.graphics.Color;
+import android.graphics.drawable.Drawable;
+import android.media.AudioManager;
+import android.media.session.MediaController;
+import android.media.session.MediaSessionLegacyHelper;
+import android.net.Uri;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Parcel;
+import android.os.Parcelable;
+import android.os.RemoteException;
+import android.os.ServiceManager;
+import android.provider.Settings;
+import android.transition.Scene;
+import android.transition.Transition;
+import android.transition.TransitionInflater;
+import android.transition.TransitionManager;
+import android.transition.TransitionSet;
+import android.util.AndroidRuntimeException;
+import android.util.EventLog;
+import android.util.Log;
+import android.util.SparseArray;
+import android.util.TypedValue;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Android-specific Window.
@@ -232,8 +216,10 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
 
     private ProgressBar mHorizontalProgressBar;
 
-    Drawable mBackgroundDrawable = null;
-    Drawable mBackgroundFallbackDrawable = null;
+    int mBackgroundResource = 0;
+    int mBackgroundFallbackResource = 0;
+
+    private Drawable mBackgroundDrawable;
 
     private boolean mLoadElevation = true;
     private float mElevation;
@@ -246,14 +232,9 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
     private int mTextColor = 0;
     int mStatusBarColor = 0;
     int mNavigationBarColor = 0;
-    int mNavigationBarDividerColor = 0;
     private boolean mForcedStatusBarColor = false;
     private boolean mForcedNavigationBarColor = false;
 
-    boolean mEnsureStatusBarContrastWhenTransparent;
-    boolean mEnsureNavigationBarContrastWhenTransparent;
-
-    @UnsupportedAppUsage
     private CharSequence mTitle = null;
 
     private int mTitleColor = 0;
@@ -269,7 +250,6 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
 
     private AudioManager mAudioManager;
     private KeyguardManager mKeyguardManager;
-    private MediaSessionManager mMediaSessionManager;
 
     private int mUiOptions = 0;
 
@@ -307,9 +287,6 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
 
     private boolean mUseDecorContext = false;
 
-    /** @see ViewRootImpl#mActivityConfigCallback */
-    private ActivityConfigCallback mActivityConfigCallback;
-
     static class WindowManagerHolder {
         static final IWindowManager sWindowManager = IWindowManager.Stub.asInterface(
                 ServiceManager.getService("window"));
@@ -317,7 +294,6 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
 
     static final RotationWatcher sRotationWatcher = new RotationWatcher();
 
-    @UnsupportedAppUsage
     public PhoneWindow(Context context) {
         super(context);
         mLayoutInflater = LayoutInflater.from(context);
@@ -326,8 +302,7 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
     /**
      * Constructor for main window of an activity.
      */
-    public PhoneWindow(Context context, Window preservedWindow,
-            ActivityConfigCallback activityConfigCallback) {
+    public PhoneWindow(Context context, Window preservedWindow) {
         this(context);
         // Only main activity windows use decor context, all the other windows depend on whatever
         // context that was given to them.
@@ -348,7 +323,6 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
                 DEVELOPMENT_FORCE_RESIZABLE_ACTIVITIES, 0) != 0;
         mSupportsPictureInPicture = forceResizable || context.getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_PICTURE_IN_PICTURE);
-        mActivityConfigCallback = activityConfigCallback;
     }
 
     @Override
@@ -566,13 +540,6 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
             WindowManager.LayoutParams params = getAttributes();
             if (!TextUtils.equals(title, params.accessibilityTitle)) {
                 params.accessibilityTitle = TextUtils.stringOrSpannedString(title);
-                if (mDecor != null) {
-                    // ViewRootImpl will make sure the change propagates to WindowManagerService
-                    ViewRootImpl vr = mDecor.getViewRootImpl();
-                    if (vr != null) {
-                        vr.onWindowTitleChanged();
-                    }
-                }
                 dispatchWindowAttributesChanged(getAttributes());
             }
         }
@@ -745,13 +712,6 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
     public void onMultiWindowModeChanged() {
         if (mDecor != null) {
             mDecor.onConfigurationChanged(getContext().getResources().getConfiguration());
-        }
-    }
-
-    @Override
-    public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode) {
-        if (mDecor != null) {
-            mDecor.updatePictureInPictureOutlineProvider(isInPictureInPictureMode);
         }
     }
 
@@ -1396,8 +1356,7 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
      */
     private int getOptionsPanelGravity() {
         try {
-            return WindowManagerHolder.sWindowManager.getPreferredOptionsPanelGravity(
-                    getContext().getDisplayId());
+            return WindowManagerHolder.sWindowManager.getPreferredOptionsPanelGravity();
         } catch (RemoteException ex) {
             Log.e(TAG, "Couldn't getOptionsPanelGravity; using default", ex);
             return Gravity.CENTER | Gravity.BOTTOM;
@@ -1490,14 +1449,14 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
 
     @Override
     public final void setBackgroundDrawable(Drawable drawable) {
-        if (drawable != mBackgroundDrawable) {
+        if (drawable != mBackgroundDrawable || mBackgroundResource != 0) {
+            mBackgroundResource = 0;
             mBackgroundDrawable = drawable;
             if (mDecor != null) {
                 mDecor.setWindowBackground(drawable);
-                if (mBackgroundFallbackDrawable != null) {
-                    mDecor.setBackgroundFallback(drawable != null ? null :
-                            mBackgroundFallbackDrawable);
-                }
+            }
+            if (mBackgroundFallbackResource != 0) {
+                mDecor.setBackgroundFallback(drawable != null ? 0 : mBackgroundFallbackResource);
             }
         }
     }
@@ -1621,7 +1580,7 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
         if (featureId == FEATURE_PROGRESS || featureId == FEATURE_INDETERMINATE_PROGRESS) {
             updateProgressBars(value);
         } else if (featureId == FEATURE_CUSTOM_TITLE) {
-            FrameLayout titleContainer = findViewById(R.id.title_container);
+            FrameLayout titleContainer = (FrameLayout) findViewById(R.id.title_container);
             if (titleContainer != null) {
                 mLayoutInflater.inflate(value, titleContainer);
             }
@@ -1890,19 +1849,32 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
             case KeyEvent.KEYCODE_VOLUME_UP:
             case KeyEvent.KEYCODE_VOLUME_DOWN:
             case KeyEvent.KEYCODE_VOLUME_MUTE: {
+                int direction = 0;
+                switch (keyCode) {
+                    case KeyEvent.KEYCODE_VOLUME_UP:
+                        direction = AudioManager.ADJUST_RAISE;
+                        break;
+                    case KeyEvent.KEYCODE_VOLUME_DOWN:
+                        direction = AudioManager.ADJUST_LOWER;
+                        break;
+                    case KeyEvent.KEYCODE_VOLUME_MUTE:
+                        direction = AudioManager.ADJUST_TOGGLE_MUTE;
+                        break;
+                }
                 // If we have a session send it the volume command, otherwise
                 // use the suggested stream.
                 if (mMediaController != null) {
-                    getMediaSessionManager().dispatchVolumeKeyEventAsSystemService(
-                            mMediaController.getSessionToken(), event);
+                    mMediaController.adjustVolume(direction, AudioManager.FLAG_SHOW_UI);
                 } else {
-                    getMediaSessionManager().dispatchVolumeKeyEventAsSystemService(event,
-                            mVolumeControlStreamType);
+                    MediaSessionLegacyHelper.getHelper(getContext()).sendAdjustVolumeBy(
+                            mVolumeControlStreamType, direction,
+                            AudioManager.FLAG_SHOW_UI | AudioManager.FLAG_VIBRATE
+                                    | AudioManager.FLAG_FROM_KEY);
                 }
                 return true;
             }
             // These are all the recognized media key codes in
-            // KeyEvent.isMediaSessionKey()
+            // KeyEvent.isMediaKey()
             case KeyEvent.KEYCODE_MEDIA_PLAY:
             case KeyEvent.KEYCODE_MEDIA_PAUSE:
             case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
@@ -1915,8 +1887,7 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
             case KeyEvent.KEYCODE_MEDIA_RECORD:
             case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD: {
                 if (mMediaController != null) {
-                    if (getMediaSessionManager().dispatchMediaKeyEventAsSystemService(
-                            mMediaController.getSessionToken(), event)) {
+                    if (mMediaController.dispatchMediaButtonEvent(event)) {
                         return true;
                     }
                 }
@@ -1958,14 +1929,6 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
         return mAudioManager;
     }
 
-    private MediaSessionManager getMediaSessionManager() {
-        if (mMediaSessionManager == null) {
-            mMediaSessionManager = (MediaSessionManager) getContext().getSystemService(
-                    Context.MEDIA_SESSION_SERVICE);
-        }
-        return mMediaSessionManager;
-    }
-
     /**
      * A key was released and not handled by anything else in the window.
      *
@@ -1984,14 +1947,15 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
         switch (keyCode) {
             case KeyEvent.KEYCODE_VOLUME_UP:
             case KeyEvent.KEYCODE_VOLUME_DOWN: {
+                final int flags = AudioManager.FLAG_PLAY_SOUND | AudioManager.FLAG_VIBRATE
+                        | AudioManager.FLAG_FROM_KEY;
                 // If we have a session send it the volume command, otherwise
                 // use the suggested stream.
                 if (mMediaController != null) {
-                    getMediaSessionManager().dispatchVolumeKeyEventAsSystemService(
-                            mMediaController.getSessionToken(), event);
+                    mMediaController.adjustVolume(0, flags);
                 } else {
-                    getMediaSessionManager().dispatchVolumeKeyEventAsSystemService(
-                            event, mVolumeControlStreamType);
+                    MediaSessionLegacyHelper.getHelper(getContext()).sendAdjustVolumeBy(
+                            mVolumeControlStreamType, 0, flags);
                 }
                 return true;
             }
@@ -2000,12 +1964,11 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
                 // doesn't have one of these.  In this case, we execute it here and
                 // eat the event instead, because we have mVolumeControlStreamType
                 // and they don't.
-                getMediaSessionManager().dispatchVolumeKeyEventAsSystemService(
-                        event, AudioManager.USE_DEFAULT_STREAM_TYPE);
+                getAudioManager().handleKeyUp(event, mVolumeControlStreamType);
                 return true;
             }
             // These are all the recognized media key codes in
-            // KeyEvent.isMediaSessionKey()
+            // KeyEvent.isMediaKey()
             case KeyEvent.KEYCODE_MEDIA_PLAY:
             case KeyEvent.KEYCODE_MEDIA_PAUSE:
             case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
@@ -2018,8 +1981,7 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
             case KeyEvent.KEYCODE_MEDIA_RECORD:
             case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD: {
                 if (mMediaController != null) {
-                    if (getMediaSessionManager().dispatchMediaKeyEventAsSystemService(
-                            mMediaController.getSessionToken(), event)) {
+                    if (mMediaController.dispatchMediaButtonEvent(event)) {
                         return true;
                     }
                 }
@@ -2055,11 +2017,7 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
                  * Do this in onKeyUp since the Search key is also used for
                  * chording quick launch shortcuts.
                  */
-                if (isNotInstantAppAndKeyguardRestricted()) {
-                    break;
-                }
-                if ((getContext().getResources().getConfiguration().uiMode
-                        & Configuration.UI_MODE_TYPE_MASK) == Configuration.UI_MODE_TYPE_WATCH) {
+                if (getKeyguardManager().inKeyguardRestrictedInputMode()) {
                     break;
                 }
                 if (event.isTracking() && !event.isCanceled()) {
@@ -2079,17 +2037,12 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
         return false;
     }
 
-    private boolean isNotInstantAppAndKeyguardRestricted() {
-        return !getContext().getPackageManager().isInstantApp()
-            && getKeyguardManager().inKeyguardRestrictedInputMode();
-    }
-
     @Override
     protected void onActive() {
     }
 
     @Override
-    public final @NonNull View getDecorView() {
+    public final View getDecorView() {
         if (mDecor == null || mForceDecorInstall) {
             installDecor();
         }
@@ -2099,11 +2052,6 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
     @Override
     public final View peekDecorView() {
         return mDecor;
-    }
-
-    /** Notify when decor view is attached to window and {@link ViewRootImpl} is available. */
-    void onViewRootImplSet(ViewRootImpl viewRoot) {
-        viewRoot.setActivityConfigCallback(mActivityConfigCallback);
     }
 
     static private final String FOCUSED_ID_TAG = "android:focusedViewId";
@@ -2322,7 +2270,7 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
             if (applicationContext == null) {
                 context = getContext();
             } else {
-                context = new DecorContext(applicationContext, getContext());
+                context = new DecorContext(applicationContext, getContext().getResources());
                 if (mTheme != -1) {
                     context.setTheme(mTheme);
                 }
@@ -2445,7 +2393,6 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
         final boolean targetPreHoneycomb = targetSdk < android.os.Build.VERSION_CODES.HONEYCOMB;
         final boolean targetPreIcs = targetSdk < android.os.Build.VERSION_CODES.ICE_CREAM_SANDWICH;
         final boolean targetPreL = targetSdk < android.os.Build.VERSION_CODES.LOLLIPOP;
-        final boolean targetPreQ = targetSdk < Build.VERSION_CODES.Q;
         final boolean targetHcNeedsOptions = context.getResources().getBoolean(
                 R.bool.target_honeycomb_needs_options_menu);
         final boolean noActionBar = !hasFeature(FEATURE_ACTION_BAR) || hasFeature(FEATURE_NO_TITLE);
@@ -2461,47 +2408,26 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
         }
         if (!mForcedNavigationBarColor) {
             mNavigationBarColor = a.getColor(R.styleable.Window_navigationBarColor, 0xFF000000);
-            mNavigationBarDividerColor = a.getColor(R.styleable.Window_navigationBarDividerColor,
-                    0x00000000);
-        }
-        if (!targetPreQ) {
-            mEnsureStatusBarContrastWhenTransparent = a.getBoolean(
-                    R.styleable.Window_enforceStatusBarContrast, false);
-            mEnsureNavigationBarContrastWhenTransparent = a.getBoolean(
-                    R.styleable.Window_enforceNavigationBarContrast, true);
         }
 
         WindowManager.LayoutParams params = getAttributes();
 
         // Non-floating windows on high end devices must put up decor beneath the system bars and
         // therefore must know about visibility changes of those.
-        if (!mIsFloating) {
+        if (!mIsFloating && ActivityManager.isHighEndGfx()) {
             if (!targetPreL && a.getBoolean(
                     R.styleable.Window_windowDrawsSystemBarBackgrounds,
                     false)) {
                 setFlags(FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS,
                         FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS & ~getForcedWindowFlags());
             }
-            if (mDecor.mForceWindowDrawsBarBackgrounds) {
-                params.privateFlags |= PRIVATE_FLAG_FORCE_DRAW_BAR_BACKGROUNDS;
+            if (mDecor.mForceWindowDrawsStatusBarBackground) {
+                params.privateFlags |= PRIVATE_FLAG_FORCE_DRAW_STATUS_BAR_BACKGROUND;
             }
         }
         if (a.getBoolean(R.styleable.Window_windowLightStatusBar, false)) {
             decor.setSystemUiVisibility(
                     decor.getSystemUiVisibility() | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
-        }
-        if (a.getBoolean(R.styleable.Window_windowLightNavigationBar, false)) {
-            decor.setSystemUiVisibility(
-                    decor.getSystemUiVisibility() | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
-        }
-        if (a.hasValue(R.styleable.Window_windowLayoutInDisplayCutoutMode)) {
-            int mode = a.getInt(R.styleable.Window_windowLayoutInDisplayCutoutMode, -1);
-            if (mode < LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
-                    || mode > LAYOUT_IN_DISPLAY_CUTOUT_MODE_NEVER) {
-                throw new UnsupportedOperationException("Unknown windowLayoutInDisplayCutoutMode: "
-                        + a.getString(R.styleable.Window_windowLayoutInDisplayCutoutMode));
-            }
-            params.layoutInDisplayCutoutMode = mode;
         }
 
         if (mAlwaysReadCloseOnTouchAttr || getContext().getApplicationInfo().targetSdkVersion
@@ -2540,18 +2466,20 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
         // the values are inherited from our container.
         if (getContainer() == null) {
             if (mBackgroundDrawable == null) {
-
+                if (mBackgroundResource == 0) {
+                    mBackgroundResource = a.getResourceId(
+                            R.styleable.Window_windowBackground, 0);
+                }
                 if (mFrameResource == 0) {
                     mFrameResource = a.getResourceId(R.styleable.Window_windowFrame, 0);
                 }
-
-                if (a.hasValue(R.styleable.Window_windowBackground)) {
-                    mBackgroundDrawable = a.getDrawable(R.styleable.Window_windowBackground);
+                mBackgroundFallbackResource = a.getResourceId(
+                        R.styleable.Window_windowBackgroundFallback, 0);
+                if (false) {
+                    System.out.println("Background: "
+                            + Integer.toHexString(mBackgroundResource) + " Frame: "
+                            + Integer.toHexString(mFrameResource));
                 }
-            }
-            if (a.hasValue(R.styleable.Window_windowBackgroundFallback)) {
-                mBackgroundFallbackDrawable =
-                        a.getDrawable(R.styleable.Window_windowBackgroundFallback);
             }
             if (mLoadElevation) {
                 mElevation = a.getDimension(R.styleable.Window_windowElevation, 0);
@@ -2645,7 +2573,13 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
         // Remaining setup -- of background and title -- that only applies
         // to top-level windows.
         if (getContainer() == null) {
-            mDecor.setWindowBackground(mBackgroundDrawable);
+            final Drawable background;
+            if (mBackgroundResource != 0) {
+                background = getContext().getDrawable(mBackgroundResource);
+            } else {
+                background = mBackgroundDrawable;
+            }
+            mDecor.setWindowBackground(background);
 
             final Drawable frame;
             if (mFrameResource != 0) {
@@ -2739,7 +2673,7 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
                     invalidatePanelMenu(FEATURE_ACTION_BAR);
                 }
             } else {
-                mTitleView = findViewById(R.id.title);
+                mTitleView = (TextView) findViewById(R.id.title);
                 if (mTitleView != null) {
                     if ((getLocalFeatures() & (1 << FEATURE_NO_TITLE)) != 0) {
                         final View titleContainer = findViewById(R.id.title_container);
@@ -2755,8 +2689,8 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
                 }
             }
 
-            if (mDecor.getBackground() == null && mBackgroundFallbackDrawable != null) {
-                mDecor.setBackgroundFallback(mBackgroundFallbackDrawable);
+            if (mDecor.getBackground() == null && mBackgroundFallbackResource != 0) {
+                mDecor.setBackgroundFallback(mBackgroundFallbackResource);
             }
 
             // Only inflate or create a new TransitionManager if the caller hasn't
@@ -3016,7 +2950,7 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
         if (mContentParent == null && shouldInstallDecor) {
             installDecor();
         }
-        mCircularProgressBar = findViewById(R.id.progress_circular);
+        mCircularProgressBar = (ProgressBar) findViewById(R.id.progress_circular);
         if (mCircularProgressBar != null) {
             mCircularProgressBar.setVisibility(View.INVISIBLE);
         }
@@ -3030,7 +2964,7 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
         if (mContentParent == null && shouldInstallDecor) {
             installDecor();
         }
-        mHorizontalProgressBar = findViewById(R.id.progress_horizontal);
+        mHorizontalProgressBar = (ProgressBar) findViewById(R.id.progress_horizontal);
         if (mHorizontalProgressBar != null) {
             mHorizontalProgressBar.setVisibility(View.INVISIBLE);
         }
@@ -3145,29 +3079,12 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
     }
 
     /**
-     * Check if Setup or Post-Setup update is completed on TV
-     * @return true if completed
-     */
-    private boolean isTvUserSetupComplete() {
-        boolean isTvSetupComplete = Settings.Secure.getInt(getContext().getContentResolver(),
-                Settings.Secure.USER_SETUP_COMPLETE, 0) != 0;
-        isTvSetupComplete &= Settings.Secure.getInt(getContext().getContentResolver(),
-                Settings.Secure.TV_USER_SETUP_COMPLETE, 0) != 0;
-        return isTvSetupComplete;
-    }
-
-    /**
      * Helper method for adding launch-search to most applications. Opens the
      * search window using default settings.
      *
      * @return true if search window opened
      */
     private boolean launchDefaultSearch(KeyEvent event) {
-        if (getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK)
-                && !isTvUserSetupComplete()) {
-            // If we are in Setup or Post-Setup update mode on TV, consume the search key
-            return false;
-        }
         boolean result;
         final Callback cb = getCallback();
         if (cb == null || isDestroyed()) {
@@ -3193,7 +3110,7 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
             Bundle args = new Bundle();
             args.putInt(Intent.EXTRA_ASSIST_INPUT_DEVICE_ID, event.getDeviceId());
             return ((SearchManager)getContext().getSystemService(Context.SEARCH_SERVICE))
-                    .launchLegacyAssist(null, getContext().getUserId(), args);
+                    .launchLegacyAssist(null, UserHandle.myUserId(), args);
         }
         return result;
     }
@@ -3662,8 +3579,7 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
             synchronized (mWindows) {
                 if (!mIsWatching) {
                     try {
-                        WindowManagerHolder.sWindowManager.watchRotation(this,
-                                phoneWindow.getContext().getDisplayId());
+                        WindowManagerHolder.sWindowManager.watchRotation(this);
                         mHandler = new Handler();
                         mIsWatching = true;
                     } catch (RemoteException ex) {
@@ -3809,9 +3725,9 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
     }
 
     public static void sendCloseSystemWindows(Context context, String reason) {
-        if (ActivityManager.isSystemReady()) {
+        if (ActivityManagerNative.isSystemReady()) {
             try {
-                ActivityManager.getService().closeSystemDialogs(reason);
+                ActivityManagerNative.getDefault().closeSystemDialogs(reason);
             } catch (RemoteException e) {
             }
         }
@@ -3842,46 +3758,8 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
         mForcedNavigationBarColor = true;
         if (mDecor != null) {
             mDecor.updateColorViews(null, false /* animate */);
+            mDecor.updateNavigationGuardColor();
         }
-    }
-
-    @Override
-    public void setNavigationBarDividerColor(int navigationBarDividerColor) {
-        mNavigationBarDividerColor = navigationBarDividerColor;
-        if (mDecor != null) {
-            mDecor.updateColorViews(null, false /* animate */);
-        }
-    }
-
-    @Override
-    public int getNavigationBarDividerColor() {
-        return mNavigationBarDividerColor;
-    }
-
-    @Override
-    public void setStatusBarContrastEnforced(boolean ensureContrast) {
-        mEnsureStatusBarContrastWhenTransparent = ensureContrast;
-        if (mDecor != null) {
-            mDecor.updateColorViews(null, false /* animate */);
-        }
-    }
-
-    @Override
-    public boolean isStatusBarContrastEnforced() {
-        return mEnsureStatusBarContrastWhenTransparent;
-    }
-
-    @Override
-    public void setNavigationBarContrastEnforced(boolean enforceContrast) {
-        mEnsureNavigationBarContrastWhenTransparent = enforceContrast;
-        if (mDecor != null) {
-            mDecor.updateColorViews(null, false /* animate */);
-        }
-    }
-
-    @Override
-    public boolean isNavigationBarContrastEnforced() {
-        return mEnsureNavigationBarContrastWhenTransparent;
     }
 
     public void setIsStartingWindow(boolean isStartingWindow) {
@@ -3922,21 +3800,5 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
         if (mDecor != null) {
             mDecor.updateLogTag(params);
         }
-    }
-
-    @Override
-    public WindowInsetsController getInsetsController() {
-        return mDecor.getWindowInsetsController();
-    }
-
-    @Override
-    public void setSystemGestureExclusionRects(@NonNull List<Rect> rects) {
-        getViewRootImpl().setRootSystemGestureExclusionRects(rects);
-    }
-
-    @Override
-    @NonNull
-    public List<Rect> getSystemGestureExclusionRects() {
-        return getViewRootImpl().getRootSystemGestureExclusionRects();
     }
 }

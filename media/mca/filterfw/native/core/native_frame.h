@@ -27,7 +27,7 @@ namespace filterfw {
 class NativeFrame {
   public:
     // Create an empty native frame.
-    explicit NativeFrame(int size);
+    NativeFrame(int size);
 
     ~NativeFrame();
 
@@ -76,8 +76,7 @@ class NativeFrame {
     // Capacity of data buffer in bytes.
     int capacity_;
 
-    NativeFrame(const NativeFrame&) = delete;
-    NativeFrame& operator=(const NativeFrame&) = delete;
+    DISALLOW_COPY_AND_ASSIGN(NativeFrame);
 };
 
 } // namespace filterfw

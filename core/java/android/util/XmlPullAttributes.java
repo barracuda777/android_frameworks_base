@@ -18,7 +18,6 @@ package android.util;
 
 import org.xmlpull.v1.XmlPullParser;
 
-import android.annotation.UnsupportedAppUsage;
 import android.util.AttributeSet;
 
 import com.android.internal.util.XmlUtils;
@@ -27,17 +26,12 @@ import com.android.internal.util.XmlUtils;
  * Provides an implementation of AttributeSet on top of an XmlPullParser.
  */
 class XmlPullAttributes implements AttributeSet {
-    @UnsupportedAppUsage
     public XmlPullAttributes(XmlPullParser parser) {
         mParser = parser;
     }
 
     public int getAttributeCount() {
         return mParser.getAttributeCount();
-    }
-
-    public String getAttributeNamespace (int index) {
-        return mParser.getAttributeNamespace(index);
     }
 
     public String getAttributeName(int index) {
@@ -149,6 +143,5 @@ class XmlPullAttributes implements AttributeSet {
         return getAttributeResourceValue(null, "style", 0);
     }
 
-    @UnsupportedAppUsage
     /*package*/ XmlPullParser mParser;
 }

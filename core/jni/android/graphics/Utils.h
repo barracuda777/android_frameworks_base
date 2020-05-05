@@ -28,21 +28,15 @@ namespace android {
 
 class AssetStreamAdaptor : public SkStreamRewindable {
 public:
-    explicit AssetStreamAdaptor(Asset*);
+    AssetStreamAdaptor(Asset*);
 
     virtual bool rewind();
     virtual size_t read(void* buffer, size_t size);
     virtual bool hasLength() const { return true; }
     virtual size_t getLength() const;
-    virtual bool hasPosition() const;
-    virtual size_t getPosition() const;
-    virtual bool seek(size_t position);
-    virtual bool move(long offset);
     virtual bool isAtEnd() const;
 
-protected:
-    SkStreamRewindable* onDuplicate() const override;
-
+    virtual SkStreamRewindable* duplicate() const;
 private:
     Asset* fAsset;
 };
@@ -59,7 +53,7 @@ SkMemoryStream* CopyAssetToStream(Asset*);
  */
 class AutoFDSeek {
 public:
-    explicit AutoFDSeek(int fd) : fFD(fd) {
+    AutoFDSeek(int fd) : fFD(fd) {
         fCurr = ::lseek(fd, 0, SEEK_CUR);
     }
     ~AutoFDSeek() {
@@ -77,8 +71,6 @@ jobject nullObjectReturn(const char msg[]);
 /** Check if the file descriptor is seekable.
  */
 bool isSeekable(int descriptor);
-
-JNIEnv* get_env_or_die(JavaVM* jvm);
 
 }; // namespace android
 

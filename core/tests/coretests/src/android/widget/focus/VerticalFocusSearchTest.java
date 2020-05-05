@@ -16,22 +16,21 @@
 
 package android.widget.focus;
 
+import android.widget.focus.VerticalFocusSearch;
+
 import android.test.ActivityInstrumentationTestCase;
+import android.test.suitebuilder.annotation.Suppress;
 import android.view.FocusFinder;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
 
-import androidx.test.filters.LargeTest;
-import androidx.test.filters.Suppress;
-
 /**
  * Tests that focus searching works on a vertical linear layout of buttons of
  * various widths and horizontal placements.
  */
 // Suppress until bug http://b/issue?id=1416545 is fixed
-@LargeTest
 @Suppress 
 public class VerticalFocusSearchTest extends ActivityInstrumentationTestCase<VerticalFocusSearch> {
 

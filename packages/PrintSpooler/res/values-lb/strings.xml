@@ -28,12 +28,15 @@
     <string name="destination_default_text">En Drécker auswielen</string>
     <string name="template_all_pages">All (<xliff:g id="page_count" example="100">%1$s</xliff:g>)</string>
     <string name="template_page_range">Rei (<xliff:g id="page_count" example="100">%1$s</xliff:g>)</string>
+    <string name="pages_range_example">z. B. 1-5,8,11-13</string>
     <string name="print_preview">Drockvirschau</string>
     <string name="install_for_print_preview">Installéier e PDF-Programm fir eng Drockvirschau</string>
     <string name="printing_app_crashed">D\'Drockapp ass ofgestierzt</string>
     <string name="generating_print_job">Drockoptrag gëtt generéiert</string>
     <string name="save_as_pdf">Als PDF späicheren</string>
+    <string name="all_printers">All d\'Drécker…</string>
     <string name="print_dialog">Drockdialogfënster</string>
+    <string name="current_page_template"><xliff:g id="current_page">%1$d</xliff:g> / <xliff:g id="page_count">%2$d</xliff:g></string>
     <string name="page_description_template">Säit <xliff:g id="current_page" example="1">%1$d</xliff:g> / <xliff:g id="page_count" example="100">%2$d</xliff:g></string>
     <string name="summary_template">Resumé, <xliff:g id="copies" example="1">%1$s</xliff:g> Kopien, Pabeiersgréisst <xliff:g id="paper_size" example="A4">%2$s</xliff:g></string>
     <string name="expand_handle">Steierelement fir d\'Ausklappen</string>

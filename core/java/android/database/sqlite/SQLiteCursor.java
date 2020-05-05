@@ -16,14 +16,11 @@
 
 package android.database.sqlite;
 
-import android.annotation.UnsupportedAppUsage;
 import android.database.AbstractWindowedCursor;
 import android.database.CursorWindow;
 import android.database.DatabaseUtils;
 import android.os.StrictMode;
 import android.util.Log;
-
-import com.android.internal.util.Preconditions;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -40,14 +37,12 @@ public class SQLiteCursor extends AbstractWindowedCursor {
     static final int NO_COUNT = -1;
 
     /** The name of the table to edit */
-    @UnsupportedAppUsage
     private final String mEditTable;
 
     /** The names of the columns in the rows */
     private final String[] mColumns;
 
     /** The query object for the cursor */
-    @UnsupportedAppUsage
     private final SQLiteQuery mQuery;
 
     /** The compiled query this cursor came from */
@@ -64,9 +59,6 @@ public class SQLiteCursor extends AbstractWindowedCursor {
 
     /** Used to find out where a cursor was allocated in case it never got released. */
     private final Throwable mStackTrace;
-
-    /** Controls fetching of rows relative to requested position **/
-    private boolean mFillWindowForwardOnly;
 
     /**
      * Execute a query and provide access to its result set through a Cursor
@@ -142,22 +134,20 @@ public class SQLiteCursor extends AbstractWindowedCursor {
         return mCount;
     }
 
-    @UnsupportedAppUsage
     private void fillWindow(int requiredPos) {
         clearOrCreateWindow(getDatabase().getPath());
-        try {
-            Preconditions.checkArgumentNonnegative(requiredPos,
-                    "requiredPos cannot be negative, but was " + requiredPos);
 
+        try {
             if (mCount == NO_COUNT) {
-                mCount = mQuery.fillWindow(mWindow, requiredPos, requiredPos, true);
+                int startPos = DatabaseUtils.cursorPickFillWindowStartPosition(requiredPos, 0);
+                mCount = mQuery.fillWindow(mWindow, startPos, requiredPos, true);
                 mCursorWindowCapacity = mWindow.getNumRows();
                 if (Log.isLoggable(TAG, Log.DEBUG)) {
                     Log.d(TAG, "received count(*) from native_fill_window: " + mCount);
                 }
             } else {
-                int startPos = mFillWindowForwardOnly ? requiredPos : DatabaseUtils
-                        .cursorPickFillWindowStartPosition(requiredPos, mCursorWindowCapacity);
+                int startPos = DatabaseUtils.cursorPickFillWindowStartPosition(requiredPos,
+                        mCursorWindowCapacity);
                 mQuery.fillWindow(mWindow, startPos, requiredPos, false);
             }
         } catch (RuntimeException ex) {
@@ -259,20 +249,6 @@ public class SQLiteCursor extends AbstractWindowedCursor {
      */
     public void setSelectionArguments(String[] selectionArgs) {
         mDriver.setBindArguments(selectionArgs);
-    }
-
-    /**
-     * Controls fetching of rows relative to requested position.
-     *
-     * <p>Calling this method defines how rows will be loaded, but it doesn't affect rows that
-     * are already in the window. This setting is preserved if a new window is
-     * {@link #setWindow(CursorWindow) set}
-     *
-     * @param fillWindowForwardOnly if true, rows will be fetched starting from requested position
-     * up to the window's capacity. Default value is false.
-     */
-    public void setFillWindowForwardOnly(boolean fillWindowForwardOnly) {
-        mFillWindowForwardOnly = fillWindowForwardOnly;
     }
 
     /**

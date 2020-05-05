@@ -16,6 +16,8 @@
 
 package android.widget.listview;
 
+import android.view.Gravity;
+
 import android.util.ListScenario;
 
 /**

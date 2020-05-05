@@ -16,9 +16,6 @@
 package android.view;
 
 import android.animation.TimeInterpolator;
-import android.graphics.RecordingCanvas;
-import android.graphics.RenderNode;
-
 import com.android.internal.view.animation.FallbackLUTInterpolator;
 import com.android.internal.view.animation.NativeInterpolatorFactory;
 import com.android.internal.view.animation.NativeInterpolatorFactoryHelper;
@@ -31,12 +28,10 @@ import com.android.internal.view.animation.NativeInterpolatorFactoryHelper;
  */
 public class RenderNodeAnimatorSetHelper {
 
-    /** checkstyle @hide */
-    public static RenderNode getTarget(RecordingCanvas recordingCanvas) {
+    public static RenderNode getTarget(DisplayListCanvas recordingCanvas) {
         return recordingCanvas.mNode;
     }
 
-    /** checkstyle @hide */
     public static long createNativeInterpolator(TimeInterpolator interpolator, long
             duration) {
         if (interpolator == null) {

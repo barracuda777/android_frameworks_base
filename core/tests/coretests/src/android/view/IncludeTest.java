@@ -16,11 +16,13 @@
 
 package android.view;
 
-import android.test.ActivityInstrumentationTestCase;
-
-import androidx.test.filters.MediumTest;
-
+import android.view.Include;
 import com.android.frameworks.coretests.R;
+
+import android.test.ActivityInstrumentationTestCase;
+import android.test.suitebuilder.annotation.MediumTest;
+import android.view.View;
+import android.view.ViewGroup;
 
 public class IncludeTest extends ActivityInstrumentationTestCase<Include> {
     public IncludeTest() {

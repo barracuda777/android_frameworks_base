@@ -26,10 +26,7 @@ interface IMediaRouterService {
     void registerClientAsUser(IMediaRouterClient client, String packageName, int userId);
     void unregisterClient(IMediaRouterClient client);
 
-    void registerClientGroupId(IMediaRouterClient client, String groupId);
-
     MediaRouterClientState getState(IMediaRouterClient client);
-    boolean isPlaybackActive(IMediaRouterClient client);
 
     void setDiscoveryRequest(IMediaRouterClient client, int routeTypes, boolean activeScan);
     void setSelectedRoute(IMediaRouterClient client, String routeId, boolean explicit);

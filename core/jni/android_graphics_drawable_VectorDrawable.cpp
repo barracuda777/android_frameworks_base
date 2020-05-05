@@ -96,11 +96,6 @@ static void setAllowCaching(JNIEnv*, jobject, jlong treePtr, jboolean allowCachi
     tree->setAllowCaching(allowCaching);
 }
 
-static void setAntiAlias(JNIEnv*, jobject, jlong treePtr, jboolean aa) {
-    VectorDrawable::Tree* tree = reinterpret_cast<VectorDrawable::Tree*>(treePtr);
-    tree->setAntiAlias(aa);
-}
-
 /**
  * Draw
  */
@@ -130,7 +125,7 @@ static jboolean setRootAlpha(JNIEnv*, jobject, jlong treePtr, jfloat alpha) {
 
 static jfloat getRootAlpha(JNIEnv*, jobject, jlong treePtr) {
     VectorDrawable::Tree* tree = reinterpret_cast<VectorDrawable::Tree*>(treePtr);
-    return tree->stagingProperties().getRootAlpha();
+    return tree->stagingProperties()->getRootAlpha();
 }
 
 static void updateFullPathPropertiesAndStrokeStyles(JNIEnv*, jobject, jlong fullPathPtr,
@@ -355,67 +350,64 @@ static void setTrimPathOffset(JNIEnv*, jobject, jlong fullPathPtr, jfloat trimPa
 }
 
 static const JNINativeMethod gMethods[] = {
+        {"nCreateTree", "!(J)J", (void*)createTree},
+        {"nCreateTreeFromCopy", "!(JJ)J", (void*)createTreeFromCopy},
+        {"nSetRendererViewportSize", "!(JFF)V", (void*)setTreeViewportSize},
+        {"nSetRootAlpha", "!(JF)Z", (void*)setRootAlpha},
+        {"nGetRootAlpha", "!(J)F", (void*)getRootAlpha},
+        {"nSetAllowCaching", "!(JZ)V", (void*)setAllowCaching},
+
         {"nDraw", "(JJJLandroid/graphics/Rect;ZZ)I", (void*)draw},
+        {"nCreateFullPath", "!()J", (void*)createEmptyFullPath},
+        {"nCreateFullPath", "!(J)J", (void*)createFullPath},
+        {"nUpdateFullPathProperties", "!(JFIFIFFFFFIII)V", (void*)updateFullPathPropertiesAndStrokeStyles},
+        {"nUpdateFullPathFillGradient", "!(JJ)V", (void*)updateFullPathFillGradient},
+        {"nUpdateFullPathStrokeGradient", "!(JJ)V", (void*)updateFullPathStrokeGradient},
         {"nGetFullPathProperties", "(J[BI)Z", (void*)getFullPathProperties},
         {"nGetGroupProperties", "(J[FI)Z", (void*)getGroupProperties},
-        {"nSetPathString", "(JLjava/lang/String;I)V", (void*)setPathString},
+
+        {"nCreateClipPath", "!()J", (void*)createEmptyClipPath},
+        {"nCreateClipPath", "!(J)J", (void*)createClipPath},
+        {"nCreateGroup", "!()J", (void*)createEmptyGroup},
+        {"nCreateGroup", "!(J)J", (void*)createGroup},
         {"nSetName", "(JLjava/lang/String;)V", (void*)setNodeName},
+        {"nUpdateGroupProperties", "!(JFFFFFFF)V", (void*)updateGroupProperties},
 
-        // ------------- @FastNative ----------------
+        {"nAddChild", "!(JJ)V", (void*)addChild},
+        {"nSetPathString", "(JLjava/lang/String;I)V", (void*)setPathString},
 
-        {"nCreateTree", "(J)J", (void*)createTree},
-        {"nCreateTreeFromCopy", "(JJ)J", (void*)createTreeFromCopy},
-        {"nSetRendererViewportSize", "(JFF)V", (void*)setTreeViewportSize},
-        {"nSetRootAlpha", "(JF)Z", (void*)setRootAlpha},
-        {"nGetRootAlpha", "(J)F", (void*)getRootAlpha},
-        {"nSetAntiAlias", "(JZ)V", (void*)setAntiAlias},
-        {"nSetAllowCaching", "(JZ)V", (void*)setAllowCaching},
+        {"nGetRotation", "!(J)F", (void*)getRotation},
+        {"nSetRotation", "!(JF)V", (void*)setRotation},
+        {"nGetPivotX", "!(J)F", (void*)getPivotX},
+        {"nSetPivotX", "!(JF)V", (void*)setPivotX},
+        {"nGetPivotY", "!(J)F", (void*)getPivotY},
+        {"nSetPivotY", "!(JF)V", (void*)setPivotY},
+        {"nGetScaleX", "!(J)F", (void*)getScaleX},
+        {"nSetScaleX", "!(JF)V", (void*)setScaleX},
+        {"nGetScaleY", "!(J)F", (void*)getScaleY},
+        {"nSetScaleY", "!(JF)V", (void*)setScaleY},
+        {"nGetTranslateX", "!(J)F", (void*)getTranslateX},
+        {"nSetTranslateX", "!(JF)V", (void*)setTranslateX},
+        {"nGetTranslateY", "!(J)F", (void*)getTranslateY},
+        {"nSetTranslateY", "!(JF)V", (void*)setTranslateY},
 
-        {"nCreateFullPath", "()J", (void*)createEmptyFullPath},
-        {"nCreateFullPath", "(J)J", (void*)createFullPath},
-        {"nUpdateFullPathProperties", "(JFIFIFFFFFIII)V", (void*)updateFullPathPropertiesAndStrokeStyles},
-        {"nUpdateFullPathFillGradient", "(JJ)V", (void*)updateFullPathFillGradient},
-        {"nUpdateFullPathStrokeGradient", "(JJ)V", (void*)updateFullPathStrokeGradient},
-
-        {"nCreateClipPath", "()J", (void*)createEmptyClipPath},
-        {"nCreateClipPath", "(J)J", (void*)createClipPath},
-        {"nCreateGroup", "()J", (void*)createEmptyGroup},
-        {"nCreateGroup", "(J)J", (void*)createGroup},
-        {"nUpdateGroupProperties", "(JFFFFFFF)V", (void*)updateGroupProperties},
-
-        {"nAddChild", "(JJ)V", (void*)addChild},
-        {"nGetRotation", "(J)F", (void*)getRotation},
-        {"nSetRotation", "(JF)V", (void*)setRotation},
-        {"nGetPivotX", "(J)F", (void*)getPivotX},
-        {"nSetPivotX", "(JF)V", (void*)setPivotX},
-        {"nGetPivotY", "(J)F", (void*)getPivotY},
-        {"nSetPivotY", "(JF)V", (void*)setPivotY},
-        {"nGetScaleX", "(J)F", (void*)getScaleX},
-        {"nSetScaleX", "(JF)V", (void*)setScaleX},
-        {"nGetScaleY", "(J)F", (void*)getScaleY},
-        {"nSetScaleY", "(JF)V", (void*)setScaleY},
-        {"nGetTranslateX", "(J)F", (void*)getTranslateX},
-        {"nSetTranslateX", "(JF)V", (void*)setTranslateX},
-        {"nGetTranslateY", "(J)F", (void*)getTranslateY},
-        {"nSetTranslateY", "(JF)V", (void*)setTranslateY},
-
-        {"nSetPathData", "(JJ)V", (void*)setPathData},
-        {"nGetStrokeWidth", "(J)F", (void*)getStrokeWidth},
-        {"nSetStrokeWidth", "(JF)V", (void*)setStrokeWidth},
-        {"nGetStrokeColor", "(J)I", (void*)getStrokeColor},
-        {"nSetStrokeColor", "(JI)V", (void*)setStrokeColor},
-        {"nGetStrokeAlpha", "(J)F", (void*)getStrokeAlpha},
-        {"nSetStrokeAlpha", "(JF)V", (void*)setStrokeAlpha},
-        {"nGetFillColor", "(J)I", (void*)getFillColor},
-        {"nSetFillColor", "(JI)V", (void*)setFillColor},
-        {"nGetFillAlpha", "(J)F", (void*)getFillAlpha},
-        {"nSetFillAlpha", "(JF)V", (void*)setFillAlpha},
-        {"nGetTrimPathStart", "(J)F", (void*)getTrimPathStart},
-        {"nSetTrimPathStart", "(JF)V", (void*)setTrimPathStart},
-        {"nGetTrimPathEnd", "(J)F", (void*)getTrimPathEnd},
-        {"nSetTrimPathEnd", "(JF)V", (void*)setTrimPathEnd},
-        {"nGetTrimPathOffset", "(J)F", (void*)getTrimPathOffset},
-        {"nSetTrimPathOffset", "(JF)V", (void*)setTrimPathOffset},
+        {"nSetPathData", "!(JJ)V", (void*)setPathData},
+        {"nGetStrokeWidth", "!(J)F", (void*)getStrokeWidth},
+        {"nSetStrokeWidth", "!(JF)V", (void*)setStrokeWidth},
+        {"nGetStrokeColor", "!(J)I", (void*)getStrokeColor},
+        {"nSetStrokeColor", "!(JI)V", (void*)setStrokeColor},
+        {"nGetStrokeAlpha", "!(J)F", (void*)getStrokeAlpha},
+        {"nSetStrokeAlpha", "!(JF)V", (void*)setStrokeAlpha},
+        {"nGetFillColor", "!(J)I", (void*)getFillColor},
+        {"nSetFillColor", "!(JI)V", (void*)setFillColor},
+        {"nGetFillAlpha", "!(J)F", (void*)getFillAlpha},
+        {"nSetFillAlpha", "!(JF)V", (void*)setFillAlpha},
+        {"nGetTrimPathStart", "!(J)F", (void*)getTrimPathStart},
+        {"nSetTrimPathStart", "!(JF)V", (void*)setTrimPathStart},
+        {"nGetTrimPathEnd", "!(J)F", (void*)getTrimPathEnd},
+        {"nSetTrimPathEnd", "!(JF)V", (void*)setTrimPathEnd},
+        {"nGetTrimPathOffset", "!(J)F", (void*)getTrimPathOffset},
+        {"nSetTrimPathOffset", "!(JF)V", (void*)setTrimPathOffset},
 };
 
 int register_android_graphics_drawable_VectorDrawable(JNIEnv* env) {

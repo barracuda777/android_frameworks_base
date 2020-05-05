@@ -13,83 +13,66 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef TEST_UTILS_H
+#define TEST_UTILS_H
 
-#pragma once
-
+#include <DeviceInfo.h>
 #include <DisplayList.h>
 #include <Matrix.h>
-#include <Properties.h>
 #include <Rect.h>
 #include <RenderNode.h>
-#include <hwui/Bitmap.h>
-#include <pipeline/skia/SkiaRecordingCanvas.h>
-#include <private/hwui/DrawGlInfo.h>
 #include <renderstate/RenderState.h>
 #include <renderthread/RenderThread.h>
+#include <Snapshot.h>
 
-#include <gtest/gtest.h>
+#if HWUI_NEW_OPS
+#include <RecordedOp.h>
+#include <RecordingCanvas.h>
+#else
+#include <DisplayListOp.h>
+#include <DisplayListCanvas.h>
+#endif
+
 #include <memory>
 
 namespace android {
 namespace uirenderer {
 
-#define EXPECT_MATRIX_APPROX_EQ(a, b) EXPECT_TRUE(TestUtils::matricesAreApproxEqual(a, b))
+#if HWUI_NEW_OPS
+typedef RecordingCanvas TestCanvas;
+#else
+typedef DisplayListCanvas TestCanvas;
+#endif
 
-#define EXPECT_RECT_APPROX_EQ(a, b)                          \
-    EXPECT_TRUE(MathUtils::areEqual((a).left, (b).left) &&   \
-                MathUtils::areEqual((a).top, (b).top) &&     \
-                MathUtils::areEqual((a).right, (b).right) && \
-                MathUtils::areEqual((a).bottom, (b).bottom));
+#define EXPECT_MATRIX_APPROX_EQ(a, b) \
+    EXPECT_TRUE(TestUtils::matricesAreApproxEqual(a, b))
 
-#define EXPECT_CLIP_RECT(expRect, clipStatePtr)                                      \
-    EXPECT_NE(nullptr, (clipStatePtr)) << "Op is unclipped";                         \
-    if ((clipStatePtr)->mode == ClipMode::Rectangle) {                               \
-        EXPECT_EQ((expRect), reinterpret_cast<const ClipRect*>(clipStatePtr)->rect); \
-    } else {                                                                         \
-        ADD_FAILURE() << "ClipState not a rect";                                     \
-    }
+#define EXPECT_RECT_APPROX_EQ(a, b) \
+    EXPECT_TRUE(MathUtils::areEqual(a.left, b.left) \
+            && MathUtils::areEqual(a.top, b.top) \
+            && MathUtils::areEqual(a.right, b.right) \
+            && MathUtils::areEqual(a.bottom, b.bottom));
 
-#define INNER_PIPELINE_TEST(test_case_name, test_name, pipeline, functionCall) \
-    TEST(test_case_name, test_name##_##pipeline) {                             \
-        RenderPipelineType oldType = Properties::getRenderPipelineType();      \
-        Properties::overrideRenderPipelineType(RenderPipelineType::pipeline);  \
-        functionCall;                                                          \
-        Properties::overrideRenderPipelineType(oldType);                       \
-    };
-
-#define INNER_PIPELINE_RENDERTHREAD_TEST(test_case_name, test_name, pipeline) \
-    INNER_PIPELINE_TEST(test_case_name, test_name, pipeline,                  \
-                        TestUtils::runOnRenderThread(                         \
-                                test_case_name##_##test_name##_RenderThreadTest::doTheThing))
-
+#define EXPECT_CLIP_RECT(expRect, clipStatePtr) \
+        EXPECT_NE(nullptr, (clipStatePtr)) << "Op is unclipped"; \
+        if ((clipStatePtr)->mode == ClipMode::Rectangle) { \
+            EXPECT_EQ((expRect), reinterpret_cast<const ClipRect*>(clipStatePtr)->rect); \
+        } else { \
+            ADD_FAILURE() << "ClipState not a rect"; \
+        }
 /**
  * Like gtest's TEST, but runs on the RenderThread, and 'renderThread' is passed, in top level scope
  * (for e.g. accessing its RenderState)
  */
-#define RENDERTHREAD_TEST(test_case_name, test_name)                                        \
-    class test_case_name##_##test_name##_RenderThreadTest {                                 \
-    public:                                                                                 \
-        static void doTheThing(renderthread::RenderThread& renderThread);                   \
-    };                                                                                      \
-    INNER_PIPELINE_RENDERTHREAD_TEST(test_case_name, test_name, SkiaGL);                    \
-    /* Temporarily disabling Vulkan until we can figure out a way to stub out the driver */ \
-    /* INNER_PIPELINE_RENDERTHREAD_TEST(test_case_name, test_name, SkiaVulkan); */          \
-    void test_case_name##_##test_name##_RenderThreadTest::doTheThing(                       \
-            renderthread::RenderThread& renderThread)
-
-/**
- * Like RENDERTHREAD_TEST, but only runs with the Skia RenderPipelineTypes
- */
-#define RENDERTHREAD_SKIA_PIPELINE_TEST(test_case_name, test_name)                          \
-    class test_case_name##_##test_name##_RenderThreadTest {                                 \
-    public:                                                                                 \
-        static void doTheThing(renderthread::RenderThread& renderThread);                   \
-    };                                                                                      \
-    INNER_PIPELINE_RENDERTHREAD_TEST(test_case_name, test_name, SkiaGL);                    \
-    /* Temporarily disabling Vulkan until we can figure out a way to stub out the driver */ \
-    /* INNER_PIPELINE_RENDERTHREAD_TEST(test_case_name, test_name, SkiaVulkan); */          \
-    void test_case_name##_##test_name##_RenderThreadTest::doTheThing(                       \
-            renderthread::RenderThread& renderThread)
+#define RENDERTHREAD_TEST(test_case_name, test_name) \
+    class test_case_name##_##test_name##_RenderThreadTest { \
+    public: \
+        static void doTheThing(renderthread::RenderThread& renderThread); \
+    }; \
+    TEST(test_case_name, test_name) { \
+        TestUtils::runOnRenderThread(test_case_name##_##test_name##_RenderThreadTest::doTheThing); \
+    }; \
+    void test_case_name##_##test_name##_RenderThreadTest::doTheThing(renderthread::RenderThread& renderThread)
 
 /**
  * Sets a property value temporarily, generally for the duration of a test, restoring the previous
@@ -100,11 +83,14 @@ namespace uirenderer {
 template <typename T>
 class ScopedProperty {
 public:
-    ScopedProperty(T& property, T newValue) : mPropertyPtr(&property), mOldValue(property) {
+    ScopedProperty(T& property, T newValue)
+        : mPropertyPtr(&property)
+        , mOldValue(property) {
         property = newValue;
     }
-    ~ScopedProperty() { *mPropertyPtr = mOldValue; }
-
+    ~ScopedProperty() {
+        *mPropertyPtr = mOldValue;
+    }
 private:
     T* mPropertyPtr;
     T mOldValue;
@@ -114,22 +100,20 @@ class TestUtils {
 public:
     class SignalingDtor {
     public:
-        SignalingDtor() : mSignal(nullptr) {}
-        explicit SignalingDtor(int* signal) : mSignal(signal) {}
-        void setSignal(int* signal) { mSignal = signal; }
+        SignalingDtor()
+                : mSignal(nullptr) {}
+        SignalingDtor(int* signal)
+                : mSignal(signal) {}
+        void setSignal(int* signal) {
+            mSignal = signal;
+        }
         ~SignalingDtor() {
             if (mSignal) {
                 (*mSignal)++;
             }
         }
-
     private:
         int* mSignal;
-    };
-
-    class MockTreeObserver : public TreeObserver {
-    public:
-        virtual void onMaybeRemovedFromTree(RenderNode* node) {}
     };
 
     static bool matricesAreApproxEqual(const Matrix4& a, const Matrix4& b) {
@@ -141,96 +125,61 @@ public:
         return true;
     }
 
-    static sk_sp<Bitmap> createBitmap(int width, int height,
-                                      SkColorType colorType = kN32_SkColorType) {
-        SkImageInfo info = SkImageInfo::Make(width, height, colorType, kPremul_SkAlphaType);
-        return Bitmap::allocateHeapBitmap(info);
+    static std::unique_ptr<Snapshot> makeSnapshot(const Matrix4& transform, const Rect& clip) {
+        std::unique_ptr<Snapshot> snapshot(new Snapshot());
+        snapshot->clip(clip, SkRegion::kReplace_Op); // store clip first, so it isn't transformed
+        *(snapshot->transform) = transform;
+        return snapshot;
     }
 
-    static sk_sp<Bitmap> createBitmap(int width, int height, SkBitmap* outBitmap) {
-        SkImageInfo info = SkImageInfo::Make(width, height, kN32_SkColorType, kPremul_SkAlphaType);
-        outBitmap->setInfo(info);
-        return Bitmap::allocateHeapBitmap(outBitmap);
+    static SkBitmap createSkBitmap(int width, int height,
+            SkColorType colorType = kN32_SkColorType) {
+        SkBitmap bitmap;
+        SkImageInfo info = SkImageInfo::Make(width, height,
+                colorType, kPremul_SkAlphaType);
+        bitmap.setInfo(info);
+        bitmap.allocPixels(info);
+        return bitmap;
     }
-
-    static sp<DeferredLayerUpdater> createTextureLayerUpdater(
-            renderthread::RenderThread& renderThread);
 
     static sp<DeferredLayerUpdater> createTextureLayerUpdater(
             renderthread::RenderThread& renderThread, uint32_t width, uint32_t height,
             const SkMatrix& transform);
 
-    template <class CanvasType>
-    static std::unique_ptr<DisplayList> createDisplayList(
-            int width, int height, std::function<void(CanvasType& canvas)> canvasCallback) {
+    template<class CanvasType>
+    static std::unique_ptr<DisplayList> createDisplayList(int width, int height,
+            std::function<void(CanvasType& canvas)> canvasCallback) {
         CanvasType canvas(width, height);
         canvasCallback(canvas);
         return std::unique_ptr<DisplayList>(canvas.finishRecording());
     }
 
-    static sp<RenderNode> createNode(
-            int left, int top, int right, int bottom,
-            std::function<void(RenderProperties& props, Canvas& canvas)> setup) {
-        sp<RenderNode> node = new RenderNode();
-        RenderProperties& props = node->mutateStagingProperties();
-        props.setLeftTopRightBottom(left, top, right, bottom);
-        if (setup) {
-            std::unique_ptr<Canvas> canvas(
-                    Canvas::create_recording_canvas(props.getWidth(), props.getHeight()));
-            setup(props, *canvas.get());
-            node->setStagingDisplayList(canvas->finishRecording());
-        }
-        node->setPropertyFieldsDirty(0xFFFFFFFF);
-        return node;
-    }
+    static sp<RenderNode> createNode(int left, int top, int right, int bottom,
+            std::function<void(RenderProperties& props, TestCanvas& canvas)> setup) {
+#if HWUI_NULL_GPU
+        // if RenderNodes are being sync'd/used, device info will be needed, since
+        // DeviceInfo::maxTextureSize() affects layer property
+        DeviceInfo::initialize();
+#endif
 
-    template <class RecordingCanvasType>
-    static sp<RenderNode> createNode(
-            int left, int top, int right, int bottom,
-            std::function<void(RenderProperties& props, RecordingCanvasType& canvas)> setup) {
         sp<RenderNode> node = new RenderNode();
         RenderProperties& props = node->mutateStagingProperties();
         props.setLeftTopRightBottom(left, top, right, bottom);
         if (setup) {
-            RecordingCanvasType canvas(props.getWidth(), props.getHeight());
+            TestCanvas canvas(props.getWidth(), props.getHeight());
             setup(props, canvas);
-            node->setStagingDisplayList(canvas.finishRecording());
+            node->setStagingDisplayList(canvas.finishRecording(), nullptr);
         }
         node->setPropertyFieldsDirty(0xFFFFFFFF);
         return node;
     }
 
-    static void recordNode(RenderNode& node, std::function<void(Canvas&)> contentCallback) {
-        std::unique_ptr<Canvas> canvas(Canvas::create_recording_canvas(
-                node.stagingProperties().getWidth(), node.stagingProperties().getHeight(), &node));
-        contentCallback(*canvas.get());
-        node.setStagingDisplayList(canvas->finishRecording());
-    }
-
-    static sp<RenderNode> createSkiaNode(
-            int left, int top, int right, int bottom,
-            std::function<void(RenderProperties& props, skiapipeline::SkiaRecordingCanvas& canvas)>
-                    setup,
-            const char* name = nullptr, skiapipeline::SkiaDisplayList* displayList = nullptr) {
-        sp<RenderNode> node = new RenderNode();
-        if (name) {
-            node->setName(name);
-        }
-        RenderProperties& props = node->mutateStagingProperties();
-        props.setLeftTopRightBottom(left, top, right, bottom);
-        if (displayList) {
-            node->setStagingDisplayList(displayList);
-        }
-        if (setup) {
-            std::unique_ptr<skiapipeline::SkiaRecordingCanvas> canvas(
-                    new skiapipeline::SkiaRecordingCanvas(nullptr, props.getWidth(),
-                                                          props.getHeight()));
-            setup(props, *canvas.get());
-            node->setStagingDisplayList(canvas->finishRecording());
-        }
-        node->setPropertyFieldsDirty(0xFFFFFFFF);
-        TestUtils::syncHierarchyPropertiesAndDisplayList(node);
-        return node;
+    static void recordNode(RenderNode& node,
+            std::function<void(TestCanvas&)> contentCallback) {
+       TestCanvas canvas(node.stagingProperties().getWidth(),
+               node.stagingProperties().getHeight());
+       contentCallback(canvas);
+       node.setStagingDisplayList(canvas.finishRecording(), nullptr);
     }
 
     /**
@@ -253,7 +202,8 @@ public:
 
     class TestTask : public renderthread::RenderTask {
     public:
-        explicit TestTask(RtCallback rtCallback) : rtCallback(rtCallback) {}
+        TestTask(RtCallback rtCallback)
+                : rtCallback(rtCallback) {}
         virtual ~TestTask() {}
         virtual void run() override;
         RtCallback rtCallback;
@@ -264,109 +214,42 @@ public:
      */
     static void runOnRenderThread(RtCallback rtCallback) {
         TestTask task(rtCallback);
-        renderthread::RenderThread::getInstance().queue().runSync([&]() { task.run(); });
+        renderthread::RenderThread::getInstance().queueAndWait(&task);
     }
 
-    static void runOnRenderThreadUnmanaged(RtCallback rtCallback) {
-        auto& rt = renderthread::RenderThread::getInstance();
-        rt.queue().runSync([&]() { rtCallback(rt); });
+    static bool isRenderThreadRunning() {
+        return renderthread::RenderThread::hasInstance();
     }
-
-
-    static bool isRenderThreadRunning() { return renderthread::RenderThread::hasInstance(); }
-    static pid_t getRenderThreadTid() { return renderthread::RenderThread::getInstance().getTid(); }
 
     static SkColor interpolateColor(float fraction, SkColor start, SkColor end);
 
-    static void drawUtf8ToCanvas(Canvas* canvas, const char* text, const Paint& paint, float x,
-                                 float y);
+    static void layoutTextUnscaled(const SkPaint& paint, const char* text,
+            std::vector<glyph_t>* outGlyphs, std::vector<float>* outPositions,
+            float* outTotalAdvance, Rect* outBounds);
 
-    static void drawUtf8ToCanvas(Canvas* canvas, const char* text, const Paint& paint,
-                                 const SkPath& path);
+    static void drawUtf8ToCanvas(Canvas* canvas, const char* text,
+            const SkPaint& paint, float x, float y);
+
+    static void drawUtf8ToCanvas(Canvas* canvas, const char* text,
+            const SkPaint& paint, const SkPath& path);
 
     static std::unique_ptr<uint16_t[]> asciiToUtf16(const char* str);
 
-    class MockFunctor : public Functor {
-    public:
-        virtual status_t operator()(int what, void* data) {
-            mLastMode = what;
-            return DrawGlInfo::kStatusDone;
-        }
-        int getLastMode() const { return mLastMode; }
-
-    private:
-        int mLastMode = -1;
-    };
-
-    static SkColor getColor(const sk_sp<SkSurface>& surface, int x, int y);
-
-    static SkRect getClipBounds(const SkCanvas* canvas);
-    static SkRect getLocalClipBounds(const SkCanvas* canvas);
-
-    struct CallCounts {
-        int sync = 0;
-        int contextDestroyed = 0;
-        int destroyed = 0;
-        int glesDraw = 0;
-    };
-
-    static void expectOnRenderThread() { EXPECT_EQ(gettid(), TestUtils::getRenderThreadTid()); }
-
-    static WebViewFunctorCallbacks createMockFunctor(RenderMode mode) {
-        auto callbacks = WebViewFunctorCallbacks{
-                .onSync =
-                        [](int functor, void* client_data, const WebViewSyncData& data) {
-                            expectOnRenderThread();
-                            sMockFunctorCounts[functor].sync++;
-                        },
-                .onContextDestroyed =
-                        [](int functor, void* client_data) {
-                            expectOnRenderThread();
-                            sMockFunctorCounts[functor].contextDestroyed++;
-                        },
-                .onDestroyed =
-                        [](int functor, void* client_data) {
-                            expectOnRenderThread();
-                            sMockFunctorCounts[functor].destroyed++;
-                        },
-        };
-        switch (mode) {
-            case RenderMode::OpenGL_ES:
-                callbacks.gles.draw = [](int functor, void* client_data, const DrawGlInfo& params) {
-                    expectOnRenderThread();
-                    sMockFunctorCounts[functor].glesDraw++;
-                };
-                break;
-            default:
-                ADD_FAILURE();
-                return WebViewFunctorCallbacks{};
-        }
-        return callbacks;
-    }
-
-    static CallCounts& countsForFunctor(int functor) { return sMockFunctorCounts[functor]; }
-
 private:
-    static std::unordered_map<int, CallCounts> sMockFunctorCounts;
-
     static void syncHierarchyPropertiesAndDisplayListImpl(RenderNode* node) {
-        MarkAndSweepRemoved observer(nullptr);
         node->syncProperties();
-        if (node->mNeedsDisplayListSync) {
-            node->mNeedsDisplayListSync = false;
-            node->syncDisplayList(observer, nullptr);
-        }
+        node->syncDisplayList(nullptr);
         auto displayList = node->getDisplayList();
         if (displayList) {
-            for (auto&& childDr :
-                 static_cast<skiapipeline::SkiaDisplayList*>(const_cast<DisplayList*>(displayList))
-                         ->mChildNodes) {
-                syncHierarchyPropertiesAndDisplayListImpl(childDr.getRenderNode());
+            for (auto&& childOp : displayList->getChildren()) {
+                syncHierarchyPropertiesAndDisplayListImpl(childOp->renderNode);
             }
         }
     }
 
-};  // class TestUtils
+}; // class TestUtils
 
 } /* namespace uirenderer */
 } /* namespace android */
+
+#endif /* TEST_UTILS_H */

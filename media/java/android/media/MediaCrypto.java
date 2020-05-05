@@ -56,15 +56,13 @@ public final class MediaCrypto {
     private static final native boolean isCryptoSchemeSupportedNative(@NonNull byte[] uuid);
 
     /**
-     * Instantiate a MediaCrypto object and associate it with a MediaDrm session
-     *
+     * Instantiate a MediaCrypto object using opaque, crypto scheme specific
+     * data.
      * @param uuid The UUID of the crypto scheme.
-     * @param sessionId The MediaDrm sessionId to associate with this
-     * MediaCrypto session. The sessionId may be changed after the MediaCrypto
-     * is created using {@link #setMediaDrmSession}
+     * @param initData Opaque initialization data specific to the crypto scheme.
      */
-    public MediaCrypto(@NonNull UUID uuid, @NonNull byte[] sessionId) throws MediaCryptoException {
-        native_setup(getByteArrayFromUUID(uuid), sessionId);
+    public MediaCrypto(@NonNull UUID uuid, @NonNull byte[] initData) throws MediaCryptoException {
+        native_setup(getByteArrayFromUUID(uuid), initData);
     }
 
     /**

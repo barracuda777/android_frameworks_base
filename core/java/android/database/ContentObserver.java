@@ -16,7 +16,6 @@
 
 package android.database;
 
-import android.annotation.UnsupportedAppUsage;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.UserHandle;
@@ -60,7 +59,6 @@ public abstract class ContentObserver {
      *
      * {@hide}
      */
-    @UnsupportedAppUsage
     public IContentObserver releaseContentObserver() {
         synchronized (mLock) {
             final Transport oldTransport = mTransport;

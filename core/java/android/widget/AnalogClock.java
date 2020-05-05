@@ -16,15 +16,15 @@
 
 package android.widget;
 
-import android.annotation.UnsupportedAppUsage;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.BroadcastReceiver;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
+import android.os.Handler;
 import android.text.format.DateUtils;
 import android.text.format.Time;
 import android.util.AttributeSet;
@@ -47,11 +47,8 @@ import java.util.TimeZone;
 public class AnalogClock extends View {
     private Time mCalendar;
 
-    @UnsupportedAppUsage
     private Drawable mHourHand;
-    @UnsupportedAppUsage
     private Drawable mMinuteHand;
-    @UnsupportedAppUsage
     private Drawable mDial;
 
     private int mDialWidth;
@@ -81,8 +78,6 @@ public class AnalogClock extends View {
         final Resources r = context.getResources();
         final TypedArray a = context.obtainStyledAttributes(
                 attrs, com.android.internal.R.styleable.AnalogClock, defStyleAttr, defStyleRes);
-        saveAttributeDataForStyleable(context, com.android.internal.R.styleable.AnalogClock,
-                attrs, a, defStyleAttr, defStyleRes);
 
         mDial = a.getDrawable(com.android.internal.R.styleable.AnalogClock_dial);
         if (mDial == null) {
@@ -263,7 +258,7 @@ public class AnalogClock extends View {
             }
 
             onTimeChanged();
-
+            
             invalidate();
         }
     };

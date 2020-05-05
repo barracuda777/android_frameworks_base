@@ -1,6 +1,5 @@
 /*
 * Copyright (C) 2015 The CyanogenMod Project
-*               2017-2019 The LineageOS Project
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -14,7 +13,6 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-
 package com.android.systemui.statusbar;
 
 import android.animation.ObjectAnimator;
@@ -26,15 +24,15 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.media.audiofx.Visualizer;
 import android.os.AsyncTask;
+import android.os.UserHandle;
+import android.support.v7.graphics.Palette;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
 
-import com.android.internal.graphics.palette.Palette;
-import com.android.systemui.Dependency;
 import com.android.systemui.tuner.TunerService;
 
-import lineageos.providers.LineageSettings;
+import cyanogenmod.providers.CMSettings;
 
 public class VisualizerView extends View
         implements Palette.PaletteAsyncListener, TunerService.Tunable {
@@ -43,7 +41,7 @@ public class VisualizerView extends View
     private static final boolean DEBUG = false;
 
     private static final String LOCKSCREEN_VISUALIZER_ENABLED =
-            "lineagesecure:" + LineageSettings.Secure.LOCKSCREEN_VISUALIZER_ENABLED;
+            "cmsecure:" + CMSettings.Secure.LOCKSCREEN_VISUALIZER_ENABLED;
 
     private Paint mPaint;
     private Visualizer mVisualizer;
@@ -53,12 +51,13 @@ public class VisualizerView extends View
     private float[] mFFTPoints;
 
     private int mStatusBarState;
-    private boolean mVisualizerEnabled;
-    private boolean mVisible;
-    private boolean mPlaying;
-    private boolean mDisplaying; // the state we're animating to
-    private boolean mDozing;
-    private boolean mOccluded;
+    private boolean mVisualizerEnabled = false;
+    private boolean mVisible = false;
+    private boolean mPlaying = false;
+    private boolean mPowerSaveMode = false;
+    private boolean mDisplaying = false; // the state we're animating to
+    private boolean mDozing = false;
+    private boolean mOccluded = false;
 
     private int mColor;
     private Bitmap mCurrentBitmap;
@@ -105,7 +104,7 @@ public class VisualizerView extends View
 
             mVisualizer.setEnabled(false);
             mVisualizer.setCaptureSize(66);
-            mVisualizer.setDataCaptureListener(mVisualizerListener, Visualizer.getMaxCaptureRate(),
+            mVisualizer.setDataCaptureListener(mVisualizerListener,Visualizer.getMaxCaptureRate(),
                     false, true);
             mVisualizer.setEnabled(true);
 
@@ -134,18 +133,10 @@ public class VisualizerView extends View
                 mVisualizer = null;
             }
             if (DEBUG) {
-                Log.w(TAG, "--- mUnlinkVisualizer run()");
+                Log.w(TAG, "--- mUninkVisualizer run()");
             }
         }
     };
-
-    public VisualizerView(Context context) {
-        this(context, null, 0);
-    }
-
-    public VisualizerView(Context context, AttributeSet attrs) {
-        this(context, attrs, 0);
-    }
 
     public VisualizerView(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
@@ -172,10 +163,18 @@ public class VisualizerView extends View
         }
     }
 
+    public VisualizerView(Context context, AttributeSet attrs) {
+        this(context, attrs, 0);
+    }
+
+    public VisualizerView(Context context) {
+        this(context, null, 0);
+    }
+
     private void updateViewVisibility() {
         final int curVis = getVisibility();
-        final int newVis = mStatusBarState != StatusBarState.SHADE &&
-                mVisualizerEnabled ? View.VISIBLE : View.GONE;
+        final int newVis = mStatusBarState != StatusBarState.SHADE
+                && mVisualizerEnabled ? View.VISIBLE : View.GONE;
         if (curVis != newVis) {
             setVisibility(newVis);
             checkStateChanged();
@@ -185,23 +184,14 @@ public class VisualizerView extends View
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        Dependency.get(TunerService.class).addTunable(this, LOCKSCREEN_VISUALIZER_ENABLED);
+        TunerService.get(mContext).addTunable(this, LOCKSCREEN_VISUALIZER_ENABLED);
     }
 
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        Dependency.get(TunerService.class).removeTunable(this);
+        TunerService.get(mContext).removeTunable(this);
         mCurrentBitmap = null;
-    }
-
-    @Override
-    public void onTuningChanged(String key, String newValue) {
-        if (LOCKSCREEN_VISUALIZER_ENABLED.equals(key)) {
-            mVisualizerEnabled = TunerService.parseIntegerSwitch(newValue, false);
-            checkStateChanged();
-            updateViewVisibility();
-        }
     }
 
     @Override
@@ -234,19 +224,14 @@ public class VisualizerView extends View
         }
     }
 
-    @Override
-    public void onGenerated(Palette palette) {
-        int color = Color.TRANSPARENT;
-
-        color = palette.getVibrantColor(color);
-        if (color == Color.TRANSPARENT) {
-            color = palette.getLightVibrantColor(color);
-            if (color == Color.TRANSPARENT) {
-                color = palette.getDarkVibrantColor(color);
+    public void setVisible(boolean visible) {
+        if (mVisible != visible) {
+            if (DEBUG) {
+                Log.i(TAG, "setVisible() called with visible = [" + visible + "]");
             }
+            mVisible = visible;
+            checkStateChanged();
         }
-
-        setColor(color);
     }
 
     public void setDozing(boolean dozing) {
@@ -255,16 +240,6 @@ public class VisualizerView extends View
                 Log.i(TAG, "setDozing() called with dozing = [" + dozing + "]");
             }
             mDozing = dozing;
-            checkStateChanged();
-        }
-    }
-
-    public void setOccluded(boolean occluded) {
-        if (mOccluded != occluded) {
-            if (DEBUG) {
-                Log.i(TAG, "setOccluded() called with occluded = [" + occluded + "]");
-            }
-            mOccluded = occluded;
             checkStateChanged();
         }
     }
@@ -279,12 +254,22 @@ public class VisualizerView extends View
         }
     }
 
-    public void setVisible(boolean visible) {
-        if (mVisible != visible) {
+    public void setPowerSaveMode(boolean powerSaveMode) {
+        if (mPowerSaveMode != powerSaveMode) {
             if (DEBUG) {
-                Log.i(TAG, "setVisible() called with visible = [" + visible + "]");
+                Log.i(TAG, "setPowerSaveMode() called with powerSaveMode = [" + powerSaveMode + "]");
             }
-            mVisible = visible;
+            mPowerSaveMode = powerSaveMode;
+            checkStateChanged();
+        }
+    }
+
+    public void setOccluded(boolean occluded) {
+        if (mOccluded != occluded) {
+            if (DEBUG) {
+                Log.i(TAG, "setOccluded() called with occluded = [" + occluded + "]");
+            }
+            mOccluded = occluded;
             checkStateChanged();
         }
     }
@@ -306,6 +291,21 @@ public class VisualizerView extends View
         } else {
             setColor(Color.TRANSPARENT);
         }
+    }
+
+    @Override
+    public void onGenerated(Palette palette) {
+        int color = Color.TRANSPARENT;
+
+        color = palette.getVibrantColor(color);
+        if (color == Color.TRANSPARENT) {
+            color = palette.getLightVibrantColor(color);
+            if (color == Color.TRANSPARENT) {
+                color = palette.getDarkVibrantColor(color);
+            }
+        }
+
+        setColor(color);
     }
 
     private void setColor(int color) {
@@ -335,8 +335,8 @@ public class VisualizerView extends View
     }
 
     private void checkStateChanged() {
-        if (getVisibility() == View.VISIBLE && mVisible && mVisualizerEnabled && mPlaying &&
-                !mDozing && !mOccluded) {
+        if (getVisibility() == View.VISIBLE && mVisible && mPlaying && !mDozing && !mPowerSaveMode
+                && mVisualizerEnabled && !mOccluded) {
             if (!mDisplaying) {
                 mDisplaying = true;
                 AsyncTask.execute(mLinkVisualizer);
@@ -348,11 +348,28 @@ public class VisualizerView extends View
         } else {
             if (mDisplaying) {
                 mDisplaying = false;
-                animate()
-                        .alpha(0f)
-                        .withEndAction(mAsyncUnlinkVisualizer)
-                        .setDuration(mVisible ? 600 : 0);
+                if (mVisible) {
+                    animate()
+                            .alpha(0f)
+                            .withEndAction(mAsyncUnlinkVisualizer)
+                            .setDuration(600);
+                } else {
+                    animate().
+                            alpha(0f)
+                            .withEndAction(mAsyncUnlinkVisualizer)
+                            .setDuration(0);
+                }
             }
         }
+    }
+
+    @Override
+    public void onTuningChanged(String key, String newValue) {
+        if (!LOCKSCREEN_VISUALIZER_ENABLED.equals(key)) {
+            return;
+        }
+        mVisualizerEnabled = newValue == null || Integer.parseInt(newValue) != 0;
+        checkStateChanged();
+        updateViewVisibility();
     }
 }

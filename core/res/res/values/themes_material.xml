@@ -48,23 +48,17 @@ please see themes_device_defaults.xml.
         <item name="colorBackgroundFloating">@color/background_floating_material_dark</item>
         <item name="colorBackgroundCacheHint">@color/background_cache_hint_selector_material_dark</item>
         <item name="disabledAlpha">@dimen/disabled_alpha_material_dark</item>
-        <item name="primaryContentAlpha">@dimen/primary_content_alpha_material_dark</item>
-        <item name="secondaryContentAlpha">@dimen/secondary_content_alpha_material_dark</item>
         <item name="backgroundDimAmount">0.6</item>
-        <item name="colorError">@color/error_color_material_dark</item>
-        <item name="colorPopupBackground">?attr/colorBackground</item>
-        <item name="colorListDivider">?attr/colorForeground</item>
-        <item name="opacityListDivider">@color/list_divider_opacity_material</item>
 
         <!-- Text styles -->
         <item name="textAppearance">@style/TextAppearance.Material</item>
         <item name="textAppearanceInverse">@style/TextAppearance.Material.Inverse</item>
 
-        <item name="textColorPrimary">@color/text_color_primary</item>
+        <item name="textColorPrimary">@color/primary_text_material_dark</item>
         <item name="textColorPrimaryInverse">@color/primary_text_material_light</item>
         <item name="textColorPrimaryActivated">@color/primary_text_inverse_when_activated_material</item>
         <item name="textColorPrimaryDisableOnly">@color/primary_text_disable_only_material_dark</item>
-        <item name="textColorSecondary">@color/text_color_secondary</item>
+        <item name="textColorSecondary">@color/secondary_text_material_dark</item>
         <item name="textColorSecondaryInverse">@color/secondary_text_material_light</item>
         <item name="textColorSecondaryActivated">@color/secondary_text_inverse_when_activated_material</item>
         <item name="textColorTertiary">@color/secondary_text_material_dark</item>
@@ -106,7 +100,6 @@ please see themes_device_defaults.xml.
         <item name="buttonStyleSmall">@style/Widget.Material.Button.Small</item>
         <item name="buttonStyleInset">@style/Widget.Material.Button.Inset</item>
         <item name="buttonStyleToggle">@style/Widget.Material.Button.Toggle</item>
-        <item name="buttonCornerRadius">@dimen/control_corner_material</item>
 
         <item name="switchStyle">@style/Widget.Material.CompoundButton.Switch</item>
         <item name="mediaRouteButtonStyle">@style/Widget.Material.MediaRouteButton</item>
@@ -190,7 +183,6 @@ please see themes_device_defaults.xml.
         <item name="dialogCustomTitleDecorLayout">@layout/dialog_custom_title_material</item>
         <item name="dialogTitleDecorLayout">@layout/dialog_title_material</item>
         <item name="dialogPreferredPadding">@dimen/dialog_padding_material</item>
-        <item name="dialogCornerRadius">@dimen/dialog_corner_radius</item>
 
         <!-- AlertDialog attributes -->
         <item name="alertDialogTheme">@style/ThemeOverlay.Material.Dialog.Alert</item>
@@ -219,7 +211,7 @@ please see themes_device_defaults.xml.
         <!-- Scrollbar attributes -->
         <item name="scrollbarFadeDuration">250</item>
         <item name="scrollbarDefaultDelayBeforeFade">400</item>
-        <item name="scrollbarSize">@dimen/config_scrollbarSize</item>
+        <item name="scrollbarSize">10dp</item>
         <item name="scrollbarThumbHorizontal">@drawable/scrollbar_handle_material</item>
         <item name="scrollbarThumbVertical">@drawable/config_scrollbarThumbVertical</item>
         <item name="scrollbarTrackHorizontal">@null</item>
@@ -262,7 +254,6 @@ please see themes_device_defaults.xml.
         <item name="progressBarStyleInverse">@style/Widget.Material.ProgressBar.Inverse</item>
         <item name="progressBarStyleSmallInverse">@style/Widget.Material.ProgressBar.Small.Inverse</item>
         <item name="progressBarStyleLargeInverse">@style/Widget.Material.ProgressBar.Large.Inverse</item>
-        <item name="progressBarCornerRadius">@dimen/progress_bar_corner_material</item>
         <item name="seekBarStyle">@style/Widget.Material.SeekBar</item>
         <item name="ratingBarStyle">@style/Widget.Material.RatingBar</item>
         <item name="ratingBarStyleIndicator">@style/Widget.Material.RatingBar.Indicator</item>
@@ -388,6 +379,7 @@ please see themes_device_defaults.xml.
         <!-- DatePicker dialog theme -->
         <item name="datePickerDialogTheme">@style/ThemeOverlay.Material.Dialog.DatePicker</item>
 
+        <!-- TODO: This belongs in a FastScroll style -->
         <item name="fastScrollThumbDrawable">@drawable/fastscroll_thumb_material</item>
         <item name="fastScrollPreviewBackgroundLeft">@drawable/fastscroll_label_left_material</item>
         <item name="fastScrollPreviewBackgroundRight">@drawable/fastscroll_label_right_material</item>
@@ -406,11 +398,6 @@ please see themes_device_defaults.xml.
         <item name="colorControlHighlight">@color/ripple_material_dark</item>
         <item name="colorButtonNormal">@color/btn_default_material_dark</item>
         <item name="colorSwitchThumbNormal">@color/switch_thumb_material_dark</item>
-        <item name="colorProgressBackgroundNormal">?attr/colorControlNormal</item>
-
-        <!-- Tooltip popup properties -->
-        <item name="tooltipForegroundColor">@color/foreground_material_light</item>
-        <item name="tooltipBackgroundColor">@color/tooltip_background_light</item>
     </style>
 
     <!-- Material theme (light version). -->
@@ -421,22 +408,16 @@ please see themes_device_defaults.xml.
         <item name="colorBackgroundFloating">@color/background_floating_material_light</item>
         <item name="colorBackgroundCacheHint">@color/background_cache_hint_selector_material_light</item>
         <item name="disabledAlpha">@dimen/disabled_alpha_material_light</item>
-        <item name="primaryContentAlpha">@dimen/primary_content_alpha_material_light</item>
-        <item name="secondaryContentAlpha">@dimen/secondary_content_alpha_material_light</item>
         <item name="backgroundDimAmount">0.6</item>
-        <item name="colorError">@color/error_color_material_light</item>
-        <item name="colorPopupBackground">?attr/colorBackground</item>
-        <item name="colorListDivider">?attr/colorForeground</item>
-        <item name="opacityListDivider">@color/list_divider_opacity_material</item>
 
         <!-- Text styles -->
         <item name="textAppearance">@style/TextAppearance.Material</item>
         <item name="textAppearanceInverse">@style/TextAppearance.Material.Inverse</item>
 
-        <item name="textColorPrimary">@color/text_color_primary</item>
+        <item name="textColorPrimary">@color/primary_text_material_light</item>
         <item name="textColorPrimaryInverse">@color/primary_text_material_dark</item>
         <item name="textColorPrimaryActivated">@color/primary_text_inverse_when_activated_material</item>
-        <item name="textColorSecondary">@color/text_color_secondary</item>
+        <item name="textColorSecondary">@color/secondary_text_material_light</item>
         <item name="textColorSecondaryInverse">@color/secondary_text_material_dark</item>
         <item name="textColorSecondaryActivated">@color/secondary_text_inverse_when_activated_material</item>
         <item name="textColorTertiary">@color/secondary_text_material_light</item>
@@ -481,7 +462,6 @@ please see themes_device_defaults.xml.
         <item name="buttonStyleSmall">@style/Widget.Material.Light.Button.Small</item>
         <item name="buttonStyleInset">@style/Widget.Material.Light.Button.Inset</item>
         <item name="buttonStyleToggle">@style/Widget.Material.Light.Button.Toggle</item>
-        <item name="buttonCornerRadius">@dimen/control_corner_material</item>
 
         <item name="switchStyle">@style/Widget.Material.Light.CompoundButton.Switch</item>
         <item name="mediaRouteButtonStyle">@style/Widget.Material.Light.MediaRouteButton</item>
@@ -565,7 +545,6 @@ please see themes_device_defaults.xml.
         <item name="dialogCustomTitleDecorLayout">@layout/dialog_custom_title_material</item>
         <item name="dialogTitleDecorLayout">@layout/dialog_title_material</item>
         <item name="dialogPreferredPadding">@dimen/dialog_padding_material</item>
-        <item name="dialogCornerRadius">@dimen/dialog_corner_radius</item>
 
         <!-- AlertDialog attributes -->
         <item name="alertDialogTheme">@style/ThemeOverlay.Material.Dialog.Alert</item>
@@ -594,7 +573,7 @@ please see themes_device_defaults.xml.
         <!-- Scrollbar attributes -->
         <item name="scrollbarFadeDuration">250</item>
         <item name="scrollbarDefaultDelayBeforeFade">400</item>
-        <item name="scrollbarSize">@dimen/config_scrollbarSize</item>
+        <item name="scrollbarSize">10dp</item>
         <item name="scrollbarThumbHorizontal">@drawable/scrollbar_handle_material</item>
         <item name="scrollbarThumbVertical">@drawable/config_scrollbarThumbVertical</item>
         <item name="scrollbarTrackHorizontal">@null</item>
@@ -639,7 +618,6 @@ please see themes_device_defaults.xml.
         <item name="progressBarStyleInverse">@style/Widget.Material.Light.ProgressBar.Inverse</item>
         <item name="progressBarStyleSmallInverse">@style/Widget.Material.Light.ProgressBar.Small.Inverse</item>
         <item name="progressBarStyleLargeInverse">@style/Widget.Material.Light.ProgressBar.Large.Inverse</item>
-        <item name="progressBarCornerRadius">@dimen/progress_bar_corner_material</item>
         <item name="seekBarStyle">@style/Widget.Material.Light.SeekBar</item>
         <item name="ratingBarStyle">@style/Widget.Material.Light.RatingBar</item>
         <item name="ratingBarStyleIndicator">@style/Widget.Material.Light.RatingBar.Indicator</item>
@@ -784,11 +762,6 @@ please see themes_device_defaults.xml.
         <item name="colorControlHighlight">@color/ripple_material_light</item>
         <item name="colorButtonNormal">@color/btn_default_material_light</item>
         <item name="colorSwitchThumbNormal">@color/switch_thumb_material_light</item>
-        <item name="colorProgressBackgroundNormal">?attr/colorControlNormal</item>
-
-        <!-- Tooltip popup properties -->
-        <item name="tooltipForegroundColor">@color/foreground_material_dark</item>
-        <item name="tooltipBackgroundColor">@color/tooltip_background_dark</item>
     </style>
 
     <!-- Variant of the material (light) theme that has a solid (opaque) action bar
@@ -821,11 +794,10 @@ please see themes_device_defaults.xml.
         <item name="colorBackground">@color/background_material_light</item>
         <item name="colorBackgroundFloating">@color/background_floating_material_light</item>
         <item name="colorBackgroundCacheHint">@color/background_cache_hint_selector_material_light</item>
-        <item name="colorError">@color/error_color_material_light</item>
 
-        <item name="textColorPrimary">@color/text_color_primary</item>
+        <item name="textColorPrimary">@color/primary_text_material_light</item>
         <item name="textColorPrimaryInverse">@color/primary_text_material_dark</item>
-        <item name="textColorSecondary">@color/text_color_secondary</item>
+        <item name="textColorSecondary">@color/secondary_text_material_light</item>
         <item name="textColorSecondaryInverse">@color/secondary_text_material_dark</item>
         <item name="textColorTertiary">@color/secondary_text_material_light</item>
         <item name="textColorTertiaryInverse">@color/secondary_text_material_dark</item>
@@ -845,7 +817,6 @@ please see themes_device_defaults.xml.
         <item name="colorControlHighlight">@color/ripple_material_light</item>
         <item name="colorButtonNormal">@color/btn_default_material_light</item>
         <item name="colorSwitchThumbNormal">@color/switch_thumb_material_light</item>
-        <item name="colorProgressBackgroundNormal">?attr/colorControlNormal</item>
     </style>
 
     <!-- Theme overlay that replaces colors with their dark versions but preserves
@@ -856,12 +827,11 @@ please see themes_device_defaults.xml.
         <item name="colorBackground">@color/background_material_dark</item>
         <item name="colorBackgroundFloating">@color/background_floating_material_dark</item>
         <item name="colorBackgroundCacheHint">@color/background_cache_hint_selector_material_dark</item>
-        <item name="colorError">@color/error_color_material_dark</item>
 
-        <item name="textColorPrimary">@color/text_color_primary</item>
+        <item name="textColorPrimary">@color/primary_text_material_dark</item>
         <item name="textColorPrimaryInverse">@color/primary_text_material_light</item>
         <item name="textColorPrimaryDisableOnly">@color/primary_text_disable_only_material_dark</item>
-        <item name="textColorSecondary">@color/text_color_secondary</item>
+        <item name="textColorSecondary">@color/secondary_text_material_dark</item>
         <item name="textColorSecondaryInverse">@color/secondary_text_material_light</item>
         <item name="textColorTertiary">@color/secondary_text_material_dark</item>
         <item name="textColorTertiaryInverse">@color/secondary_text_material_light</item>
@@ -879,7 +849,6 @@ please see themes_device_defaults.xml.
         <item name="colorControlHighlight">@color/ripple_material_dark</item>
         <item name="colorButtonNormal">@color/btn_default_material_dark</item>
         <item name="colorSwitchThumbNormal">@color/switch_thumb_material_dark</item>
-        <item name="colorProgressBackgroundNormal">?attr/colorControlNormal</item>
     </style>
 
     <!-- Theme overlay that replaces the normal control color, which by default is the same as the
@@ -1339,20 +1308,11 @@ please see themes_device_defaults.xml.
         <item name="windowNoTitle">true</item>
     </style>
 
-    <!-- Theme for inflating notifications -->
-    <style name="Theme.Material.Notification" parent="">
-        <item name="notificationHeaderStyle">@style/Notification.Header</item>
-        <item name="notificationHeaderTextAppearance">@style/TextAppearance.Material.Notification.Info</item>
-        <item name="notificationHeaderAppNameVisibility">visible</item>
-        <item name="notificationHeaderIconSize">@dimen/notification_header_icon_size</item>
-    </style>
-
     <!-- Default theme for Settings and activities launched from Settings. -->
-    <style name="Theme.Material.Settings" parent="Theme.Material.Light.LightStatusBar">
-        <item name="homeAsUpIndicator">@drawable/ic_ab_back_material_settings</item>
-        <item name="colorPrimary">@color/primary_material_settings_light</item>
-        <item name="colorPrimaryDark">@color/primary_dark_material_settings_light</item>
-        <item name="colorSecondary">@color/secondary_material_settings_light</item>
+    <style name="Theme.Material.Settings" parent="Theme.Material.Light.DarkActionBar">
+        <item name="colorPrimary">@color/primary_material_settings</item>
+        <item name="colorPrimaryDark">@color/primary_dark_material_settings</item>
+        <item name="colorSecondary">@color/secondary_material_settings</item>
 
         <item name="presentationTheme">@style/Theme.Material.Settings.Dialog.Presentation</item>
         <item name="searchDialogTheme">@style/Theme.Material.Settings.SearchBar</item>
@@ -1415,5 +1375,4 @@ please see themes_device_defaults.xml.
         <item name="colorPrimaryDark">@color/primary_dark_material_settings</item>
         <item name="colorSecondary">@color/secondary_material_settings</item>
     </style>
-
 </resources>

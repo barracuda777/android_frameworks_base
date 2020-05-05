@@ -16,13 +16,13 @@
 
 package android.widget.layout.linear;
 
-import android.app.Activity;
-import android.test.ActivityInstrumentationTestCase;
-import android.view.View;
-
-import androidx.test.filters.MediumTest;
-
+import android.widget.layout.linear.LinearLayoutEditTexts;
 import com.android.frameworks.coretests.R;
+
+import android.test.ActivityInstrumentationTestCase;
+import android.test.suitebuilder.annotation.MediumTest;
+import android.view.View;
+import android.app.Activity;
 
 public class LinearLayoutEditTextsTest extends ActivityInstrumentationTestCase<LinearLayoutEditTexts> {
     private View mChild;

@@ -16,7 +16,6 @@
 
 package android.nfc;
 
-import android.annotation.UnsupportedAppUsage;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Parcel;
@@ -280,7 +279,6 @@ public final class NdefRecord implements Parcelable {
 
     private final short mTnf;
     private final byte[] mType;
-    @UnsupportedAppUsage
     private final byte[] mId;
     private final byte[] mPayload;
 
@@ -807,7 +805,7 @@ public final class NdefRecord implements Parcelable {
 
                 if (!mb && records.size() == 0 && !inChunk && !ignoreMbMe) {
                     throw new FormatException("expected MB flag");
-                } else if (mb && (records.size() != 0 || inChunk) && !ignoreMbMe) {
+                } else if (mb && records.size() != 0 && !ignoreMbMe) {
                     throw new FormatException("unexpected MB flag");
                 } else if (inChunk && il) {
                     throw new FormatException("unexpected IL flag in non-leading chunk");
@@ -841,9 +839,6 @@ public final class NdefRecord implements Parcelable {
 
                 if (cf && !inChunk) {
                     // first chunk
-                    if (typeLength == 0 && tnf != NdefRecord.TNF_UNKNOWN) {
-                        throw new FormatException("expected non-zero type length in first chunk");
-                    }
                     chunks.clear();
                     chunkTnf = tnf;
                 }
@@ -940,7 +935,7 @@ public final class NdefRecord implements Parcelable {
      */
     void writeToByteBuffer(ByteBuffer buffer, boolean mb, boolean me) {
         boolean sr = mPayload.length < 256;
-        boolean il = mTnf == TNF_EMPTY ? true : mId.length > 0;
+        boolean il = mId.length > 0;
 
         byte flags = (byte)((mb ? FLAG_MB : 0) | (me ? FLAG_ME : 0) |
                 (sr ? FLAG_SR : 0) | (il ? FLAG_IL : 0) | mTnf);
@@ -968,7 +963,7 @@ public final class NdefRecord implements Parcelable {
         int length = 3 + mType.length + mId.length + mPayload.length;
 
         boolean sr = mPayload.length < 256;
-        boolean il = mTnf == TNF_EMPTY ? true : mId.length > 0;
+        boolean il = mId.length > 0;
 
         if (!sr) length += 3;
         if (il) length += 1;
@@ -992,7 +987,7 @@ public final class NdefRecord implements Parcelable {
         dest.writeByteArray(mPayload);
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<NdefRecord> CREATOR =
+    public static final Parcelable.Creator<NdefRecord> CREATOR =
             new Parcelable.Creator<NdefRecord>() {
         @Override
         public NdefRecord createFromParcel(Parcel in) {

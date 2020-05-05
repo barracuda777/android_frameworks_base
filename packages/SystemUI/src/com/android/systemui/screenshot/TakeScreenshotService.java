@@ -18,7 +18,6 @@ package com.android.systemui.screenshot;
 
 import android.app.Service;
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
@@ -27,8 +26,6 @@ import android.os.RemoteException;
 import android.os.UserManager;
 import android.util.Log;
 import android.view.WindowManager;
-
-import java.util.function.Consumer;
 
 public class TakeScreenshotService extends Service {
     private static final String TAG = "TakeScreenshotService";
@@ -39,10 +36,10 @@ public class TakeScreenshotService extends Service {
         @Override
         public void handleMessage(Message msg) {
             final Messenger callback = msg.replyTo;
-            Consumer<Uri> finisher = new Consumer<Uri>() {
+            Runnable finisher = new Runnable() {
                 @Override
-                public void accept(Uri uri) {
-                    Message reply = Message.obtain(null, 1, uri);
+                public void run() {
+                    Message reply = Message.obtain(null, 1);
                     try {
                         callback.send(reply);
                     } catch (RemoteException e) {
@@ -55,7 +52,7 @@ public class TakeScreenshotService extends Service {
             // animation and error notification.
             if (!getSystemService(UserManager.class).isUserUnlocked()) {
                 Log.w(TAG, "Skipping screenshot because storage is locked!");
-                post(() -> finisher.accept(null));
+                post(finisher);
                 return;
             }
 
@@ -70,8 +67,6 @@ public class TakeScreenshotService extends Service {
                 case WindowManager.TAKE_SCREENSHOT_SELECTED_REGION:
                     mScreenshot.takeScreenshotPartial(finisher, msg.arg1 > 0, msg.arg2 > 0);
                     break;
-                default:
-                    Log.d(TAG, "Invalid screenshot option: " + msg.what);
             }
         }
     };

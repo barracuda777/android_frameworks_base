@@ -16,7 +16,6 @@
 
 package android.content.pm;
 
-import android.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 import android.os.Parcelable;
 
@@ -44,7 +43,6 @@ public class VerifierInfo implements Parcelable {
      *            not be {@code null} or empty.
      * @throws IllegalArgumentException if either argument is null or empty.
      */
-    @UnsupportedAppUsage
     public VerifierInfo(String packageName, PublicKey publicKey) {
         if (packageName == null || packageName.length() == 0) {
             throw new IllegalArgumentException("packageName must not be null or empty");
@@ -72,7 +70,7 @@ public class VerifierInfo implements Parcelable {
         dest.writeSerializable(publicKey);
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<VerifierInfo> CREATOR
+    public static final Parcelable.Creator<VerifierInfo> CREATOR
             = new Parcelable.Creator<VerifierInfo>() {
         public VerifierInfo createFromParcel(Parcel source) {
             return new VerifierInfo(source);

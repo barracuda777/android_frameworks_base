@@ -16,7 +16,7 @@
   -->
 
 <Button xmlns:android="http://schemas.android.com/apk/res/android"
-    style="@android:style/NotificationTombstoneAction"
+    style="@android:style/Widget.Material.Light.Button.Borderless.Small"
     android:id="@+id/action0"
     android:layout_width="wrap_content"
     android:layout_height="48dp"
@@ -26,8 +26,7 @@
     android:textColor="#555555"
     android:singleLine="true"
     android:ellipsize="end"
-    android:textAlignment="viewStart"
-    android:alpha="@dimen/notification_action_disabled_alpha"
+    android:alpha="0.5"
     android:enabled="false"
     android:background="@drawable/notification_material_action_background"
     />

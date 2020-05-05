@@ -17,11 +17,7 @@
 package android.telecom;
 
 import android.annotation.SystemApi;
-import android.annotation.UnsupportedAppUsage;
-import android.bluetooth.BluetoothDevice;
-import android.os.Build;
 import android.os.Bundle;
-import android.os.RemoteException;
 import android.util.ArrayMap;
 
 import java.util.Collections;
@@ -129,22 +125,13 @@ public final class Phone {
 
     private boolean mCanAddCall = true;
 
-    private final String mCallingPackage;
-
-    /**
-     * The Target SDK version of the InCallService implementation.
-     */
-    private final int mTargetSdkVersion;
-
-    Phone(InCallAdapter adapter, String callingPackage, int targetSdkVersion) {
+    Phone(InCallAdapter adapter) {
         mInCallAdapter = adapter;
-        mCallingPackage = callingPackage;
-        mTargetSdkVersion = targetSdkVersion;
     }
 
     final void internalAddCall(ParcelableCall parcelableCall) {
         Call call = new Call(this, parcelableCall.getId(), mInCallAdapter,
-                parcelableCall.getState(), mCallingPackage, mTargetSdkVersion);
+                parcelableCall.getState());
         mCallByTelecomCallId.put(parcelableCall.getId(), call);
         mCalls.add(call);
         checkCallTree(parcelableCall);
@@ -208,34 +195,6 @@ public final class Phone {
         Call call = mCallByTelecomCallId.get(telecomId);
         if (call != null) {
             call.internalOnConnectionEvent(event, extras);
-        }
-    }
-
-    final void internalOnRttUpgradeRequest(String callId, int requestId) {
-        Call call = mCallByTelecomCallId.get(callId);
-        if (call != null) {
-            call.internalOnRttUpgradeRequest(requestId);
-        }
-    }
-
-    final void internalOnRttInitiationFailure(String callId, int reason) {
-        Call call = mCallByTelecomCallId.get(callId);
-        if (call != null) {
-            call.internalOnRttInitiationFailure(reason);
-        }
-    }
-
-    final void internalOnHandoverFailed(String callId, int error) {
-        Call call = mCallByTelecomCallId.get(callId);
-        if (call != null) {
-            call.internalOnHandoverFailed(error);
-        }
-    }
-
-    final void internalOnHandoverComplete(String callId) {
-        Call call = mCallByTelecomCallId.get(callId);
-        if (call != null) {
-            call.internalOnHandoverComplete();
         }
     }
 
@@ -313,28 +272,13 @@ public final class Phone {
     }
 
     /**
-     * Request audio routing to a specific bluetooth device. Calling this method may result in
-     * the device routing audio to a different bluetooth device than the one specified. A list of
-     * available devices can be obtained via {@link CallAudioState#getSupportedBluetoothDevices()}
-     *
-     * @param bluetoothAddress The address of the bluetooth device to connect to, as returned by
-     * {@link BluetoothDevice#getAddress()}, or {@code null} if no device is preferred.
-     */
-    public void requestBluetoothAudio(String bluetoothAddress) {
-        mInCallAdapter.requestBluetoothAudio(bluetoothAddress);
-    }
-
-    /**
      * Turns the proximity sensor on. When this request is made, the proximity sensor will
      * become active, and the touch screen and display will be turned off when the user's face
      * is detected to be in close proximity to the screen. This operation is a no-op on devices
      * that do not have a proximity sensor.
-     * <p>
-     * This API does not actually turn on the proximity sensor; apps should do this on their own if
-     * required.
+     *
      * @hide
      */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 127403196)
     public final void setProximitySensorOn() {
         mInCallAdapter.turnProximitySensorOn();
     }
@@ -347,12 +291,9 @@ public final class Phone {
      * @param screenOnImmediately If true, the screen will be turned on immediately if it was
      * previously off. Otherwise, the screen will only be turned on after the proximity sensor
      * is no longer triggered.
-     * <p>
-     * This API does not actually turn of the proximity sensor; apps should do this on their own if
-     * required.
+     *
      * @hide
      */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 127403196)
     public final void setProximitySensorOff(boolean screenOnImmediately) {
         mInCallAdapter.turnProximitySensorOff(screenOnImmediately);
     }

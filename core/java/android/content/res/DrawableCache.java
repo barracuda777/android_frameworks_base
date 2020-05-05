@@ -16,7 +16,6 @@
 
 package android.content.res;
 
-import android.annotation.UnsupportedAppUsage;
 import android.graphics.drawable.Drawable;
 
 /**
@@ -32,7 +31,6 @@ class DrawableCache extends ThemedResourceCache<Drawable.ConstantState> {
      * @return a new instance of the resource, or {@code null} if not in
      *         the cache
      */
-    @UnsupportedAppUsage
     public Drawable getInstance(long key, Resources resources, Resources.Theme theme) {
         final Drawable.ConstantState entry = get(key, theme);
         if (entry != null) {

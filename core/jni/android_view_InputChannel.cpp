@@ -16,8 +16,8 @@
 
 #define LOG_TAG "InputChannel-JNI"
 
-#include <nativehelper/JNIHelp.h>
-#include "nativehelper/scoped_utf_chars.h"
+#include "JNIHelp.h"
+
 #include <android_runtime/AndroidRuntime.h>
 #include <binder/Parcel.h>
 #include <utils/Log.h>
@@ -43,7 +43,7 @@ static struct {
 
 class NativeInputChannel {
 public:
-    explicit NativeInputChannel(const sp<InputChannel>& inputChannel);
+    NativeInputChannel(const sp<InputChannel>& inputChannel);
     ~NativeInputChannel();
 
     inline sp<InputChannel> getInputChannel() { return mInputChannel; }
@@ -111,20 +111,20 @@ void android_view_InputChannel_setDisposeCallback(JNIEnv* env, jobject inputChan
 }
 
 static jobject android_view_InputChannel_createInputChannel(JNIEnv* env,
-        std::unique_ptr<NativeInputChannel> nativeInputChannel) {
+        NativeInputChannel* nativeInputChannel) {
     jobject inputChannelObj = env->NewObject(gInputChannelClassInfo.clazz,
             gInputChannelClassInfo.ctor);
     if (inputChannelObj) {
-        android_view_InputChannel_setNativeInputChannel(env, inputChannelObj,
-                 nativeInputChannel.release());
+        android_view_InputChannel_setNativeInputChannel(env, inputChannelObj, nativeInputChannel);
     }
     return inputChannelObj;
 }
 
 static jobjectArray android_view_InputChannel_nativeOpenInputChannelPair(JNIEnv* env,
         jclass clazz, jstring nameObj) {
-    ScopedUtfChars nameChars(env, nameObj);
-    std::string name = nameChars.c_str();
+    const char* nameChars = env->GetStringUTFChars(nameObj, NULL);
+    String8 name(nameChars);
+    env->ReleaseStringUTFChars(nameObj, nameChars);
 
     sp<InputChannel> serverChannel;
     sp<InputChannel> clientChannel;
@@ -143,13 +143,13 @@ static jobjectArray android_view_InputChannel_nativeOpenInputChannelPair(JNIEnv*
     }
 
     jobject serverChannelObj = android_view_InputChannel_createInputChannel(env,
-            std::make_unique<NativeInputChannel>(serverChannel));
+            new NativeInputChannel(serverChannel));
     if (env->ExceptionCheck()) {
         return NULL;
     }
 
     jobject clientChannelObj = android_view_InputChannel_createInputChannel(env,
-            std::make_unique<NativeInputChannel>(clientChannel));
+            new NativeInputChannel(clientChannel));
     if (env->ExceptionCheck()) {
         return NULL;
     }
@@ -165,7 +165,7 @@ static void android_view_InputChannel_nativeDispose(JNIEnv* env, jobject obj, jb
     if (nativeInputChannel) {
         if (finalized) {
             ALOGW("Input channel object '%s' was finalized without being disposed!",
-                    nativeInputChannel->getInputChannel()->getName().c_str());
+                    nativeInputChannel->getInputChannel()->getName().string());
         }
 
         nativeInputChannel->invokeAndRemoveDisposeCallback(env, obj);
@@ -201,9 +201,17 @@ static void android_view_InputChannel_nativeReadFromParcel(JNIEnv* env, jobject 
     if (parcel) {
         bool isInitialized = parcel->readInt32();
         if (isInitialized) {
-            InputChannel* inputChannel = new InputChannel();
-            inputChannel->read(*parcel);
+            String8 name = parcel->readString8();
+            int rawFd = parcel->readFileDescriptor();
+            int dupFd = dup(rawFd);
+            if (dupFd < 0) {
+                ALOGE("Error %d dup channel fd %d.", errno, rawFd);
+                jniThrowRuntimeException(env,
+                        "Could not read input channel file descriptors from parcel.");
+                return;
+            }
 
+            InputChannel* inputChannel = new InputChannel(name, dupFd);
             NativeInputChannel* nativeInputChannel = new NativeInputChannel(inputChannel);
 
             android_view_InputChannel_setNativeInputChannel(env, obj, nativeInputChannel);
@@ -221,7 +229,8 @@ static void android_view_InputChannel_nativeWriteToParcel(JNIEnv* env, jobject o
             sp<InputChannel> inputChannel = nativeInputChannel->getInputChannel();
 
             parcel->writeInt32(1);
-            inputChannel->write(*parcel);
+            parcel->writeString8(inputChannel->getName());
+            parcel->writeDupFileDescriptor(inputChannel->getFd());
         } else {
             parcel->writeInt32(0);
         }
@@ -235,7 +244,7 @@ static jstring android_view_InputChannel_nativeGetName(JNIEnv* env, jobject obj)
         return NULL;
     }
 
-    jstring name = env->NewStringUTF(nativeInputChannel->getInputChannel()->getName().c_str());
+    jstring name = env->NewStringUTF(nativeInputChannel->getInputChannel()->getName().string());
     return name;
 }
 
@@ -245,24 +254,6 @@ static void android_view_InputChannel_nativeDup(JNIEnv* env, jobject obj, jobjec
     if (nativeInputChannel) {
         android_view_InputChannel_setNativeInputChannel(env, otherObj,
                 new NativeInputChannel(nativeInputChannel->getInputChannel()->dup()));
-    }
-}
-
-static jobject android_view_InputChannel_nativeGetToken(JNIEnv* env, jobject obj) {
-    NativeInputChannel* nativeInputChannel =
-        android_view_InputChannel_getNativeInputChannel(env, obj);
-    if (nativeInputChannel) {
-        return javaObjectForIBinder(env, nativeInputChannel->getInputChannel()->getToken());
-    }
-    return 0;
-}
-
-static void android_view_InputChannel_nativeSetToken(JNIEnv* env, jobject obj, jobject tokenObj) {
-    NativeInputChannel* nativeInputChannel =
-        android_view_InputChannel_getNativeInputChannel(env, obj);
-    sp<IBinder> token = ibinderForJavaObject(env, tokenObj);
-    if (nativeInputChannel != nullptr) {
-        nativeInputChannel->getInputChannel()->setToken(token);
     }
 }
 
@@ -284,10 +275,6 @@ static const JNINativeMethod gInputChannelMethods[] = {
             (void*)android_view_InputChannel_nativeGetName },
     { "nativeDup", "(Landroid/view/InputChannel;)V",
             (void*)android_view_InputChannel_nativeDup },
-    { "nativeGetToken", "()Landroid/os/IBinder;",
-            (void*)android_view_InputChannel_nativeGetToken },
-    { "nativeSetToken", "(Landroid/os/IBinder;)V",
-            (void*)android_view_InputChannel_nativeSetToken }
 };
 
 int register_android_view_InputChannel(JNIEnv* env) {

@@ -35,13 +35,11 @@ oneway interface ISyncServiceAdapter {
      * @param extras SyncAdapter-specific parameters.
      *
      */
-    @UnsupportedAppUsage
     void startSync(ISyncContext syncContext, in Bundle extras);
 
     /**
      * Cancel the currently ongoing sync.
      */
-    @UnsupportedAppUsage
     void cancelSync(ISyncContext syncContext);
 
 }

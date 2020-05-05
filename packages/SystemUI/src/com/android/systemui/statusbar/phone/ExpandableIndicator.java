@@ -18,7 +18,6 @@ import android.content.Context;
 import android.graphics.drawable.AnimatedVectorDrawable;
 import android.util.AttributeSet;
 import android.widget.ImageView;
-
 import com.android.systemui.R;
 
 public class ExpandableIndicator extends ImageView {
@@ -33,7 +32,8 @@ public class ExpandableIndicator extends ImageView {
     @Override
     protected void onFinishInflate() {
         super.onFinishInflate();
-        updateIndicatorDrawable();
+        final int res = getDrawableResourceId(mExpanded);
+        setImageResource(res);
         setContentDescription(getContentDescription(mExpanded));
     }
 
@@ -53,7 +53,6 @@ public class ExpandableIndicator extends ImageView {
     /** Whether the icons are using the default direction or the opposite */
     public void setDefaultDirection(boolean isDefaultDirection) {
         mIsDefaultDirection = isDefaultDirection;
-        updateIndicatorDrawable();
     }
 
     private int getDrawableResourceId(boolean expanded) {
@@ -69,10 +68,5 @@ public class ExpandableIndicator extends ImageView {
     private String getContentDescription(boolean expanded) {
         return expanded ? mContext.getString(R.string.accessibility_quick_settings_collapse)
                 : mContext.getString(R.string.accessibility_quick_settings_expand);
-    }
-
-    private void updateIndicatorDrawable() {
-        final int res = getDrawableResourceId(mExpanded);
-        setImageResource(res);
     }
 }

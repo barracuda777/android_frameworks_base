@@ -30,14 +30,15 @@ import android.os.UserHandle;
 import android.service.quicksettings.IQSTileService;
 import android.service.quicksettings.Tile;
 import android.service.quicksettings.TileService;
+import android.support.annotation.VisibleForTesting;
 import android.util.Log;
 
-import androidx.annotation.VisibleForTesting;
-
+import com.android.systemui.qs.customize.TileQueryHelper.TileStateListener;
 import com.android.systemui.qs.external.TileLifecycleManager.TileChangeListener;
 
 import java.util.List;
-import java.util.Objects;
+
+import libcore.util.Objects;
 
 /**
  * Manages the priority which lets {@link TileServices} make decisions about which tiles
@@ -69,7 +70,6 @@ public class TileServiceManager {
     // Whether we have a pending bind going out to the service without a response yet.
     // This defaults to true to ensure tiles start out unavailable.
     private boolean mPendingBind = true;
-    private boolean mStarted = false;
 
     TileServiceManager(TileServices tileServices, Handler handler, ComponentName component,
             Tile tile) {
@@ -91,23 +91,7 @@ public class TileServiceManager {
         Context context = mServices.getContext();
         context.registerReceiverAsUser(mUninstallReceiver,
                 new UserHandle(ActivityManager.getCurrentUser()), filter, null, mHandler);
-    }
-
-    boolean isLifecycleStarted() {
-        return mStarted;
-    }
-
-    /**
-     * Starts the TileLifecycleManager by adding the corresponding component as a Tile and
-     * binding to it if needed.
-     *
-     * This method should be called after constructing a TileServiceManager to guarantee that the
-     * TileLifecycleManager has added the tile and bound to it at least once.
-     */
-    void startLifecycleManagerAndAddTile() {
-        mStarted = true;
-        ComponentName component = mStateManager.getComponent();
-        Context context = mServices.getContext();
+        ComponentName component = tileLifecycleManager.getComponent();
         if (!TileLifecycleManager.isTileAdded(context, component)) {
             TileLifecycleManager.setTileAdded(context, component, true);
             mStateManager.onTileAdded();
@@ -159,7 +143,6 @@ public class TileServiceManager {
     }
 
     public void handleDestroy() {
-        setBindAllowed(false);
         mServices.getContext().unregisterReceiver(mUninstallReceiver);
         mStateManager.handleDestroy();
     }
@@ -264,7 +247,7 @@ public class TileServiceManager {
             Uri data = intent.getData();
             String pkgName = data.getEncodedSchemeSpecificPart();
             final ComponentName component = mStateManager.getComponent();
-            if (!Objects.equals(pkgName, component.getPackageName())) {
+            if (!Objects.equal(pkgName, component.getPackageName())) {
                 return;
             }
 
@@ -276,8 +259,8 @@ public class TileServiceManager {
                 List<ResolveInfo> services = pm.queryIntentServicesAsUser(
                         queryIntent, 0, ActivityManager.getCurrentUser());
                 for (ResolveInfo info : services) {
-                    if (Objects.equals(info.serviceInfo.packageName, component.getPackageName())
-                            && Objects.equals(info.serviceInfo.name, component.getClassName())) {
+                    if (Objects.equal(info.serviceInfo.packageName, component.getPackageName())
+                            && Objects.equal(info.serviceInfo.name, component.getClassName())) {
                         return;
                     }
                 }

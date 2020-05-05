@@ -301,7 +301,6 @@ int AaptLocaleValue::initFromDirName(const Vector<String8>& parts, const int sta
                         break;
                     }
                     // This is not alphabetical, so we fall through to variant
-                    [[fallthrough]];
                 case 5:
                 case 6:
                 case 7:
@@ -1310,8 +1309,8 @@ bail:
 
 status_t AaptAssets::filter(Bundle* bundle)
 {
-    sp<WeakResourceFilter> reqFilter(new WeakResourceFilter());
-    status_t err = reqFilter->parse(bundle->getConfigurations());
+    WeakResourceFilter reqFilter;
+    status_t err = reqFilter.parse(bundle->getConfigurations());
     if (err != NO_ERROR) {
         return err;
     }
@@ -1327,12 +1326,12 @@ status_t AaptAssets::filter(Bundle* bundle)
         preferredDensity = preferredConfig.density;
     }
 
-    if (reqFilter->isEmpty() && preferredDensity == 0) {
+    if (reqFilter.isEmpty() && preferredDensity == 0) {
         return NO_ERROR;
     }
 
     if (bundle->getVerbose()) {
-        if (!reqFilter->isEmpty()) {
+        if (!reqFilter.isEmpty()) {
             printf("Applying required filter: %s\n",
                     bundle->getConfigurations().string());
         }
@@ -1384,7 +1383,7 @@ status_t AaptAssets::filter(Bundle* bundle)
                     continue;
                 }
                 const ResTable_config& config(file->getGroupEntry().toParams());
-                if (!reqFilter->match(config)) {
+                if (!reqFilter.match(config)) {
                     if (bundle->getVerbose()) {
                         printf("Pruning unneeded resource: %s\n",
                                 file->getPrintableSource().string());

@@ -16,12 +16,13 @@
 
 package android.widget.scroll;
 
-import android.test.ActivityInstrumentationTestCase;
+import android.test.suitebuilder.annotation.Suppress;
+import android.widget.scroll.ButtonAboveTallInternalSelectionView;
 import android.util.InternalSelectionView;
-import android.view.KeyEvent;
 
-import androidx.test.filters.MediumTest;
-import androidx.test.filters.Suppress;
+import android.test.ActivityInstrumentationTestCase;
+import android.test.suitebuilder.annotation.MediumTest;
+import android.view.KeyEvent;
 
 @Suppress // Failing.
 public class ButtonAboveTallInternalSelectionViewTest extends

@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-#include <GpuMemoryTracker.h>
+
 #include <gtest/gtest.h>
+#include <GpuMemoryTracker.h>
 
 #include "renderthread/EglManager.h"
 #include "renderthread/RenderThread.h"
@@ -31,7 +32,9 @@ class TestGPUObject : public GpuMemoryTracker {
 public:
     TestGPUObject() : GpuMemoryTracker(GpuObjectType::Texture) {}
 
-    void changeSize(int newSize) { notifySizeChanged(newSize); }
+    void changeSize(int newSize) {
+        notifySizeChanged(newSize);
+    }
 };
 
 // Other tests may have created a renderthread and EGL context.
@@ -39,14 +42,16 @@ public:
 // current thread can spoof being a GPU thread
 static void destroyEglContext() {
     if (TestUtils::isRenderThreadRunning()) {
-        TestUtils::runOnRenderThread([](RenderThread& thread) { thread.destroyRenderingContext(); });
+        TestUtils::runOnRenderThread([](RenderThread& thread) {
+            thread.eglManager().destroy();
+        });
     }
 }
 
 TEST(GpuMemoryTracker, sizeCheck) {
     destroyEglContext();
 
-    GpuMemoryTracker::onGpuContextCreated();
+    GpuMemoryTracker::onGLContextCreated();
     ASSERT_EQ(0, GpuMemoryTracker::getTotalSize(GpuObjectType::Texture));
     ASSERT_EQ(0, GpuMemoryTracker::getInstanceCount(GpuObjectType::Texture));
     {
@@ -61,5 +66,5 @@ TEST(GpuMemoryTracker, sizeCheck) {
     }
     ASSERT_EQ(0, GpuMemoryTracker::getTotalSize(GpuObjectType::Texture));
     ASSERT_EQ(0, GpuMemoryTracker::getInstanceCount(GpuObjectType::Texture));
-    GpuMemoryTracker::onGpuContextDestroyed();
+    GpuMemoryTracker::onGLContextDestroyed();
 }

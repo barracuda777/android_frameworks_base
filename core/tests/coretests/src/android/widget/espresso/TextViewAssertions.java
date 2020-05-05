@@ -16,27 +16,21 @@
 
 package android.widget.espresso;
 
-import static androidx.test.espresso.matcher.ViewMatchers.assertThat;
-
+import static android.support.test.espresso.matcher.ViewMatchers.assertThat;
 import static com.android.internal.util.Preconditions.checkNotNull;
-
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.number.IsCloseTo.closeTo;
 
 import android.annotation.IntDef;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
-import android.text.Spanned;
-import android.text.TextUtils;
+import android.support.test.espresso.NoMatchingViewException;
+import android.support.test.espresso.ViewAssertion;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
 
-import androidx.test.espresso.NoMatchingViewException;
-import androidx.test.espresso.ViewAssertion;
-
 import junit.framework.AssertionFailedError;
-
 import org.hamcrest.Matcher;
 
 import java.lang.annotation.Retention;
@@ -106,19 +100,22 @@ public final class TextViewAssertions {
      * @param index  A matcher representing the expected index.
      */
     public static ViewAssertion hasInsertionPointerAtIndex(final Matcher<Integer> index) {
-        return (view, exception) -> {
-            if (view instanceof TextView) {
-                TextView textView = (TextView) view;
-                int selectionStart = textView.getSelectionStart();
-                int selectionEnd = textView.getSelectionEnd();
-                try {
-                    assertThat(selectionStart, index);
-                    assertThat(selectionEnd, index);
-                } catch (IndexOutOfBoundsException e) {
-                    throw new AssertionFailedError(e.getMessage());
+        return new ViewAssertion() {
+            @Override
+            public void check(View view, NoMatchingViewException exception) {
+                if (view instanceof TextView) {
+                    TextView textView = (TextView) view;
+                    int selectionStart = textView.getSelectionStart();
+                    int selectionEnd = textView.getSelectionEnd();
+                    try {
+                        assertThat(selectionStart, index);
+                        assertThat(selectionEnd, index);
+                    } catch (IndexOutOfBoundsException e) {
+                        throw new AssertionFailedError(e.getMessage());
+                    }
+                } else {
+                    throw new AssertionFailedError("TextView not found");
                 }
-            } else {
-                throw new AssertionFailedError("TextView not found");
             }
         };
     }
@@ -137,19 +134,6 @@ public final class TextViewAssertions {
      */
     public static ViewAssertion hasInsertionPointerOnRight() {
         return new CursorPositionAssertion(CursorPositionAssertion.RIGHT);
-    }
-
-    /**
-     * Returns a {@link ViewAssertion} that asserts that the TextView does not contain styled text.
-     */
-    public static ViewAssertion doesNotHaveStyledText() {
-        return (view, exception) -> {
-            final CharSequence text = ((TextView) view).getText();
-            if (text instanceof Spanned && !TextUtils.hasStyleSpan((Spanned) text)) {
-                return;
-            }
-            throw new AssertionFailedError("TextView has styled text");
-        };
     }
 
     /**
@@ -206,7 +190,7 @@ public final class TextViewAssertions {
                 throw new AssertionFailedError("View should be an instance of EditText");
             }
             EditText editText = (EditText) view;
-            Drawable drawable = editText.getEditorForTesting().getCursorDrawable();
+            Drawable drawable = editText.getEditorForTesting().getCursorDrawable()[0];
             Rect drawableBounds = drawable.getBounds();
             Rect drawablePadding = new Rect();
             drawable.getPadding(drawablePadding);

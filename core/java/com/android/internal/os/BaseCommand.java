@@ -17,14 +17,12 @@
 
 package com.android.internal.os;
 
-import android.annotation.UnsupportedAppUsage;
 import android.os.ShellCommand;
 
 import java.io.PrintStream;
 
 public abstract class BaseCommand {
 
-    @UnsupportedAppUsage
     final protected ShellCommand mArgs = new ShellCommand() {
         @Override public int onCommand(String cmd) {
             return 0;
@@ -38,8 +36,6 @@ public abstract class BaseCommand {
     public static final String NO_SYSTEM_ERROR_CODE = "Error type 2";
     public static final String NO_CLASS_ERROR_CODE = "Error type 3";
 
-    private String[] mRawArgs;
-
     /**
      * Call to run the command.
      */
@@ -49,8 +45,7 @@ public abstract class BaseCommand {
             return;
         }
 
-        mRawArgs = args;
-        mArgs.init(null, null, null, null, args, null, 0);
+        mArgs.init(null, null, null, null, args, 0);
 
         try {
             onRun();
@@ -108,25 +103,10 @@ public abstract class BaseCommand {
     }
 
     /**
-     * Peek the next argument on the command line, whatever it is; if there are
-     * no arguments left, return null.
-     */
-    public String peekNextArg() {
-        return mArgs.peekNextArg();
-    }
-
-    /**
      * Return the next argument on the command line, whatever it is; if there are
      * no arguments left, throws an IllegalArgumentException to report this to the user.
      */
     public String nextArgRequired() {
         return mArgs.getNextArgRequired();
-    }
-
-    /**
-     * Return the original raw argument list supplied to the command.
-     */
-    public String[] getRawArgs() {
-        return mRawArgs;
     }
 }

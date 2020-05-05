@@ -17,7 +17,6 @@
 
 package android.filterfw.core;
 
-import android.annotation.UnsupportedAppUsage;
 import android.filterfw.core.Filter;
 import android.filterfw.core.Frame;
 import android.filterfw.core.FrameManager;
@@ -37,7 +36,6 @@ public class FilterContext {
     private HashMap<String, Frame> mStoredFrames = new HashMap<String, Frame>();
     private Set<FilterGraph> mGraphs = new HashSet<FilterGraph>();
 
-    @UnsupportedAppUsage
     public FrameManager getFrameManager() {
         return mFrameManager;
     }
@@ -54,7 +52,6 @@ public class FilterContext {
         }
     }
 
-    @UnsupportedAppUsage
     public GLEnvironment getGLEnvironment() {
         return mGLEnvironment;
     }

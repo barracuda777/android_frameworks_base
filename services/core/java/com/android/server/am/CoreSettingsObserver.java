@@ -21,9 +21,6 @@ import android.database.ContentObserver;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
-
-import com.android.internal.annotations.VisibleForTesting;
-
 import java.util.HashMap;
 import java.util.Map;
 
@@ -37,14 +34,11 @@ final class CoreSettingsObserver extends ContentObserver {
     private static final String LOG_TAG = CoreSettingsObserver.class.getSimpleName();
 
     // mapping form property name to its type
-    @VisibleForTesting
-    static final Map<String, Class<?>> sSecureSettingToTypeMap = new HashMap<
+    private static final Map<String, Class<?>> sSecureSettingToTypeMap = new HashMap<
             String, Class<?>>();
-    @VisibleForTesting
-    static final Map<String, Class<?>> sSystemSettingToTypeMap = new HashMap<
+    private static final Map<String, Class<?>> sSystemSettingToTypeMap = new HashMap<
             String, Class<?>>();
-    @VisibleForTesting
-    static final Map<String, Class<?>> sGlobalSettingToTypeMap = new HashMap<
+    private static final Map<String, Class<?>> sGlobalSettingToTypeMap = new HashMap<
             String, Class<?>>();
     static {
         sSecureSettingToTypeMap.put(Settings.Secure.LONG_PRESS_TIMEOUT, int.class);
@@ -55,34 +49,6 @@ final class CoreSettingsObserver extends ContentObserver {
         // add other system settings here...
 
         sGlobalSettingToTypeMap.put(Settings.Global.DEBUG_VIEW_ATTRIBUTES, int.class);
-        sGlobalSettingToTypeMap.put(
-                Settings.Global.DEBUG_VIEW_ATTRIBUTES_APPLICATION_PACKAGE, String.class);
-        sGlobalSettingToTypeMap.put(
-                Settings.Global.GLOBAL_SETTINGS_ANGLE_DEBUG_PACKAGE, String.class);
-        sGlobalSettingToTypeMap.put(
-                Settings.Global.GLOBAL_SETTINGS_ANGLE_GL_DRIVER_ALL_ANGLE, String.class);
-        sGlobalSettingToTypeMap.put(
-                Settings.Global.GLOBAL_SETTINGS_ANGLE_GL_DRIVER_SELECTION_PKGS, String.class);
-        sGlobalSettingToTypeMap.put(
-                Settings.Global.GLOBAL_SETTINGS_ANGLE_GL_DRIVER_SELECTION_VALUES, String.class);
-        sGlobalSettingToTypeMap.put(
-                Settings.Global.GLOBAL_SETTINGS_ANGLE_WHITELIST, String.class);
-        sGlobalSettingToTypeMap.put(
-                Settings.Global.GLOBAL_SETTINGS_SHOW_ANGLE_IN_USE_DIALOG_BOX, String.class);
-        sGlobalSettingToTypeMap.put(Settings.Global.ENABLE_GPU_DEBUG_LAYERS, int.class);
-        sGlobalSettingToTypeMap.put(Settings.Global.GPU_DEBUG_APP, String.class);
-        sGlobalSettingToTypeMap.put(Settings.Global.GPU_DEBUG_LAYERS, String.class);
-        sGlobalSettingToTypeMap.put(Settings.Global.GPU_DEBUG_LAYERS_GLES, String.class);
-        sGlobalSettingToTypeMap.put(Settings.Global.GPU_DEBUG_LAYER_APP, String.class);
-        sGlobalSettingToTypeMap.put(Settings.Global.GAME_DRIVER_ALL_APPS, int.class);
-        sGlobalSettingToTypeMap.put(Settings.Global.GAME_DRIVER_OPT_IN_APPS, String.class);
-        sGlobalSettingToTypeMap.put(
-                Settings.Global.GAME_DRIVER_PRERELEASE_OPT_IN_APPS, String.class);
-        sGlobalSettingToTypeMap.put(Settings.Global.GAME_DRIVER_OPT_OUT_APPS, String.class);
-        sGlobalSettingToTypeMap.put(Settings.Global.GAME_DRIVER_BLACKLIST, String.class);
-        sGlobalSettingToTypeMap.put(Settings.Global.GAME_DRIVER_WHITELIST, String.class);
-        sGlobalSettingToTypeMap.put(Settings.Global.GAME_DRIVER_BLACKLISTS, String.class);
-        sGlobalSettingToTypeMap.put(Settings.Global.GAME_DRIVER_SPHAL_LIBRARIES, String.class);
         // add other global settings here...
     }
 
@@ -135,32 +101,51 @@ final class CoreSettingsObserver extends ContentObserver {
         }
     }
 
-    @VisibleForTesting
-    void populateSettings(Bundle snapshot, Map<String, Class<?>> map) {
+    private void populateSettings(Bundle snapshot, Map<String, Class<?>> map) {
         Context context = mActivityManagerService.mContext;
         for (Map.Entry<String, Class<?>> entry : map.entrySet()) {
             String setting = entry.getKey();
-            final String value;
-            if (map == sSecureSettingToTypeMap) {
-                value = Settings.Secure.getString(context.getContentResolver(), setting);
-            } else if (map == sSystemSettingToTypeMap) {
-                value = Settings.System.getString(context.getContentResolver(), setting);
-            } else {
-                value = Settings.Global.getString(context.getContentResolver(), setting);
-            }
-            if (value == null) {
-                snapshot.remove(setting);
-                continue;
-            }
             Class<?> type = entry.getValue();
             if (type == String.class) {
+                final String value;
+                if (map == sSecureSettingToTypeMap) {
+                    value = Settings.Secure.getString(context.getContentResolver(), setting);
+                } else if (map == sSystemSettingToTypeMap) {
+                    value = Settings.System.getString(context.getContentResolver(), setting);
+                } else {
+                    value = Settings.Global.getString(context.getContentResolver(), setting);
+                }
                 snapshot.putString(setting, value);
             } else if (type == int.class) {
-                snapshot.putInt(setting, Integer.parseInt(value));
+                final int value;
+                if (map == sSecureSettingToTypeMap) {
+                    value = Settings.Secure.getInt(context.getContentResolver(), setting, 0);
+                } else if (map == sSystemSettingToTypeMap) {
+                    value = Settings.System.getInt(context.getContentResolver(), setting, 0);
+                } else {
+                    value = Settings.Global.getInt(context.getContentResolver(), setting, 0);
+                }
+                snapshot.putInt(setting, value);
             } else if (type == float.class) {
-                snapshot.putFloat(setting, Float.parseFloat(value));
+                final float value;
+                if (map == sSecureSettingToTypeMap) {
+                    value = Settings.Secure.getFloat(context.getContentResolver(), setting, 0);
+                } else if (map == sSystemSettingToTypeMap) {
+                    value = Settings.System.getFloat(context.getContentResolver(), setting, 0);
+                } else {
+                    value = Settings.Global.getFloat(context.getContentResolver(), setting, 0);
+                }
+                snapshot.putFloat(setting, value);
             } else if (type == long.class) {
-                snapshot.putLong(setting, Long.parseLong(value));
+                final long value;
+                if (map == sSecureSettingToTypeMap) {
+                    value = Settings.Secure.getLong(context.getContentResolver(), setting, 0);
+                } else if (map == sSystemSettingToTypeMap) {
+                    value = Settings.System.getLong(context.getContentResolver(), setting, 0);
+                } else {
+                    value = Settings.Global.getLong(context.getContentResolver(), setting, 0);
+                }
+                snapshot.putLong(setting, value);
             }
         }
     }

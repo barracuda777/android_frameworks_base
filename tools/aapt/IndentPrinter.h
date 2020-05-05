@@ -3,7 +3,7 @@
 
 class IndentPrinter {
 public:
-    explicit IndentPrinter(FILE* stream, int indentSize=2)
+    IndentPrinter(FILE* stream, int indentSize=2)
         : mStream(stream)
         , mIndentSize(indentSize)
         , mIndent(0)

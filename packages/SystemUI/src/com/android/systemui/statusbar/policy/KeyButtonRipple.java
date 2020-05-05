@@ -25,12 +25,10 @@ import android.graphics.CanvasProperty;
 import android.graphics.ColorFilter;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
-import android.graphics.RecordingCanvas;
 import android.graphics.drawable.Drawable;
-import android.os.Handler;
+import android.view.DisplayListCanvas;
 import android.view.RenderNodeAnimator;
 import android.view.View;
-import android.view.ViewConfiguration;
 import android.view.animation.Interpolator;
 
 import com.android.systemui.Interpolators;
@@ -43,7 +41,6 @@ public class KeyButtonRipple extends Drawable {
 
     private static final float GLOW_MAX_SCALE_FACTOR = 1.35f;
     private static final float GLOW_MAX_ALPHA = 0.2f;
-    private static final float GLOW_MAX_ALPHA_DARK = 0.1f;
     private static final int ANIMATION_DURATION_SCALE = 350;
     private static final int ANIMATION_DURATION_FADE = 450;
 
@@ -58,50 +55,26 @@ public class KeyButtonRipple extends Drawable {
     private float mGlowAlpha = 0f;
     private float mGlowScale = 1f;
     private boolean mPressed;
-    private boolean mVisible;
     private boolean mDrawingHardwareGlow;
     private int mMaxWidth;
-    private boolean mLastDark;
-    private boolean mDark;
-    private boolean mDelayTouchFeedback;
 
     private final Interpolator mInterpolator = new LogInterpolator();
     private boolean mSupportHardware;
     private final View mTargetView;
-    private final Handler mHandler = new Handler();
 
     private final HashSet<Animator> mRunningAnimations = new HashSet<>();
     private final ArrayList<Animator> mTmpArray = new ArrayList<>();
-
-    public enum Type {
-        OVAL,
-        ROUNDED_RECT
-    }
-
-    private Type mType = Type.ROUNDED_RECT;
 
     public KeyButtonRipple(Context ctx, View targetView) {
         mMaxWidth =  ctx.getResources().getDimensionPixelSize(R.dimen.key_button_ripple_max_width);
         mTargetView = targetView;
     }
 
-    public void setDarkIntensity(float darkIntensity) {
-        mDark = darkIntensity >= 0.5f;
-    }
-
-    public void setDelayTouchFeedback(boolean delay) {
-        mDelayTouchFeedback = delay;
-    }
-
-    public void setType(Type type) {
-        mType = type;
-    }
-
     private Paint getRipplePaint() {
         if (mRipplePaint == null) {
             mRipplePaint = new Paint();
             mRipplePaint.setAntiAlias(true);
-            mRipplePaint.setColor(mLastDark ? 0xff000000 : 0xffffffff);
+            mRipplePaint.setColor(0xffffffff);
         }
         return mRipplePaint;
     }
@@ -122,15 +95,9 @@ public class KeyButtonRipple extends Drawable {
             final float ry = horizontal ? cy : radius;
             final float corner = horizontal ? cy : cx;
 
-            if (mType == Type.ROUNDED_RECT) {
-                canvas.drawRoundRect(cx - rx, cy - ry, cx + rx, cy + ry, corner, corner, p);
-            } else {
-                canvas.save();
-                canvas.translate(cx, cy);
-                float r = Math.min(rx, ry);
-                canvas.drawOval(-r, -r, r, r, p);
-                canvas.restore();
-            }
+            canvas.drawRoundRect(cx - rx, cy - ry,
+                    cx + rx, cy + ry,
+                    corner, corner, p);
         }
     }
 
@@ -138,7 +105,7 @@ public class KeyButtonRipple extends Drawable {
     public void draw(Canvas canvas) {
         mSupportHardware = canvas.isHardwareAccelerated();
         if (mSupportHardware) {
-            drawHardware((RecordingCanvas) canvas);
+            drawHardware((DisplayListCanvas) canvas);
         } else {
             drawSoftware(canvas);
         }
@@ -163,18 +130,10 @@ public class KeyButtonRipple extends Drawable {
         return getBounds().width() > getBounds().height();
     }
 
-    private void drawHardware(RecordingCanvas c) {
+    private void drawHardware(DisplayListCanvas c) {
         if (mDrawingHardwareGlow) {
-            if (mType == Type.ROUNDED_RECT) {
-                c.drawRoundRect(mLeftProp, mTopProp, mRightProp, mBottomProp, mRxProp, mRyProp,
-                        mPaintProp);
-            } else {
-                CanvasProperty<Float> cx = CanvasProperty.createFloat(getBounds().width() / 2);
-                CanvasProperty<Float> cy = CanvasProperty.createFloat(getBounds().height() / 2);
-                int d = Math.min(getBounds().width(), getBounds().height());
-                CanvasProperty<Float> r = CanvasProperty.createFloat(1.0f * d / 2);
-                c.drawCircle(cx, cy, r, mPaintProp);
-            }
+            c.drawRoundRect(mLeftProp, mTopProp, mRightProp, mBottomProp, mRxProp, mRyProp,
+                    mPaintProp);
         }
     }
 
@@ -194,10 +153,6 @@ public class KeyButtonRipple extends Drawable {
     public void setGlowScale(float x) {
         mGlowScale = x;
         invalidateSelf();
-    }
-
-    private float getMaxGlowAlpha() {
-        return mLastDark ? GLOW_MAX_ALPHA_DARK : GLOW_MAX_ALPHA;
     }
 
     @Override
@@ -228,16 +183,7 @@ public class KeyButtonRipple extends Drawable {
         return true;
     }
 
-    @Override
-    public boolean hasFocusStateSpecified() {
-        return true;
-    }
-
     public void setPressed(boolean pressed) {
-        if (mDark != mLastDark && pressed) {
-            mRipplePaint = null;
-            mLastDark = mDark;
-        }
         if (mSupportHardware) {
             setPressedHardware(pressed);
         } else {
@@ -245,16 +191,7 @@ public class KeyButtonRipple extends Drawable {
         }
     }
 
-    /**
-     * Abort the ripple while it is delayed and before shown used only when setShouldDelayStartTouch
-     * is enabled.
-     */
-    public void abortDelayedRipple() {
-        mHandler.removeCallbacksAndMessages(null);
-    }
-
     private void cancelAnimations() {
-        mVisible = false;
         mTmpArray.addAll(mRunningAnimations);
         int size = mTmpArray.size();
         for (int i = 0; i < size; i++) {
@@ -263,21 +200,11 @@ public class KeyButtonRipple extends Drawable {
         }
         mTmpArray.clear();
         mRunningAnimations.clear();
-        mHandler.removeCallbacksAndMessages(null);
     }
 
     private void setPressedSoftware(boolean pressed) {
         if (pressed) {
-            if (mDelayTouchFeedback) {
-                if (mRunningAnimations.isEmpty()) {
-                    mHandler.removeCallbacksAndMessages(null);
-                    mHandler.postDelayed(this::enterSoftware, ViewConfiguration.getTapTimeout());
-                } else if (mVisible) {
-                    enterSoftware();
-                }
-            } else {
-                enterSoftware();
-            }
+            enterSoftware();
         } else {
             exitSoftware();
         }
@@ -285,8 +212,7 @@ public class KeyButtonRipple extends Drawable {
 
     private void enterSoftware() {
         cancelAnimations();
-        mVisible = true;
-        mGlowAlpha = getMaxGlowAlpha();
+        mGlowAlpha = GLOW_MAX_ALPHA;
         ObjectAnimator scaleAnimator = ObjectAnimator.ofFloat(this, "glowScale",
                 0f, GLOW_MAX_SCALE_FACTOR);
         scaleAnimator.setInterpolator(mInterpolator);
@@ -294,12 +220,6 @@ public class KeyButtonRipple extends Drawable {
         scaleAnimator.addListener(mAnimatorListener);
         scaleAnimator.start();
         mRunningAnimations.add(scaleAnimator);
-
-        // With the delay, it could eventually animate the enter animation with no pressed state,
-        // then immediately show the exit animation. If this is skipped there will be no ripple.
-        if (mDelayTouchFeedback && !mPressed) {
-            exitSoftware();
-        }
     }
 
     private void exitSoftware() {
@@ -313,16 +233,7 @@ public class KeyButtonRipple extends Drawable {
 
     private void setPressedHardware(boolean pressed) {
         if (pressed) {
-            if (mDelayTouchFeedback) {
-                if (mRunningAnimations.isEmpty()) {
-                    mHandler.removeCallbacksAndMessages(null);
-                    mHandler.postDelayed(this::enterHardware, ViewConfiguration.getTapTimeout());
-                } else if (mVisible) {
-                    enterHardware();
-                }
-            } else {
-                enterHardware();
-            }
+            enterHardware();
         } else {
             exitHardware();
         }
@@ -371,7 +282,6 @@ public class KeyButtonRipple extends Drawable {
 
     private void enterHardware() {
         cancelAnimations();
-        mVisible = true;
         mDrawingHardwareGlow = true;
         setExtendStart(CanvasProperty.createFloat(getExtendSize() / 2));
         final RenderNodeAnimator startAnim = new RenderNodeAnimator(getExtendStart(),
@@ -402,7 +312,7 @@ public class KeyButtonRipple extends Drawable {
         }
 
         mGlowScale = GLOW_MAX_SCALE_FACTOR;
-        mGlowAlpha = getMaxGlowAlpha();
+        mGlowAlpha = GLOW_MAX_ALPHA;
         mRipplePaint = getRipplePaint();
         mRipplePaint.setAlpha((int) (mGlowAlpha * 255));
         mPaintProp = CanvasProperty.createPaint(mRipplePaint);
@@ -413,12 +323,6 @@ public class KeyButtonRipple extends Drawable {
         mRunningAnimations.add(endAnim);
 
         invalidateSelf();
-
-        // With the delay, it could eventually animate the enter animation with no pressed state,
-        // then immediately show the exit animation. If this is skipped there will be no ripple.
-        if (mDelayTouchFeedback && !mPressed) {
-            exitHardware();
-        }
     }
 
     private void exitHardware() {
@@ -442,7 +346,6 @@ public class KeyButtonRipple extends Drawable {
         public void onAnimationEnd(Animator animation) {
             mRunningAnimations.remove(animation);
             if (mRunningAnimations.isEmpty() && !mPressed) {
-                mVisible = false;
                 mDrawingHardwareGlow = false;
                 invalidateSelf();
             }

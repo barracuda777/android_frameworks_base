@@ -21,8 +21,6 @@
 
 package android.graphics;
 
-import android.annotation.UnsupportedAppUsage;
-
 /**
  * Xfermode is the base class for objects that are called to implement custom
  * "transfer-modes" in the drawing pipeline. The static function Create(Modes)
@@ -31,7 +29,17 @@ import android.annotation.UnsupportedAppUsage;
  * objects drawn with that paint have the xfermode applied.
  */
 public class Xfermode {
-    static final int DEFAULT = PorterDuff.Mode.SRC_OVER.nativeInt;
-    @UnsupportedAppUsage
-    int porterDuffMode = DEFAULT;
+
+    protected void finalize() throws Throwable {
+        try {
+            finalizer(native_instance);
+            native_instance = 0;
+        } finally {
+            super.finalize();
+        }
+    }
+
+    private static native void finalizer(long native_instance);
+
+    long native_instance;
 }

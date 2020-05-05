@@ -1,17 +1,12 @@
 package com.android.server.policy.keyguard;
 
-import static com.android.server.wm.KeyguardServiceDelegateProto.INTERACTIVE_STATE;
-import static com.android.server.wm.KeyguardServiceDelegateProto.OCCLUDED;
-import static com.android.server.wm.KeyguardServiceDelegateProto.SCREEN_STATE;
-import static com.android.server.wm.KeyguardServiceDelegateProto.SECURE;
-import static com.android.server.wm.KeyguardServiceDelegateProto.SHOWING;
-
-import android.app.ActivityTaskManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.pm.ActivityInfo;
 import android.content.res.Resources;
+import android.graphics.PixelFormat;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -19,15 +14,16 @@ import android.os.RemoteException;
 import android.os.UserHandle;
 import android.util.Log;
 import android.util.Slog;
-import android.util.proto.ProtoOutputStream;
-import android.view.WindowManagerPolicyConstants;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.WindowManager;
+import android.view.WindowManagerPolicy.OnKeyguardExitResult;
 
-import com.android.internal.policy.IKeyguardDismissCallback;
 import com.android.internal.policy.IKeyguardDrawnCallback;
 import com.android.internal.policy.IKeyguardExitCallback;
 import com.android.internal.policy.IKeyguardService;
 import com.android.server.UiThread;
-import com.android.server.policy.WindowManagerPolicy.OnKeyguardExitResult;
+import com.android.server.policy.keyguard.KeyguardStateMonitor.OnShowingStateChangedCallback;
 
 import java.io.PrintWriter;
 
@@ -38,29 +34,34 @@ import java.io.PrintWriter;
  */
 public class KeyguardServiceDelegate {
     private static final String TAG = "KeyguardServiceDelegate";
-    private static final boolean DEBUG = false;
+    private static final boolean DEBUG = true;
 
     private static final int SCREEN_STATE_OFF = 0;
     private static final int SCREEN_STATE_TURNING_ON = 1;
     private static final int SCREEN_STATE_ON = 2;
-    private static final int SCREEN_STATE_TURNING_OFF = 3;
 
     private static final int INTERACTIVE_STATE_SLEEP = 0;
-    private static final int INTERACTIVE_STATE_WAKING = 1;
-    private static final int INTERACTIVE_STATE_AWAKE = 2;
-    private static final int INTERACTIVE_STATE_GOING_TO_SLEEP = 3;
+    private static final int INTERACTIVE_STATE_AWAKE = 1;
+    private static final int INTERACTIVE_STATE_GOING_TO_SLEEP = 2;
 
     protected KeyguardServiceWrapper mKeyguardService;
     private final Context mContext;
-    private final Handler mHandler;
+    private final View mScrim; // shown if keyguard crashes
+    private final Handler mScrimHandler;
     private final KeyguardState mKeyguardState = new KeyguardState();
-    private final KeyguardStateMonitor.StateCallback mCallback;
-
     private DrawnListener mDrawnListenerWhenConnect;
+    private final OnShowingStateChangedCallback mShowingStateChangedCallback;
 
     private static final class KeyguardState {
         KeyguardState() {
-            reset();
+            // Assume keyguard is showing and secure until we know for sure. This is here in
+            // the event something checks before the service is actually started.
+            // KeyguardService itself should default to this state until the real state is known.
+            showing = true;
+            showingAndNotOccluded = true;
+            secure = true;
+            deviceHasKeyguard = true;
+            currentUser = UserHandle.USER_NULL;
         }
         boolean showing;
         boolean showingAndNotOccluded;
@@ -76,18 +77,6 @@ public class KeyguardServiceDelegate {
         public boolean bootCompleted;
         public int screenState;
         public int interactiveState;
-
-        private void reset() {
-            // Assume keyguard is showing and secure until we know for sure. This is here in
-            // the event something checks before the service is actually started.
-            // KeyguardService itself should default to this state until the real state is known.
-            showing = true;
-            showingAndNotOccluded = true;
-            secure = true;
-            deviceHasKeyguard = true;
-            enabled = true;
-            currentUser = UserHandle.USER_NULL;
-        }
     };
 
     public interface DrawnListener {
@@ -108,6 +97,7 @@ public class KeyguardServiceDelegate {
             if (mDrawnListener != null) {
                 mDrawnListener.onDrawn();
             }
+            hideScrim();
         }
     };
 
@@ -128,10 +118,12 @@ public class KeyguardServiceDelegate {
         }
     };
 
-    public KeyguardServiceDelegate(Context context, KeyguardStateMonitor.StateCallback callback) {
+    public KeyguardServiceDelegate(Context context,
+            OnShowingStateChangedCallback showingStateChangedCallback) {
         mContext = context;
-        mHandler = UiThread.getHandler();
-        mCallback = callback;
+        mScrimHandler = UiThread.getHandler();
+        mShowingStateChangedCallback = showingStateChangedCallback;
+        mScrim = createScrim(context, mScrimHandler);
     }
 
     public void bindService(Context context) {
@@ -144,7 +136,7 @@ public class KeyguardServiceDelegate {
         intent.setComponent(keyguardComponent);
 
         if (!context.bindServiceAsUser(intent, mKeyguardConnection,
-                Context.BIND_AUTO_CREATE, mHandler, UserHandle.SYSTEM)) {
+                Context.BIND_AUTO_CREATE, mScrimHandler, UserHandle.SYSTEM)) {
             Log.v(TAG, "*** Keyguard: can't bind to " + keyguardComponent);
             mKeyguardState.showing = false;
             mKeyguardState.showingAndNotOccluded = false;
@@ -154,6 +146,7 @@ public class KeyguardServiceDelegate {
                 // is at least self-healing but a race condition here can lead to the scrim being
                 // stuck on keyguard-less devices.
                 mKeyguardState.deviceHasKeyguard = false;
+                hideScrim();
             }
         } else {
             if (DEBUG) Log.v(TAG, "*** Keyguard started");
@@ -165,7 +158,7 @@ public class KeyguardServiceDelegate {
         public void onServiceConnected(ComponentName name, IBinder service) {
             if (DEBUG) Log.v(TAG, "*** Keyguard connected (yay!)");
             mKeyguardService = new KeyguardServiceWrapper(mContext,
-                    IKeyguardService.Stub.asInterface(service), mCallback);
+                    IKeyguardService.Stub.asInterface(service), mShowingStateChangedCallback);
             if (mKeyguardState.systemIsReady) {
                 // If the system is ready, it means keyguard crashed and restarted.
                 mKeyguardService.onSystemReady();
@@ -174,12 +167,8 @@ public class KeyguardServiceDelegate {
                     mKeyguardService.setCurrentUser(mKeyguardState.currentUser);
                 }
                 // This is used to hide the scrim once keyguard displays.
-                if (mKeyguardState.interactiveState == INTERACTIVE_STATE_AWAKE
-                        || mKeyguardState.interactiveState == INTERACTIVE_STATE_WAKING) {
-                    mKeyguardService.onStartedWakingUp();
-                }
                 if (mKeyguardState.interactiveState == INTERACTIVE_STATE_AWAKE) {
-                    mKeyguardService.onFinishedWakingUp();
+                    mKeyguardService.onStartedWakingUp();
                 }
                 if (mKeyguardState.screenState == SCREEN_STATE_ON
                         || mKeyguardState.screenState == SCREEN_STATE_TURNING_ON) {
@@ -197,25 +186,14 @@ public class KeyguardServiceDelegate {
             if (mKeyguardState.occluded) {
                 mKeyguardService.setOccluded(mKeyguardState.occluded, false /* animate */);
             }
-            if (!mKeyguardState.enabled) {
-                mKeyguardService.setKeyguardEnabled(mKeyguardState.enabled);
-            }
         }
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
             if (DEBUG) Log.v(TAG, "*** Keyguard disconnected (boo!)");
             mKeyguardService = null;
-            mKeyguardState.reset();
-            mHandler.post(() -> {
-                try {
-                    ActivityTaskManager.getService().setLockScreenShown(true /* keyguardShowing */,
-                            false /* aodShowing */);
-                } catch (RemoteException e) {
-                    // Local call.
-                }
-            });
         }
+
     };
 
     public boolean isShowing() {
@@ -239,10 +217,6 @@ public class KeyguardServiceDelegate {
         return false;
     }
 
-    public boolean hasKeyguard() {
-        return mKeyguardState.deviceHasKeyguard;
-    }
-
     public boolean isInputRestricted() {
         if (mKeyguardService != null) {
             mKeyguardState.inputRestricted = mKeyguardService.isInputRestricted();
@@ -256,6 +230,12 @@ public class KeyguardServiceDelegate {
         }
     }
 
+    public void keyguardDone(boolean authenticated, boolean wakeup) {
+        if (mKeyguardService != null) {
+            mKeyguardService.keyguardDone(authenticated, wakeup);
+        }
+    }
+
     public void setOccluded(boolean isOccluded, boolean animate) {
         if (mKeyguardService != null) {
             if (DEBUG) Log.v(TAG, "setOccluded(" + isOccluded + ") animate=" + animate);
@@ -264,9 +244,9 @@ public class KeyguardServiceDelegate {
         mKeyguardState.occluded = isOccluded;
     }
 
-    public void dismiss(IKeyguardDismissCallback callback, CharSequence message) {
+    public void dismiss(boolean allowWhileOccluded) {
         if (mKeyguardService != null) {
-            mKeyguardService.dismiss(callback, message);
+            mKeyguardService.dismiss(allowWhileOccluded);
         }
     }
 
@@ -296,23 +276,7 @@ public class KeyguardServiceDelegate {
             if (DEBUG) Log.v(TAG, "onStartedWakingUp()");
             mKeyguardService.onStartedWakingUp();
         }
-        mKeyguardState.interactiveState = INTERACTIVE_STATE_WAKING;
-    }
-
-    public void onFinishedWakingUp() {
-        if (mKeyguardService != null) {
-            if (DEBUG) Log.v(TAG, "onFinishedWakingUp()");
-            mKeyguardService.onFinishedWakingUp();
-        }
         mKeyguardState.interactiveState = INTERACTIVE_STATE_AWAKE;
-    }
-
-    public void onScreenTurningOff() {
-        if (mKeyguardService != null) {
-            if (DEBUG) Log.v(TAG, "onScreenTurningOff()");
-            mKeyguardService.onScreenTurningOff();
-        }
-        mKeyguardState.screenState = SCREEN_STATE_TURNING_OFF;
     }
 
     public void onScreenTurnedOff() {
@@ -333,6 +297,7 @@ public class KeyguardServiceDelegate {
             // This shouldn't happen, but if it does, show the scrim immediately and
             // invoke the listener's callback after the service actually connects.
             mDrawnListenerWhenConnect = drawnListener;
+            showScrim();
         }
         mKeyguardState.screenState = SCREEN_STATE_TURNING_ON;
     }
@@ -388,16 +353,65 @@ public class KeyguardServiceDelegate {
         mKeyguardState.currentUser = newUserId;
     }
 
-    public void setSwitchingUser(boolean switching) {
-        if (mKeyguardService != null) {
-            mKeyguardService.setSwitchingUser(switching);
-        }
-    }
-
     public void startKeyguardExitAnimation(long startTime, long fadeoutDuration) {
         if (mKeyguardService != null) {
             mKeyguardService.startKeyguardExitAnimation(startTime, fadeoutDuration);
         }
+    }
+
+    private static View createScrim(Context context, Handler handler) {
+        final View view = new View(context);
+
+        int flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                | WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR
+                | WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN
+                | WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER
+                ;
+
+        final int stretch = ViewGroup.LayoutParams.MATCH_PARENT;
+        final int type = WindowManager.LayoutParams.TYPE_KEYGUARD_SCRIM;
+        final WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+                stretch, stretch, type, flags, PixelFormat.TRANSLUCENT);
+        lp.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE;
+        lp.screenOrientation = ActivityInfo.SCREEN_ORIENTATION_NOSENSOR;
+        lp.privateFlags |= WindowManager.LayoutParams.PRIVATE_FLAG_FAKE_HARDWARE_ACCELERATED;
+        lp.setTitle("KeyguardScrim");
+        final WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+        // Disable pretty much everything in statusbar until keyguard comes back and we know
+        // the state of the world.
+        view.setSystemUiVisibility(View.STATUS_BAR_DISABLE_HOME
+                | View.STATUS_BAR_DISABLE_BACK
+                | View.STATUS_BAR_DISABLE_RECENT
+                | View.STATUS_BAR_DISABLE_EXPAND
+                | View.STATUS_BAR_DISABLE_SEARCH);
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                wm.addView(view, lp);
+            }
+        });
+        return view;
+    }
+
+    public void showScrim() {
+        synchronized (mKeyguardState) {
+            if (!mKeyguardState.deviceHasKeyguard) return;
+            mScrimHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    mScrim.setVisibility(View.VISIBLE);
+                }
+            });
+        }
+    }
+
+    public void hideScrim() {
+        mScrimHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                mScrim.setVisibility(View.GONE);
+            }
+        });
     }
 
     public void onBootCompleted() {
@@ -407,20 +421,10 @@ public class KeyguardServiceDelegate {
         mKeyguardState.bootCompleted = true;
     }
 
-    public void onShortPowerPressedGoHome() {
+    public void onActivityDrawn() {
         if (mKeyguardService != null) {
-            mKeyguardService.onShortPowerPressedGoHome();
+            mKeyguardService.onActivityDrawn();
         }
-    }
-
-    public void writeToProto(ProtoOutputStream proto, long fieldId) {
-        final long token = proto.start(fieldId);
-        proto.write(SHOWING, mKeyguardState.showing);
-        proto.write(OCCLUDED, mKeyguardState.occluded);
-        proto.write(SECURE, mKeyguardState.secure);
-        proto.write(SCREEN_STATE, mKeyguardState.screenState);
-        proto.write(INTERACTIVE_STATE, mKeyguardState.interactiveState);
-        proto.end(token);
     }
 
     public void dump(String prefix, PrintWriter pw) {
@@ -435,45 +439,13 @@ public class KeyguardServiceDelegate {
         pw.println(prefix + "systemIsReady=" + mKeyguardState.systemIsReady);
         pw.println(prefix + "deviceHasKeyguard=" + mKeyguardState.deviceHasKeyguard);
         pw.println(prefix + "enabled=" + mKeyguardState.enabled);
-        pw.println(prefix + "offReason=" +
-                WindowManagerPolicyConstants.offReasonToString(mKeyguardState.offReason));
+        pw.println(prefix + "offReason=" + mKeyguardState.offReason);
         pw.println(prefix + "currentUser=" + mKeyguardState.currentUser);
         pw.println(prefix + "bootCompleted=" + mKeyguardState.bootCompleted);
-        pw.println(prefix + "screenState=" + screenStateToString(mKeyguardState.screenState));
-        pw.println(prefix + "interactiveState=" +
-                interactiveStateToString(mKeyguardState.interactiveState));
+        pw.println(prefix + "screenState=" + mKeyguardState.screenState);
+        pw.println(prefix + "interactiveState=" + mKeyguardState.interactiveState);
         if (mKeyguardService != null) {
             mKeyguardService.dump(prefix, pw);
-        }
-    }
-
-    private static String screenStateToString(int screen) {
-        switch (screen) {
-            case SCREEN_STATE_OFF:
-                return "SCREEN_STATE_OFF";
-            case SCREEN_STATE_TURNING_ON:
-                return "SCREEN_STATE_TURNING_ON";
-            case SCREEN_STATE_ON:
-                return "SCREEN_STATE_ON";
-            case SCREEN_STATE_TURNING_OFF:
-                return "SCREEN_STATE_TURNING_OFF";
-            default:
-                return Integer.toString(screen);
-        }
-    }
-
-    private static String interactiveStateToString(int interactive) {
-        switch (interactive) {
-            case INTERACTIVE_STATE_SLEEP:
-                return "INTERACTIVE_STATE_SLEEP";
-            case INTERACTIVE_STATE_WAKING:
-                return "INTERACTIVE_STATE_WAKING";
-            case INTERACTIVE_STATE_AWAKE:
-                return "INTERACTIVE_STATE_AWAKE";
-            case INTERACTIVE_STATE_GOING_TO_SLEEP:
-                return "INTERACTIVE_STATE_GOING_TO_SLEEP";
-            default:
-                return Integer.toString(interactive);
         }
     }
 }

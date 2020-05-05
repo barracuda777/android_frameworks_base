@@ -23,16 +23,15 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.support.v14.preference.PreferenceFragment;
+import android.support.v14.preference.SwitchPreference;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.Preference.OnPreferenceChangeListener;
+import android.support.v7.preference.PreferenceScreen;
 import android.view.MenuItem;
 
-import androidx.preference.Preference;
-import androidx.preference.Preference.OnPreferenceChangeListener;
-import androidx.preference.PreferenceFragment;
-import androidx.preference.PreferenceScreen;
-import androidx.preference.SwitchPreference;
-
 import com.android.internal.logging.MetricsLogger;
-import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.systemui.DemoMode;
 import com.android.systemui.R;
 
@@ -155,15 +154,7 @@ public class DemoModeFragment extends PreferenceFragment implements OnPreference
         getContext().sendBroadcast(intent);
 
         intent.putExtra(DemoMode.EXTRA_COMMAND, DemoMode.COMMAND_CLOCK);
-
-        String demoTime = "1010"; // 10:10, a classic choice of horologists
-        try {
-            String[] versionParts = android.os.Build.VERSION.RELEASE.split("\\.");
-            int majorVersion = Integer.valueOf(versionParts[0]);
-            demoTime = String.format("%02d00", majorVersion % 24);
-        } catch (IllegalArgumentException ex) {
-        }
-        intent.putExtra("hhmm", demoTime);
+        intent.putExtra("hhmm", "0700");
         getContext().sendBroadcast(intent);
 
         intent.putExtra(DemoMode.EXTRA_COMMAND, DemoMode.COMMAND_NETWORK);
@@ -172,7 +163,7 @@ public class DemoModeFragment extends PreferenceFragment implements OnPreference
         intent.putExtra("sims", "1");
         intent.putExtra("nosim", "false");
         intent.putExtra("level", "4");
-        intent.putExtra("datatype", "lte");
+        intent.putExtra("datatypel", "");
         getContext().sendBroadcast(intent);
 
         // Need to send this after so that the sim controller already exists.

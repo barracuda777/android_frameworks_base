@@ -16,11 +16,8 @@
 
 package com.android.internal.widget;
 
-import android.annotation.UnsupportedAppUsage;
-
 public class ScrollBarUtils {
 
-    @UnsupportedAppUsage
     public static int getThumbLength(int size, int thickness, int extent, int range) {
         // Avoid the tiny thumb.
         final int minLength = thickness * 2;

@@ -19,10 +19,6 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="car_guest" msgid="3738772168718508650">"Gast"</string>
-    <string name="start_guest_session" msgid="7055742120180595689">"Gast"</string>
-    <string name="car_add_user" msgid="5245196248349230898">"Gebruiker toevoegen"</string>
-    <string name="car_new_user" msgid="8142927244990323906">"Nieuwe gebruiker"</string>
-    <string name="user_add_user_message_setup" msgid="1791011504259527329">"Wanneer je een nieuwe gebruiker toevoegt, moet die persoon zijn eigen profiel instellen."</string>
-    <string name="user_add_user_message_update" msgid="3383320289232716179">"Elke gebruiker kan apps updaten voor alle andere gebruikers."</string>
+    <string name="car_lockscreen_disclaimer_title" msgid="7997539137376896441">"Rijd veilig"</string>
+    <string name="car_lockscreen_disclaimer_text" msgid="3061224684092952864">"Blijf je volledig bewust van de rijomstandigheden en houd je altijd aan de wet. Aanwijzingen kunnen onnauwkeurig, onvolledig, gevaarlijk, ongeschikt of verboden zijn of het doorkruisen van overheidszones vereisen. Bedrijfsinformatie kan ook onnauwkeurg of onvolledig zijn. De gegevens worden niet in realtime verstrekt en de nauwkeurigheid van een locatie kan niet worden gegarandeerd. Bedien tijdens het rijden je mobiele apparaat niet en gebruik geen apps die niet bedoeld zijn voor Android Auto."</string>
 </resources>

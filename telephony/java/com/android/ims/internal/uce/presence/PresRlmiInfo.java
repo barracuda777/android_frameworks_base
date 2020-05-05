@@ -16,7 +16,6 @@
 
 package com.android.ims.internal.uce.presence;
 
-import android.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 import android.os.Parcelable;
 
@@ -61,7 +60,6 @@ public class PresRlmiInfo implements Parcelable {
      * Sets the URI.
      * @hide
      */
-    @UnsupportedAppUsage
     public void setUri(String uri) {
         this.mUri = uri;
     }
@@ -78,7 +76,6 @@ public class PresRlmiInfo implements Parcelable {
      * Sets the version.
      * @hide
      */
-    @UnsupportedAppUsage
     public void setVersion(int version) {
         this.mVersion = version;
     }
@@ -95,7 +92,6 @@ public class PresRlmiInfo implements Parcelable {
      * Sets the RLMI state.
      * @hide
      */
-    @UnsupportedAppUsage
     public void setFullState(boolean fullState) {
         this.mFullState = fullState;
     }
@@ -112,7 +108,6 @@ public class PresRlmiInfo implements Parcelable {
      * Sets the RLMI list name.
      * @hide
      */
-    @UnsupportedAppUsage
     public void setListName(String listName) {
         this.mListName = listName;
     }
@@ -129,7 +124,6 @@ public class PresRlmiInfo implements Parcelable {
      * Sets the subscription request ID.
      * @hide
      */
-    @UnsupportedAppUsage
     public void setRequestId(int requestId) {
         this.mRequestId = requestId;
     }
@@ -146,7 +140,6 @@ public class PresRlmiInfo implements Parcelable {
      * Sets the presence subscription state.
      * @hide
      */
-    @UnsupportedAppUsage
     public void setPresSubscriptionState(PresSubscriptionState presSubscriptionState) {
         this.mPresSubscriptionState = presSubscriptionState;
     }
@@ -163,7 +156,6 @@ public class PresRlmiInfo implements Parcelable {
      * Sets the presence subscription expiration time.
      * @hide
      */
-    @UnsupportedAppUsage
     public void setSubscriptionExpireTime(int subscriptionExpireTime) {
         this.mSubscriptionExpireTime = subscriptionExpireTime;
     }
@@ -180,7 +172,6 @@ public class PresRlmiInfo implements Parcelable {
      * Sets the presence subscription terminated reason.
      * @hide
      */
-    @UnsupportedAppUsage
     public void setSubscriptionTerminatedReason(String subscriptionTerminatedReason) {
         this.mSubscriptionTerminatedReason = subscriptionTerminatedReason;
     }
@@ -189,7 +180,6 @@ public class PresRlmiInfo implements Parcelable {
      * Constructor for the PresTupleInfo class.
      * @hide
      */
-    @UnsupportedAppUsage
     public PresRlmiInfo(){};
 
     /** @hide */

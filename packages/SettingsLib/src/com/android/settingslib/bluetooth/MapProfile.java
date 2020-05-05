@@ -32,14 +32,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * MapProfile handles the Bluetooth MAP MSE role
+ * MapProfile handles Bluetooth MAP profile.
  */
-public class MapProfile implements LocalBluetoothProfile {
+public final class MapProfile implements LocalBluetoothProfile {
     private static final String TAG = "MapProfile";
+    private static boolean V = true;
 
     private BluetoothMap mService;
     private boolean mIsProfileReady;
 
+    private final LocalBluetoothAdapter mLocalAdapter;
     private final CachedBluetoothDeviceManager mDeviceManager;
     private final LocalBluetoothProfileManager mProfileManager;
 
@@ -58,6 +60,7 @@ public class MapProfile implements LocalBluetoothProfile {
             implements BluetoothProfile.ServiceListener {
 
         public void onServiceConnected(int profile, BluetoothProfile proxy) {
+            if (V) Log.d(TAG,"Bluetooth service connected");
             mService = (BluetoothMap) proxy;
             // We just bound to the service, so refresh the UI for any connected MAP devices.
             List<BluetoothDevice> deviceList = mService.getConnectedDevices();
@@ -67,7 +70,7 @@ public class MapProfile implements LocalBluetoothProfile {
                 // we may add a new device here, but generally this should not happen
                 if (device == null) {
                     Log.w(TAG, "MapProfile found new device: " + nextDevice);
-                    device = mDeviceManager.addDevice(nextDevice);
+                    device = mDeviceManager.addDevice(mLocalAdapter, mProfileManager, nextDevice);
                 }
                 device.onProfileStateChanged(MapProfile.this,
                         BluetoothProfile.STATE_CONNECTED);
@@ -79,30 +82,28 @@ public class MapProfile implements LocalBluetoothProfile {
         }
 
         public void onServiceDisconnected(int profile) {
+            if (V) Log.d(TAG,"Bluetooth service disconnected");
             mProfileManager.callServiceDisconnectedListeners();
             mIsProfileReady=false;
         }
     }
 
     public boolean isProfileReady() {
-        Log.d(TAG, "isProfileReady(): " + mIsProfileReady);
+        if(V) Log.d(TAG,"isProfileReady(): "+ mIsProfileReady);
         return mIsProfileReady;
     }
 
-    @Override
-    public int getProfileId() {
-        return BluetoothProfile.MAP;
-    }
-
-    MapProfile(Context context, CachedBluetoothDeviceManager deviceManager,
+    MapProfile(Context context, LocalBluetoothAdapter adapter,
+            CachedBluetoothDeviceManager deviceManager,
             LocalBluetoothProfileManager profileManager) {
+        mLocalAdapter = adapter;
         mDeviceManager = deviceManager;
         mProfileManager = profileManager;
-        BluetoothAdapter.getDefaultAdapter().getProfileProxy(context, new MapServiceListener(),
+        mLocalAdapter.getProfileProxy(context, new MapServiceListener(),
                 BluetoothProfile.MAP);
     }
 
-    public boolean accessProfileEnabled() {
+    public boolean isConnectable() {
         return true;
     }
 
@@ -111,45 +112,45 @@ public class MapProfile implements LocalBluetoothProfile {
     }
 
     public boolean connect(BluetoothDevice device) {
-        Log.d(TAG, "connect() - should not get called");
+        if(V)Log.d(TAG,"connect() - should not get called");
         return false; // MAP never connects out
     }
 
     public boolean disconnect(BluetoothDevice device) {
-        if (mService == null) {
+        if (mService == null) return false;
+        List<BluetoothDevice> deviceList = mService.getConnectedDevices();
+        if (!deviceList.isEmpty() && deviceList.get(0).equals(device)) {
+            if (mService.getPriority(device) > BluetoothProfile.PRIORITY_ON) {
+                mService.setPriority(device, BluetoothProfile.PRIORITY_ON);
+            }
+            return mService.disconnect(device);
+        } else {
             return false;
         }
-        if (mService.getPriority(device) > BluetoothProfile.PRIORITY_ON) {
-            mService.setPriority(device, BluetoothProfile.PRIORITY_ON);
-        }
-        return mService.disconnect(device);
     }
 
     public int getConnectionStatus(BluetoothDevice device) {
-        if (mService == null) {
-            return BluetoothProfile.STATE_DISCONNECTED;
-        }
-        return mService.getConnectionState(device);
+        if (mService == null) return BluetoothProfile.STATE_DISCONNECTED;
+        List<BluetoothDevice> deviceList = mService.getConnectedDevices();
+        if(V) Log.d(TAG,"getConnectionStatus: status is: "+ mService.getConnectionState(device));
+
+        return !deviceList.isEmpty() && deviceList.get(0).equals(device)
+                ? mService.getConnectionState(device)
+                : BluetoothProfile.STATE_DISCONNECTED;
     }
 
     public boolean isPreferred(BluetoothDevice device) {
-        if (mService == null) {
-            return false;
-        }
+        if (mService == null) return false;
         return mService.getPriority(device) > BluetoothProfile.PRIORITY_OFF;
     }
 
     public int getPreferred(BluetoothDevice device) {
-        if (mService == null) {
-            return BluetoothProfile.PRIORITY_OFF;
-        }
+        if (mService == null) return BluetoothProfile.PRIORITY_OFF;
         return mService.getPriority(device);
     }
 
     public void setPreferred(BluetoothDevice device, boolean preferred) {
-        if (mService == null) {
-            return;
-        }
+        if (mService == null) return;
         if (preferred) {
             if (mService.getPriority(device) < BluetoothProfile.PRIORITY_ON) {
                 mService.setPriority(device, BluetoothProfile.PRIORITY_ON);
@@ -160,9 +161,7 @@ public class MapProfile implements LocalBluetoothProfile {
     }
 
     public List<BluetoothDevice> getConnectedDevices() {
-        if (mService == null) {
-            return new ArrayList<BluetoothDevice>(0);
-        }
+        if (mService == null) return new ArrayList<BluetoothDevice>(0);
         return mService.getDevicesMatchingConnectionStates(
               new int[] {BluetoothProfile.STATE_CONNECTED,
                          BluetoothProfile.STATE_CONNECTING,
@@ -191,16 +190,16 @@ public class MapProfile implements LocalBluetoothProfile {
                 return R.string.bluetooth_map_profile_summary_connected;
 
             default:
-                return BluetoothUtils.getConnectionStateSummary(state);
+                return Utils.getConnectionStateSummary(state);
         }
     }
 
     public int getDrawableResource(BluetoothClass btClass) {
-        return com.android.internal.R.drawable.ic_phone;
+        return R.drawable.ic_bt_cellphone;
     }
 
     protected void finalize() {
-        Log.d(TAG, "finalize()");
+        if (V) Log.d(TAG, "finalize()");
         if (mService != null) {
             try {
                 BluetoothAdapter.getDefaultAdapter().closeProfileProxy(BluetoothProfile.MAP,

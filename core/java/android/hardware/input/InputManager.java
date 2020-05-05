@@ -16,24 +16,22 @@
 
 package android.hardware.input;
 
+import com.android.internal.os.SomeArgs;
+
 import android.annotation.IntDef;
+import android.annotation.Nullable;
 import android.annotation.SdkConstant;
 import android.annotation.SdkConstant.SdkConstantType;
-import android.annotation.SystemService;
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.media.AudioAttributes;
 import android.os.Binder;
-import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.os.RemoteException;
 import android.os.ServiceManager;
-import android.os.ServiceManager.ServiceNotFoundException;
 import android.os.SystemClock;
-import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.provider.Settings;
 import android.provider.Settings.SettingNotFoundException;
@@ -41,11 +39,9 @@ import android.util.Log;
 import android.util.SparseArray;
 import android.view.InputDevice;
 import android.view.InputEvent;
-import android.view.InputMonitor;
-import android.view.MotionEvent;
 import android.view.PointerIcon;
-
-import com.android.internal.os.SomeArgs;
+import android.view.inputmethod.InputMethodInfo;
+import android.view.inputmethod.InputMethodSubtype;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -54,8 +50,13 @@ import java.util.List;
 
 /**
  * Provides information about input devices and available key layouts.
+ * <p>
+ * Get an instance of this class by calling
+ * {@link android.content.Context#getSystemService(java.lang.String)
+ * Context.getSystemService()} with the argument
+ * {@link android.content.Context#INPUT_SERVICE}.
+ * </p>
  */
-@SystemService(Context.INPUT_SERVICE)
 public final class InputManager {
     private static final String TAG = "InputManager";
     private static final boolean DEBUG = false;
@@ -66,7 +67,6 @@ public final class InputManager {
 
     private static InputManager sInstance;
 
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     private final IInputManager mIm;
 
     // Guarded by mInputDevicesLock
@@ -184,16 +184,11 @@ public final class InputManager {
      * Waits for the event to be delivered to the application and handled.
      * @hide
      */
-    @UnsupportedAppUsage
     public static final int INJECT_INPUT_EVENT_MODE_WAIT_FOR_FINISH = 2;  // see InputDispatcher.h
 
     /** @hide */
     @Retention(RetentionPolicy.SOURCE)
-    @IntDef(prefix = { "SWITCH_STATE_" }, value = {
-            SWITCH_STATE_UNKNOWN,
-            SWITCH_STATE_OFF,
-            SWITCH_STATE_ON
-    })
+    @IntDef({SWITCH_STATE_UNKNOWN, SWITCH_STATE_OFF, SWITCH_STATE_ON})
     public @interface SwitchState {}
 
     /**
@@ -227,16 +222,11 @@ public final class InputManager {
      *
      * @hide
      */
-    @UnsupportedAppUsage
     public static InputManager getInstance() {
         synchronized (InputManager.class) {
             if (sInstance == null) {
-                try {
-                    sInstance = new InputManager(IInputManager.Stub
-                            .asInterface(ServiceManager.getServiceOrThrow(Context.INPUT_SERVICE)));
-                } catch (ServiceNotFoundException e) {
-                    throw new IllegalStateException(e);
-                }
+                IBinder b = ServiceManager.getService(Context.INPUT_SERVICE);
+                sInstance = new InputManager(IInputManager.Stub.asInterface(b));
             }
             return sInstance;
         }
@@ -322,62 +312,6 @@ public final class InputManager {
                 ids[i] = mInputDevices.keyAt(i);
             }
             return ids;
-        }
-    }
-
-    /**
-     * Returns true if an input device is enabled. Should return true for most
-     * situations. Some system apps may disable an input device, for
-     * example to prevent unwanted touch events.
-     *
-     * @param id The input device Id.
-     *
-     * @hide
-     */
-    public boolean isInputDeviceEnabled(int id) {
-        try {
-            return mIm.isInputDeviceEnabled(id);
-        } catch (RemoteException ex) {
-            Log.w(TAG, "Could not check enabled status of input device with id = " + id);
-            throw ex.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * Enables an InputDevice.
-     * <p>
-     * Requires {@link android.Manifest.permissions.DISABLE_INPUT_DEVICE}.
-     * </p>
-     *
-     * @param id The input device Id.
-     *
-     * @hide
-     */
-    public void enableInputDevice(int id) {
-        try {
-            mIm.enableInputDevice(id);
-        } catch (RemoteException ex) {
-            Log.w(TAG, "Could not enable input device with id = " + id);
-            throw ex.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * Disables an InputDevice.
-     * <p>
-     * Requires {@link android.Manifest.permissions.DISABLE_INPUT_DEVICE}.
-     * </p>
-     *
-     * @param id The input device Id.
-     *
-     * @hide
-     */
-    public void disableInputDevice(int id) {
-        try {
-            mIm.disableInputDevice(id);
-        } catch (RemoteException ex) {
-            Log.w(TAG, "Could not disable input device with id = " + id);
-            throw ex.rethrowFromSystemServer();
         }
     }
 
@@ -705,6 +639,52 @@ public final class InputManager {
         }
     }
 
+
+    /**
+     * Gets the keyboard layout for the specified input device and IME subtype.
+     *
+     * @param identifier The identifier for the input device.
+     * @param inputMethodInfo The input method.
+     * @param inputMethodSubtype The input method subtype. {@code null} if this input method does
+     * not support any subtype.
+     *
+     * @return The associated {@link KeyboardLayout}, or null if one has not been set.
+     *
+     * @hide
+     */
+    @Nullable
+    public KeyboardLayout getKeyboardLayoutForInputDevice(InputDeviceIdentifier identifier,
+            InputMethodInfo inputMethodInfo, @Nullable InputMethodSubtype inputMethodSubtype) {
+        try {
+            return mIm.getKeyboardLayoutForInputDevice(
+                    identifier, inputMethodInfo, inputMethodSubtype);
+        } catch (RemoteException ex) {
+            throw ex.rethrowFromSystemServer();
+        }
+    }
+
+    /**
+     * Sets the keyboard layout for the specified input device and IME subtype pair.
+     *
+     * @param identifier The identifier for the input device.
+     * @param inputMethodInfo The input method with which to associate the keyboard layout.
+     * @param inputMethodSubtype The input method subtype which which to associate the keyboard
+     * layout. {@code null} if this input method does not support any subtype.
+     * @param keyboardLayoutDescriptor The descriptor of the keyboard layout to set
+     *
+     * @hide
+     */
+    public void setKeyboardLayoutForInputDevice(InputDeviceIdentifier identifier,
+            InputMethodInfo inputMethodInfo, @Nullable InputMethodSubtype inputMethodSubtype,
+            String keyboardLayoutDescriptor) {
+        try {
+            mIm.setKeyboardLayoutForInputDevice(identifier, inputMethodInfo,
+                    inputMethodSubtype, keyboardLayoutDescriptor);
+        } catch (RemoteException ex) {
+            throw ex.rethrowFromSystemServer();
+        }
+    }
+
     /**
      * Gets the TouchCalibration applied to the specified input device's coordinates.
      *
@@ -871,7 +851,6 @@ public final class InputManager {
      *
      * @hide
      */
-    @UnsupportedAppUsage
     public boolean injectInputEvent(InputEvent event, int mode) {
         if (event == null) {
             throw new IllegalArgumentException("event must not be null");
@@ -897,7 +876,6 @@ public final class InputManager {
      *
      * @hide
      */
-    @UnsupportedAppUsage
     public void setPointerIconType(int iconId) {
         try {
             mIm.setPointerIconType(iconId);
@@ -910,38 +888,6 @@ public final class InputManager {
     public void setCustomPointerIcon(PointerIcon icon) {
         try {
             mIm.setCustomPointerIcon(icon);
-        } catch (RemoteException ex) {
-            throw ex.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * Request or release pointer capture.
-     * <p>
-     * When in capturing mode, the pointer icon disappears and all mouse events are dispatched to
-     * the window which has requested the capture. Relative position changes are available through
-     * {@link MotionEvent#getX} and {@link MotionEvent#getY}.
-     *
-     * @param enable true when requesting pointer capture, false when releasing.
-     *
-     * @hide
-     */
-    public void requestPointerCapture(IBinder windowToken, boolean enable) {
-        try {
-            mIm.requestPointerCapture(windowToken, enable);
-        } catch (RemoteException ex) {
-            throw ex.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * Monitor input on the specified display for gestures.
-     *
-     * @hide
-     */
-    public InputMonitor monitorGestureInput(String name, int displayId) {
-        try {
-            return mIm.monitorGestureInput(name, displayId);
         } catch (RemoteException ex) {
             throw ex.rethrowFromSystemServer();
         }
@@ -1056,6 +1002,16 @@ public final class InputManager {
      */
     public Vibrator getInputDeviceVibrator(int deviceId) {
         return new InputDeviceVibrator(deviceId);
+    }
+
+    /**
+     * Set cursor visibility. By default the cursor is visible but it can be hidden
+     * by calling this method. The cursor settings are not saved when an activity is
+     * paused. For this reason, an app must call this method everytime it is resumed.
+     * @hide
+     */
+    public void setCursorVisibility(boolean visible) {
+        /* stub */
     }
 
     /**
@@ -1183,33 +1139,23 @@ public final class InputManager {
             return true;
         }
 
+        /**
+         * @hide
+         */
         @Override
-        public boolean hasAmplitudeControl() {
-            return false;
+        public void vibrate(int uid, String opPkg, long milliseconds, AudioAttributes attributes) {
+            vibrate(new long[] { 0, milliseconds}, -1);
         }
 
         /**
          * @hide
          */
         @Override
-        public void vibrate(int uid, String opPkg, VibrationEffect effect,
-                String reason, AudioAttributes attributes) {
-            long[] pattern;
-            int repeat;
-            if (effect instanceof VibrationEffect.OneShot) {
-                VibrationEffect.OneShot oneShot = (VibrationEffect.OneShot) effect;
-                pattern = new long[] { 0, oneShot.getDuration() };
-                repeat = -1;
-            } else if (effect instanceof VibrationEffect.Waveform) {
-                VibrationEffect.Waveform waveform = (VibrationEffect.Waveform) effect;
-                pattern = waveform.getTimings();
-                repeat = waveform.getRepeatIndex();
-            } else {
-                // TODO: Add support for prebaked effects
-                Log.w(TAG, "Pre-baked effects aren't supported on input devices");
-                return;
+        public void vibrate(int uid, String opPkg, long[] pattern, int repeat,
+                AudioAttributes attributes) {
+            if (repeat >= pattern.length) {
+                throw new ArrayIndexOutOfBoundsException();
             }
-
             try {
                 mIm.vibrate(mDeviceId, pattern, repeat, mToken);
             } catch (RemoteException ex) {

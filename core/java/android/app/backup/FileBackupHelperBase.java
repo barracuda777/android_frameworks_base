@@ -16,7 +16,6 @@
 
 package android.app.backup;
 
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
@@ -102,7 +101,6 @@ class FileBackupHelperBase {
         return (result == 0);
     }
 
-    @UnsupportedAppUsage
     public void writeNewStateDescription(ParcelFileDescriptor fd) {
         int result = writeSnapshot_native(mPtr, fd.getFileDescriptor());
         // TODO: Do something with the error.

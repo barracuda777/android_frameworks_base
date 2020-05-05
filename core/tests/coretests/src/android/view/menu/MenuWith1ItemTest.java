@@ -16,12 +16,17 @@
 
 package android.view.menu;
 
-import android.test.ActivityInstrumentationTestCase;
+import android.view.menu.MenuWith1Item;
 import android.util.KeyUtils;
-import android.view.KeyEvent;
+import com.android.internal.view.menu.MenuBuilder;
 
-import androidx.test.filters.LargeTest;
-import androidx.test.filters.MediumTest;
+import android.test.suitebuilder.annotation.LargeTest;
+import android.test.suitebuilder.annotation.MediumTest;
+import android.test.TouchUtils;
+
+import android.test.ActivityInstrumentationTestCase;
+import android.view.KeyEvent;
+import android.view.View;
 
 public class MenuWith1ItemTest extends ActivityInstrumentationTestCase<MenuWith1Item> {
     private MenuWith1Item mActivity;

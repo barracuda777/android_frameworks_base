@@ -386,7 +386,6 @@ public class MediaAudioTrackTest extends ActivityInstrumentationTestCase2<MediaF
         final int TEST_FORMAT = AudioFormat.ENCODING_PCM_16BIT;
         final int TEST_MODE = AudioTrack.MODE_STREAM;
         final int TEST_STREAM_TYPE = AudioManager.STREAM_MUSIC;
-        final int TEST_LOOP_CNT = 10;
         
         //-------- initialization --------------
         int minBuffSize = AudioTrack.getMinBufferSize(TEST_SR, TEST_CONF, TEST_FORMAT);
@@ -400,14 +399,9 @@ public class MediaAudioTrackTest extends ActivityInstrumentationTestCase2<MediaF
         track.play();
         Thread.sleep(100);
         track.stop();
-        int count = 0;
-        int pos;
-        do {
-            Thread.sleep(200);
-            pos = track.getPlaybackHeadPosition();
-            count++;
-        } while((pos != 0) && (count < TEST_LOOP_CNT));
-        log(TEST_NAME, "position =" + pos + ", read count ="+count);
+        Thread.sleep(100); // TODO: what is a sensible value?
+        int pos = track.getPlaybackHeadPosition();
+        log(TEST_NAME, "position ="+ pos);
         assertTrue(TEST_NAME, pos == 0);
         //-------- tear down      --------------
         track.release();

@@ -16,22 +16,6 @@
 
 package android.net;
 
-import static android.system.OsConstants.IFA_F_DADFAILED;
-import static android.system.OsConstants.IFA_F_DEPRECATED;
-import static android.system.OsConstants.IFA_F_OPTIMISTIC;
-import static android.system.OsConstants.IFA_F_TENTATIVE;
-import static android.system.OsConstants.RT_SCOPE_HOST;
-import static android.system.OsConstants.RT_SCOPE_LINK;
-import static android.system.OsConstants.RT_SCOPE_SITE;
-import static android.system.OsConstants.RT_SCOPE_UNIVERSE;
-
-import android.annotation.IntRange;
-import android.annotation.NonNull;
-import android.annotation.Nullable;
-import android.annotation.SystemApi;
-import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
-import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.util.Pair;
@@ -41,6 +25,15 @@ import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InterfaceAddress;
 import java.net.UnknownHostException;
+
+import static android.system.OsConstants.IFA_F_DADFAILED;
+import static android.system.OsConstants.IFA_F_DEPRECATED;
+import static android.system.OsConstants.IFA_F_OPTIMISTIC;
+import static android.system.OsConstants.IFA_F_TENTATIVE;
+import static android.system.OsConstants.RT_SCOPE_HOST;
+import static android.system.OsConstants.RT_SCOPE_LINK;
+import static android.system.OsConstants.RT_SCOPE_SITE;
+import static android.system.OsConstants.RT_SCOPE_UNIVERSE;
 
 /**
  * Identifies an IP address on a network link.
@@ -61,13 +54,11 @@ public class LinkAddress implements Parcelable {
     /**
      * IPv4 or IPv6 address.
      */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     private InetAddress address;
 
     /**
      * Prefix length.
      */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     private int prefixLength;
 
     /**
@@ -85,7 +76,7 @@ public class LinkAddress implements Parcelable {
      * RFC 6724 section 3.2.
      * @hide
      */
-    private static int scopeForUnicastAddress(InetAddress addr) {
+    static int scopeForUnicastAddress(InetAddress addr) {
         if (addr.isAnyLocalAddress()) {
             return RT_SCOPE_HOST;
         }
@@ -109,44 +100,12 @@ public class LinkAddress implements Parcelable {
      *
      * Per RFC 4193 section 8, fc00::/7 identifies these addresses.
      */
-    private boolean isIpv6ULA() {
-        if (isIpv6()) {
+    private boolean isIPv6ULA() {
+        if (address != null && address instanceof Inet6Address) {
             byte[] bytes = address.getAddress();
             return ((bytes[0] & (byte)0xfe) == (byte)0xfc);
         }
         return false;
-    }
-
-    /**
-     * @return true if the address is IPv6.
-     * @hide
-     */
-    @TestApi
-    @SystemApi
-    public boolean isIpv6() {
-        return address instanceof Inet6Address;
-    }
-
-    /**
-     * For backward compatibility.
-     * This was annotated with @UnsupportedAppUsage in P, so we can't remove the method completely
-     * just yet.
-     * @return true if the address is IPv6.
-     * @hide
-     */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P)
-    public boolean isIPv6() {
-        return isIpv6();
-    }
-
-    /**
-     * @return true if the address is IPv4 or is a mapped IPv4 address.
-     * @hide
-     */
-    @TestApi
-    @SystemApi
-    public boolean isIpv4() {
-        return address instanceof Inet4Address;
     }
 
     /**
@@ -156,7 +115,7 @@ public class LinkAddress implements Parcelable {
         if (address == null ||
                 address.isMulticastAddress() ||
                 prefixLength < 0 ||
-                (address instanceof Inet4Address && prefixLength > 32) ||
+                ((address instanceof Inet4Address) && prefixLength > 32) ||
                 (prefixLength > 128)) {
             throw new IllegalArgumentException("Bad LinkAddress params " + address +
                     "/" + prefixLength);
@@ -171,16 +130,13 @@ public class LinkAddress implements Parcelable {
      * Constructs a new {@code LinkAddress} from an {@code InetAddress} and prefix length, with
      * the specified flags and scope. Flags and scope are not checked for validity.
      * @param address The IP address.
-     * @param prefixLength The prefix length. Must be &gt;= 0 and &lt;= (32 or 128) (IPv4 or IPv6).
+     * @param prefixLength The prefix length.
      * @param flags A bitmask of {@code IFA_F_*} values representing properties of the address.
      * @param scope An integer defining the scope in which the address is unique (e.g.,
      *              {@link OsConstants#RT_SCOPE_LINK} or {@link OsConstants#RT_SCOPE_SITE}).
      * @hide
      */
-    @SystemApi
-    @TestApi
-    public LinkAddress(@NonNull InetAddress address, @IntRange(from = 0, to = 128) int prefixLength,
-            int flags, int scope) {
+    public LinkAddress(InetAddress address, int prefixLength, int flags, int scope) {
         init(address, prefixLength, flags, scope);
     }
 
@@ -188,13 +144,10 @@ public class LinkAddress implements Parcelable {
      * Constructs a new {@code LinkAddress} from an {@code InetAddress} and a prefix length.
      * The flags are set to zero and the scope is determined from the address.
      * @param address The IP address.
-     * @param prefixLength The prefix length. Must be &gt;= 0 and &lt;= (32 or 128) (IPv4 or IPv6).
+     * @param prefixLength The prefix length.
      * @hide
      */
-    @SystemApi
-    @TestApi
-    public LinkAddress(@NonNull InetAddress address,
-            @IntRange(from = 0, to = 128) int prefixLength) {
+    public LinkAddress(InetAddress address, int prefixLength) {
         this(address, prefixLength, 0, 0);
         this.scope = scopeForUnicastAddress(address);
     }
@@ -205,7 +158,7 @@ public class LinkAddress implements Parcelable {
      * @param interfaceAddress The interface address.
      * @hide
      */
-    public LinkAddress(@NonNull InterfaceAddress interfaceAddress) {
+    public LinkAddress(InterfaceAddress interfaceAddress) {
         this(interfaceAddress.getAddress(),
              interfaceAddress.getNetworkPrefixLength());
     }
@@ -213,12 +166,10 @@ public class LinkAddress implements Parcelable {
     /**
      * Constructs a new {@code LinkAddress} from a string such as "192.0.2.5/24" or
      * "2001:db8::1/64". The flags are set to zero and the scope is determined from the address.
-     * @param address The string to parse.
+     * @param string The string to parse.
      * @hide
      */
-    @SystemApi
-    @TestApi
-    public LinkAddress(@NonNull String address) {
+    public LinkAddress(String address) {
         this(address, 0, 0);
         this.scope = scopeForUnicastAddress(this.address);
     }
@@ -226,16 +177,13 @@ public class LinkAddress implements Parcelable {
     /**
      * Constructs a new {@code LinkAddress} from a string such as "192.0.2.5/24" or
      * "2001:db8::1/64", with the specified flags and scope.
-     * @param address The string to parse.
+     * @param string The string to parse.
      * @param flags The address flags.
      * @param scope The address scope.
      * @hide
      */
-    @SystemApi
-    @TestApi
-    public LinkAddress(@NonNull String address, int flags, int scope) {
+    public LinkAddress(String address, int flags, int scope) {
         // This may throw an IllegalArgumentException; catching it is the caller's responsibility.
-        // TODO: consider rejecting mapped IPv4 addresses such as "::ffff:192.0.2.5/24".
         Pair<InetAddress, Integer> ipAndMask = NetworkUtils.parseIpAndMask(address);
         init(ipAndMask.first, ipAndMask.second, flags, scope);
     }
@@ -290,12 +238,7 @@ public class LinkAddress implements Parcelable {
      * otherwise.
      * @hide
      */
-    @TestApi
-    @SystemApi
-    public boolean isSameAddressAs(@Nullable LinkAddress other) {
-        if (other == null) {
-            return false;
-        }
+    public boolean isSameAddressAs(LinkAddress other) {
         return address.equals(other.address) && prefixLength == other.prefixLength;
     }
 
@@ -309,7 +252,6 @@ public class LinkAddress implements Parcelable {
     /**
      * Returns the prefix length of this {@code LinkAddress}.
      */
-    @IntRange(from = 0, to = 128)
     public int getPrefixLength() {
         return prefixLength;
     }
@@ -319,8 +261,6 @@ public class LinkAddress implements Parcelable {
      * TODO: Delete all callers and remove in favour of getPrefixLength().
      * @hide
      */
-    @UnsupportedAppUsage
-    @IntRange(from = 0, to = 128)
     public int getNetworkPrefixLength() {
         return getPrefixLength();
     }
@@ -343,8 +283,6 @@ public class LinkAddress implements Parcelable {
      * Returns true if this {@code LinkAddress} is global scope and preferred.
      * @hide
      */
-    @TestApi
-    @SystemApi
     public boolean isGlobalPreferred() {
         /**
          * Note that addresses flagged as IFA_F_OPTIMISTIC are
@@ -352,10 +290,10 @@ public class LinkAddress implements Parcelable {
          * state has cleared either DAD has succeeded or failed, and both
          * flags are cleared regardless).
          */
-        return (scope == RT_SCOPE_UNIVERSE
-                && !isIpv6ULA()
-                && (flags & (IFA_F_DADFAILED | IFA_F_DEPRECATED)) == 0L
-                && ((flags & IFA_F_TENTATIVE) == 0L || (flags & IFA_F_OPTIMISTIC) != 0L));
+        return (scope == RT_SCOPE_UNIVERSE &&
+                !isIPv6ULA() &&
+                (flags & (IFA_F_DADFAILED | IFA_F_DEPRECATED)) == 0L &&
+                ((flags & IFA_F_TENTATIVE) == 0L || (flags & IFA_F_OPTIMISTIC) != 0L));
     }
 
     /**
@@ -378,7 +316,7 @@ public class LinkAddress implements Parcelable {
     /**
      * Implement the Parcelable interface.
      */
-    public static final @android.annotation.NonNull Creator<LinkAddress> CREATOR =
+    public static final Creator<LinkAddress> CREATOR =
         new Creator<LinkAddress>() {
             public LinkAddress createFromParcel(Parcel in) {
                 InetAddress address = null;

@@ -1,30 +1,19 @@
 #include "GraphicsJNI.h"
-#include "SkColorFilter.h"
 #include "SkGradientShader.h"
-#include "SkImagePriv.h"
 #include "SkShader.h"
-#include "SkBlendMode.h"
+#include "SkXfermode.h"
 #include "core_jni_helpers.h"
 
+#include <Caches.h>
 #include <jni.h>
-
-#include <vector>
 
 using namespace android::uirenderer;
 
-/**
- * By default Skia gradients will interpolate their colors in unpremul space
- * and then premultiply each of the results. We must set this flag to preserve
- * backwards compatiblity by premultiplying the colors of the gradient first,
- * and then interpolating between them.
- */
-static const uint32_t sGradientShaderFlags = SkGradientShader::kInterpolateColorsInPremul_Flag;
-
-#define ThrowIAE_IfNull(env, ptr)   \
-    if (nullptr == ptr) {           \
-        doThrowIAE(env);            \
-        return 0;                   \
+static void ThrowIAE_IfNull(JNIEnv* env, void* ptr) {
+    if (NULL == ptr) {
+        doThrowIAE(env);
     }
+}
 
 static void Color_RGBToHSV(JNIEnv* env, jobject, jint red, jint green, jint blue, jfloatArray hsvArray)
 {
@@ -52,193 +41,245 @@ static jint Color_HSVToColor(JNIEnv* env, jobject, jint alpha, jfloatArray hsvAr
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
-static void Shader_safeUnref(SkShader* shader) {
+static void Shader_destructor(JNIEnv* env, jobject o, jlong shaderHandle, jlong shaderWithLMHandle)
+{
+    SkShader* shader = reinterpret_cast<SkShader*>(shaderHandle);
     SkSafeUnref(shader);
 }
 
-static jlong Shader_getNativeFinalizer(JNIEnv*, jobject) {
-    return static_cast<jlong>(reinterpret_cast<uintptr_t>(&Shader_safeUnref));
+static jlong Shader_setLocalMatrix(JNIEnv* env, jobject o, jlong shaderHandle, jlong matrixHandle)
+{
+    // ensure we have a valid matrix to use
+    const SkMatrix* matrix = reinterpret_cast<SkMatrix*>(matrixHandle);
+    if (NULL == matrix) {
+        matrix = &SkMatrix::I();
+    }
+
+    // The current shader will no longer need a direct reference owned by Shader.java
+    // as all the data needed is contained within the newly created LocalMatrixShader.
+    SkASSERT(shaderHandle);
+    SkAutoTUnref<SkShader> currentShader(reinterpret_cast<SkShader*>(shaderHandle));
+
+    // Attempt to peel off an existing proxy shader and get the proxy's matrix. If
+    // the proxy existed and it's matrix equals the desired matrix then just return
+    // the proxy, otherwise replace it with a new proxy containing the desired matrix.
+    //
+    // refAsALocalMatrixShader(): if the shader contains a proxy then it unwraps the proxy
+    //                            returning both the underlying shader and the proxy's matrix.
+    // newWithLocalMatrix(): will return a proxy shader that wraps the provided shader and
+    //                       concats the provided local matrix with the shader's matrix.
+    //
+    // WARNING: This proxy replacement only behaves like a setter because the Java
+    //          API enforces that all local matrices are set using this call and
+    //          not passed to the constructor of the Shader.
+    SkMatrix proxyMatrix;
+    SkAutoTUnref<SkShader> baseShader(currentShader->refAsALocalMatrixShader(&proxyMatrix));
+    if (baseShader.get()) {
+        if (proxyMatrix == *matrix) {
+            return reinterpret_cast<jlong>(currentShader.detach());
+        }
+        return reinterpret_cast<jlong>(baseShader->newWithLocalMatrix(*matrix));
+    }
+    return reinterpret_cast<jlong>(currentShader->newWithLocalMatrix(*matrix));
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
-static jlong BitmapShader_constructor(JNIEnv* env, jobject o, jlong matrixPtr, jlong bitmapHandle,
-        jint tileModeX, jint tileModeY) {
-    const SkMatrix* matrix = reinterpret_cast<const SkMatrix*>(matrixPtr);
-    sk_sp<SkImage> image;
-    if (bitmapHandle) {
+static jlong BitmapShader_constructor(JNIEnv* env, jobject o, jobject jbitmap,
+                                      jint tileModeX, jint tileModeY)
+{
+    SkBitmap bitmap;
+    if (jbitmap) {
         // Only pass a valid SkBitmap object to the constructor if the Bitmap exists. Otherwise,
         // we'll pass an empty SkBitmap to avoid crashing/excepting for compatibility.
-        image = android::bitmap::toBitmap(bitmapHandle).makeImage();
+        GraphicsJNI::getSkBitmap(env, jbitmap, &bitmap);
     }
+    SkShader* s = SkShader::CreateBitmapShader(bitmap,
+                                        (SkShader::TileMode)tileModeX,
+                                        (SkShader::TileMode)tileModeY);
 
-    if (!image.get()) {
-        SkBitmap bitmap;
-        image = SkMakeImageFromRasterBitmap(bitmap, kNever_SkCopyPixelsMode);
-    }
-    sk_sp<SkShader> shader = image->makeShader(
-            (SkShader::TileMode)tileModeX, (SkShader::TileMode)tileModeY);
-    ThrowIAE_IfNull(env, shader.get());
-
-    if (matrix) {
-        shader = shader->makeWithLocalMatrix(*matrix);
-    }
-
-    return reinterpret_cast<jlong>(shader.release());
+    ThrowIAE_IfNull(env, s);
+    return reinterpret_cast<jlong>(s);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
-static std::vector<SkColor4f> convertColorLongs(JNIEnv* env, jlongArray colorArray) {
-    const size_t count = env->GetArrayLength(colorArray);
-    const jlong* colorValues = env->GetLongArrayElements(colorArray, nullptr);
-
-    std::vector<SkColor4f> colors(count);
-    for (size_t i = 0; i < count; ++i) {
-        colors[i] = GraphicsJNI::convertColorLong(colorValues[i]);
-    }
-
-    env->ReleaseLongArrayElements(colorArray, const_cast<jlong*>(colorValues), JNI_ABORT);
-    return colors;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////
-
-static jlong LinearGradient_create(JNIEnv* env, jobject, jlong matrixPtr,
-        jfloat x0, jfloat y0, jfloat x1, jfloat y1, jlongArray colorArray,
-        jfloatArray posArray, jint tileMode, jlong colorSpaceHandle) {
+static jlong LinearGradient_create1(JNIEnv* env, jobject o,
+                                    jfloat x0, jfloat y0, jfloat x1, jfloat y1,
+                                    jintArray colorArray, jfloatArray posArray, jint tileMode)
+{
     SkPoint pts[2];
     pts[0].set(x0, y0);
     pts[1].set(x1, y1);
 
-    std::vector<SkColor4f> colors = convertColorLongs(env, colorArray);
+    size_t count = env->GetArrayLength(colorArray);
+    const jint* colorValues = env->GetIntArrayElements(colorArray, NULL);
 
-    AutoJavaFloatArray autoPos(env, posArray, colors.size());
+    AutoJavaFloatArray autoPos(env, posArray, count);
 #ifdef SK_SCALAR_IS_FLOAT
     SkScalar* pos = autoPos.ptr();
 #else
     #error Need to convert float array to SkScalar array before calling the following function.
 #endif
 
-    sk_sp<SkShader> shader(SkGradientShader::MakeLinear(pts, &colors[0],
-                GraphicsJNI::getNativeColorSpace(colorSpaceHandle), pos, colors.size(),
-                static_cast<SkShader::TileMode>(tileMode), sGradientShaderFlags, nullptr));
+    SkShader* shader = SkGradientShader::CreateLinear(pts,
+            reinterpret_cast<const SkColor*>(colorValues), pos, count,
+            static_cast<SkShader::TileMode>(tileMode));
+
+    env->ReleaseIntArrayElements(colorArray, const_cast<jint*>(colorValues), JNI_ABORT);
     ThrowIAE_IfNull(env, shader);
+    return reinterpret_cast<jlong>(shader);
+}
 
-    const SkMatrix* matrix = reinterpret_cast<const SkMatrix*>(matrixPtr);
-    if (matrix) {
-        shader = shader->makeWithLocalMatrix(*matrix);
-    }
+static jlong LinearGradient_create2(JNIEnv* env, jobject o,
+                                    jfloat x0, jfloat y0, jfloat x1, jfloat y1,
+                                    jint color0, jint color1, jint tileMode)
+{
+    SkPoint pts[2];
+    pts[0].set(x0, y0);
+    pts[1].set(x1, y1);
 
-    return reinterpret_cast<jlong>(shader.release());
+    SkColor colors[2];
+    colors[0] = color0;
+    colors[1] = color1;
+
+    SkShader* s = SkGradientShader::CreateLinear(pts, colors, NULL, 2, (SkShader::TileMode)tileMode);
+
+    ThrowIAE_IfNull(env, s);
+    return reinterpret_cast<jlong>(s);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
-static jlong RadialGradient_create(JNIEnv* env, jobject, jlong matrixPtr, jfloat x, jfloat y,
-        jfloat radius, jlongArray colorArray, jfloatArray posArray, jint tileMode,
-        jlong colorSpaceHandle) {
+static jlong RadialGradient_create1(JNIEnv* env, jobject, jfloat x, jfloat y, jfloat radius,
+        jintArray colorArray, jfloatArray posArray, jint tileMode) {
     SkPoint center;
     center.set(x, y);
 
-    std::vector<SkColor4f> colors = convertColorLongs(env, colorArray);
+    size_t      count = env->GetArrayLength(colorArray);
+    const jint* colorValues = env->GetIntArrayElements(colorArray, NULL);
 
-    AutoJavaFloatArray autoPos(env, posArray, colors.size());
+    AutoJavaFloatArray autoPos(env, posArray, count);
 #ifdef SK_SCALAR_IS_FLOAT
     SkScalar* pos = autoPos.ptr();
 #else
     #error Need to convert float array to SkScalar array before calling the following function.
 #endif
 
-    sk_sp<SkShader> shader = SkGradientShader::MakeRadial(center, radius, &colors[0],
-            GraphicsJNI::getNativeColorSpace(colorSpaceHandle), pos, colors.size(),
-            static_cast<SkShader::TileMode>(tileMode), sGradientShaderFlags, nullptr);
+    SkShader* shader = SkGradientShader::CreateRadial(center, radius,
+            reinterpret_cast<const SkColor*>(colorValues), pos, count,
+            static_cast<SkShader::TileMode>(tileMode));
+    env->ReleaseIntArrayElements(colorArray, const_cast<jint*>(colorValues),
+                                 JNI_ABORT);
+
     ThrowIAE_IfNull(env, shader);
+    return reinterpret_cast<jlong>(shader);
+}
 
-    const SkMatrix* matrix = reinterpret_cast<const SkMatrix*>(matrixPtr);
-    if (matrix) {
-        shader = shader->makeWithLocalMatrix(*matrix);
-    }
+static jlong RadialGradient_create2(JNIEnv* env, jobject, jfloat x, jfloat y, jfloat radius,
+        jint color0, jint color1, jint tileMode) {
+    SkPoint center;
+    center.set(x, y);
 
-    return reinterpret_cast<jlong>(shader.release());
+    SkColor colors[2];
+    colors[0] = color0;
+    colors[1] = color1;
+
+    SkShader* s = SkGradientShader::CreateRadial(center, radius, colors, NULL, 2,
+            (SkShader::TileMode)tileMode);
+    ThrowIAE_IfNull(env, s);
+    return reinterpret_cast<jlong>(s);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static jlong SweepGradient_create(JNIEnv* env, jobject, jlong matrixPtr, jfloat x, jfloat y,
-        jlongArray colorArray, jfloatArray jpositions, jlong colorSpaceHandle) {
-    std::vector<SkColor4f> colors = convertColorLongs(env, colorArray);
+static jlong SweepGradient_create1(JNIEnv* env, jobject, jfloat x, jfloat y,
+        jintArray jcolors, jfloatArray jpositions) {
+    size_t      count = env->GetArrayLength(jcolors);
+    const jint* colors = env->GetIntArrayElements(jcolors, NULL);
 
-    AutoJavaFloatArray autoPos(env, jpositions, colors.size());
+    AutoJavaFloatArray autoPos(env, jpositions, count);
 #ifdef SK_SCALAR_IS_FLOAT
     SkScalar* pos = autoPos.ptr();
 #else
     #error Need to convert float array to SkScalar array before calling the following function.
 #endif
 
-    sk_sp<SkShader> shader = SkGradientShader::MakeSweep(x, y, &colors[0],
-            GraphicsJNI::getNativeColorSpace(colorSpaceHandle), pos, colors.size(),
-            sGradientShaderFlags, nullptr);
+    SkShader* shader = SkGradientShader::CreateSweep(x, y,
+            reinterpret_cast<const SkColor*>(colors), pos, count);
+    env->ReleaseIntArrayElements(jcolors, const_cast<jint*>(colors),
+                                 JNI_ABORT);
     ThrowIAE_IfNull(env, shader);
+    return reinterpret_cast<jlong>(shader);
+}
 
-    const SkMatrix* matrix = reinterpret_cast<const SkMatrix*>(matrixPtr);
-    if (matrix) {
-        shader = shader->makeWithLocalMatrix(*matrix);
-    }
-
-    return reinterpret_cast<jlong>(shader.release());
+static jlong SweepGradient_create2(JNIEnv* env, jobject, jfloat x, jfloat y,
+        int color0, int color1) {
+    SkColor colors[2];
+    colors[0] = color0;
+    colors[1] = color1;
+    SkShader* s = SkGradientShader::CreateSweep(x, y, colors, NULL, 2);
+    ThrowIAE_IfNull(env, s);
+    return reinterpret_cast<jlong>(s);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
-static jlong ComposeShader_create(JNIEnv* env, jobject o, jlong matrixPtr,
-        jlong shaderAHandle, jlong shaderBHandle, jint xfermodeHandle) {
-    const SkMatrix* matrix = reinterpret_cast<const SkMatrix*>(matrixPtr);
+static jlong ComposeShader_create1(JNIEnv* env, jobject o,
+        jlong shaderAHandle, jlong shaderBHandle, jlong modeHandle)
+{
     SkShader* shaderA = reinterpret_cast<SkShader *>(shaderAHandle);
     SkShader* shaderB = reinterpret_cast<SkShader *>(shaderBHandle);
-    SkBlendMode mode = static_cast<SkBlendMode>(xfermodeHandle);
-    sk_sp<SkShader> baseShader(SkShader::MakeComposeShader(
-            sk_ref_sp(shaderA), sk_ref_sp(shaderB), mode));
+    SkXfermode* mode = reinterpret_cast<SkXfermode *>(modeHandle);
+    SkShader* shader = SkShader::CreateComposeShader(shaderA, shaderB, mode);
+    return reinterpret_cast<jlong>(shader);
+}
 
-    SkShader* shader;
-
-    if (matrix) {
-        shader = baseShader->makeWithLocalMatrix(*matrix).release();
-    } else {
-        shader = baseShader.release();
-    }
+static jlong ComposeShader_create2(JNIEnv* env, jobject o,
+        jlong shaderAHandle, jlong shaderBHandle, jint xfermodeHandle)
+{
+    SkShader* shaderA = reinterpret_cast<SkShader *>(shaderAHandle);
+    SkShader* shaderB = reinterpret_cast<SkShader *>(shaderBHandle);
+    SkXfermode::Mode mode = static_cast<SkXfermode::Mode>(xfermodeHandle);
+    SkAutoTUnref<SkXfermode> xfermode(SkXfermode::Create(mode));
+    SkShader* shader = SkShader::CreateComposeShader(shaderA, shaderB, xfermode.get());
     return reinterpret_cast<jlong>(shader);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
 static const JNINativeMethod gColorMethods[] = {
-    { "nativeRGBToHSV",    "(III[F)V", (void*)Color_RGBToHSV   },
-    { "nativeHSVToColor",  "(I[F)I",   (void*)Color_HSVToColor }
+    { "nativeRGBToHSV",     "(III[F)V", (void*)Color_RGBToHSV   },
+    { "nativeHSVToColor",   "(I[F)I",   (void*)Color_HSVToColor }
 };
 
 static const JNINativeMethod gShaderMethods[] = {
-    { "nativeGetFinalizer",   "()J",    (void*)Shader_getNativeFinalizer },
+    { "nativeDestructor",        "(J)V",    (void*)Shader_destructor        },
+    { "nativeSetLocalMatrix",    "(JJ)J",   (void*)Shader_setLocalMatrix    }
 };
 
 static const JNINativeMethod gBitmapShaderMethods[] = {
-    { "nativeCreate",      "(JJII)J",  (void*)BitmapShader_constructor },
+    { "nativeCreate",     "(Landroid/graphics/Bitmap;II)J",  (void*)BitmapShader_constructor },
 };
 
 static const JNINativeMethod gLinearGradientMethods[] = {
-    { "nativeCreate",     "(JFFFF[J[FIJ)J",  (void*)LinearGradient_create     },
+    { "nativeCreate1",     "(FFFF[I[FI)J",  (void*)LinearGradient_create1     },
+    { "nativeCreate2",     "(FFFFIII)J",    (void*)LinearGradient_create2     },
 };
 
 static const JNINativeMethod gRadialGradientMethods[] = {
-    { "nativeCreate",     "(JFFF[J[FIJ)J",  (void*)RadialGradient_create     },
+    { "nativeCreate1",     "(FFF[I[FI)J",  (void*)RadialGradient_create1     },
+    { "nativeCreate2",     "(FFFIII)J",    (void*)RadialGradient_create2     },
 };
 
 static const JNINativeMethod gSweepGradientMethods[] = {
-    { "nativeCreate",     "(JFF[J[FJ)J",  (void*)SweepGradient_create     },
+    { "nativeCreate1",     "(FF[I[F)J",  (void*)SweepGradient_create1     },
+    { "nativeCreate2",     "(FFII)J",    (void*)SweepGradient_create2     },
 };
 
 static const JNINativeMethod gComposeShaderMethods[] = {
-    { "nativeCreate",      "(JJJI)J",   (void*)ComposeShader_create     },
+    { "nativeCreate1",      "(JJJ)J",   (void*)ComposeShader_create1     },
+    { "nativeCreate2",      "(JJI)J",   (void*)ComposeShader_create2     },
 };
 
 int register_android_graphics_Shader(JNIEnv* env)

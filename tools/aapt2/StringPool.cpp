@@ -15,497 +15,393 @@
  */
 
 #include "StringPool.h"
+#include "util/BigBuffer.h"
+#include "util/StringPiece.h"
+#include "util/Util.h"
 
 #include <algorithm>
+#include <androidfw/ResourceTypes.h>
 #include <memory>
 #include <string>
 
-#include "android-base/logging.h"
-#include "androidfw/ResourceTypes.h"
-#include "androidfw/StringPiece.h"
-
-#include "util/BigBuffer.h"
-#include "util/Util.h"
-
-using ::android::StringPiece;
-
 namespace aapt {
 
-StringPool::Ref::Ref() : entry_(nullptr) {}
-
-StringPool::Ref::Ref(const StringPool::Ref& rhs) : entry_(rhs.entry_) {
-  if (entry_ != nullptr) {
-    entry_->ref_++;
-  }
+StringPool::Ref::Ref() : mEntry(nullptr) {
 }
 
-StringPool::Ref::Ref(StringPool::Entry* entry) : entry_(entry) {
-  if (entry_ != nullptr) {
-    entry_->ref_++;
-  }
+StringPool::Ref::Ref(const StringPool::Ref& rhs) : mEntry(rhs.mEntry) {
+    if (mEntry != nullptr) {
+        mEntry->ref++;
+    }
+}
+
+StringPool::Ref::Ref(StringPool::Entry* entry) : mEntry(entry) {
+    if (mEntry != nullptr) {
+        mEntry->ref++;
+    }
 }
 
 StringPool::Ref::~Ref() {
-  if (entry_ != nullptr) {
-    entry_->ref_--;
-  }
+    if (mEntry != nullptr) {
+        mEntry->ref--;
+    }
 }
 
 StringPool::Ref& StringPool::Ref::operator=(const StringPool::Ref& rhs) {
-  if (rhs.entry_ != nullptr) {
-    rhs.entry_->ref_++;
-  }
+    if (rhs.mEntry != nullptr) {
+        rhs.mEntry->ref++;
+    }
 
-  if (entry_ != nullptr) {
-    entry_->ref_--;
-  }
-  entry_ = rhs.entry_;
-  return *this;
+    if (mEntry != nullptr) {
+        mEntry->ref--;
+    }
+    mEntry = rhs.mEntry;
+    return *this;
 }
 
-bool StringPool::Ref::operator==(const Ref& rhs) const {
-  return entry_->value == rhs.entry_->value;
+const std::u16string* StringPool::Ref::operator->() const {
+    return &mEntry->value;
 }
 
-bool StringPool::Ref::operator!=(const Ref& rhs) const {
-  return entry_->value != rhs.entry_->value;
+const std::u16string& StringPool::Ref::operator*() const {
+    return mEntry->value;
 }
 
-const std::string* StringPool::Ref::operator->() const {
-  return &entry_->value;
+size_t StringPool::Ref::getIndex() const {
+    return mEntry->index;
 }
 
-const std::string& StringPool::Ref::operator*() const {
-  return entry_->value;
+const StringPool::Context& StringPool::Ref::getContext() const {
+    return mEntry->context;
 }
 
-size_t StringPool::Ref::index() const {
-  // Account for the styles, which *always* come first.
-  return entry_->pool_->styles_.size() + entry_->index_;
+StringPool::StyleRef::StyleRef() : mEntry(nullptr) {
 }
 
-const StringPool::Context& StringPool::Ref::GetContext() const {
-  return entry_->context;
+StringPool::StyleRef::StyleRef(const StringPool::StyleRef& rhs) : mEntry(rhs.mEntry) {
+    if (mEntry != nullptr) {
+        mEntry->ref++;
+    }
 }
 
-StringPool::StyleRef::StyleRef() : entry_(nullptr) {}
-
-StringPool::StyleRef::StyleRef(const StringPool::StyleRef& rhs)
-    : entry_(rhs.entry_) {
-  if (entry_ != nullptr) {
-    entry_->ref_++;
-  }
-}
-
-StringPool::StyleRef::StyleRef(StringPool::StyleEntry* entry) : entry_(entry) {
-  if (entry_ != nullptr) {
-    entry_->ref_++;
-  }
+StringPool::StyleRef::StyleRef(StringPool::StyleEntry* entry) : mEntry(entry) {
+    if (mEntry != nullptr) {
+        mEntry->ref++;
+    }
 }
 
 StringPool::StyleRef::~StyleRef() {
-  if (entry_ != nullptr) {
-    entry_->ref_--;
-  }
+    if (mEntry != nullptr) {
+        mEntry->ref--;
+    }
 }
 
 StringPool::StyleRef& StringPool::StyleRef::operator=(const StringPool::StyleRef& rhs) {
-  if (rhs.entry_ != nullptr) {
-    rhs.entry_->ref_++;
-  }
-
-  if (entry_ != nullptr) {
-    entry_->ref_--;
-  }
-  entry_ = rhs.entry_;
-  return *this;
-}
-
-bool StringPool::StyleRef::operator==(const StyleRef& rhs) const {
-  if (entry_->value != rhs.entry_->value) {
-    return false;
-  }
-
-  if (entry_->spans.size() != rhs.entry_->spans.size()) {
-    return false;
-  }
-
-  auto rhs_iter = rhs.entry_->spans.begin();
-  for (const Span& span : entry_->spans) {
-    const Span& rhs_span = *rhs_iter;
-    if (span.first_char != rhs_span.first_char || span.last_char != rhs_span.last_char ||
-        span.name != rhs_span.name) {
-      return false;
+    if (rhs.mEntry != nullptr) {
+        rhs.mEntry->ref++;
     }
-  }
-  return true;
-}
 
-bool StringPool::StyleRef::operator!=(const StyleRef& rhs) const {
-  return !operator==(rhs);
+    if (mEntry != nullptr) {
+        mEntry->ref--;
+    }
+    mEntry = rhs.mEntry;
+    return *this;
 }
 
 const StringPool::StyleEntry* StringPool::StyleRef::operator->() const {
-  return entry_;
+    return mEntry;
 }
 
 const StringPool::StyleEntry& StringPool::StyleRef::operator*() const {
-  return *entry_;
+    return *mEntry;
 }
 
-size_t StringPool::StyleRef::index() const {
-  return entry_->index_;
+size_t StringPool::StyleRef::getIndex() const {
+    return mEntry->str.getIndex();
 }
 
-const StringPool::Context& StringPool::StyleRef::GetContext() const {
-  return entry_->context;
+const StringPool::Context& StringPool::StyleRef::getContext() const {
+    return mEntry->str.getContext();
 }
 
-StringPool::Ref StringPool::MakeRef(const StringPiece& str) {
-  return MakeRefImpl(str, Context{}, true);
+StringPool::Ref StringPool::makeRef(const StringPiece16& str) {
+    return makeRefImpl(str, Context{}, true);
 }
 
-StringPool::Ref StringPool::MakeRef(const StringPiece& str, const Context& context) {
-  return MakeRefImpl(str, context, true);
+StringPool::Ref StringPool::makeRef(const StringPiece16& str, const Context& context) {
+    return makeRefImpl(str, context, true);
 }
 
-StringPool::Ref StringPool::MakeRefImpl(const StringPiece& str, const Context& context,
-                                        bool unique) {
-  if (unique) {
-    auto range = indexed_strings_.equal_range(str);
-    for (auto iter = range.first; iter != range.second; ++iter) {
-      if (context.priority == iter->second->context.priority) {
-        return Ref(iter->second);
-      }
-    }
-  }
-
-  std::unique_ptr<Entry> entry(new Entry());
-  entry->value = str.to_string();
-  entry->context = context;
-  entry->index_ = strings_.size();
-  entry->ref_ = 0;
-  entry->pool_ = this;
-
-  Entry* borrow = entry.get();
-  strings_.emplace_back(std::move(entry));
-  indexed_strings_.insert(std::make_pair(StringPiece(borrow->value), borrow));
-  return Ref(borrow);
-}
-
-StringPool::Ref StringPool::MakeRef(const Ref& ref) {
-  if (ref.entry_->pool_ == this) {
-    return ref;
-  }
-  return MakeRef(ref.entry_->value, ref.entry_->context);
-}
-
-StringPool::StyleRef StringPool::MakeRef(const StyleString& str) {
-  return MakeRef(str, Context{});
-}
-
-StringPool::StyleRef StringPool::MakeRef(const StyleString& str, const Context& context) {
-  std::unique_ptr<StyleEntry> entry(new StyleEntry());
-  entry->value = str.str;
-  entry->context = context;
-  entry->index_ = styles_.size();
-  entry->ref_ = 0;
-  for (const aapt::Span& span : str.spans) {
-    entry->spans.emplace_back(Span{MakeRef(span.name), span.first_char, span.last_char});
-  }
-
-  StyleEntry* borrow = entry.get();
-  styles_.emplace_back(std::move(entry));
-  return StyleRef(borrow);
-}
-
-StringPool::StyleRef StringPool::MakeRef(const StyleRef& ref) {
-  std::unique_ptr<StyleEntry> entry(new StyleEntry());
-  entry->value = ref.entry_->value;
-  entry->context = ref.entry_->context;
-  entry->index_ = styles_.size();
-  entry->ref_ = 0;
-  for (const Span& span : ref.entry_->spans) {
-    entry->spans.emplace_back(Span{MakeRef(*span.name), span.first_char, span.last_char});
-  }
-
-  StyleEntry* borrow = entry.get();
-  styles_.emplace_back(std::move(entry));
-  return StyleRef(borrow);
-}
-
-void StringPool::ReAssignIndices() {
-  // Assign the style indices.
-  const size_t style_len = styles_.size();
-  for (size_t index = 0; index < style_len; index++) {
-    styles_[index]->index_ = index;
-  }
-
-  // Assign the string indices.
-  const size_t string_len = strings_.size();
-  for (size_t index = 0; index < string_len; index++) {
-    strings_[index]->index_ = index;
-  }
-}
-
-void StringPool::Merge(StringPool&& pool) {
-  // First, change the owning pool for the incoming strings.
-  for (std::unique_ptr<Entry>& entry : pool.strings_) {
-    entry->pool_ = this;
-  }
-
-  // Now move the styles, strings, and indices over.
-  std::move(pool.styles_.begin(), pool.styles_.end(), std::back_inserter(styles_));
-  pool.styles_.clear();
-  std::move(pool.strings_.begin(), pool.strings_.end(), std::back_inserter(strings_));
-  pool.strings_.clear();
-  indexed_strings_.insert(pool.indexed_strings_.begin(), pool.indexed_strings_.end());
-  pool.indexed_strings_.clear();
-
-  ReAssignIndices();
-}
-
-void StringPool::HintWillAdd(size_t string_count, size_t style_count) {
-  strings_.reserve(strings_.size() + string_count);
-  styles_.reserve(styles_.size() + style_count);
-}
-
-void StringPool::Prune() {
-  const auto iter_end = indexed_strings_.end();
-  auto index_iter = indexed_strings_.begin();
-  while (index_iter != iter_end) {
-    if (index_iter->second->ref_ <= 0) {
-      index_iter = indexed_strings_.erase(index_iter);
-    } else {
-      ++index_iter;
-    }
-  }
-
-  auto end_iter2 =
-      std::remove_if(strings_.begin(), strings_.end(),
-                     [](const std::unique_ptr<Entry>& entry) -> bool { return entry->ref_ <= 0; });
-  auto end_iter3 = std::remove_if(
-      styles_.begin(), styles_.end(),
-      [](const std::unique_ptr<StyleEntry>& entry) -> bool { return entry->ref_ <= 0; });
-
-  // Remove the entries at the end or else we'll be accessing a deleted string from the StyleEntry.
-  strings_.erase(end_iter2, strings_.end());
-  styles_.erase(end_iter3, styles_.end());
-
-  ReAssignIndices();
-}
-
-template <typename E>
-static void SortEntries(
-    std::vector<std::unique_ptr<E>>& entries,
-    const std::function<int(const StringPool::Context&, const StringPool::Context&)>& cmp) {
-  using UEntry = std::unique_ptr<E>;
-
-  if (cmp != nullptr) {
-    std::sort(entries.begin(), entries.end(), [&cmp](const UEntry& a, const UEntry& b) -> bool {
-      int r = cmp(a->context, b->context);
-      if (r == 0) {
-        r = a->value.compare(b->value);
-      }
-      return r < 0;
-    });
-  } else {
-    std::sort(entries.begin(), entries.end(),
-              [](const UEntry& a, const UEntry& b) -> bool { return a->value < b->value; });
-  }
-}
-
-void StringPool::Sort(const std::function<int(const Context&, const Context&)>& cmp) {
-  SortEntries(styles_, cmp);
-  SortEntries(strings_, cmp);
-  ReAssignIndices();
-}
-
-template <typename T>
-static T* EncodeLength(T* data, size_t length) {
-  static_assert(std::is_integral<T>::value, "wat.");
-
-  constexpr size_t kMask = 1 << ((sizeof(T) * 8) - 1);
-  constexpr size_t kMaxSize = kMask - 1;
-  if (length > kMaxSize) {
-    *data++ = kMask | (kMaxSize & (length >> (sizeof(T) * 8)));
-  }
-  *data++ = length;
-  return data;
-}
-
-/**
- * Returns the maximum possible string length that can be successfully encoded
- * using 2 units of the specified T.
- *    EncodeLengthMax<char> -> maximum unit length of 0x7FFF
- *    EncodeLengthMax<char16_t> -> maximum unit length of 0x7FFFFFFF
- **/
-template <typename T>
-static size_t EncodeLengthMax() {
-  static_assert(std::is_integral<T>::value, "wat.");
-
-  constexpr size_t kMask = 1 << ((sizeof(T) * 8 * 2) - 1);
-  constexpr size_t max = kMask - 1;
-  return max;
-}
-
-/**
- * Returns the number of units (1 or 2) needed to encode the string length
- * before writing the string.
- */
-template <typename T>
-static size_t EncodedLengthUnits(size_t length) {
-  static_assert(std::is_integral<T>::value, "wat.");
-
-  constexpr size_t kMask = 1 << ((sizeof(T) * 8) - 1);
-  constexpr size_t kMaxSize = kMask - 1;
-  return length > kMaxSize ? 2 : 1;
-}
-
-const std::string kStringTooLarge = "STRING_TOO_LARGE";
-
-static bool EncodeString(const std::string& str, const bool utf8, BigBuffer* out,
-                         IDiagnostics* diag) {
-  if (utf8) {
-    const std::string& encoded = util::Utf8ToModifiedUtf8(str);
-    const ssize_t utf16_length = utf8_to_utf16_length(
-        reinterpret_cast<const uint8_t*>(encoded.data()), encoded.size());
-    CHECK(utf16_length >= 0);
-
-    // Make sure the lengths to be encoded do not exceed the maximum length that
-    // can be encoded using chars
-    if ((((size_t)encoded.size()) > EncodeLengthMax<char>())
-        || (((size_t)utf16_length) > EncodeLengthMax<char>())) {
-
-      diag->Error(DiagMessage() << "string too large to encode using UTF-8 "
-          << "written instead as '" << kStringTooLarge << "'");
-
-      EncodeString(kStringTooLarge, utf8, out, diag);
-      return false;
-    }
-
-    const size_t total_size = EncodedLengthUnits<char>(utf16_length)
-        + EncodedLengthUnits<char>(encoded.size()) + encoded.size() + 1;
-
-    char* data = out->NextBlock<char>(total_size);
-
-    // First encode the UTF16 string length.
-    data = EncodeLength(data, utf16_length);
-
-    // Now encode the size of the real UTF8 string.
-    data = EncodeLength(data, encoded.size());
-    strncpy(data, encoded.data(), encoded.size());
-
-  } else {
-    const std::u16string encoded = util::Utf8ToUtf16(str);
-    const ssize_t utf16_length = encoded.size();
-
-    // Make sure the length to be encoded does not exceed the maximum possible
-    // length that can be encoded
-    if (((size_t)utf16_length) > EncodeLengthMax<char16_t>()) {
-      diag->Error(DiagMessage() << "string too large to encode using UTF-16 "
-          << "written instead as '" << kStringTooLarge << "'");
-
-      EncodeString(kStringTooLarge, utf8, out, diag);
-      return false;
-    }
-
-    // Total number of 16-bit words to write.
-    const size_t total_size = EncodedLengthUnits<char16_t>(utf16_length)
-        + encoded.size() + 1;
-
-    char16_t* data = out->NextBlock<char16_t>(total_size);
-
-    // Encode the actual UTF16 string length.
-    data = EncodeLength(data, utf16_length);
-    const size_t byte_length = encoded.size() * sizeof(char16_t);
-
-    // NOTE: For some reason, strncpy16(data, entry->value.data(),
-    // entry->value.size()) truncates the string.
-    memcpy(data, encoded.data(), byte_length);
-
-    // The null-terminating character is already here due to the block of data
-    // being set to 0s on allocation.
-  }
-
-  return true;
-}
-
-bool StringPool::Flatten(BigBuffer* out, const StringPool& pool, bool utf8,
-                         IDiagnostics* diag) {
-  bool no_error = true;
-  const size_t start_index = out->size();
-  android::ResStringPool_header* header = out->NextBlock<android::ResStringPool_header>();
-  header->header.type = util::HostToDevice16(android::RES_STRING_POOL_TYPE);
-  header->header.headerSize = util::HostToDevice16(sizeof(*header));
-  header->stringCount = util::HostToDevice32(pool.size());
-  header->styleCount = util::HostToDevice32(pool.styles_.size());
-  if (utf8) {
-    header->flags |= android::ResStringPool_header::UTF8_FLAG;
-  }
-
-  uint32_t* indices = pool.size() != 0 ? out->NextBlock<uint32_t>(pool.size()) : nullptr;
-  uint32_t* style_indices =
-      pool.styles_.size() != 0 ? out->NextBlock<uint32_t>(pool.styles_.size()) : nullptr;
-
-  const size_t before_strings_index = out->size();
-  header->stringsStart = before_strings_index - start_index;
-
-  // Styles always come first.
-  for (const std::unique_ptr<StyleEntry>& entry : pool.styles_) {
-    *indices++ = out->size() - before_strings_index;
-    no_error = EncodeString(entry->value, utf8, out, diag) && no_error;
-  }
-
-  for (const std::unique_ptr<Entry>& entry : pool.strings_) {
-    *indices++ = out->size() - before_strings_index;
-    no_error = EncodeString(entry->value, utf8, out, diag) && no_error;
-  }
-
-  out->Align4();
-
-  if (style_indices != nullptr) {
-    const size_t before_styles_index = out->size();
-    header->stylesStart = util::HostToDevice32(before_styles_index - start_index);
-
-    for (const std::unique_ptr<StyleEntry>& entry : pool.styles_) {
-      *style_indices++ = out->size() - before_styles_index;
-
-      if (!entry->spans.empty()) {
-        android::ResStringPool_span* span =
-            out->NextBlock<android::ResStringPool_span>(entry->spans.size());
-        for (const Span& s : entry->spans) {
-          span->name.index = util::HostToDevice32(s.name.index());
-          span->firstChar = util::HostToDevice32(s.first_char);
-          span->lastChar = util::HostToDevice32(s.last_char);
-          span++;
+StringPool::Ref StringPool::makeRefImpl(const StringPiece16& str, const Context& context,
+        bool unique) {
+    if (unique) {
+        auto iter = mIndexedStrings.find(str);
+        if (iter != std::end(mIndexedStrings)) {
+            return Ref(iter->second);
         }
-      }
-
-      uint32_t* spanEnd = out->NextBlock<uint32_t>();
-      *spanEnd = android::ResStringPool_span::END;
     }
 
-    // The error checking code in the platform looks for an entire
-    // ResStringPool_span structure worth of 0xFFFFFFFF at the end
-    // of the style block, so fill in the remaining 2 32bit words
-    // with 0xFFFFFFFF.
-    const size_t padding_length = sizeof(android::ResStringPool_span) -
-                                  sizeof(android::ResStringPool_span::name);
-    uint8_t* padding = out->NextBlock<uint8_t>(padding_length);
-    memset(padding, 0xff, padding_length);
-    out->Align4();
-  }
-  header->header.size = util::HostToDevice32(out->size() - start_index);
-  return no_error;
+    Entry* entry = new Entry();
+    entry->value = str.toString();
+    entry->context = context;
+    entry->index = mStrings.size();
+    entry->ref = 0;
+    mStrings.emplace_back(entry);
+    mIndexedStrings.insert(std::make_pair(StringPiece16(entry->value), entry));
+    return Ref(entry);
 }
 
-bool StringPool::FlattenUtf8(BigBuffer* out, const StringPool& pool, IDiagnostics* diag) {
-  return Flatten(out, pool, true, diag);
+StringPool::StyleRef StringPool::makeRef(const StyleString& str) {
+    return makeRef(str, Context{});
 }
 
-bool StringPool::FlattenUtf16(BigBuffer* out, const StringPool& pool, IDiagnostics* diag) {
-  return Flatten(out, pool, false, diag);
+StringPool::StyleRef StringPool::makeRef(const StyleString& str, const Context& context) {
+    Entry* entry = new Entry();
+    entry->value = str.str;
+    entry->context = context;
+    entry->index = mStrings.size();
+    entry->ref = 0;
+    mStrings.emplace_back(entry);
+    mIndexedStrings.insert(std::make_pair(StringPiece16(entry->value), entry));
+
+    StyleEntry* styleEntry = new StyleEntry();
+    styleEntry->str = Ref(entry);
+    for (const aapt::Span& span : str.spans) {
+        styleEntry->spans.emplace_back(Span{makeRef(span.name),
+                span.firstChar, span.lastChar});
+    }
+    styleEntry->ref = 0;
+    mStyles.emplace_back(styleEntry);
+    return StyleRef(styleEntry);
 }
 
-}  // namespace aapt
+StringPool::StyleRef StringPool::makeRef(const StyleRef& ref) {
+    Entry* entry = new Entry();
+    entry->value = *ref.mEntry->str;
+    entry->context = ref.mEntry->str.mEntry->context;
+    entry->index = mStrings.size();
+    entry->ref = 0;
+    mStrings.emplace_back(entry);
+    mIndexedStrings.insert(std::make_pair(StringPiece16(entry->value), entry));
+
+    StyleEntry* styleEntry = new StyleEntry();
+    styleEntry->str = Ref(entry);
+    for (const Span& span : ref.mEntry->spans) {
+        styleEntry->spans.emplace_back(Span{ makeRef(*span.name), span.firstChar, span.lastChar });
+    }
+    styleEntry->ref = 0;
+    mStyles.emplace_back(styleEntry);
+    return StyleRef(styleEntry);
+}
+
+void StringPool::merge(StringPool&& pool) {
+    mIndexedStrings.insert(pool.mIndexedStrings.begin(), pool.mIndexedStrings.end());
+    pool.mIndexedStrings.clear();
+    std::move(pool.mStrings.begin(), pool.mStrings.end(), std::back_inserter(mStrings));
+    pool.mStrings.clear();
+    std::move(pool.mStyles.begin(), pool.mStyles.end(), std::back_inserter(mStyles));
+    pool.mStyles.clear();
+
+    // Assign the indices.
+    const size_t len = mStrings.size();
+    for (size_t index = 0; index < len; index++) {
+        mStrings[index]->index = index;
+    }
+}
+
+void StringPool::hintWillAdd(size_t stringCount, size_t styleCount) {
+    mStrings.reserve(mStrings.size() + stringCount);
+    mStyles.reserve(mStyles.size() + styleCount);
+}
+
+void StringPool::prune() {
+    const auto iterEnd = std::end(mIndexedStrings);
+    auto indexIter = std::begin(mIndexedStrings);
+    while (indexIter != iterEnd) {
+        if (indexIter->second->ref <= 0) {
+            indexIter = mIndexedStrings.erase(indexIter);
+        } else {
+            ++indexIter;
+        }
+    }
+
+    auto endIter2 = std::remove_if(std::begin(mStrings), std::end(mStrings),
+            [](const std::unique_ptr<Entry>& entry) -> bool {
+                return entry->ref <= 0;
+            }
+    );
+
+    auto endIter3 = std::remove_if(std::begin(mStyles), std::end(mStyles),
+            [](const std::unique_ptr<StyleEntry>& entry) -> bool {
+                return entry->ref <= 0;
+            }
+    );
+
+    // Remove the entries at the end or else we'll be accessing
+    // a deleted string from the StyleEntry.
+    mStrings.erase(endIter2, std::end(mStrings));
+    mStyles.erase(endIter3, std::end(mStyles));
+
+    // Reassign the indices.
+    const size_t len = mStrings.size();
+    for (size_t index = 0; index < len; index++) {
+        mStrings[index]->index = index;
+    }
+}
+
+void StringPool::sort(const std::function<bool(const Entry&, const Entry&)>& cmp) {
+    std::sort(std::begin(mStrings), std::end(mStrings),
+            [&cmp](const std::unique_ptr<Entry>& a, const std::unique_ptr<Entry>& b) -> bool {
+                return cmp(*a, *b);
+            }
+    );
+
+    // Assign the indices.
+    const size_t len = mStrings.size();
+    for (size_t index = 0; index < len; index++) {
+        mStrings[index]->index = index;
+    }
+
+    // Reorder the styles.
+    std::sort(std::begin(mStyles), std::end(mStyles),
+            [](const std::unique_ptr<StyleEntry>& lhs,
+               const std::unique_ptr<StyleEntry>& rhs) -> bool {
+                return lhs->str.getIndex() < rhs->str.getIndex();
+            }
+    );
+}
+
+template <typename T>
+static T* encodeLength(T* data, size_t length) {
+    static_assert(std::is_integral<T>::value, "wat.");
+
+    constexpr size_t kMask = 1 << ((sizeof(T) * 8) - 1);
+    constexpr size_t kMaxSize = kMask - 1;
+    if (length > kMaxSize) {
+        *data++ = kMask | (kMaxSize & (length >> (sizeof(T) * 8)));
+    }
+    *data++ = length;
+    return data;
+}
+
+template <typename T>
+static size_t encodedLengthUnits(size_t length) {
+    static_assert(std::is_integral<T>::value, "wat.");
+
+    constexpr size_t kMask = 1 << ((sizeof(T) * 8) - 1);
+    constexpr size_t kMaxSize = kMask - 1;
+    return length > kMaxSize ? 2 : 1;
+}
+
+
+bool StringPool::flatten(BigBuffer* out, const StringPool& pool, bool utf8) {
+    const size_t startIndex = out->size();
+    android::ResStringPool_header* header = out->nextBlock<android::ResStringPool_header>();
+    header->header.type = android::RES_STRING_POOL_TYPE;
+    header->header.headerSize = sizeof(*header);
+    header->stringCount = pool.size();
+    if (utf8) {
+        header->flags |= android::ResStringPool_header::UTF8_FLAG;
+    }
+
+    uint32_t* indices = pool.size() != 0 ? out->nextBlock<uint32_t>(pool.size()) : nullptr;
+
+    uint32_t* styleIndices = nullptr;
+    if (!pool.mStyles.empty()) {
+        header->styleCount = pool.mStyles.back()->str.getIndex() + 1;
+        styleIndices = out->nextBlock<uint32_t>(header->styleCount);
+    }
+
+    const size_t beforeStringsIndex = out->size();
+    header->stringsStart = beforeStringsIndex - startIndex;
+
+    for (const auto& entry : pool) {
+        *indices = out->size() - beforeStringsIndex;
+        indices++;
+
+        if (utf8) {
+            std::string encoded = util::utf16ToUtf8(entry->value);
+
+            const size_t totalSize = encodedLengthUnits<char>(entry->value.size())
+                    + encodedLengthUnits<char>(encoded.length())
+                    + encoded.size() + 1;
+
+            char* data = out->nextBlock<char>(totalSize);
+
+            // First encode the actual UTF16 string length.
+            data = encodeLength(data, entry->value.size());
+
+            // Now encode the size of the converted UTF8 string.
+            data = encodeLength(data, encoded.length());
+            strncpy(data, encoded.data(), encoded.size());
+        } else {
+            const size_t totalSize = encodedLengthUnits<char16_t>(entry->value.size())
+                    + entry->value.size() + 1;
+
+            char16_t* data = out->nextBlock<char16_t>(totalSize);
+
+            // Encode the actual UTF16 string length.
+            data = encodeLength(data, entry->value.size());
+            const size_t byteLength = entry->value.size() * sizeof(char16_t);
+
+            // NOTE: For some reason, strncpy16(data, entry->value.data(), entry->value.size())
+            // truncates the string.
+            memcpy(data, entry->value.data(), byteLength);
+
+            // The null-terminating character is already here due to the block of data being set
+            // to 0s on allocation.
+        }
+    }
+
+    out->align4();
+
+    if (!pool.mStyles.empty()) {
+        const size_t beforeStylesIndex = out->size();
+        header->stylesStart = beforeStylesIndex - startIndex;
+
+        size_t currentIndex = 0;
+        for (const auto& entry : pool.mStyles) {
+            while (entry->str.getIndex() > currentIndex) {
+                styleIndices[currentIndex++] = out->size() - beforeStylesIndex;
+
+                uint32_t* spanOffset = out->nextBlock<uint32_t>();
+                *spanOffset = android::ResStringPool_span::END;
+            }
+            styleIndices[currentIndex++] = out->size() - beforeStylesIndex;
+
+            android::ResStringPool_span* span =
+                    out->nextBlock<android::ResStringPool_span>(entry->spans.size());
+            for (const auto& s : entry->spans) {
+                span->name.index = s.name.getIndex();
+                span->firstChar = s.firstChar;
+                span->lastChar = s.lastChar;
+                span++;
+            }
+
+            uint32_t* spanEnd = out->nextBlock<uint32_t>();
+            *spanEnd = android::ResStringPool_span::END;
+        }
+
+        // The error checking code in the platform looks for an entire
+        // ResStringPool_span structure worth of 0xFFFFFFFF at the end
+        // of the style block, so fill in the remaining 2 32bit words
+        // with 0xFFFFFFFF.
+        const size_t paddingLength = sizeof(android::ResStringPool_span)
+                - sizeof(android::ResStringPool_span::name);
+        uint8_t* padding = out->nextBlock<uint8_t>(paddingLength);
+        memset(padding, 0xff, paddingLength);
+        out->align4();
+    }
+    header->header.size = out->size() - startIndex;
+    return true;
+}
+
+bool StringPool::flattenUtf8(BigBuffer* out, const StringPool& pool) {
+    return flatten(out, pool, true);
+}
+
+bool StringPool::flattenUtf16(BigBuffer* out, const StringPool& pool) {
+    return flatten(out, pool, false);
+}
+
+} // namespace aapt

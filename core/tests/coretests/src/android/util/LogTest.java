@@ -16,12 +16,13 @@
 
 package android.util;
 
+import junit.framework.Assert;
+import junit.framework.TestCase;
+
 import android.os.SystemProperties;
 import android.test.PerformanceTestCase;
-
-import androidx.test.filters.Suppress;
-
-import junit.framework.TestCase;
+import android.test.suitebuilder.annotation.Suppress;
+import android.util.Log;
 
 //This is an empty TestCase.
 @Suppress

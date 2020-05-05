@@ -19,10 +19,6 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="car_guest" msgid="3738772168718508650">"ضيف"</string>
-    <string name="start_guest_session" msgid="7055742120180595689">"ضيف"</string>
-    <string name="car_add_user" msgid="5245196248349230898">"إضافة المستخدم"</string>
-    <string name="car_new_user" msgid="8142927244990323906">"مستخدم جديد"</string>
-    <string name="user_add_user_message_setup" msgid="1791011504259527329">"عند إضافة مستخدم جديد، عليه إعداد مساحته."</string>
-    <string name="user_add_user_message_update" msgid="3383320289232716179">"يمكن لأي مستخدم تحديث التطبيقات لجميع المستخدمين الآخرين."</string>
+    <string name="car_lockscreen_disclaimer_title" msgid="7997539137376896441">"القيادة بأمان"</string>
+    <string name="car_lockscreen_disclaimer_text" msgid="3061224684092952864">"‏عليك التعرف بشكل تام على ظروف القيادة والالتزام بالقوانين السارية. ويمكن أن تكون الاتجاهات غير دقيقة أو غير مكتملة أو خطيرة أو غير مناسبة أو محظورة أو تتضمن عبور مناطق إدارية. ويمكن أن تكون معلومات الأنشطة التجارية أيضًا غير دقيقة أو غير مكتملة. ولا يتم نشر البيانات في الوقت الفعلي، كما لا يمكن ضمان دقة المواقع. ولا تتعامل مع جهازك الجوّال أو تستخدم تطبيقات ليست متوافقة مع Android Auto أثناء القيادة."</string>
 </resources>

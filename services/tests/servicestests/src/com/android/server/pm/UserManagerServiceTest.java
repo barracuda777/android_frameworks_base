@@ -55,11 +55,11 @@ public class UserManagerServiceTest extends AndroidTestCase {
     public void testWriteReadApplicationRestrictions() throws IOException {
         AtomicFile atomicFile = new AtomicFile(restrictionsFile);
         Bundle bundle = createBundle();
-        UserManagerService.writeApplicationRestrictionsLAr(bundle, atomicFile);
+        UserManagerService.writeApplicationRestrictionsLP(bundle, atomicFile);
         assertTrue(atomicFile.getBaseFile().exists());
         String s = FileUtils.readTextFile(restrictionsFile, 10000, "");
         System.out.println("restrictionsFile: " + s);
-        bundle = UserManagerService.readApplicationRestrictionsLAr(atomicFile);
+        bundle = UserManagerService.readApplicationRestrictionsLP(atomicFile);
         System.out.println("readApplicationRestrictionsLocked bundle: " + bundle);
         assertBundle(bundle);
     }

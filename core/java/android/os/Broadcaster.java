@@ -16,12 +16,9 @@
 
 package android.os;
 
-import android.annotation.UnsupportedAppUsage;
-
 /** @hide */
 public class Broadcaster
 {
-    @UnsupportedAppUsage
     public Broadcaster()
     {
     }
@@ -32,7 +29,6 @@ public class Broadcaster
      *  When this broadcaster pushes a message with senderWhat in the what field,
      *  target will be sent a copy of that message with targetWhat in the what field.
      */
-    @UnsupportedAppUsage
     public void request(int senderWhat, Handler target, int targetWhat)
     {
         synchronized (this) {
@@ -100,7 +96,6 @@ public class Broadcaster
     /**
      * Unregister for notifications for this senderWhat/target/targetWhat tuple.
      */
-    @UnsupportedAppUsage
     public void cancelRequest(int senderWhat, Handler target, int targetWhat)
     {
         synchronized (this) {
@@ -173,7 +168,6 @@ public class Broadcaster
      * Send out msg.  Anyone who has registered via the request() method will be
      * sent the message.
      */
-    @UnsupportedAppUsage
     public void broadcast(Message msg)
     {
         synchronized (this) {

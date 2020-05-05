@@ -8,8 +8,9 @@ import android.os.Bundle;
 
 import android.app.Activity;
 import android.util.AttributeSet;
-import android.graphics.RenderNode;
+import android.view.RenderNode;
 import android.view.View;
+import android.widget.LinearLayout;
 
 public class ProjectionActivity extends Activity {
     /**

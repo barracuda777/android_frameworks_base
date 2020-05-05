@@ -42,10 +42,10 @@ public class SequenceTestSimple extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.fading_test_simple);
 
-        View container = findViewById(R.id.container);
+        View container = (View) findViewById(R.id.container);
         mSceneRoot = (ViewGroup) container.getParent();
 
-        mRemovingButton = findViewById(R.id.removingButton);
+        mRemovingButton = (Button) findViewById(R.id.removingButton);
 
         mScene1 = Scene.getSceneForLayout(mSceneRoot, R.layout.fading_test_simple, this);
         mScene2 = Scene.getSceneForLayout(mSceneRoot, R.layout.fading_test_simple2, this);

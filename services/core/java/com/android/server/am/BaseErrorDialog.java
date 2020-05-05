@@ -26,15 +26,14 @@ import android.view.KeyEvent;
 import android.view.WindowManager;
 import android.widget.Button;
 
-public class BaseErrorDialog extends AlertDialog {
+class BaseErrorDialog extends AlertDialog {
     private static final int ENABLE_BUTTONS = 0;
     private static final int DISABLE_BUTTONS = 1;
 
     private boolean mConsuming = true;
 
     public BaseErrorDialog(Context context) {
-        super(context, com.android.internal.R.style.Theme_DeviceDefault_Dialog_AppError);
-        context.assertRuntimeOverlayThemable();
+        super(context, com.android.internal.R.style.Theme_Dialog_AppError);
 
         getWindow().setType(WindowManager.LayoutParams.TYPE_SYSTEM_ALERT);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM,

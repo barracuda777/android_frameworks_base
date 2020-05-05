@@ -16,34 +16,31 @@
 
 #include "tests/common/TestContext.h"
 
-#include <cutils/trace.h>
-
 namespace android {
 namespace uirenderer {
 namespace test {
 
 static const int IDENT_DISPLAYEVENT = 1;
 
-static android::DisplayInfo DUMMY_DISPLAY{
-        1080,   // w
-        1920,   // h
-        320.0,  // xdpi
-        320.0,  // ydpi
-        60.0,   // fps
-        2.0,    // density
-        0,      // orientation
-        false,  // secure?
-        0,      // appVsyncOffset
-        0,      // presentationDeadline
+static android::DisplayInfo DUMMY_DISPLAY {
+    1080, //w
+    1920, //h
+    320.0, // xdpi
+    320.0, // ydpi
+    60.0, // fps
+    2.0, // density
+    0, // orientation
+    false, // secure?
+    0, // appVsyncOffset
+    0, // presentationDeadline
 };
 
-DisplayInfo getInternalDisplay() {
+DisplayInfo getBuiltInDisplay() {
 #if !HWUI_NULL_GPU
     DisplayInfo display;
-    const sp<IBinder> token = SurfaceComposerClient::getInternalDisplayToken();
-    LOG_ALWAYS_FATAL_IF(token == nullptr,
-                        "Failed to get display info because internal display is disconnected\n");
-    status_t status = SurfaceComposerClient::getDisplayInfo(token, &display);
+    sp<IBinder> dtoken(SurfaceComposerClient::getBuiltInDisplay(
+            ISurfaceComposer::eDisplayIdMain));
+    status_t status = SurfaceComposerClient::getDisplayInfo(dtoken, &display);
     LOG_ALWAYS_FATAL_IF(status, "Failed to get display info\n");
     return display;
 #else
@@ -57,63 +54,27 @@ android::DisplayInfo gDisplay = DUMMY_DISPLAY;
 TestContext::TestContext() {
     mLooper = new Looper(true);
     mSurfaceComposerClient = new SurfaceComposerClient();
-    mLooper->addFd(mDisplayEventReceiver.getFd(), IDENT_DISPLAYEVENT, Looper::EVENT_INPUT, nullptr,
-                   nullptr);
+    mLooper->addFd(mDisplayEventReceiver.getFd(), IDENT_DISPLAYEVENT,
+            Looper::EVENT_INPUT, nullptr, nullptr);
 }
 
 TestContext::~TestContext() {}
 
 sp<Surface> TestContext::surface() {
-    if (!mSurface.get()) {
-        createSurface();
+    if (!mSurfaceControl.get()) {
+        mSurfaceControl = mSurfaceComposerClient->createSurface(String8("HwuiTest"),
+                gDisplay.w, gDisplay.h, PIXEL_FORMAT_RGBX_8888);
+
+        SurfaceComposerClient::openGlobalTransaction();
+        mSurfaceControl->setLayer(0x7FFFFFF);
+        mSurfaceControl->show();
+        SurfaceComposerClient::closeGlobalTransaction();
     }
-    return mSurface;
-}
 
-void TestContext::createSurface() {
-    if (mRenderOffscreen) {
-        createOffscreenSurface();
-    } else {
-        createWindowSurface();
-    }
-}
-
-void TestContext::createWindowSurface() {
-    mSurfaceControl = mSurfaceComposerClient->createSurface(String8("HwuiTest"), gDisplay.w,
-                                                            gDisplay.h, PIXEL_FORMAT_RGBX_8888);
-
-    SurfaceComposerClient::Transaction t;
-    t.setLayer(mSurfaceControl, 0x7FFFFFF).show(mSurfaceControl).apply();
-    mSurface = mSurfaceControl->getSurface();
-}
-
-void TestContext::createOffscreenSurface() {
-    sp<IGraphicBufferProducer> producer;
-    sp<IGraphicBufferConsumer> consumer;
-    BufferQueue::createBufferQueue(&producer, &consumer);
-    producer->setMaxDequeuedBufferCount(3);
-    producer->setAsyncMode(true);
-    mConsumer = new BufferItemConsumer(consumer, GRALLOC_USAGE_HW_COMPOSER, 4);
-    mConsumer->setDefaultBufferSize(gDisplay.w, gDisplay.h);
-    mSurface = new Surface(producer);
+    return mSurfaceControl->getSurface();
 }
 
 void TestContext::waitForVsync() {
-    // Hacky fix for not getting sysprop change callbacks
-    // We just poll the sysprop in vsync since it's when the UI thread is
-    // "idle" and shouldn't burn too much time
-    atrace_update_tags();
-
-    if (mConsumer.get()) {
-        BufferItem buffer;
-        if (mConsumer->acquireBuffer(&buffer, 0, false) == OK) {
-            // We assume the producer is internally ordered enough such that
-            // it is unneccessary to set a release fence
-            mConsumer->releaseBuffer(buffer);
-        }
-        // We running free, go go go!
-        return;
-    }
 #if !HWUI_NULL_GPU
     // Request vsync
     mDisplayEventReceiver.requestNextVsync();
@@ -123,11 +84,10 @@ void TestContext::waitForVsync() {
 
     // Drain it
     DisplayEventReceiver::Event buf[100];
-    while (mDisplayEventReceiver.getEvents(buf, 100) > 0) {
-    }
+    while (mDisplayEventReceiver.getEvents(buf, 100) > 0) { }
 #endif
 }
 
-}  // namespace test
-}  // namespace uirenderer
-}  // namespace android
+} // namespace test
+} // namespace uirenderer
+} // namespace android

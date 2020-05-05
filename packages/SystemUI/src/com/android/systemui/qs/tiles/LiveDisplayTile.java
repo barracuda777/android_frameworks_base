@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2015 The CyanogenMod Project
- * Copyright (C) 2018-2019 The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,46 +16,33 @@
 
 package com.android.systemui.qs.tiles;
 
-import static lineageos.hardware.LiveDisplayManager.FEATURE_MANAGED_OUTDOOR_MODE;
-import static lineageos.hardware.LiveDisplayManager.MODE_AUTO;
-import static lineageos.hardware.LiveDisplayManager.MODE_DAY;
-import static lineageos.hardware.LiveDisplayManager.MODE_NIGHT;
-import static lineageos.hardware.LiveDisplayManager.MODE_OFF;
-import static lineageos.hardware.LiveDisplayManager.MODE_OUTDOOR;
+import static cyanogenmod.hardware.LiveDisplayManager.FEATURE_MANAGED_OUTDOOR_MODE;
+import static cyanogenmod.hardware.LiveDisplayManager.MODE_DAY;
+import static cyanogenmod.hardware.LiveDisplayManager.MODE_OUTDOOR;
 
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.database.ContentObserver;
-import android.hardware.display.ColorDisplayManager;
 import android.os.Handler;
 import android.os.UserHandle;
-import android.service.quicksettings.Tile;
+import android.provider.Settings;
 
 import com.android.internal.util.ArrayUtils;
-import com.android.systemui.plugins.qs.QSTile.LiveDisplayState;
-import com.android.systemui.qs.QSHost;
-import com.android.systemui.qs.tileimpl.QSTileImpl;
+import com.android.systemui.R;
+import com.android.systemui.qs.QSTile;
 
-import org.lineageos.internal.logging.LineageMetricsLogger;
-import org.lineageos.platform.internal.R;
+import org.cyanogenmod.internal.logging.CMMetricsLogger;
 
-import lineageos.hardware.LiveDisplayManager;
-import lineageos.providers.LineageSettings;
-
-import javax.inject.Inject;
+import cyanogenmod.hardware.LiveDisplayManager;
+import cyanogenmod.providers.CMSettings;
 
 /** Quick settings tile: LiveDisplay mode switcher **/
-public class LiveDisplayTile extends QSTileImpl<LiveDisplayState> {
+public class LiveDisplayTile extends QSTile<LiveDisplayTile.LiveDisplayState> {
 
-    private static final Intent LIVEDISPLAY_SETTINGS =
-            new Intent("org.lineageos.lineageparts.LIVEDISPLAY_SETTINGS");
+    private static final Intent DISPLAY_SETTINGS = new Intent(Settings.ACTION_DISPLAY_SETTINGS);
 
     private final LiveDisplayObserver mObserver;
-    private String mTitle;
     private String[] mEntries;
     private String[] mDescriptionEntries;
     private String[] mAnnouncementEntries;
@@ -65,20 +51,17 @@ public class LiveDisplayTile extends QSTileImpl<LiveDisplayState> {
 
     private boolean mListening;
 
-    private int mDayTemperature = -1;
+    private int mDayTemperature;
 
-    private final boolean mNightDisplayAvailable;
-    private boolean mOutdoorModeAvailable = true;
-    private boolean mReceiverRegistered;
+    private final boolean mOutdoorModeAvailable;
 
     private final LiveDisplayManager mLiveDisplay;
 
     private static final int OFF_TEMPERATURE = 6500;
 
-    @Inject
-    public LiveDisplayTile(QSHost host) {
+    public LiveDisplayTile(Host host) {
         super(host);
-        mNightDisplayAvailable = ColorDisplayManager.isNightDisplayAvailable(mContext);
+
         Resources res = mContext.getResources();
         TypedArray typedArray = res.obtainTypedArray(R.array.live_display_drawables);
         mEntryIconRes = new int[typedArray.length()];
@@ -90,54 +73,25 @@ public class LiveDisplayTile extends QSTileImpl<LiveDisplayState> {
         updateEntries();
 
         mLiveDisplay = LiveDisplayManager.getInstance(mContext);
-        if (!updateConfig()) {
-            mContext.registerReceiver(mReceiver, new IntentFilter(
-                    lineageos.content.Intent.ACTION_INITIALIZE_LIVEDISPLAY));
-            mReceiverRegistered = true;
+        if (mLiveDisplay.getConfig() != null) {
+            mOutdoorModeAvailable = mLiveDisplay.getConfig().hasFeature(MODE_OUTDOOR) &&
+                    !mLiveDisplay.getConfig().hasFeature(FEATURE_MANAGED_OUTDOOR_MODE);
+            mDayTemperature = mLiveDisplay.getDayColorTemperature();
+        } else {
+            mOutdoorModeAvailable = false;
+            mDayTemperature = -1;
         }
 
         mObserver = new LiveDisplayObserver(mHandler);
         mObserver.startObserving();
     }
 
-    @Override
-    protected void handleDestroy() {
-        super.handleDestroy();
-        unregisterReceiver();
-    }
-
-    private void unregisterReceiver() {
-        if (mReceiverRegistered) {
-            mContext.unregisterReceiver(mReceiver);
-            mReceiverRegistered = false;
-        }
-    }
-
-    private boolean updateConfig() {
-        if (mLiveDisplay.getConfig() != null) {
-            mOutdoorModeAvailable = mLiveDisplay.getConfig().hasFeature(MODE_OUTDOOR) &&
-                    !mLiveDisplay.getConfig().hasFeature(FEATURE_MANAGED_OUTDOOR_MODE);
-            mDayTemperature = mLiveDisplay.getDayColorTemperature();
-            if (!isAvailable()) {
-                mHost.removeTile(getTileSpec());
-            }
-            return true;
-        }
-        return false;
-    }
-
     private void updateEntries() {
         Resources res = mContext.getResources();
-        mTitle = res.getString(R.string.live_display_title);
-        mEntries = res.getStringArray(R.array.live_display_entries);
+        mEntries = res.getStringArray(org.cyanogenmod.platform.internal.R.array.live_display_entries);
         mDescriptionEntries = res.getStringArray(R.array.live_display_description);
         mAnnouncementEntries = res.getStringArray(R.array.live_display_announcement);
-        mValues = res.getStringArray(R.array.live_display_values);
-    }
-
-    @Override
-    public boolean isAvailable() {
-        return !mNightDisplayAvailable || mOutdoorModeAvailable;
+        mValues = res.getStringArray(org.cyanogenmod.platform.internal.R.array.live_display_values);
     }
 
     @Override
@@ -146,7 +100,7 @@ public class LiveDisplayTile extends QSTileImpl<LiveDisplayState> {
     }
 
     @Override
-    public void handleSetListening(boolean listening) {
+    public void setListening(boolean listening) {
         if (mListening == listening)
             return;
         mListening = listening;
@@ -163,19 +117,23 @@ public class LiveDisplayTile extends QSTileImpl<LiveDisplayState> {
     }
 
     @Override
+    protected void handleLongClick() {
+        mHost.startActivityDismissingKeyguard(DISPLAY_SETTINGS);
+    }
+
+    @Override
     protected void handleUpdateState(LiveDisplayState state, Object arg) {
         updateEntries();
+        state.visible = true;
         state.mode = arg == null ? getCurrentModeIndex() : (Integer) arg;
-        state.label = mTitle;
-        state.secondaryLabel = mEntries[state.mode];
+        state.label = mEntries[state.mode];
         state.icon = ResourceIcon.get(mEntryIconRes[state.mode]);
         state.contentDescription = mDescriptionEntries[state.mode];
-        state.state = mLiveDisplay.getMode() != MODE_OFF ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
     }
 
     @Override
     public int getMetricsCategory() {
-        return LineageMetricsLogger.TILE_LIVE_DISPLAY;
+        return CMMetricsLogger.TILE_LIVE_DISPLAY;
     }
 
     @Override
@@ -185,7 +143,7 @@ public class LiveDisplayTile extends QSTileImpl<LiveDisplayState> {
 
     @Override
     public Intent getLongClickIntent() {
-        return LIVEDISPLAY_SETTINGS;
+        return DISPLAY_SETTINGS;
     }
 
     @Override
@@ -194,14 +152,7 @@ public class LiveDisplayTile extends QSTileImpl<LiveDisplayState> {
     }
 
     private int getCurrentModeIndex() {
-        String currentLiveDisplayMode = null;
-        try {
-            currentLiveDisplayMode = String.valueOf(mLiveDisplay.getMode());
-        } catch (NullPointerException e) {
-            currentLiveDisplayMode = String.valueOf(MODE_AUTO);
-        } finally {
-            return ArrayUtils.indexOf(mValues, currentLiveDisplayMode);
-        }
+        return ArrayUtils.indexOf(mValues, String.valueOf(mLiveDisplay.getMode()));
     }
 
     private void changeToNextMode() {
@@ -215,12 +166,10 @@ public class LiveDisplayTile extends QSTileImpl<LiveDisplayState> {
 
         while (true) {
             nextMode = Integer.valueOf(mValues[next]);
-            // Skip outdoor mode if it's unsupported, skip the day setting
-            // if it's the same as the off setting, and skip night display
-            // on HWC2
+            // Skip outdoor mode if it's unsupported, and skip the day setting
+            // if it's the same as the off setting
             if ((!mOutdoorModeAvailable && nextMode == MODE_OUTDOOR) ||
-                    (mDayTemperature == OFF_TEMPERATURE && nextMode == MODE_DAY) ||
-                    (mNightDisplayAvailable && (nextMode == MODE_DAY || nextMode == MODE_NIGHT))) {
+                    (mDayTemperature == OFF_TEMPERATURE && nextMode == MODE_DAY)) {
                 next++;
                 if (next >= mValues.length) {
                     next = 0;
@@ -246,10 +195,10 @@ public class LiveDisplayTile extends QSTileImpl<LiveDisplayState> {
 
         public void startObserving() {
             mContext.getContentResolver().registerContentObserver(
-                    LineageSettings.System.getUriFor(LineageSettings.System.DISPLAY_TEMPERATURE_MODE),
+                    CMSettings.System.getUriFor(CMSettings.System.DISPLAY_TEMPERATURE_MODE),
                     false, this, UserHandle.USER_ALL);
             mContext.getContentResolver().registerContentObserver(
-                    LineageSettings.System.getUriFor(LineageSettings.System.DISPLAY_TEMPERATURE_DAY),
+                    CMSettings.System.getUriFor(CMSettings.System.DISPLAY_TEMPERATURE_DAY),
                     false, this, UserHandle.USER_ALL);
         }
 
@@ -258,11 +207,21 @@ public class LiveDisplayTile extends QSTileImpl<LiveDisplayState> {
         }
     }
 
-    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+    public static class LiveDisplayState extends QSTile.State {
+        public int mode;
+
         @Override
-        public void onReceive(Context context, Intent intent) {
-            updateConfig();
-            unregisterReceiver();
+        public boolean copyTo(State other) {
+            final LiveDisplayState o = (LiveDisplayState) other;
+            final boolean changed = mode != o.mode;
+            return super.copyTo(other) || changed;
         }
-    };
+
+        @Override
+        protected StringBuilder toStringBuilder() {
+            final StringBuilder rt = super.toStringBuilder();
+            rt.insert(rt.length() - 1, ",mode=" + mode);
+            return rt;
+        }
+    }
 }

@@ -16,19 +16,19 @@
 
 package android.widget.gridview;
 
+import com.android.frameworks.coretests.R;
+
 import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.LayoutInflater;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.GridView;
 import android.widget.TextView;
-
-import com.android.frameworks.coretests.R;
 
 import java.util.Random;
 
@@ -115,9 +115,9 @@ public class GridThrasher extends Activity implements AdapterView.OnItemSelected
         
         setContentView(R.layout.grid_thrasher);
         
-        mText = findViewById(R.id.text);
+        mText = (TextView) findViewById(R.id.text);
         mAdapter = new ThrashListAdapter(this);
-        GridView g = findViewById(R.id.grid);
+        GridView g = (GridView) findViewById(R.id.grid);
         g.setAdapter(mAdapter);
         
         mHandler.postDelayed(mThrash, 5000);

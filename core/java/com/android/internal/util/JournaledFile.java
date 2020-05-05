@@ -16,14 +16,11 @@
 
 package com.android.internal.util;
 
-import android.annotation.UnsupportedAppUsage;
-import android.os.Build;
-
 import java.io.File;
 import java.io.IOException;
 
 /**
- * @deprecated Use {@code AtomicFile} instead.  It would
+ * @deprecated Use {@link com.android.internal.os.AtomicFile} instead.  It would
  * be nice to update all existing uses of this to switch to AtomicFile, but since
  * their on-file semantics are slightly different that would run the risk of losing
  * data if at the point of the platform upgrade to the new code it would need to
@@ -36,7 +33,6 @@ public class JournaledFile {
     File mTemp;
     boolean mWriting;
 
-    @UnsupportedAppUsage
     public JournaledFile(File real, File temp) {
         mReal = real;
         mTemp = temp;
@@ -48,7 +44,6 @@ public class JournaledFile {
      * it to the real one.  If there is both a real file and a temp one, assumes that the
      * temp one isn't fully written and deletes it.
      */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     public File chooseForRead() {
         File result;
         if (mReal.exists()) {
@@ -73,7 +68,6 @@ public class JournaledFile {
      * <p>
      * Call {@link #commit} to commit the changes, or {@link #rollback} to forget the changes.
      */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     public File chooseForWrite() {
         if (mWriting) {
             throw new IllegalStateException("uncommitted write already in progress");
@@ -101,7 +95,6 @@ public class JournaledFile {
     /**
      * Commit changes.
      */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     public void commit() {
         if (!mWriting) {
             throw new IllegalStateException("no file to commit");
@@ -113,7 +106,6 @@ public class JournaledFile {
     /**
      * Roll back changes.
      */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     public void rollback() {
         if (!mWriting) {
             throw new IllegalStateException("no file to roll back");

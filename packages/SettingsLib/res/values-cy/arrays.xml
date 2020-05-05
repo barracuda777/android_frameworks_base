@@ -57,97 +57,6 @@
         <item>Defnyddio HDCP i wirio cynnwys DRM yn unig</item>
         <item>Defnyddio gwirio HDCP bob tro</item>
     </string-array>
-    <string-array name="bt_hci_snoop_log_entries">
-        <item>Analluogwyd</item>
-        <item>Enabled Filtered</item>
-        <item>Galluogwyd</item>
-    </string-array>
-    <string-array name="bluetooth_avrcp_versions">
-        <item>AVRCP 1.4 (Rhagosodedig)</item>
-        <item>AVRCP 1.3</item>
-        <item>AVRCP 1.5</item>
-        <item>AVRCP 1.6</item>
-    </string-array>
-    <string-array name="bluetooth_avrcp_version_values">
-        <item>avrcp14</item>
-        <item>avrcp13</item>
-        <item>avrcp15</item>
-        <item>avrcp16</item>
-    </string-array>
-    <string-array name="bluetooth_a2dp_codec_titles">
-        <item>Defnyddio Dewis y System (Rhagosodiad)</item>
-        <item>SBC</item>
-        <item>AAC</item>
-        <item>Sain <xliff:g id="qualcomm">Qualcomm®</xliff:g> <xliff:g id="aptx">aptX™</xliff:g></item>
-        <item>Sain <xliff:g id="qualcomm">Qualcomm®</xliff:g> <xliff:g id="aptx">aptX™ HD</xliff:g></item>
-        <item>LDAC</item>
-        <item>Galluogi Codecs Dewisol</item>
-        <item>Analluogi Codecs Dewisol</item>
-    </string-array>
-    <string-array name="bluetooth_a2dp_codec_summaries">
-        <item>Defnyddio Dewis y System (Rhagosodiad)</item>
-        <item>SBC</item>
-        <item>AAC</item>
-        <item>Sain <xliff:g id="qualcomm">Qualcomm®</xliff:g> <xliff:g id="aptx">aptX™</xliff:g></item>
-        <item>Sain <xliff:g id="qualcomm">Qualcomm®</xliff:g> <xliff:g id="aptx">aptX™ HD</xliff:g></item>
-        <item>LDAC</item>
-        <item>Galluogi Codecs Dewisol</item>
-        <item>Analluogi Codecs Dewisol</item>
-    </string-array>
-    <string-array name="bluetooth_a2dp_codec_sample_rate_titles">
-        <item>Defnyddio Dewis y System (Rhagosodiad)</item>
-        <item>44.1 kHz</item>
-        <item>48.0 kHz</item>
-        <item>88.2 kHz</item>
-        <item>96.0 kHz</item>
-    </string-array>
-    <string-array name="bluetooth_a2dp_codec_sample_rate_summaries">
-        <item>Defnyddio Dewis y System (Rhagosodiad)</item>
-        <item>44.1 kHz</item>
-        <item>48.0 kHz</item>
-        <item>88.2 kHz</item>
-        <item>96.0 kHz</item>
-    </string-array>
-    <string-array name="bluetooth_a2dp_codec_bits_per_sample_titles">
-        <item>Defnyddio Dewis y System (Rhagosodiad)</item>
-        <item>16 did/sampl</item>
-        <item>24 did/sampl</item>
-        <item>32 did/sampl</item>
-    </string-array>
-    <string-array name="bluetooth_a2dp_codec_bits_per_sample_summaries">
-        <item>Defnyddio Dewis y System (Rhagosodiad)</item>
-        <item>16 did/sampl</item>
-        <item>24 did/sampl</item>
-        <item>32 did/sampl</item>
-    </string-array>
-    <string-array name="bluetooth_a2dp_codec_channel_mode_titles">
-        <item>Defnyddio Dewis y System (Rhagosodiad)</item>
-        <item>Mono</item>
-        <item>Stereo</item>
-    </string-array>
-    <string-array name="bluetooth_a2dp_codec_channel_mode_summaries">
-        <item>Defnyddio Dewis y System (Rhagosodiad)</item>
-        <item>Mono</item>
-        <item>Stereo</item>
-    </string-array>
-    <string-array name="bluetooth_a2dp_codec_ldac_playback_quality_titles">
-        <item>Wedi\'i optimeiddio er mwyn Ansawdd Sain (990kbps/909kbps)</item>
-        <item>Ansawdd Cytbwys rhwng Sain a Chysylltiad (660kbps/606kbps)</item>
-        <item>Wedi\'i optimeiddio er mwyn Ansawdd Cysylltiad (330kbps/303kbps)</item>
-        <item>Ymdrech Orau (Didradd Addasedig)</item>
-    </string-array>
-    <string-array name="bluetooth_a2dp_codec_ldac_playback_quality_summaries">
-        <item>Optimeiddiwyd ar gyfer Ansawdd Sain</item>
-        <item>Ansawdd Sain a Chysylltiad yn Gytbwys</item>
-        <item>Optimeiddiwyd ar gyfer Ansawdd Cysylltiad</item>
-        <item>Ymdrech Orau (Didradd Addasedig)</item>
-    </string-array>
-    <string-array name="bluetooth_audio_active_device_summaries">
-        <item/>
-        <item>, yn weithredol</item>
-        <item>, yn weithredol (cyfryngau)</item>
-        <item>, yn weithredol (ffôn)</item>
-    </string-array>
     <string-array name="select_logd_size_titles">
         <item>I ffwrdd</item>
         <item>64K</item>
@@ -237,7 +146,7 @@
     <string-array name="track_frame_time_entries">
         <item>I ffwrdd</item>
         <item>Ar y sgrin fel barrau</item>
-        <item>Yn <xliff:g id="as_typed_command">adb shell dumpsys gfxinfo</xliff:g></item>
+        <item>Yn adb shell dumpsys gfxinfo</item>
     </string-array>
     <string-array name="debug_hw_overdraw_entries">
         <item>I ffwrdd</item>

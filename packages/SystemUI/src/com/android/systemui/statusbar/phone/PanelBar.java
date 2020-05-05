@@ -17,22 +17,16 @@
 package com.android.systemui.statusbar.phone;
 
 import android.content.Context;
-import android.os.Bundle;
-import android.os.Parcelable;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
+import android.view.View;
 import android.widget.FrameLayout;
 
 public abstract class PanelBar extends FrameLayout {
     public static final boolean DEBUG = false;
     public static final String TAG = PanelBar.class.getSimpleName();
     private static final boolean SPEW = false;
-    private static final String PANEL_BAR_SUPER_PARCELABLE = "panel_bar_super_parcelable";
-    private static final String STATE = "state";
-    private boolean mBouncerShowing;
-    private boolean mExpanded;
-    protected float mPanelFraction;
 
     public static final void LOG(String fmt, Object... args) {
         if (!DEBUG) return;
@@ -52,28 +46,6 @@ public abstract class PanelBar extends FrameLayout {
         mState = state;
     }
 
-    @Override
-    protected Parcelable onSaveInstanceState() {
-        Bundle bundle = new Bundle();
-        bundle.putParcelable(PANEL_BAR_SUPER_PARCELABLE, super.onSaveInstanceState());
-        bundle.putInt(STATE, mState);
-        return bundle;
-    }
-
-    @Override
-    protected void onRestoreInstanceState(Parcelable state) {
-        if (state == null || !(state instanceof Bundle)) {
-            super.onRestoreInstanceState(state);
-            return;
-        }
-
-        Bundle bundle = (Bundle) state;
-        super.onRestoreInstanceState(bundle.getParcelable(PANEL_BAR_SUPER_PARCELABLE));
-        if (((Bundle) state).containsKey(STATE)) {
-            go(bundle.getInt(STATE, STATE_CLOSED));
-        }
-    }
-
     public PanelBar(Context context, AttributeSet attrs) {
         super(context, attrs);
     }
@@ -89,30 +61,12 @@ public abstract class PanelBar extends FrameLayout {
     }
 
     public void setBouncerShowing(boolean showing) {
-        mBouncerShowing = showing;
         int important = showing ? IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
                 : IMPORTANT_FOR_ACCESSIBILITY_AUTO;
 
         setImportantForAccessibility(important);
-        updateVisibility();
 
         if (mPanel != null) mPanel.setImportantForAccessibility(important);
-    }
-
-    public float getExpansionFraction() {
-        return mPanelFraction;
-    }
-
-    public boolean isExpanded() {
-        return mExpanded;
-    }
-
-    protected void updateVisibility() {
-        mPanel.setVisibility(shouldPanelBeVisible() ? VISIBLE : INVISIBLE);
-    }
-
-    protected boolean shouldPanelBeVisible() {
-        return mExpanded || mBouncerShowing;
     }
 
     public boolean panelEnabled() {
@@ -164,9 +118,7 @@ public abstract class PanelBar extends FrameLayout {
         boolean fullyOpened = false;
         if (SPEW) LOG("panelExpansionChanged: start state=%d", mState);
         PanelView pv = mPanel;
-        mExpanded = expanded;
-        mPanelFraction = frac;
-        updateVisibility();
+        pv.setVisibility(expanded ? View.VISIBLE : View.INVISIBLE);
         // adjust any other panels that may be partially visible
         if (expanded) {
             if (mState == STATE_CLOSED) {
@@ -197,7 +149,7 @@ public abstract class PanelBar extends FrameLayout {
             pv.collapse(delayed, speedUpFactor);
             waiting = true;
         } else {
-            pv.resetViews(false /* animate */);
+            pv.resetViews();
             pv.setExpandedFraction(0); // just in case
             pv.cancelPeek();
         }
@@ -212,10 +164,6 @@ public abstract class PanelBar extends FrameLayout {
 
     public void onPanelPeeked() {
         if (DEBUG) LOG("onPanelPeeked");
-    }
-
-    public boolean isClosed() {
-        return mState == STATE_CLOSED;
     }
 
     public void onPanelCollapsed() {

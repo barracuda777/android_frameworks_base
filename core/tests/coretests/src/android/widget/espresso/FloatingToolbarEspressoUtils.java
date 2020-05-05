@@ -16,40 +16,29 @@
 
 package android.widget.espresso;
 
-import static androidx.test.espresso.Espresso.onView;
-import static androidx.test.espresso.action.ViewActions.click;
-import static androidx.test.espresso.assertion.ViewAssertions.matches;
-import static androidx.test.espresso.matcher.RootMatchers.isPlatformPopup;
-import static androidx.test.espresso.matcher.RootMatchers.withDecorView;
-import static androidx.test.espresso.matcher.ViewMatchers.hasDescendant;
-import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
-import static androidx.test.espresso.matcher.ViewMatchers.isRoot;
-import static androidx.test.espresso.matcher.ViewMatchers.withId;
-import static androidx.test.espresso.matcher.ViewMatchers.withTagValue;
-import static androidx.test.espresso.matcher.ViewMatchers.withText;
-
+import static android.support.test.espresso.Espresso.onView;
+import static android.support.test.espresso.action.ViewActions.click;
+import static android.support.test.espresso.assertion.ViewAssertions.matches;
+import static android.support.test.espresso.matcher.RootMatchers.withDecorView;
+import static android.support.test.espresso.matcher.ViewMatchers.hasDescendant;
+import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static android.support.test.espresso.matcher.ViewMatchers.isRoot;
+import static android.support.test.espresso.matcher.ViewMatchers.withTagValue;
+import static android.support.test.espresso.matcher.ViewMatchers.withId;
+import static android.support.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.is;
 
-import android.view.MenuItem;
-import android.view.View;
-import android.view.ViewGroup;
+import org.hamcrest.Matcher;
 
-import androidx.test.espresso.NoMatchingRootException;
-import androidx.test.espresso.NoMatchingViewException;
-import androidx.test.espresso.UiController;
-import androidx.test.espresso.ViewAction;
-import androidx.test.espresso.ViewInteraction;
+import android.support.test.espresso.NoMatchingRootException;
+import android.support.test.espresso.NoMatchingViewException;
+import android.support.test.espresso.UiController;
+import android.support.test.espresso.ViewAction;
+import android.support.test.espresso.ViewInteraction;
+import android.view.View;
 
 import com.android.internal.widget.FloatingToolbar;
-
-import org.hamcrest.Description;
-import org.hamcrest.Matcher;
-import org.hamcrest.TypeSafeMatcher;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.Predicate;
 
 /**
  * Espresso utility methods for the floating toolbar.
@@ -61,9 +50,7 @@ public class FloatingToolbarEspressoUtils {
 
     private static ViewInteraction onFloatingToolBar() {
         return onView(withTagValue(is(TAG)))
-                .inRoot(allOf(
-                        isPlatformPopup(),
-                        withDecorView(hasDescendant(withTagValue(is(TAG))))));
+                .inRoot(withDecorView(hasDescendant(withTagValue(is(TAG)))));
     }
 
     /**
@@ -89,9 +76,7 @@ public class FloatingToolbarEspressoUtils {
      * Asserts that the floating toolbar is not displayed on screen.
      *
      * @throws AssertionError if the assertion fails
-     * @deprecated Negative assertions are taking too long to timeout in Espresso.
      */
-    @Deprecated
     public static void assertFloatingToolbarIsNotDisplayed() {
         try {
             onFloatingToolBar().check(matches(isDisplayed()));
@@ -138,89 +123,18 @@ public class FloatingToolbarEspressoUtils {
     }
 
     /**
-     * Asserts that the floating toolbar contains a specified item at a specified index.
-     *
-     * @param menuItemId id of the menu item
-     * @param index expected index of the menu item in the floating toolbar
-     * @throws AssertionError if the assertion fails
-     */
-    public static void assertFloatingToolbarItemIndex(final int menuItemId, final int index) {
-        onFloatingToolBar().check(matches(new TypeSafeMatcher<View>() {
-            private List<Integer> menuItemIds = new ArrayList<>();
-
-            @Override
-            public boolean matchesSafely(View view) {
-                collectMenuItemIds(view);
-                return menuItemIds.size() > index && menuItemIds.get(index) == menuItemId;
-            }
-
-            @Override
-            public void describeTo(Description description) {}
-
-            private void collectMenuItemIds(View view) {
-                if (view.getTag() instanceof MenuItem) {
-                    menuItemIds.add(((MenuItem) view.getTag()).getItemId());
-                } else if (view instanceof ViewGroup) {
-                    ViewGroup viewGroup = (ViewGroup) view;
-                    for (int i = 0; i < viewGroup.getChildCount(); i++) {
-                        collectMenuItemIds(viewGroup.getChildAt(i));
-                    }
-                }
-            }
-        }));
-    }
-
-    /**
      * Asserts that the floating toolbar doesn't contain the specified item.
      *
      * @param itemLabel label of the item.
      * @throws AssertionError if the assertion fails
      */
     public static void assertFloatingToolbarDoesNotContainItem(String itemLabel) {
-        final Predicate<View> hasMenuItemLabel = view ->
-                view.getTag() instanceof MenuItem
-                        && itemLabel.equals(((MenuItem) view.getTag()).getTitle().toString());
-        assertFloatingToolbarMenuItem(hasMenuItemLabel, false);
-    }
-
-    /**
-     * Asserts that the floating toolbar does not contain a menu item with the specified id.
-     *
-     * @param menuItemId id of the menu item
-     * @throws AssertionError if the assertion fails
-     */
-    public static void assertFloatingToolbarDoesNotContainItem(final int menuItemId) {
-        final Predicate<View> hasMenuItemId = view ->
-                view.getTag() instanceof MenuItem
-                        && ((MenuItem) view.getTag()).getItemId() == menuItemId;
-        assertFloatingToolbarMenuItem(hasMenuItemId, false);
-    }
-
-    private static void assertFloatingToolbarMenuItem(
-            final Predicate<View> predicate, final boolean positiveAssertion) {
-        onFloatingToolBar().check(matches(new TypeSafeMatcher<View>() {
-            @Override
-            public boolean matchesSafely(View view) {
-                return positiveAssertion == containsItem(view);
-            }
-
-            @Override
-            public void describeTo(Description description) {}
-
-            private boolean containsItem(View view) {
-                if (predicate.test(view)) {
-                    return true;
-                } else if (view instanceof ViewGroup) {
-                    ViewGroup viewGroup = (ViewGroup) view;
-                    for (int i = 0; i < viewGroup.getChildCount(); i++) {
-                        if (containsItem(viewGroup.getChildAt(i))) {
-                            return true;
-                        }
-                    }
-                }
-                return false;
-            }
-        }));
+        try{
+            assertFloatingToolbarContainsItem(itemLabel);
+        } catch (AssertionError e) {
+            return;
+        }
+        throw new AssertionError("Floating toolbar contains " + itemLabel);
     }
 
     /**

@@ -18,6 +18,7 @@ package android.view;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
@@ -44,13 +45,13 @@ public class PopupWindowVisibility extends Activity implements OnClickListener {
 
         mFrame = findViewById(R.id.frame);
         
-        mHide = findViewById(R.id.hide);
+        mHide = (Button) findViewById(R.id.hide);
         mHide.setOnClickListener(this);
         
-        mShow = findViewById(R.id.show);
+        mShow = (Button) findViewById(R.id.show);
         mShow.setOnClickListener(this);
         
-        Spinner spinner = findViewById(R.id.spinner);
+        Spinner spinner = (Spinner) findViewById(R.id.spinner);
         ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<String>(this,
                 android.R.layout.simple_spinner_item, mStrings);
         spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -58,7 +59,7 @@ public class PopupWindowVisibility extends Activity implements OnClickListener {
         
         ArrayAdapter<String> autoAdapter = new ArrayAdapter<String>(this,
                 android.R.layout.simple_dropdown_item_1line, COUNTRIES);
-        AutoCompleteTextView textView = findViewById(R.id.auto);
+        AutoCompleteTextView textView = (AutoCompleteTextView) findViewById(R.id.auto);
         textView.setAdapter(autoAdapter);
     }
 
@@ -81,7 +82,7 @@ public class PopupWindowVisibility extends Activity implements OnClickListener {
         "Cote d'Ivoire", "Cambodia", "Cameroon", "Canada", "Cape Verde",
         "Cayman Islands", "Central African Republic", "Chad", "Chile", "China",
         "Christmas Island", "Cocos (Keeling) Islands", "Colombia", "Comoros", "Congo",
-        "Cook Islands", "Costa Rica", "Croatia", "Cuba", "Cyprus", "Czechia",
+        "Cook Islands", "Costa Rica", "Croatia", "Cuba", "Cyprus", "Czech Republic",
         "Democratic Republic of the Congo", "Denmark", "Djibouti", "Dominica", "Dominican Republic",
         "East Timor", "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea",
         "Estonia", "Ethiopia", "Faeroe Islands", "Falkland Islands", "Fiji", "Finland",

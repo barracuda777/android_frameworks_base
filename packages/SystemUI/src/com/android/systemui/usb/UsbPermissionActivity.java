@@ -62,13 +62,12 @@ public class UsbPermissionActivity extends AlertActivity
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
 
-        Intent intent = getIntent();
+       Intent intent = getIntent();
         mDevice = (UsbDevice)intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
         mAccessory = (UsbAccessory)intent.getParcelableExtra(UsbManager.EXTRA_ACCESSORY);
         mPendingIntent = (PendingIntent)intent.getParcelableExtra(Intent.EXTRA_INTENT);
         mUid = intent.getIntExtra(Intent.EXTRA_UID, -1);
-        mPackageName = intent.getStringExtra(UsbManager.EXTRA_PACKAGE);
-        boolean canBeDefault = intent.getBooleanExtra(UsbManager.EXTRA_CAN_BE_DEFAULT, false);
+        mPackageName = intent.getStringExtra("package");
 
         PackageManager packageManager = getPackageManager();
         ApplicationInfo aInfo;
@@ -82,14 +81,13 @@ public class UsbPermissionActivity extends AlertActivity
         String appName = aInfo.loadLabel(packageManager).toString();
 
         final AlertController.AlertParams ap = mAlertParams;
+        ap.mIcon = aInfo.loadIcon(packageManager);
         ap.mTitle = appName;
         if (mDevice == null) {
-            ap.mMessage = getString(R.string.usb_accessory_permission_prompt, appName,
-                    mAccessory.getDescription());
+            ap.mMessage = getString(R.string.usb_accessory_permission_prompt, appName);
             mDisconnectedReceiver = new UsbDisconnectedReceiver(this, mAccessory);
         } else {
-            ap.mMessage = getString(R.string.usb_device_permission_prompt, appName,
-                    mDevice.getProductName());
+            ap.mMessage = getString(R.string.usb_device_permission_prompt, appName);
             mDisconnectedReceiver = new UsbDisconnectedReceiver(this, mDevice);
         }
         ap.mPositiveButtonText = getString(android.R.string.ok);
@@ -97,27 +95,23 @@ public class UsbPermissionActivity extends AlertActivity
         ap.mPositiveButtonListener = this;
         ap.mNegativeButtonListener = this;
 
-        if (canBeDefault && (mDevice != null || mAccessory != null)) {
-            // add "open when" checkbox
-            LayoutInflater inflater = (LayoutInflater) getSystemService(
-                    Context.LAYOUT_INFLATER_SERVICE);
-            ap.mView = inflater.inflate(com.android.internal.R.layout.always_use_checkbox, null);
-            mAlwaysUse = (CheckBox) ap.mView.findViewById(com.android.internal.R.id.alwaysUse);
-            if (mDevice == null) {
-                mAlwaysUse.setText(getString(R.string.always_use_accessory, appName,
-                        mAccessory.getDescription()));
-            } else {
-                mAlwaysUse.setText(getString(R.string.always_use_device, appName,
-                        mDevice.getProductName()));
-            }
-            mAlwaysUse.setOnCheckedChangeListener(this);
-
-            mClearDefaultHint = (TextView)ap.mView.findViewById(
-                    com.android.internal.R.id.clearDefaultHint);
-            mClearDefaultHint.setVisibility(View.GONE);
+        // add "always use" checkbox
+        LayoutInflater inflater = (LayoutInflater)getSystemService(
+                Context.LAYOUT_INFLATER_SERVICE);
+        ap.mView = inflater.inflate(com.android.internal.R.layout.always_use_checkbox, null);
+        mAlwaysUse = (CheckBox)ap.mView.findViewById(com.android.internal.R.id.alwaysUse);
+        if (mDevice == null) {
+            mAlwaysUse.setText(R.string.always_use_accessory);
+        } else {
+            mAlwaysUse.setText(R.string.always_use_device);
         }
+        mAlwaysUse.setOnCheckedChangeListener(this);
+        mClearDefaultHint = (TextView)ap.mView.findViewById(
+                                                    com.android.internal.R.id.clearDefaultHint);
+        mClearDefaultHint.setVisibility(View.GONE);
 
         setupAlert();
+
     }
 
     @Override
@@ -132,7 +126,7 @@ public class UsbPermissionActivity extends AlertActivity
                 intent.putExtra(UsbManager.EXTRA_DEVICE, mDevice);
                 if (mPermissionGranted) {
                     service.grantDevicePermission(mDevice, mUid);
-                    if (mAlwaysUse != null && mAlwaysUse.isChecked()) {
+                    if (mAlwaysUse.isChecked()) {
                         final int userId = UserHandle.getUserId(mUid);
                         service.setDevicePackage(mDevice, mPackageName, userId);
                     }
@@ -142,7 +136,7 @@ public class UsbPermissionActivity extends AlertActivity
                 intent.putExtra(UsbManager.EXTRA_ACCESSORY, mAccessory);
                 if (mPermissionGranted) {
                     service.grantAccessoryPermission(mAccessory, mUid);
-                    if (mAlwaysUse != null && mAlwaysUse.isChecked()) {
+                    if (mAlwaysUse.isChecked()) {
                         final int userId = UserHandle.getUserId(mUid);
                         service.setAccessoryPackage(mAccessory, mPackageName, userId);
                     }

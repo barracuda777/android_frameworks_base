@@ -16,7 +16,7 @@
 
 #define LOG_TAG "SurfaceSession"
 
-#include <nativehelper/JNIHelp.h>
+#include "JNIHelp.h"
 
 #include <android_runtime/AndroidRuntime.h>
 #include <android_runtime/android_view_SurfaceSession.h>
@@ -24,7 +24,6 @@
 #include <utils/RefBase.h>
 
 #include <gui/SurfaceComposerClient.h>
-#include <gui/Surface.h>
 
 namespace android {
 
@@ -55,6 +54,7 @@ static void nativeKill(JNIEnv* env, jclass clazz, jlong ptr) {
     SurfaceComposerClient* client = reinterpret_cast<SurfaceComposerClient*>(ptr);
     client->dispose();
 }
+
 
 static const JNINativeMethod gMethods[] = {
     /* name, signature, funcPtr */

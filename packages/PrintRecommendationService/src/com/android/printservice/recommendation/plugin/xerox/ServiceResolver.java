@@ -19,12 +19,9 @@ import android.content.Context;
 import android.net.nsd.NsdManager;
 import android.net.nsd.NsdServiceInfo;
 import android.text.TextUtils;
-
 import com.android.printservice.recommendation.util.DiscoveryListenerMultiplexer;
 import com.android.printservice.recommendation.util.NsdResolveQueue;
-import com.android.printservice.recommendation.util.PrinterHashMap;
 
-import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -195,8 +192,8 @@ class ServiceResolver {
         }
     }
 
-    public ArrayList<InetAddress> getPrinters() {
-        return mPrinterHashMap.getPrinterAddresses();
+    public int getCount() {
+        return mPrinterHashMap.size();
     }
 
 }

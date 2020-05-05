@@ -16,14 +16,14 @@
 
 package android.widget;
 
+import com.android.frameworks.coretests.R;
+
 import android.app.Activity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.AdapterView.OnItemSelectedListener;
-
-import com.android.frameworks.coretests.R;
 
 public class AutoCompleteTextViewSimple extends Activity 
         implements OnItemClickListener, OnItemSelectedListener {
@@ -47,7 +47,7 @@ public class AutoCompleteTextViewSimple extends Activity
 
         // setup layout & views
         setContentView(R.layout.autocompletetextview_simple);
-        mTextView = findViewById(R.id.autocompletetextview1);
+        mTextView = (AutoCompleteTextView) findViewById(R.id.autocompletetextview1);
         
         // configure callbacks used for monitoring
         mTextView.setOnItemClickListener(this);

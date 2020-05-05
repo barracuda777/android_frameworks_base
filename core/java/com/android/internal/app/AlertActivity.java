@@ -16,7 +16,6 @@
 
 package com.android.internal.app;
 
-import android.annotation.UnsupportedAppUsage;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.DialogInterface;
@@ -39,13 +38,11 @@ public abstract class AlertActivity extends Activity implements DialogInterface 
      * 
      * @see #mAlertParams
      */
-    @UnsupportedAppUsage
     protected AlertController mAlert;
 
     /**
      * The parameters for the alert.
      */
-    @UnsupportedAppUsage
     protected AlertController.AlertParams mAlertParams;
 
     @Override
@@ -70,15 +67,10 @@ public abstract class AlertActivity extends Activity implements DialogInterface 
 
     @Override
     public boolean dispatchPopulateAccessibilityEvent(AccessibilityEvent event) {
-        return dispatchPopulateAccessibilityEvent(this, event);
-    }
-
-    public static boolean dispatchPopulateAccessibilityEvent(Activity act,
-            AccessibilityEvent event) {
         event.setClassName(Dialog.class.getName());
-        event.setPackageName(act.getPackageName());
+        event.setPackageName(getPackageName());
 
-        ViewGroup.LayoutParams params = act.getWindow().getAttributes();
+        ViewGroup.LayoutParams params = getWindow().getAttributes();
         boolean isFullScreen = (params.width == ViewGroup.LayoutParams.MATCH_PARENT) &&
                 (params.height == ViewGroup.LayoutParams.MATCH_PARENT);
         event.setFullScreen(isFullScreen);
@@ -93,9 +85,9 @@ public abstract class AlertActivity extends Activity implements DialogInterface 
      * @see #mAlert
      * @see #mAlertParams
      */
-    @UnsupportedAppUsage
     protected void setupAlert() {
-        mAlert.installContent(mAlertParams);
+        mAlertParams.apply(mAlert);
+        mAlert.installContent();
     }
 
     @Override

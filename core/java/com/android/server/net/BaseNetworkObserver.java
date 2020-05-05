@@ -16,7 +16,6 @@
 
 package com.android.server.net;
 
-import android.annotation.UnsupportedAppUsage;
 import android.net.INetworkManagementEventObserver;
 import android.net.LinkAddress;
 import android.net.RouteInfo;
@@ -60,6 +59,11 @@ public class BaseNetworkObserver extends INetworkManagementEventObserver.Stub {
 
     @Override
     public void interfaceClassDataActivityChanged(String label, boolean active, long tsNanos) {
+        // default no-op
+    }
+
+    @Override
+    public void interfaceMessageRecevied(String message) {
         // default no-op
     }
 

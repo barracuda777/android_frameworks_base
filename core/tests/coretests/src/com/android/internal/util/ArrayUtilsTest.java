@@ -13,11 +13,9 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-
 package com.android.internal.util;
 
-import androidx.test.filters.SmallTest;
-
+import android.test.suitebuilder.annotation.SmallTest;
 import junit.framework.TestCase;
 
 import java.util.ArrayList;

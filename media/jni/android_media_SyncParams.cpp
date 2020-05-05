@@ -16,7 +16,7 @@
 
 #include "android_media_SyncParams.h"
 
-#include <nativehelper/JNIHelp.h>
+#include "JNIHelp.h"
 
 namespace android {
 

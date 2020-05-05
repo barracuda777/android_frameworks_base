@@ -39,12 +39,6 @@ enum {
     SDK_LOLLIPOP = 21,
     SDK_LOLLIPOP_MR1 = 22,
     SDK_MNC = 23,
-    SDK_NOUGAT = 24,
-    SDK_NOUGAT_MR1 = 25,
-    SDK_O = 26,
-    SDK_O_MR1 = 27,
-    SDK_P = 28,
-    SDK_Q = 29,
 };
 
 #endif // H_AAPT_SDK_CONSTANTS

@@ -46,7 +46,7 @@ import java.util.ArrayList;
  * After creating the view, the function {@link #setPhoneWindow} needs to be called to make
  * the connection to it's owning PhoneWindow.
  * Note: At this time the application can change various attributes of the DecorView which
- * will break things (in subtle/unexpected ways):
+ * will break things (in settle/unexpected ways):
  * <ul>
  * <li>setOutlineProvider</li>
  * <li>setSurfaceFormat</li>
@@ -82,6 +82,9 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
     // True if the window is being dragged.
     private boolean mDragging = false;
 
+    // True when the left mouse button got released while dragging.
+    private boolean mLeftMouseButtonReleased;
+
     private boolean mOverlayWithAppContent = false;
 
     private View mCaption;
@@ -103,7 +106,6 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
     private final Rect mCloseRect = new Rect();
     private final Rect mMaximizeRect = new Rect();
     private View mClickTarget;
-    private int mRootScrollY;
 
     public DecorCaptionView(Context context) {
         super(context);
@@ -155,11 +157,10 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
         if (ev.getAction() == MotionEvent.ACTION_DOWN) {
             final int x = (int) ev.getX();
             final int y = (int) ev.getY();
-            // Only offset y for containment tests because the actual views are already translated.
-            if (mMaximizeRect.contains(x, y - mRootScrollY)) {
+            if (mMaximizeRect.contains(x, y)) {
                 mClickTarget = mMaximize;
             }
-            if (mCloseRect.contains(x, y - mRootScrollY)) {
+            if (mCloseRect.contains(x, y)) {
                 mClickTarget = mClose;
             }
         }
@@ -186,10 +187,7 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
         // input device we are listening to.
         final int x = (int) e.getX();
         final int y = (int) e.getY();
-        final boolean fromMouse = e.getToolType(e.getActionIndex()) == MotionEvent.TOOL_TYPE_MOUSE;
-        final boolean primaryButton = (e.getButtonState() & MotionEvent.BUTTON_PRIMARY) != 0;
-        final int actionMasked = e.getActionMasked();
-        switch (actionMasked) {
+        switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 if (!mShow) {
                     // When there is no caption we should not react to anything.
@@ -197,7 +195,8 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
                 }
                 // Checking for a drag action is started if we aren't dragging already and the
                 // starting event is either a left mouse button or any other input device.
-                if (!fromMouse || primaryButton) {
+                if (((e.getToolType(e.getActionIndex()) != MotionEvent.TOOL_TYPE_MOUSE ||
+                        (e.getButtonState() & MotionEvent.BUTTON_PRIMARY) != 0))) {
                     mCheckForDragging = true;
                     mTouchDownX = x;
                     mTouchDownY = y;
@@ -205,13 +204,19 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
                 break;
 
             case MotionEvent.ACTION_MOVE:
-                if (!mDragging && mCheckForDragging && (fromMouse || passedSlop(x, y))) {
+                if (!mDragging && mCheckForDragging && passedSlop(x, y)) {
                     mCheckForDragging = false;
                     mDragging = true;
+                    mLeftMouseButtonReleased = false;
                     startMovingTask(e.getRawX(), e.getRawY());
-                    // After the above call the framework will take over the input.
-                    // This handler will receive ACTION_CANCEL soon (possible after a few spurious
-                    // ACTION_MOVE events which are safe to ignore).
+                } else if (mDragging && !mLeftMouseButtonReleased) {
+                    if (e.getToolType(e.getActionIndex()) == MotionEvent.TOOL_TYPE_MOUSE &&
+                            (e.getButtonState() & MotionEvent.BUTTON_PRIMARY) == 0) {
+                        // There is no separate mouse button up call and if the user mixes mouse
+                        // button drag actions, we stop dragging once he releases the button.
+                        mLeftMouseButtonReleased = true;
+                        break;
+                    }
                 }
                 break;
 
@@ -221,12 +226,6 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
                     break;
                 }
                 // Abort the ongoing dragging.
-                if (actionMasked == MotionEvent.ACTION_UP) {
-                    // If it receives ACTION_UP event, the dragging is already finished and also
-                    // the system can not end drag on ACTION_UP event. So request to finish
-                    // dragging.
-                    finishMovingTask();
-                }
                 mDragging = false;
                 return !mCheckForDragging;
         }
@@ -328,23 +327,34 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
         mOwner.notifyRestrictedCaptionAreaCallback(mMaximize.getLeft(), mMaximize.getTop(),
                 mClose.getRight(), mClose.getBottom());
     }
+    /**
+     * Determine if the workspace is entirely covered by the window.
+     * @return Returns true when the window is filling the entire screen/workspace.
+     **/
+    private boolean isFillingScreen() {
+        return (0 != ((getWindowSystemUiVisibility() | getSystemUiVisibility()) &
+                (View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
+                        View.SYSTEM_UI_FLAG_IMMERSIVE | View.SYSTEM_UI_FLAG_LOW_PROFILE)));
+    }
 
     /**
      * Updates the visibility of the caption.
      **/
     private void updateCaptionVisibility() {
-        mCaption.setVisibility(mShow ? VISIBLE : GONE);
+        // Don't show the caption if the window has e.g. entered full screen.
+        boolean invisible = isFillingScreen() || !mShow;
+        mCaption.setVisibility(invisible ? GONE : VISIBLE);
         mCaption.setOnTouchListener(this);
     }
 
     /**
-     * Maximize or restore the window by moving it to the maximized or freeform workspace stack.
+     * Maximize the window by moving it to the maximized workspace stack.
      **/
-    private void toggleFreeformWindowingMode() {
+    private void maximizeWindow() {
         Window.WindowControllerCallback callback = mOwner.getWindowControllerCallback();
         if (callback != null) {
             try {
-                callback.toggleFreeformWindowingMode();
+                callback.exitFreeformMode();
             } catch (RemoteException ex) {
                 Log.e(TAG, "Cannot change task workspace.");
             }
@@ -404,7 +414,7 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
     @Override
     public boolean onSingleTapUp(MotionEvent e) {
         if (mClickTarget == mMaximize) {
-            toggleFreeformWindowingMode();
+            maximizeWindow();
         } else if (mClickTarget == mClose) {
             mOwner.dispatchOnWindowDismissed(
                     true /*finishTask*/, false /*suppressWindowTransition*/);
@@ -425,17 +435,5 @@ public class DecorCaptionView extends ViewGroup implements View.OnTouchListener,
     @Override
     public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
         return false;
-    }
-
-    /**
-     * Called when {@link android.view.ViewRootImpl} scrolls for adjustPan.
-     */
-    public void onRootViewScrollYChanged(int scrollY) {
-        // Offset the caption opposite the root scroll. This keeps the caption at the
-        // top of the window during adjustPan.
-        if (mCaption != null) {
-            mRootScrollY = scrollY;
-            mCaption.setTranslationY(scrollY);
-        }
     }
 }

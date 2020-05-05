@@ -16,11 +16,10 @@
 
 package android.content.pm;
 
+import android.content.pm.VerificationParams;
 import android.net.Uri;
 import android.os.Parcel;
 import android.test.AndroidTestCase;
-
-import androidx.test.filters.LargeTest;
 
 /**
  * Tests the android.content.pm.VerificationParams class
@@ -28,7 +27,6 @@ import androidx.test.filters.LargeTest;
  * To test run:
  * ./development/testrunner/runtest.py frameworks-core -c android.content.pm.VerificationParamsTest
  */
-@LargeTest
 public class VerificationParamsTest extends AndroidTestCase {
 
     private final static String VERIFICATION_URI_STRING = "http://verification.uri/path";

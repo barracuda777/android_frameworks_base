@@ -16,8 +16,6 @@
 
 package com.android.internal.util;
 
-import android.annotation.UnsupportedAppUsage;
-
 /**
  * {@link CharSequence} utility methods.
  */
@@ -95,7 +93,6 @@ public class CharSequences {
     /**
      * Compares two character sequences for equality.
      */
-    @UnsupportedAppUsage
     public static boolean equals(CharSequence a, CharSequence b) {
         if (a.length() != b.length()) {
             return false;
@@ -117,7 +114,6 @@ public class CharSequences {
      * @param another The other CharSequence.
      * @return See {@link Comparable#compareTo}.
      */
-    @UnsupportedAppUsage
     public static int compareToIgnoreCase(CharSequence me, CharSequence another) {
         // Code adapted from String#compareTo
         int myLen = me.length(), anotherLen = another.length();

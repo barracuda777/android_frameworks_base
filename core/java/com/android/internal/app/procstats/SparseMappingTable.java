@@ -175,6 +175,7 @@ public class SparseMappingTable {
          * Get the value for the given key and offset from that key.
          *
          * @param key   A key as obtained from getKey or getOrAddKey.
+         * @param value The value to set.
          */
         public long getValue(int key) {
             return getValue(key, 0);
@@ -186,6 +187,7 @@ public class SparseMappingTable {
          * @param key   A key as obtained from getKey or getOrAddKey.
          * @param index The offset from that key.  Must be less than the count
          *              provided to getOrAddKey when the space was allocated.
+         * @param value The value to set.
          *
          * @return the value, or 0 in case of an error
          */
@@ -651,7 +653,7 @@ public class SparseMappingTable {
      */
     private static void logOrThrow(String message, Throwable th) {
         Slog.e(TAG, message, th);
-        if (Build.IS_ENG) {
+        if (Build.TYPE.equals("eng")) {
             throw new RuntimeException(message, th);
         }
     }

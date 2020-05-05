@@ -23,10 +23,9 @@
 
 #include <androidfw/Asset.h>
 #include <androidfw/StreamingZipInflater.h>
-#include <androidfw/Util.h>
 #include <androidfw/ZipFileRO.h>
 #include <androidfw/ZipUtils.h>
-#include <cutils/atomic.h>
+#include <utils/Atomic.h>
 #include <utils/FileMap.h>
 #include <utils/Log.h>
 #include <utils/threads.h>
@@ -111,7 +110,7 @@ String8 Asset::getAssetAllocations()
             res.append(cur->getAssetSource());
             off64_t size = (cur->getLength()+512)/1024;
             char buf[64];
-            snprintf(buf, sizeof(buf), ": %dK\n", (int)size);
+            sprintf(buf, ": %dK\n", (int)size);
             res.append(buf);
         }
         cur = cur->mNext;
@@ -292,29 +291,11 @@ Asset::Asset(void)
 
     pAsset = new _FileAsset;
     result = pAsset->openChunk(dataMap);
-    if (result != NO_ERROR) {
-        delete pAsset;
+    if (result != NO_ERROR)
         return NULL;
-    }
 
     pAsset->mAccessMode = mode;
     return pAsset;
-}
-
-/*static*/ std::unique_ptr<Asset> Asset::createFromUncompressedMap(std::unique_ptr<FileMap> dataMap,
-    AccessMode mode)
-{
-    std::unique_ptr<_FileAsset> pAsset = util::make_unique<_FileAsset>();
-
-    status_t result = pAsset->openChunk(dataMap.get());
-    if (result != NO_ERROR) {
-        return NULL;
-    }
-
-    // We succeeded, so relinquish control of dataMap
-    (void) dataMap.release();
-    pAsset->mAccessMode = mode;
-    return std::move(pAsset);
 }
 
 /*
@@ -335,21 +316,6 @@ Asset::Asset(void)
     return pAsset;
 }
 
-/*static*/ std::unique_ptr<Asset> Asset::createFromCompressedMap(std::unique_ptr<FileMap> dataMap,
-    size_t uncompressedLen, AccessMode mode)
-{
-  std::unique_ptr<_CompressedAsset> pAsset = util::make_unique<_CompressedAsset>();
-
-  status_t result = pAsset->openChunk(dataMap.get(), uncompressedLen);
-  if (result != NO_ERROR) {
-      return NULL;
-  }
-
-  // We succeeded, so relinquish control of dataMap
-  (void) dataMap.release();
-  pAsset->mAccessMode = mode;
-  return std::move(pAsset);
-}
 
 /*
  * Do generic seek() housekeeping.  Pass in the offset/whence values from

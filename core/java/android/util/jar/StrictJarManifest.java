@@ -44,9 +44,6 @@ public class StrictJarManifest implements Cloneable {
 
     private static final byte[] VALUE_SEPARATOR = new byte[] { ':', ' ' };
 
-    /** The attribute name "Name". */
-    static final Attributes.Name ATTRIBUTE_NAME_NAME = new Attributes.Name("Name");
-
     private final Attributes mainAttributes;
     private final HashMap<String, Attributes> entries;
 
@@ -279,7 +276,7 @@ public class StrictJarManifest implements Cloneable {
         Iterator<String> i = manifest.getEntries().keySet().iterator();
         while (i.hasNext()) {
             String key = i.next();
-            writeEntry(out, ATTRIBUTE_NAME_NAME, key, encoder, buffer);
+            writeEntry(out, Attributes.Name.NAME, key, encoder, buffer);
             Attributes attributes = manifest.entries.get(key);
             Iterator<?> entries = attributes.keySet().iterator();
             while (entries.hasNext()) {

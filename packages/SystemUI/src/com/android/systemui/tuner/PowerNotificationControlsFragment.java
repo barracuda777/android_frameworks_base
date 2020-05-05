@@ -15,19 +15,20 @@
  */
 package com.android.systemui.tuner;
 
+import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.systemui.R;
+
 import android.annotation.Nullable;
 import android.app.Fragment;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Switch;
 import android.widget.TextView;
-
-import com.android.internal.logging.MetricsLogger;
-import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
-import com.android.systemui.R;
 
 public class PowerNotificationControlsFragment extends Fragment {
 
@@ -69,6 +70,17 @@ public class PowerNotificationControlsFragment extends Fragment {
                         : getString(R.string.switch_bar_off));
             }
         });
+
+        getActivity().getActionBar().setDisplayHomeAsUpEnabled(true);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == android.R.id.home) {
+            getActivity().onBackPressed();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     @Override
@@ -86,7 +98,7 @@ public class PowerNotificationControlsFragment extends Fragment {
     }
 
     private boolean isEnabled() {
-        int setting = Settings.Secure.getInt(getContext().getContentResolver(), KEY_SHOW_PNC, 0);
+        int setting = Settings.Secure.getInt(getContext().getContentResolver(), KEY_SHOW_PNC, 1);
         return setting == 1;
     }
 

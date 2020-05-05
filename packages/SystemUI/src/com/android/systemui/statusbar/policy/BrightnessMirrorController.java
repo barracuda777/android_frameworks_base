@@ -16,54 +16,74 @@
 
 package com.android.systemui.statusbar.policy;
 
-import android.annotation.NonNull;
-import android.content.res.Resources;
-import android.util.ArraySet;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewPropertyAnimator;
 import android.widget.FrameLayout;
 
-import com.android.internal.util.Preconditions;
+import com.android.systemui.Interpolators;
 import com.android.systemui.R;
-import com.android.systemui.statusbar.phone.NotificationPanelView;
+import com.android.systemui.statusbar.ScrimView;
 import com.android.systemui.statusbar.phone.StatusBarWindowView;
-
-import java.util.function.Consumer;
+import com.android.systemui.statusbar.stack.NotificationStackScrollLayout;
 
 /**
  * Controls showing and hiding of the brightness mirror.
  */
-public class BrightnessMirrorController
-        implements CallbackController<BrightnessMirrorController.BrightnessMirrorListener> {
+public class BrightnessMirrorController {
+
+    private final NotificationStackScrollLayout mStackScroller;
+    public long TRANSITION_DURATION_OUT = 150;
+    public long TRANSITION_DURATION_IN = 200;
 
     private final StatusBarWindowView mStatusBarWindow;
-    private final Consumer<Boolean> mVisibilityCallback;
-    private final NotificationPanelView mNotificationPanel;
-    private final ArraySet<BrightnessMirrorListener> mBrightnessMirrorListeners = new ArraySet<>();
+    private final ScrimView mScrimBehind;
+    private final View mNotificationPanel;
     private final int[] mInt2Cache = new int[2];
     private View mBrightnessMirror;
 
-    public BrightnessMirrorController(StatusBarWindowView statusBarWindow,
-            @NonNull Consumer<Boolean> visibilityCallback) {
+    public BrightnessMirrorController(StatusBarWindowView statusBarWindow) {
         mStatusBarWindow = statusBarWindow;
+        mScrimBehind = (ScrimView) statusBarWindow.findViewById(R.id.scrim_behind);
         mBrightnessMirror = statusBarWindow.findViewById(R.id.brightness_mirror);
         mNotificationPanel = statusBarWindow.findViewById(R.id.notification_panel);
-        mNotificationPanel.setPanelAlphaEndAction(() -> {
-            mBrightnessMirror.setVisibility(View.INVISIBLE);
-        });
-        mVisibilityCallback = visibilityCallback;
+        mStackScroller = (NotificationStackScrollLayout) statusBarWindow.findViewById(
+                R.id.notification_stack_scroller);
     }
 
     public void showMirror() {
         mBrightnessMirror.setVisibility(View.VISIBLE);
-        mVisibilityCallback.accept(true);
-        mNotificationPanel.setPanelAlpha(0, true /* animate */);
+        mStackScroller.setFadingOut(true);
+        mScrimBehind.animateViewAlpha(0.0f, TRANSITION_DURATION_OUT, Interpolators.ALPHA_OUT);
+        outAnimation(mNotificationPanel.animate())
+                .withLayer();
     }
 
     public void hideMirror() {
-        mVisibilityCallback.accept(false);
-        mNotificationPanel.setPanelAlpha(255, true /* animate */);
+        mScrimBehind.animateViewAlpha(1.0f, TRANSITION_DURATION_IN, Interpolators.ALPHA_IN);
+        inAnimation(mNotificationPanel.animate())
+                .withLayer()
+                .withEndAction(new Runnable() {
+                    @Override
+                    public void run() {
+                        mBrightnessMirror.setVisibility(View.INVISIBLE);
+                        mStackScroller.setFadingOut(false);
+                    }
+                });
     }
+
+    private ViewPropertyAnimator outAnimation(ViewPropertyAnimator a) {
+        return a.alpha(0.0f)
+                .setDuration(TRANSITION_DURATION_OUT)
+                .setInterpolator(Interpolators.ALPHA_OUT)
+                .withEndAction(null);
+    }
+    private ViewPropertyAnimator inAnimation(ViewPropertyAnimator a) {
+        return a.alpha(1.0f)
+                .setDuration(TRANSITION_DURATION_IN)
+                .setInterpolator(Interpolators.ALPHA_IN);
+    }
+
 
     public void setLocation(View original) {
         original.getLocationInWindow(mInt2Cache);
@@ -88,49 +108,18 @@ public class BrightnessMirrorController
     public void updateResources() {
         FrameLayout.LayoutParams lp =
                 (FrameLayout.LayoutParams) mBrightnessMirror.getLayoutParams();
-        Resources r = mBrightnessMirror.getResources();
-        lp.width = r.getDimensionPixelSize(R.dimen.qs_panel_width);
-        lp.height = r.getDimensionPixelSize(R.dimen.brightness_mirror_height);
-        lp.gravity = r.getInteger(R.integer.notification_panel_layout_gravity);
+        lp.width = mBrightnessMirror.getResources().getDimensionPixelSize(
+                R.dimen.notification_panel_width);
+        lp.gravity = mBrightnessMirror.getResources().getInteger(
+                R.integer.notification_panel_layout_gravity);
         mBrightnessMirror.setLayoutParams(lp);
     }
 
-    public void onOverlayChanged() {
-        reinflate();
-    }
-
     public void onDensityOrFontScaleChanged() {
-        reinflate();
-    }
-
-    private void reinflate() {
         int index = mStatusBarWindow.indexOfChild(mBrightnessMirror);
         mStatusBarWindow.removeView(mBrightnessMirror);
         mBrightnessMirror = LayoutInflater.from(mBrightnessMirror.getContext()).inflate(
                 R.layout.brightness_mirror, mStatusBarWindow, false);
         mStatusBarWindow.addView(mBrightnessMirror, index);
-
-        for (int i = 0; i < mBrightnessMirrorListeners.size(); i++) {
-            mBrightnessMirrorListeners.valueAt(i).onBrightnessMirrorReinflated(mBrightnessMirror);
-        }
-    }
-
-    @Override
-    public void addCallback(BrightnessMirrorListener listener) {
-        Preconditions.checkNotNull(listener);
-        mBrightnessMirrorListeners.add(listener);
-    }
-
-    @Override
-    public void removeCallback(BrightnessMirrorListener listener) {
-        mBrightnessMirrorListeners.remove(listener);
-    }
-
-    public void onUiModeChanged() {
-        reinflate();
-    }
-
-    public interface BrightnessMirrorListener {
-        void onBrightnessMirrorReinflated(View brightnessMirror);
     }
 }

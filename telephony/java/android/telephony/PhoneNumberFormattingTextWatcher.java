@@ -19,7 +19,6 @@ package android.telephony;
 import com.android.i18n.phonenumbers.AsYouTypeFormatter;
 import com.android.i18n.phonenumbers.PhoneNumberUtil;
 
-import android.annotation.UnsupportedAppUsage;
 import android.telephony.PhoneNumberUtils;
 import android.text.Editable;
 import android.text.Selection;
@@ -51,7 +50,6 @@ public class PhoneNumberFormattingTextWatcher implements TextWatcher {
      */
     private boolean mStopFormatting;
 
-    @UnsupportedAppUsage
     private AsYouTypeFormatter mFormatter;
 
     /**

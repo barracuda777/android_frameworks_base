@@ -14,7 +14,7 @@
 
 package android.view.accessibility;
 
-import androidx.test.filters.SmallTest;
+import android.test.suitebuilder.annotation.SmallTest;
 
 import junit.framework.TestCase;
 

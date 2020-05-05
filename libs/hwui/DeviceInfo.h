@@ -16,45 +16,36 @@
 #ifndef DEVICEINFO_H
 #define DEVICEINFO_H
 
-#include <SkImageInfo.h>
-#include <ui/DisplayInfo.h>
-
+#include "Extensions.h"
 #include "utils/Macros.h"
 
 namespace android {
 namespace uirenderer {
 
-namespace renderthread {
-    class RenderThread;
-}
-
 class DeviceInfo {
     PREVENT_COPY_AND_ASSIGN(DeviceInfo);
-
 public:
-    static DeviceInfo* get();
+    // returns nullptr if DeviceInfo is not initialized yet
+    // Note this does not have a memory fence so it's up to the caller
+    // to use one if required. Normally this should not be necessary
+    static const DeviceInfo* get();
 
-    // this value is only valid after the GPU has been initialized and there is a valid graphics
-    // context or if you are using the HWUI_NULL_GPU
-    int maxTextureSize() const;
-    const DisplayInfo& displayInfo() const { return mDisplayInfo; }
-    sk_sp<SkColorSpace> getWideColorSpace() const { return mWideColorSpace; }
-    SkColorType getWideColorType() const { return mWideColorType; }
-    float getMaxRefreshRate() const { return mMaxRefreshRate; }
+    // only call this after GL has been initialized, or at any point if compiled
+    // with HWUI_NULL_GPU
+    static void initialize();
 
-    void onDisplayConfigChanged();
+    const Extensions& extensions() const { return mExtensions; }
+
+    int maxTextureSize() const { return mMaxTextureSize; }
 
 private:
-    friend class renderthread::RenderThread;
-    static void setMaxTextureSize(int maxTextureSize);
+    DeviceInfo() {}
+    ~DeviceInfo() {}
 
-    DeviceInfo();
+    void load();
 
+    Extensions mExtensions;
     int mMaxTextureSize;
-    DisplayInfo mDisplayInfo;
-    sk_sp<SkColorSpace> mWideColorSpace;
-    SkColorType mWideColorType;
-    const float mMaxRefreshRate;
 };
 
 } /* namespace uirenderer */

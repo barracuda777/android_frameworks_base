@@ -16,7 +16,6 @@
 
 package android.database;
 
-import android.annotation.UnsupportedAppUsage;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -139,7 +138,6 @@ public abstract class BulkCursorNative extends Binder implements IBulkCursor
 
 
 final class BulkCursorProxy implements IBulkCursor {
-    @UnsupportedAppUsage
     private IBinder mRemote;
     private Bundle mExtras;
 

@@ -17,11 +17,10 @@
 package android.widget.listview;
 
 import android.test.ActivityInstrumentationTestCase;
-import android.widget.ArrayAdapter;
-import android.widget.ListAdapter;
+import android.test.suitebuilder.annotation.MediumTest;
 import android.widget.ListView;
-
-import androidx.test.filters.MediumTest;
+import android.widget.ListAdapter;
+import android.widget.ArrayAdapter;
 
 public class ListFocusableTest extends ActivityInstrumentationTestCase<ListTopGravity> {
     private ListTopGravity mActivity;

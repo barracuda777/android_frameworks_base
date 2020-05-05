@@ -16,10 +16,11 @@
 
 package android.os;
 
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 import android.os.MessageQueue.IdleHandler;
-
-import androidx.test.filters.MediumTest;
-
+import android.test.suitebuilder.annotation.MediumTest;
 import junit.framework.TestCase;
 
 public class IdleHandlerTest extends TestCase {

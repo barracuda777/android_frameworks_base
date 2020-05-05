@@ -16,26 +16,13 @@
 
 package android.text.format;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import android.test.suitebuilder.annotation.SmallTest;
 
-import android.platform.test.annotations.Presubmit;
+import junit.framework.TestCase;
 
-import androidx.test.filters.SmallTest;
-import androidx.test.runner.AndroidJUnit4;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
-import java.util.Locale;
-
-@Presubmit
-@SmallTest
-@RunWith(AndroidJUnit4.class)
-public class DateFormatTest {
-
-    @Test
-    public void testHasDesignator() {
+public class DateFormatTest extends TestCase {
+    @SmallTest
+    public void testHasDesignator() throws Exception {
         assertTrue(DateFormat.hasDesignator("hh:mm:ss", DateFormat.MINUTE));
         assertTrue(DateFormat.hasDesignator("myyyy", DateFormat.MINUTE));
         assertTrue(DateFormat.hasDesignator("mmm", DateFormat.MINUTE));
@@ -43,16 +30,10 @@ public class DateFormatTest {
         assertFalse(DateFormat.hasDesignator("hh:MM:ss", DateFormat.MINUTE));
     }
 
-    @Test
-    public void testHasDesignatorEscaped() {
+    @SmallTest
+    public void testHasDesignatorEscaped() throws Exception {
         assertTrue(DateFormat.hasDesignator("hh:mm 'LOL'", DateFormat.MINUTE));
 
         assertFalse(DateFormat.hasDesignator("hh:mm 'yyyy'", DateFormat.YEAR));
-    }
-
-    @Test
-    public void testIs24HourLocale() {
-        assertFalse(DateFormat.is24HourLocale(Locale.US));
-        assertTrue(DateFormat.is24HourLocale(Locale.GERMANY));
     }
 }

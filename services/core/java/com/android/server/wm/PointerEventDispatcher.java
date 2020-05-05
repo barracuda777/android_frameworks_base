@@ -21,20 +21,18 @@ import android.view.InputDevice;
 import android.view.InputEvent;
 import android.view.InputEventReceiver;
 import android.view.MotionEvent;
-import android.view.WindowManagerPolicyConstants.PointerEventListener;
+import android.view.WindowManagerPolicy.PointerEventListener;
 
 import com.android.server.UiThread;
 
 import java.util.ArrayList;
 
 public class PointerEventDispatcher extends InputEventReceiver {
-    private final InputChannel mInputChannel;
-    private final ArrayList<PointerEventListener> mListeners = new ArrayList<>();
-    private PointerEventListener[] mListenersArray = new PointerEventListener[0];
+    ArrayList<PointerEventListener> mListeners = new ArrayList<PointerEventListener>();
+    PointerEventListener[] mListenersArray = new PointerEventListener[0];
 
     public PointerEventDispatcher(InputChannel inputChannel) {
         super(inputChannel, UiThread.getHandler().getLooper());
-        mInputChannel = inputChannel;
     }
 
     @Override
@@ -42,7 +40,7 @@ public class PointerEventDispatcher extends InputEventReceiver {
         try {
             if (event instanceof MotionEvent
                     && (event.getSource() & InputDevice.SOURCE_CLASS_POINTER) != 0) {
-                final MotionEvent motionEvent = (MotionEvent) event;
+                final MotionEvent motionEvent = (MotionEvent)event;
                 PointerEventListener[] listeners;
                 synchronized (mListeners) {
                     if (mListenersArray == null) {
@@ -86,17 +84,6 @@ public class PointerEventDispatcher extends InputEventReceiver {
                         " not registered.");
             }
             mListeners.remove(listener);
-            mListenersArray = null;
-        }
-    }
-
-    /** Dispose the associated input channel and clean up the listeners. */
-    @Override
-    public void dispose() {
-        super.dispose();
-        mInputChannel.dispose();
-        synchronized (mListeners) {
-            mListeners.clear();
             mListenersArray = null;
         }
     }

@@ -21,8 +21,8 @@ import android.content.pm.ParceledListSlice;
 import android.media.MediaMetadata;
 import android.media.Rating;
 import android.media.session.ISessionControllerCallback;
-import android.media.session.MediaController;
 import android.media.session.MediaSession;
+import android.media.session.ParcelableVolumeInfo;
 import android.media.session.PlaybackState;
 import android.net.Uri;
 import android.os.Bundle;
@@ -32,54 +32,45 @@ import android.view.KeyEvent;
 import java.util.List;
 
 /**
- * Interface to MediaSessionRecord in the system.
+ * Interface to a MediaSession in the system.
  * @hide
  */
 interface ISessionController {
-    void sendCommand(String packageName, in ISessionControllerCallback caller,
-            String command, in Bundle args, in ResultReceiver cb);
-    boolean sendMediaButton(String packageName, in ISessionControllerCallback caller,
-            in KeyEvent mediaButton);
-    void registerCallback(String packageName, in ISessionControllerCallback cb);
-    void unregisterCallback(in ISessionControllerCallback cb);
+    void sendCommand(String command, in Bundle args, in ResultReceiver cb);
+    boolean sendMediaButton(in KeyEvent mediaButton);
+    void registerCallbackListener(in ISessionControllerCallback cb);
+    void unregisterCallbackListener(in ISessionControllerCallback cb);
+    boolean isTransportControlEnabled();
     String getPackageName();
     String getTag();
-    Bundle getSessionInfo();
     PendingIntent getLaunchPendingIntent();
     long getFlags();
-    MediaController.PlaybackInfo getVolumeAttributes();
-    void adjustVolume(String packageName, String opPackageName,
-            in ISessionControllerCallback caller, int direction, int flags);
-    void setVolumeTo(String packageName, String opPackageName, in ISessionControllerCallback caller,
-            int value, int flags);
+    ParcelableVolumeInfo getVolumeAttributes();
+    void adjustVolume(int direction, int flags, String packageName);
+    void setVolumeTo(int value, int flags, String packageName);
 
     // These commands are for the TransportControls
-    void prepare(String packageName, in ISessionControllerCallback caller);
-    void prepareFromMediaId(String packageName, in ISessionControllerCallback caller,
-            String mediaId, in Bundle extras);
-    void prepareFromSearch(String packageName, in ISessionControllerCallback caller,
-            String string, in Bundle extras);
-    void prepareFromUri(String packageName, in ISessionControllerCallback caller,
-            in Uri uri, in Bundle extras);
-    void play(String packageName, in ISessionControllerCallback caller);
-    void playFromMediaId(String packageName, in ISessionControllerCallback caller,
-            String mediaId, in Bundle extras);
-    void playFromSearch(String packageName, in ISessionControllerCallback caller,
-            String string, in Bundle extras);
-    void playFromUri(String packageName, in ISessionControllerCallback caller,
-            in Uri uri, in Bundle extras);
-    void skipToQueueItem(String packageName, in ISessionControllerCallback caller, long id);
-    void pause(String packageName, in ISessionControllerCallback caller);
-    void stop(String packageName, in ISessionControllerCallback caller);
-    void next(String packageName, in ISessionControllerCallback caller);
-    void previous(String packageName, in ISessionControllerCallback caller);
-    void fastForward(String packageName, in ISessionControllerCallback caller);
-    void rewind(String packageName, in ISessionControllerCallback caller);
-    void seekTo(String packageName, in ISessionControllerCallback caller, long pos);
-    void rate(String packageName, in ISessionControllerCallback caller, in Rating rating);
-    void setPlaybackSpeed(String packageName, in ISessionControllerCallback caller, float speed);
-    void sendCustomAction(String packageName, in ISessionControllerCallback caller,
-            String action, in Bundle args);
+    void prepare();
+    void prepareFromMediaId(String mediaId, in Bundle extras);
+    void prepareFromSearch(String string, in Bundle extras);
+    void prepareFromUri(in Uri uri, in Bundle extras);
+    void play();
+    void playFromMediaId(String mediaId, in Bundle extras);
+    void playFromSearch(String string, in Bundle extras);
+    void playFromUri(in Uri uri, in Bundle extras);
+    void skipToQueueItem(long id);
+    void pause();
+    void stop();
+    void next();
+    void previous();
+    void fastForward();
+    void rewind();
+    void seekTo(long pos);
+    void setRemoteControlClientBrowsedPlayer();
+    void setRemoteControlClientPlayItem(long uid, int scope);
+    void getRemoteControlClientNowPlayingEntries();
+    void rate(in Rating rating);
+    void sendCustomAction(String action, in Bundle args);
     MediaMetadata getMetadata();
     PlaybackState getPlaybackState();
     ParceledListSlice getQueue();

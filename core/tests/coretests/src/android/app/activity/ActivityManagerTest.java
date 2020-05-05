@@ -21,9 +21,8 @@ import android.content.Context;
 import android.content.pm.ConfigurationInfo;
 import android.content.res.Configuration;
 import android.test.AndroidTestCase;
-
-import androidx.test.filters.SmallTest;
-import androidx.test.filters.Suppress;
+import android.test.suitebuilder.annotation.SmallTest;
+import android.test.suitebuilder.annotation.Suppress;
 
 import java.util.Iterator;
 import java.util.List;

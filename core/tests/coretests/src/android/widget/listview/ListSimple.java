@@ -16,10 +16,11 @@
 
 package android.widget.listview;
 
-import android.os.Bundle;
 import android.util.ListScenario;
+
 import android.view.View;
 import android.view.ViewGroup;
+import android.os.Bundle;
 import android.widget.TextView;
 
 public class ListSimple extends ListScenario {

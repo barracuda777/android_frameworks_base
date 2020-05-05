@@ -16,8 +16,6 @@
 
 package android.renderscript;
 
-import android.annotation.UnsupportedAppUsage;
-
 
 /**
  * @hide
@@ -126,7 +124,6 @@ public class ProgramRaster extends BaseObj {
         /**
          * @deprecated in API 16
          */
-        @UnsupportedAppUsage
         public Builder(RenderScript rs) {
             mRS = rs;
             mPointSprite = false;
@@ -136,7 +133,6 @@ public class ProgramRaster extends BaseObj {
         /**
          * @deprecated in API 16
          */
-        @UnsupportedAppUsage
         public Builder setPointSpriteEnabled(boolean enable) {
             mPointSprite = enable;
             return this;
@@ -153,7 +149,6 @@ public class ProgramRaster extends BaseObj {
         /**
          * @deprecated in API 16
          */
-        @UnsupportedAppUsage
         public ProgramRaster create() {
             mRS.validate();
             long id = mRS.nProgramRasterCreate(mPointSprite, mCullMode.mID);

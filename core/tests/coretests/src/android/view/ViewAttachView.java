@@ -22,6 +22,7 @@ import android.graphics.Color;
 import android.os.SystemClock;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.View;
 
 /**
  * A View that will throw a RuntimeException if onAttachedToWindow and

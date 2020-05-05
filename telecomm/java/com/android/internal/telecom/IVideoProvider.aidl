@@ -30,7 +30,7 @@ oneway interface IVideoProvider {
 
     void removeVideoCallback(IBinder videoCallbackBinder);
 
-    void setCamera(String cameraId, in String mCallingPackageName, int targetSdkVersion);
+    void setCamera(String cameraId);
 
     void setPreviewSurface(in Surface surface);
 

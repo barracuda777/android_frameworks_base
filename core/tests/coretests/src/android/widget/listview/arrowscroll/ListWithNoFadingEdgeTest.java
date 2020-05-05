@@ -16,13 +16,13 @@
 
 package android.widget.listview.arrowscroll;
 
-import android.test.ActivityInstrumentationTestCase;
-import android.view.KeyEvent;
-import android.widget.ListView;
 import android.widget.listview.ListWithNoFadingEdge;
 
-import androidx.test.filters.LargeTest;
-import androidx.test.filters.MediumTest;
+import android.test.ActivityInstrumentationTestCase;
+import android.test.suitebuilder.annotation.LargeTest;
+import android.test.suitebuilder.annotation.MediumTest;
+import android.widget.ListView;
+import android.view.KeyEvent;
 
 public class ListWithNoFadingEdgeTest extends ActivityInstrumentationTestCase<ListWithNoFadingEdge> {
 
@@ -49,21 +49,17 @@ public class ListWithNoFadingEdgeTest extends ActivityInstrumentationTestCase<Li
 
     @MediumTest
     public void testScrollDownToBottom() {
-        getActivity().runOnUiThread(() -> mListView.requestFocus());
-        getInstrumentation().waitForIdleSync();
         final int numItems = mListView.getCount();
 
         for (int i = 0; i < numItems; i++) {
             assertEquals("selected position", i, mListView.getSelectedItemPosition());
             sendKeys(KeyEvent.KEYCODE_DPAD_DOWN);
         }
-        assertEquals("selected position", numItems - 1, mListView.getSelectedItemPosition());
+        assertEquals("selected position", numItems - 1, mListView.getSelectedItemPosition());            
     }
 
     @LargeTest
     public void testScrollFromBottomToTop() {
-        getActivity().runOnUiThread(() -> mListView.requestFocus());
-        getInstrumentation().waitForIdleSync();
         final int numItems = mListView.getCount();
 
         getActivity().runOnUiThread(new Runnable() {

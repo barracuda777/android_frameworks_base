@@ -21,7 +21,7 @@
 #include <utils/Vector.h>
 
 #include "jni.h"
-#include <nativehelper/JNIHelp.h>
+#include "JNIHelp.h"
 #include "core_jni_helpers.h"
 
 #include <ui/GraphicBuffer.h>
@@ -114,7 +114,7 @@ class PerfMeasurementContext {
      * will be active at once, which is a function of the GPU's level of
      * pipelining and the frequency of queries.
      */
-    explicit PerfMeasurementContext(size_t maxQueryCount):
+    PerfMeasurementContext(size_t maxQueryCount):
             mTimingStartIndex(0),
             mTimingEndIndex(0),
             mTimingQueryIndex(0) {

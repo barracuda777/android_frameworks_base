@@ -27,16 +27,16 @@
        are totally dependent on the platform and can vary
        significantly, so should be measured on the shipping platform
        with a power meter. -->
-  <item name="ambient.on">0.1</item>  <!-- ~100mA -->
-  <item name="screen.on">0.1</item>  <!-- ~100mA -->
-  <item name="screen.full">0.1</item>  <!-- ~100mA -->
+  <item name="none">0</item>
+  <item name="screen.on">0.1</item>  <!-- ~200mA -->
+  <item name="screen.full">0.1</item>  <!-- ~300mA -->
   <item name="bluetooth.active">0.1</item> <!-- Bluetooth data transfer, ~10mA -->
   <item name="bluetooth.on">0.1</item>  <!-- Bluetooth on & connectable, but not connected, ~0.1mA -->
   <item name="wifi.on">0.1</item>  <!-- ~3mA -->
   <item name="wifi.active">0.1</item>  <!-- WIFI data transfer, ~200mA -->
   <item name="wifi.scan">0.1</item>  <!-- WIFI network scanning, ~100mA -->
-  <item name="audio">0.1</item> <!-- ~10mA -->
-  <item name="video">0.1</item> <!-- ~50mA -->
+  <item name="dsp.audio">0.1</item> <!-- ~10mA -->
+  <item name="dsp.video">0.1</item> <!-- ~50mA -->
   <item name="camera.flashlight">0.1</item> <!-- Avg. power for camera flash, ~160mA -->
   <item name="camera.avg">0.1</item> <!-- Avg. power use of camera in standard usecases, ~550mA -->
   <item name="gps.on">0.1</item> <!-- ~50mA -->
@@ -50,6 +50,15 @@
       <value>0.2</value> <!-- ~2mA -->
       <value>0.1</value> <!-- ~1mA -->
   </array>
+
+
+  <!-- Radio related values. For modems WITH energy reporting support in firmware, use
+       modem.controller.idle, modem.controller.tx, modem.controller.rx, modem.controller.voltage.
+       -->
+  <item name="modem.controller.idle">0</item>
+  <item name="modem.controller.rx">0</item>
+  <item name="modem.controller.tx">0</item>
+  <item name="modem.controller.voltage">0</item>
 
   <!-- A list of heterogeneous CPU clusters, where the value for each cluster represents the
        number of CPU cores for that cluster.
@@ -82,12 +91,6 @@
   <!-- Current when CPU is idle -->
   <item name="cpu.idle">0.1</item>
 
-  <!-- Memory bandwidth power values in mA at the rail. There must be one value
-       for each bucket defined in the device tree. -->
-  <array name="memory.bandwidths">
-    <value>22.7</value> <!-- mA for bucket: 100mb/s-1.5 GB/s memory bandwidth -->
-  </array>
-
   <!-- This is the battery capacity in mAh (measured at nominal voltage) -->
   <item name="battery.capacity">1000</item>
 
@@ -113,25 +116,5 @@
     <value>.2</value>    <!-- 513-4,096/hr -->
     <value>2</value>    <!-- 4097-/hr -->
   </array>
-
-  <!-- Cellular modem related values. Default is 0.-->
-  <item name="modem.controller.sleep">0</item>
-  <item name="modem.controller.idle">0</item>
-  <item name="modem.controller.rx">0</item>
-  <array name="modem.controller.tx"> <!-- Strength 0 to 4 -->
-    <value>0</value>
-    <value>0</value>
-    <value>0</value>
-    <value>0</value>
-    <value>0</value>
-  </array>
-  <item name="modem.controller.voltage">0</item>
-
-  <!-- GPS related values. Default is 0.-->
-  <array name="gps.signalqualitybased"> <!-- Strength 0 to 1 -->
-    <value>0</value>
-    <value>0</value>
-  </array>
-  <item name="gps.voltage">0</item>
 
 </device>

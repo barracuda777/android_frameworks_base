@@ -17,13 +17,15 @@
 package android.view;
 
 import android.annotation.NonNull;
-import android.annotation.UnsupportedAppUsage;
+import android.util.Log;
 import android.os.Looper;
 import android.os.MessageQueue;
 
 import com.android.internal.util.VirtualRefBasePtr;
 
+import java.lang.NullPointerException;
 import java.lang.ref.WeakReference;
+import java.lang.SuppressWarnings;
 
 /**
  * Provides streaming access to frame stats information from the rendering
@@ -32,17 +34,14 @@ import java.lang.ref.WeakReference;
  * @hide
  */
 public class FrameMetricsObserver {
-    @UnsupportedAppUsage
     private MessageQueue mMessageQueue;
 
     private WeakReference<Window> mWindow;
 
-    @UnsupportedAppUsage
     private FrameMetrics mFrameMetrics;
 
-    /* pacage */ Window.OnFrameMetricsAvailableListener mListener;
-    /** @hide */
-    public VirtualRefBasePtr mNative;
+    /* package */ Window.OnFrameMetricsAvailableListener mListener;
+    /* package */ VirtualRefBasePtr mNative;
 
     /**
      * Creates a FrameMetricsObserver
@@ -67,7 +66,6 @@ public class FrameMetricsObserver {
 
     // Called by native on the provided Handler
     @SuppressWarnings("unused")
-    @UnsupportedAppUsage
     private void notifyDataAvailable(int dropCount) {
         final Window window = mWindow.get();
         if (window != null) {

@@ -13,21 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License
  */
-
 package android.content;
 
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.test.AndroidTestCase;
 
-import androidx.test.filters.LargeTest;
-
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-@LargeTest
 public class RestrictionsManagerTest extends AndroidTestCase {
     private RestrictionsManager mRm;
 
@@ -78,18 +74,4 @@ public class RestrictionsManagerTest extends AndroidTestCase {
         assertEquals(2, childBundleArray.length);
     }
 
-    public void testConvertRestrictionsToBundle_bundleArray() {
-        String packageName = getContext().getPackageName();
-        List<RestrictionEntry> manifestRestrictions = mRm.getManifestRestrictions(packageName);
-        Bundle bundle = RestrictionsManager.convertRestrictionsToBundle(manifestRestrictions);
-        assertEquals(6, bundle.size());
-        Parcelable[] array = bundle.getParcelableArray("bundle_array_key");
-        assertNotNull(array);
-        assertEquals(2, array.length);
-        Bundle firstBundle = (Bundle) array[0];
-        assertEquals(0, firstBundle.size());
-        Bundle secondBundle = (Bundle) array[1];
-        assertEquals(1, secondBundle.size());
-        assertTrue(secondBundle.containsKey("bundle_array_bundle_int_key"));
-    }
 }

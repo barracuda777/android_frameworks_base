@@ -16,29 +16,27 @@
 
 package android.media;
 
-import static android.media.MediaPlayer.MEDIA_ERROR_UNSUPPORTED;
-
-import android.annotation.UnsupportedAppUsage;
 import android.net.NetworkUtils;
 import android.os.IBinder;
 import android.os.StrictMode;
 import android.util.Log;
 
-import com.android.internal.annotations.GuardedBy;
 import java.io.BufferedInputStream;
-import java.io.IOException;
 import java.io.InputStream;
+import java.io.IOException;
 import java.net.CookieHandler;
+import java.net.CookieManager;
+import java.net.Proxy;
+import java.net.URL;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.NoRouteToHostException;
 import java.net.ProtocolException;
-import java.net.Proxy;
-import java.net.URL;
 import java.net.UnknownServiceException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
+
+import static android.media.MediaPlayer.MEDIA_ERROR_UNSUPPORTED;
 
 /** @hide */
 public class MediaHTTPConnection extends IMediaHTTPConnection.Stub {
@@ -48,59 +46,30 @@ public class MediaHTTPConnection extends IMediaHTTPConnection.Stub {
     // connection timeout - 30 sec
     private static final int CONNECT_TIMEOUT_MS = 30 * 1000;
 
-    @GuardedBy("this")
-    @UnsupportedAppUsage
     private long mCurrentOffset = -1;
-
-    @GuardedBy("this")
-    @UnsupportedAppUsage
     private URL mURL = null;
-
-    @GuardedBy("this")
-    @UnsupportedAppUsage
     private Map<String, String> mHeaders = null;
-
-    // volatile so that disconnect() can be called without acquiring a lock.
-    // All other access is @GuardedBy("this").
-    @UnsupportedAppUsage
-    private volatile HttpURLConnection mConnection = null;
-
-    @GuardedBy("this")
-    @UnsupportedAppUsage
+    private HttpURLConnection mConnection = null;
     private long mTotalSize = -1;
-
-    @GuardedBy("this")
     private InputStream mInputStream = null;
 
-    @GuardedBy("this")
-    @UnsupportedAppUsage
     private boolean mAllowCrossDomainRedirect = true;
-
-    @GuardedBy("this")
-    @UnsupportedAppUsage
     private boolean mAllowCrossProtocolRedirect = true;
 
     // from com.squareup.okhttp.internal.http
     private final static int HTTP_TEMP_REDIRECT = 307;
     private final static int MAX_REDIRECTS = 20;
 
-    // The number of threads that are currently running disconnect() (possibly
-    // not yet holding the synchronized lock).
-    private final AtomicInteger mNumDisconnectingThreads = new AtomicInteger(0);
-
-    @UnsupportedAppUsage
     public MediaHTTPConnection() {
-        CookieHandler cookieHandler = CookieHandler.getDefault();
-        if (cookieHandler == null) {
-            Log.w(TAG, "MediaHTTPConnection: Unexpected. No CookieHandler found.");
+        if (CookieHandler.getDefault() == null) {
+            CookieHandler.setDefault(new CookieManager());
         }
 
         native_setup();
     }
 
     @Override
-    @UnsupportedAppUsage
-    public synchronized IBinder connect(String uri, String headers) {
+    public IBinder connect(String uri, String headers) {
         if (VERBOSE) {
             Log.d(TAG, "connect: uri=" + uri + ", headers=" + headers);
         }
@@ -117,7 +86,7 @@ public class MediaHTTPConnection extends IMediaHTTPConnection.Stub {
         return native_getIMemory();
     }
 
-    private static boolean parseBoolean(String val) {
+    private boolean parseBoolean(String val) {
         try {
             return Long.parseLong(val) != 0;
         } catch (NumberFormatException e) {
@@ -127,7 +96,7 @@ public class MediaHTTPConnection extends IMediaHTTPConnection.Stub {
     }
 
     /* returns true iff header is internal */
-    private synchronized boolean filterOutInternalHeaders(String key, String val) {
+    private boolean filterOutInternalHeaders(String key, String val) {
         if ("android-allow-cross-domain-redirect".equalsIgnoreCase(key)) {
             mAllowCrossDomainRedirect = parseBoolean(val);
             // cross-protocol redirects are also controlled by this flag
@@ -138,7 +107,7 @@ public class MediaHTTPConnection extends IMediaHTTPConnection.Stub {
         return true;
     }
 
-    private synchronized Map<String, String> convertHeaderStringToMap(String headers) {
+    private Map<String, String> convertHeaderStringToMap(String headers) {
         HashMap<String, String> map = new HashMap<String, String>();
 
         String[] pairs = headers.split("\r\n");
@@ -158,30 +127,13 @@ public class MediaHTTPConnection extends IMediaHTTPConnection.Stub {
     }
 
     @Override
-    @UnsupportedAppUsage
     public void disconnect() {
-        mNumDisconnectingThreads.incrementAndGet();
-        try {
-            HttpURLConnection connectionToDisconnect = mConnection;
-            // Call disconnect() before blocking for the lock in order to ensure that any
-            // other thread that is blocked in readAt() will return quickly.
-            if (connectionToDisconnect != null) {
-                connectionToDisconnect.disconnect();
-            }
-            synchronized (this) {
-                // It's possible that while we were waiting to acquire the lock, another thread
-                // concurrently started a new connection; if so, we're disconnecting that one
-                // here, too.
-                teardownConnection();
-                mHeaders = null;
-                mURL = null;
-            }
-        } finally {
-            mNumDisconnectingThreads.decrementAndGet();
-        }
+        teardownConnection();
+        mHeaders = null;
+        mURL = null;
     }
 
-    private synchronized void teardownConnection() {
+    private void teardownConnection() {
         if (mConnection != null) {
             if (mInputStream != null) {
                 try {
@@ -221,7 +173,7 @@ public class MediaHTTPConnection extends IMediaHTTPConnection.Stub {
         return false;
     }
 
-    private synchronized void seekTo(long offset) throws IOException {
+    private void seekTo(long offset) throws IOException {
         teardownConnection();
 
         try {
@@ -234,36 +186,11 @@ public class MediaHTTPConnection extends IMediaHTTPConnection.Stub {
             boolean noProxy = isLocalHost(url);
 
             while (true) {
-                // If another thread is concurrently disconnect()ing, there's a race
-                // between them and us. Therefore, we check mNumDisconnectingThreads shortly
-                // (not atomically) before & after writing mConnection. This guarantees that
-                // we won't "lose" a disconnect by creating a new connection that might
-                // miss the disconnect.
-                //
-                // Note that throwing an instanceof IOException is also what this thread
-                // would have done if another thread disconnect()ed the connection while
-                // this thread was blocked reading from that connection further down in this
-                // loop.
-                if (mNumDisconnectingThreads.get() > 0) {
-                    throw new IOException("concurrently disconnecting");
-                }
                 if (noProxy) {
                     mConnection = (HttpURLConnection)url.openConnection(Proxy.NO_PROXY);
                 } else {
                     mConnection = (HttpURLConnection)url.openConnection();
                 }
-                // If another thread is concurrently disconnecting, throwing IOException will
-                // cause us to release the lock, giving the other thread a chance to acquire
-                // it. It also ensures that the catch block will run, which will tear down
-                // the connection even if the other thread happens to already be on its way
-                // out of disconnect().
-                if (mNumDisconnectingThreads.get() > 0) {
-                    throw new IOException("concurrently disconnecting");
-                }
-                // If we get here without having thrown, we know that other threads
-                // will see our write to mConnection. Any disconnect() on that mConnection
-                // instance will cause our read from/write to that connection instance below
-                // to encounter an instanceof IOException.
                 mConnection.setConnectTimeout(CONNECT_TIMEOUT_MS);
 
                 // handle redirects ourselves if we do not allow cross-domain redirect
@@ -384,12 +311,11 @@ public class MediaHTTPConnection extends IMediaHTTPConnection.Stub {
     }
 
     @Override
-    @UnsupportedAppUsage
-    public synchronized int readAt(long offset, int size) {
+    public int readAt(long offset, int size) {
         return native_readAt(offset, size);
     }
 
-    private synchronized int readAt(long offset, byte[] data, int size) {
+    private int readAt(long offset, byte[] data, int size) {
         StrictMode.ThreadPolicy policy =
             new StrictMode.ThreadPolicy.Builder().permitAll().build();
 
@@ -439,7 +365,7 @@ public class MediaHTTPConnection extends IMediaHTTPConnection.Stub {
     }
 
     @Override
-    public synchronized long getSize() {
+    public long getSize() {
         if (mConnection == null) {
             try {
                 seekTo(0);
@@ -452,8 +378,7 @@ public class MediaHTTPConnection extends IMediaHTTPConnection.Stub {
     }
 
     @Override
-    @UnsupportedAppUsage
-    public synchronized String getMIMEType() {
+    public String getMIMEType() {
         if (mConnection == null) {
             try {
                 seekTo(0);
@@ -466,8 +391,7 @@ public class MediaHTTPConnection extends IMediaHTTPConnection.Stub {
     }
 
     @Override
-    @UnsupportedAppUsage
-    public synchronized String getUri() {
+    public String getUri() {
         return mURL.toString();
     }
 

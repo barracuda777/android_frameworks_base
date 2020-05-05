@@ -17,7 +17,6 @@
 
 package android.filterfw.geometry;
 
-import android.annotation.UnsupportedAppUsage;
 import android.filterfw.geometry.Point;
 
 import java.lang.Float;
@@ -30,20 +29,14 @@ import java.util.List;
  */
 public class Quad {
 
-    @UnsupportedAppUsage
     public Point p0;
-    @UnsupportedAppUsage
     public Point p1;
-    @UnsupportedAppUsage
     public Point p2;
-    @UnsupportedAppUsage
     public Point p3;
 
-    @UnsupportedAppUsage
     public Quad() {
     }
 
-    @UnsupportedAppUsage
     public Quad(Point p0, Point p1, Point p2, Point p3) {
         this.p0 = p0;
         this.p1 = p1;

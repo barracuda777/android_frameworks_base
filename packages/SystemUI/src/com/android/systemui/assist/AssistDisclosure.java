@@ -31,6 +31,7 @@ import android.os.Handler;
 import android.view.View;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
+import android.view.animation.AnimationUtils;
 
 import com.android.systemui.Interpolators;
 import com.android.systemui.R;
@@ -65,6 +66,7 @@ public class AssistDisclosure {
             WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
                     WindowManager.LayoutParams.TYPE_SECURE_SYSTEM_OVERLAY,
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                            | WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
                             | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
                             | WindowManager.LayoutParams.FLAG_FULLSCREEN
                             | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED,

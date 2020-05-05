@@ -22,13 +22,13 @@
 
 #include "android_runtime/AndroidRuntime.h"
 #include "jni.h"
-#include <nativehelper/JNIHelp.h>
+#include "JNIHelp.h"
 
 #include <binder/IServiceManager.h>
 #include <cutils/properties.h>
+#include <media/ICrypto.h>
+#include <media/IMediaDrmService.h>
 #include <media/stagefright/foundation/ADebug.h>
-#include <mediadrm/ICrypto.h>
-#include <mediadrm/IMediaDrmService.h>
 
 namespace android {
 
@@ -51,9 +51,6 @@ JCrypto::JCrypto(
 }
 
 JCrypto::~JCrypto() {
-    if (mCrypto != NULL) {
-        mCrypto->destroyPlugin();
-    }
     mCrypto.clear();
 
     JNIEnv *env = AndroidRuntime::getJNIEnv();

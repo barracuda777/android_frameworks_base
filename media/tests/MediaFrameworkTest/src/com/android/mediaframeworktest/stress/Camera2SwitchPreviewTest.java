@@ -104,6 +104,7 @@ public class Camera2SwitchPreviewTest extends Camera2SurfaceViewTestCase {
     private static final double AE_COMPENSATION_ERROR_TOLERANCE = 0.2;
     // 5 percent error margin for resulting metering regions
     private static final float METERING_REGION_ERROR_PERCENT_DELTA = 0.05f;
+    private final String VIDEO_FILE_PATH = Environment.getExternalStorageDirectory().getPath();
 
     private static final boolean DEBUG_DUMP = Log.isLoggable(TAG, Log.DEBUG);
     private static final int RECORDING_DURATION_MS = 3000;
@@ -136,12 +137,10 @@ public class Camera2SwitchPreviewTest extends Camera2SurfaceViewTestCase {
     private int mVideoFrameRate;
     private Size mVideoSize;
     private long mRecordingStartTime;
-    private String mVideoFilePath;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mVideoFilePath = mContext.getExternalFilesDir(null).getPath();
     }
 
     @Override
@@ -372,9 +371,9 @@ public class Camera2SwitchPreviewTest extends Camera2SurfaceViewTestCase {
         }
 
         // Configure preview and recording surfaces.
-        mOutMediaFileName = mVideoFilePath + "/test_video.mp4";
+        mOutMediaFileName = VIDEO_FILE_PATH + "/test_video.mp4";
         if (DEBUG_DUMP) {
-            mOutMediaFileName = mVideoFilePath + "/test_video_" + cameraId + "_"
+            mOutMediaFileName = VIDEO_FILE_PATH + "/test_video_" + cameraId + "_"
                     + videoSz.toString() + ".mp4";
         }
 

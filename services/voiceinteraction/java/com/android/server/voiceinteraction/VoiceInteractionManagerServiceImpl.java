@@ -16,19 +16,10 @@
 
 package com.android.server.voiceinteraction;
 
-import static android.app.ActivityManager.START_ASSISTANT_HIDDEN_SESSION;
-import static android.app.ActivityManager.START_ASSISTANT_NOT_ACTIVE_SESSION;
-import static android.app.ActivityManager.START_VOICE_HIDDEN_SESSION;
-import static android.app.ActivityManager.START_VOICE_NOT_ACTIVE_SESSION;
-import static android.app.WindowConfiguration.ACTIVITY_TYPE_ASSISTANT;
-
-import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.app.ActivityManager;
-import android.app.ActivityOptions;
-import android.app.ActivityTaskManager;
+import android.app.ActivityManagerInternal;
+import android.app.ActivityManagerNative;
 import android.app.IActivityManager;
-import android.app.IActivityTaskManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -39,7 +30,6 @@ import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
-import android.os.RemoteCallback;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.UserHandle;
@@ -51,16 +41,13 @@ import android.util.PrintWriterPrinter;
 import android.util.Slog;
 import android.view.IWindowManager;
 
-import com.android.internal.app.IVoiceActionCheckCallback;
+import com.android.internal.app.IVoiceInteractionSessionListener;
 import com.android.internal.app.IVoiceInteractionSessionShowCallback;
 import com.android.internal.app.IVoiceInteractor;
 import com.android.server.LocalServices;
-import com.android.server.wm.ActivityTaskManagerInternal;
-import com.android.server.wm.ActivityTaskManagerInternal.ActivityTokens;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
-import java.util.ArrayList;
 import java.util.List;
 
 class VoiceInteractionManagerServiceImpl implements VoiceInteractionSessionConnection.Callback {
@@ -76,7 +63,6 @@ class VoiceInteractionManagerServiceImpl implements VoiceInteractionSessionConne
     final int mUser;
     final ComponentName mComponent;
     final IActivityManager mAm;
-    final IActivityTaskManager mAtm;
     final VoiceInteractionServiceInfo mInfo;
     final ComponentName mSessionComponentName;
     final IWindowManager mIWindowManager;
@@ -131,8 +117,7 @@ class VoiceInteractionManagerServiceImpl implements VoiceInteractionSessionConne
         mServiceStub = stub;
         mUser = userHandle;
         mComponent = service;
-        mAm = ActivityManager.getService();
-        mAtm = ActivityTaskManager.getService();
+        mAm = ActivityManagerNative.getDefault();
         VoiceInteractionServiceInfo info;
         try {
             info = new VoiceInteractionServiceInfo(context.getPackageManager(), service, mUser);
@@ -170,33 +155,13 @@ class VoiceInteractionManagerServiceImpl implements VoiceInteractionSessionConne
                     mInfo.getServiceInfo().applicationInfo.uid, mHandler);
         }
         List<IBinder> activityTokens = null;
-        if (activityToken != null) {
-            activityTokens = new ArrayList<>();
-            activityTokens.add(activityToken);
-        } else {
+        if (activityToken == null) {
             // Let's get top activities from all visible stacks
-            activityTokens = LocalServices.getService(ActivityTaskManagerInternal.class)
+            activityTokens = LocalServices.getService(ActivityManagerInternal.class)
                     .getTopVisibleActivities();
         }
         return mActiveSession.showLocked(args, flags, mDisabledShowContext, showCallback,
-                activityTokens);
-    }
-
-    public void getActiveServiceSupportedActions(List<String> commands,
-            IVoiceActionCheckCallback callback) {
-        if (mService == null) {
-            Slog.w(TAG, "Not bound to voice interaction service " + mComponent);
-            try {
-                callback.onComplete(null);
-            } catch (RemoteException e) {
-            }
-            return;
-        }
-        try {
-            mService.getActiveServiceSupportedActions(commands, callback);
-        } catch (RemoteException e) {
-            Slog.w(TAG, "RemoteException while calling getActiveServiceSupportedActions", e);
-        }
+                activityToken, activityTokens);
     }
 
     public boolean hideSessionLocked() {
@@ -221,92 +186,20 @@ class VoiceInteractionManagerServiceImpl implements VoiceInteractionSessionConne
         try {
             if (mActiveSession == null || token != mActiveSession.mToken) {
                 Slog.w(TAG, "startVoiceActivity does not match active session");
-                return START_VOICE_NOT_ACTIVE_SESSION;
+                return ActivityManager.START_VOICE_NOT_ACTIVE_SESSION;
             }
             if (!mActiveSession.mShown) {
                 Slog.w(TAG, "startVoiceActivity not allowed on hidden session");
-                return START_VOICE_HIDDEN_SESSION;
+                return ActivityManager.START_VOICE_HIDDEN_SESSION;
             }
             intent = new Intent(intent);
             intent.addCategory(Intent.CATEGORY_VOICE);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
-            return mAtm.startVoiceActivity(mComponent.getPackageName(), callingPid, callingUid,
+            return mAm.startVoiceActivity(mComponent.getPackageName(), callingPid, callingUid,
                     intent, resolvedType, mActiveSession.mSession, mActiveSession.mInteractor,
                     0, null, null, mUser);
         } catch (RemoteException e) {
             throw new IllegalStateException("Unexpected remote error", e);
-        }
-    }
-
-    public int startAssistantActivityLocked(int callingPid, int callingUid, IBinder token,
-            Intent intent, String resolvedType) {
-        try {
-            if (mActiveSession == null || token != mActiveSession.mToken) {
-                Slog.w(TAG, "startAssistantActivity does not match active session");
-                return START_ASSISTANT_NOT_ACTIVE_SESSION;
-            }
-            if (!mActiveSession.mShown) {
-                Slog.w(TAG, "startAssistantActivity not allowed on hidden session");
-                return START_ASSISTANT_HIDDEN_SESSION;
-            }
-            intent = new Intent(intent);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            final ActivityOptions options = ActivityOptions.makeBasic();
-            options.setLaunchActivityType(ACTIVITY_TYPE_ASSISTANT);
-            return mAtm.startAssistantActivity(mComponent.getPackageName(), callingPid, callingUid,
-                    intent, resolvedType, options.toBundle(), mUser);
-        } catch (RemoteException e) {
-            throw new IllegalStateException("Unexpected remote error", e);
-        }
-    }
-
-    public void requestDirectActionsLocked(@NonNull IBinder token, int taskId,
-            @NonNull IBinder assistToken,  @Nullable RemoteCallback cancellationCallback,
-            @NonNull RemoteCallback callback) {
-        if (mActiveSession == null || token != mActiveSession.mToken) {
-            Slog.w(TAG, "requestDirectActionsLocked does not match active session");
-            callback.sendResult(null);
-            return;
-        }
-        final ActivityTokens tokens = LocalServices.getService(
-                ActivityTaskManagerInternal.class).getTopActivityForTask(taskId);
-        if (tokens == null || tokens.getAssistToken() != assistToken) {
-            Slog.w(TAG, "Unknown activity to query for direct actions");
-            callback.sendResult(null);
-        } else {
-            try {
-                tokens.getApplicationThread().requestDirectActions(tokens.getActivityToken(),
-                        mActiveSession.mInteractor, cancellationCallback, callback);
-            } catch (RemoteException e) {
-                Slog.w("Unexpected remote error", e);
-                callback.sendResult(null);
-            }
-        }
-    }
-
-    void performDirectActionLocked(@NonNull IBinder token, @NonNull String actionId,
-            @Nullable Bundle arguments, int taskId, IBinder assistToken,
-            @Nullable RemoteCallback cancellationCallback,
-            @NonNull RemoteCallback resultCallback) {
-        if (mActiveSession == null || token != mActiveSession.mToken) {
-            Slog.w(TAG, "performDirectActionLocked does not match active session");
-            resultCallback.sendResult(null);
-            return;
-        }
-        final ActivityTokens tokens = LocalServices.getService(
-                ActivityTaskManagerInternal.class).getTopActivityForTask(taskId);
-        if (tokens == null || tokens.getAssistToken() != assistToken) {
-            Slog.w(TAG, "Unknown activity to perform a direct action");
-            resultCallback.sendResult(null);
-        } else {
-            try {
-                tokens.getApplicationThread().performDirectAction(tokens.getActivityToken(),
-                        actionId, arguments, cancellationCallback,
-                        resultCallback);
-            } catch (RemoteException e) {
-                Slog.w("Unexpected remote error", e);
-                resultCallback.sendResult(null);
-            }
         }
     }
 
@@ -316,7 +209,7 @@ class VoiceInteractionManagerServiceImpl implements VoiceInteractionSessionConne
                 Slog.w(TAG, "setKeepAwake does not match active session");
                 return;
             }
-            mAtm.setVoiceKeepAwake(mActiveSession.mSession, keepAwake);
+            mAm.setVoiceKeepAwake(mActiveSession.mSession, keepAwake);
         } catch (RemoteException e) {
             throw new IllegalStateException("Unexpected remote error", e);
         }
@@ -409,9 +302,7 @@ class VoiceInteractionManagerServiceImpl implements VoiceInteractionSessionConne
         Intent intent = new Intent(VoiceInteractionService.SERVICE_INTERFACE);
         intent.setComponent(mComponent);
         mBound = mContext.bindServiceAsUser(intent, mConnection,
-                Context.BIND_AUTO_CREATE | Context.BIND_FOREGROUND_SERVICE
-                | Context.BIND_INCLUDE_CAPABILITIES
-                | Context.BIND_ALLOW_BACKGROUND_ACTIVITY_STARTS, new UserHandle(mUser));
+                Context.BIND_AUTO_CREATE | Context.BIND_FOREGROUND_SERVICE, new UserHandle(mUser));
         if (!mBound) {
             Slog.w(TAG, "Failed binding to voice interaction service " + mComponent);
         }

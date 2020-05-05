@@ -22,21 +22,15 @@ import android.accessibilityservice.AccessibilityServiceInfo;
 import android.accessibilityservice.IAccessibilityServiceClient;
 import android.accessibilityservice.IAccessibilityServiceConnection;
 import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Point;
-import android.graphics.Rect;
 import android.graphics.Region;
 import android.hardware.display.DisplayManagerGlobal;
-import android.os.Build;
-import android.os.Handler;
-import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
-import android.os.Process;
 import android.os.RemoteException;
 import android.os.SystemClock;
 import android.os.UserHandle;
@@ -52,9 +46,6 @@ import android.view.accessibility.AccessibilityInteractionClient;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityWindowInfo;
 import android.view.accessibility.IAccessibilityInteractionConnection;
-
-import com.android.internal.util.function.pooled.PooledLambda;
-
 import libcore.io.IoUtils;
 
 import java.io.IOException;
@@ -126,13 +117,9 @@ public final class UiAutomation {
 
     private final ArrayList<AccessibilityEvent> mEventQueue = new ArrayList<AccessibilityEvent>();
 
-    private final Handler mLocalCallbackHandler;
+    private final IAccessibilityServiceClient mClient;
 
     private final IUiAutomationConnection mUiAutomationConnection;
-
-    private HandlerThread mRemoteCallbackThread;
-
-    private IAccessibilityServiceClient mClient;
 
     private int mConnectionId = CONNECTION_ID_UNDEFINED;
 
@@ -195,7 +182,6 @@ public final class UiAutomation {
      *
      * @hide
      */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     public UiAutomation(Looper looper, IUiAutomationConnection connection) {
         if (looper == null) {
             throw new IllegalArgumentException("Looper cannot be null!");
@@ -203,8 +189,8 @@ public final class UiAutomation {
         if (connection == null) {
             throw new IllegalArgumentException("Connection cannot be null!");
         }
-        mLocalCallbackHandler = new Handler(looper);
         mUiAutomationConnection = connection;
+        mClient = new IAccessibilityServiceClientImpl(looper);
     }
 
     /**
@@ -212,7 +198,6 @@ public final class UiAutomation {
      *
      * @hide
      */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     public void connect() {
         connect(0);
     }
@@ -231,9 +216,6 @@ public final class UiAutomation {
                 return;
             }
             mIsConnecting = true;
-            mRemoteCallbackThread = new HandlerThread("UiAutomation");
-            mRemoteCallbackThread.start();
-            mClient = new IAccessibilityServiceClientImpl(mRemoteCallbackThread.getLooper());
         }
 
         try {
@@ -284,7 +266,6 @@ public final class UiAutomation {
      *
      * @hide
      */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     public void disconnect() {
         synchronized (mLock) {
             if (mIsConnecting) {
@@ -299,9 +280,6 @@ public final class UiAutomation {
             mUiAutomationConnection.disconnect();
         } catch (RemoteException re) {
             throw new RuntimeException("Error while disconnecting UiAutomation", re);
-        } finally {
-            mRemoteCallbackThread.quit();
-            mRemoteCallbackThread = null;
         }
     }
 
@@ -332,7 +310,6 @@ public final class UiAutomation {
 
     /**
      * Sets a callback for observing the stream of {@link AccessibilityEvent}s.
-     * The callbacks are delivered on the main application thread.
      *
      * @param listener The callback.
      */
@@ -352,79 +329,6 @@ public final class UiAutomation {
     public void destroy() {
         disconnect();
         mIsDestroyed = true;
-    }
-
-    /**
-     * Adopt the permission identity of the shell UID for all permissions. This allows
-     * you to call APIs protected permissions which normal apps cannot hold but are
-     * granted to the shell UID. If you already adopted all shell permissions by calling
-     * this method or {@link #adoptShellPermissionIdentity(String...)} a subsequent call
-     * would be a no-op. Note that your permission state becomes that of the shell UID
-     * and it is not a combination of your and the shell UID permissions.
-     * <p>
-     * <strong>Note:<strong/> Calling this method adopts all shell permissions and overrides
-     * any subset of adopted permissions via {@link #adoptShellPermissionIdentity(String...)}.
-     *
-     * @see #adoptShellPermissionIdentity(String...)
-     * @see #dropShellPermissionIdentity()
-     */
-    public void adoptShellPermissionIdentity() {
-        synchronized (mLock) {
-            throwIfNotConnectedLocked();
-        }
-        try {
-            // Calling out without a lock held.
-            mUiAutomationConnection.adoptShellPermissionIdentity(Process.myUid(), null);
-        } catch (RemoteException re) {
-            Log.e(LOG_TAG, "Error executing adopting shell permission identity!", re);
-        }
-    }
-
-    /**
-     * Adopt the permission identity of the shell UID only for the provided permissions.
-     * This allows you to call APIs protected permissions which normal apps cannot hold
-     * but are granted to the shell UID. If you already adopted the specified shell
-     * permissions by calling this method or {@link #adoptShellPermissionIdentity()} a
-     * subsequent call would be a no-op. Note that your permission state becomes that of the
-     * shell UID and it is not a combination of your and the shell UID permissions.
-     * <p>
-     * <strong>Note:<strong/> Calling this method adopts only the specified shell permissions
-     * and overrides all adopted permissions via {@link #adoptShellPermissionIdentity()}.
-     *
-     * @param permissions The permissions to adopt or <code>null</code> to adopt all.
-     *
-     * @see #adoptShellPermissionIdentity()
-     * @see #dropShellPermissionIdentity()
-     */
-    public void adoptShellPermissionIdentity(@Nullable String... permissions) {
-        synchronized (mLock) {
-            throwIfNotConnectedLocked();
-        }
-        try {
-            // Calling out without a lock held.
-            mUiAutomationConnection.adoptShellPermissionIdentity(Process.myUid(), permissions);
-        } catch (RemoteException re) {
-            Log.e(LOG_TAG, "Error executing adopting shell permission identity!", re);
-        }
-    }
-
-    /**
-     * Drop the shell permission identity adopted by a previous call to
-     * {@link #adoptShellPermissionIdentity()}. If you did not adopt the shell permission
-     * identity this method would be a no-op.
-     *
-     * @see #adoptShellPermissionIdentity()
-     */
-    public void dropShellPermissionIdentity() {
-        synchronized (mLock) {
-            throwIfNotConnectedLocked();
-        }
-        try {
-            // Calling out without a lock held.
-            mUiAutomationConnection.dropShellPermissionIdentity();
-        } catch (RemoteException re) {
-            Log.e(LOG_TAG, "Error executing dropping shell permission identity!", re);
-        }
     }
 
     /**
@@ -477,7 +381,7 @@ public final class UiAutomation {
      */
     public AccessibilityNodeInfo findFocus(int focus) {
         return AccessibilityInteractionClient.getInstance().findFocus(mConnectionId,
-                AccessibilityWindowInfo.ANY_WINDOW_ID, AccessibilityNodeInfo.ROOT_NODE_ID, focus);
+                AccessibilityNodeInfo.ANY_WINDOW_ID, AccessibilityNodeInfo.ROOT_NODE_ID, focus);
     }
 
     /**
@@ -602,25 +506,6 @@ public final class UiAutomation {
     }
 
     /**
-     * A request for WindowManagerService to wait until all animations have completed and input
-     * information has been sent from WindowManager to native InputManager.
-     *
-     * @hide
-     */
-    @TestApi
-    public void syncInputTransactions() {
-        synchronized (mLock) {
-            throwIfNotConnectedLocked();
-        }
-        try {
-            // Calling out without a lock held.
-            mUiAutomationConnection.syncInputTransactions();
-        } catch (RemoteException re) {
-            Log.e(LOG_TAG, "Error while syncing input transactions!", re);
-        }
-    }
-
-    /**
      * Sets the device rotation. A client can freeze the rotation in
      * desired state or freeze the rotation to its current state or
      * unfreeze the rotation (rotating the device changes its rotation
@@ -694,54 +579,38 @@ public final class UiAutomation {
         // Execute the command *without* the lock being held.
         command.run();
 
-        List<AccessibilityEvent> receivedEvents = new ArrayList<>();
-
         // Acquire the lock and wait for the event.
-        try {
-            // Wait for the event.
-            final long startTimeMillis = SystemClock.uptimeMillis();
-            while (true) {
-                List<AccessibilityEvent> localEvents = new ArrayList<>();
-                synchronized (mLock) {
-                    localEvents.addAll(mEventQueue);
-                    mEventQueue.clear();
-                }
-                // Drain the event queue
-                while (!localEvents.isEmpty()) {
-                    AccessibilityEvent event = localEvents.remove(0);
-                    // Ignore events from previous interactions.
-                    if (event.getEventTime() < executionStartTimeMillis) {
-                        continue;
-                    }
-                    if (filter.accept(event)) {
-                        return event;
-                    }
-                    receivedEvents.add(event);
-                }
-                // Check if timed out and if not wait.
-                final long elapsedTimeMillis = SystemClock.uptimeMillis() - startTimeMillis;
-                final long remainingTimeMillis = timeoutMillis - elapsedTimeMillis;
-                if (remainingTimeMillis <= 0) {
-                    throw new TimeoutException("Expected event not received within: "
-                            + timeoutMillis + " ms among: " + receivedEvents);
-                }
-                synchronized (mLock) {
-                    if (mEventQueue.isEmpty()) {
-                        try {
-                            mLock.wait(remainingTimeMillis);
-                        } catch (InterruptedException ie) {
-                            /* ignore */
+        synchronized (mLock) {
+            try {
+                // Wait for the event.
+                final long startTimeMillis = SystemClock.uptimeMillis();
+                while (true) {
+                    // Drain the event queue
+                    while (!mEventQueue.isEmpty()) {
+                        AccessibilityEvent event = mEventQueue.remove(0);
+                        // Ignore events from previous interactions.
+                        if (event.getEventTime() < executionStartTimeMillis) {
+                            continue;
                         }
+                        if (filter.accept(event)) {
+                            return event;
+                        }
+                        event.recycle();
+                    }
+                    // Check if timed out and if not wait.
+                    final long elapsedTimeMillis = SystemClock.uptimeMillis() - startTimeMillis;
+                    final long remainingTimeMillis = timeoutMillis - elapsedTimeMillis;
+                    if (remainingTimeMillis <= 0) {
+                        throw new TimeoutException("Expected event not received within: "
+                                + timeoutMillis + " ms.");
+                    }
+                    try {
+                        mLock.wait(remainingTimeMillis);
+                    } catch (InterruptedException ie) {
+                        /* ignore */
                     }
                 }
-            }
-        } finally {
-            int size = receivedEvents.size();
-            for (int i = 0; i < size; i++) {
-                receivedEvents.get(i).recycle();
-            }
-
-            synchronized (mLock) {
+            } finally {
                 mWaitingForEventDelivery = false;
                 mEventQueue.clear();
                 mLock.notifyAll();
@@ -812,21 +681,63 @@ public final class UiAutomation {
                 .getRealDisplay(Display.DEFAULT_DISPLAY);
         Point displaySize = new Point();
         display.getRealSize(displaySize);
+        final int displayWidth = displaySize.x;
+        final int displayHeight = displaySize.y;
 
-        int rotation = display.getRotation();
+        final float screenshotWidth;
+        final float screenshotHeight;
+
+        final int rotation = display.getRotation();
+        switch (rotation) {
+            case ROTATION_FREEZE_0: {
+                screenshotWidth = displayWidth;
+                screenshotHeight = displayHeight;
+            } break;
+            case ROTATION_FREEZE_90: {
+                screenshotWidth = displayHeight;
+                screenshotHeight = displayWidth;
+            } break;
+            case ROTATION_FREEZE_180: {
+                screenshotWidth = displayWidth;
+                screenshotHeight = displayHeight;
+            } break;
+            case ROTATION_FREEZE_270: {
+                screenshotWidth = displayHeight;
+                screenshotHeight = displayWidth;
+            } break;
+            default: {
+                throw new IllegalArgumentException("Invalid rotation: "
+                        + rotation);
+            }
+        }
 
         // Take the screenshot
         Bitmap screenShot = null;
         try {
             // Calling out without a lock held.
-            screenShot = mUiAutomationConnection.takeScreenshot(
-                    new Rect(0, 0, displaySize.x, displaySize.y), rotation);
+            screenShot = mUiAutomationConnection.takeScreenshot((int) screenshotWidth,
+                    (int) screenshotHeight);
             if (screenShot == null) {
                 return null;
             }
         } catch (RemoteException re) {
             Log.e(LOG_TAG, "Error while taking screnshot!", re);
             return null;
+        }
+
+        // Rotate the screenshot to the current orientation
+        if (rotation != ROTATION_FREEZE_0) {
+            Bitmap unrotatedScreenShot = Bitmap.createBitmap(displayWidth, displayHeight,
+                    Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(unrotatedScreenShot);
+            canvas.translate(unrotatedScreenShot.getWidth() / 2,
+                    unrotatedScreenShot.getHeight() / 2);
+            canvas.rotate(getDegreesForRotation(rotation));
+            canvas.translate(- screenshotWidth / 2, - screenshotHeight / 2);
+            canvas.drawBitmap(screenShot, 0, 0, null);
+            canvas.setBitmap(null);
+            screenShot.recycle();
+            screenShot = unrotatedScreenShot;
         }
 
         // Optimization
@@ -848,7 +759,7 @@ public final class UiAutomation {
             throwIfNotConnectedLocked();
         }
         try {
-            ActivityManager.getService().setUserIsMonkey(enable);
+            ActivityManagerNative.getDefault().setUserIsMonkey(enable);
         } catch (RemoteException re) {
             Log.e(LOG_TAG, "Error while setting run as monkey!", re);
         }
@@ -997,35 +908,15 @@ public final class UiAutomation {
     }
 
     /**
-     * Grants a runtime permission to a package.
-     * @param packageName The package to which to grant.
-     * @param permission The permission to grant.
-     * @throws SecurityException if unable to grant the permission.
-     */
-    public void grantRuntimePermission(String packageName, String permission) {
-        grantRuntimePermissionAsUser(packageName, permission, android.os.Process.myUserHandle());
-    }
-
-    /**
-     * @deprecated replaced by
-     *             {@link #grantRuntimePermissionAsUser(String, String, UserHandle)}.
-     * @hide
-     */
-    @Deprecated
-    @TestApi
-    public boolean grantRuntimePermission(String packageName, String permission,
-            UserHandle userHandle) {
-        grantRuntimePermissionAsUser(packageName, permission, userHandle);
-        return true;
-    }
-
-    /**
      * Grants a runtime permission to a package for a user.
      * @param packageName The package to which to grant.
      * @param permission The permission to grant.
-     * @throws SecurityException if unable to grant the permission.
+     * @return Whether granting succeeded.
+     *
+     * @hide
      */
-    public void grantRuntimePermissionAsUser(String packageName, String permission,
+    @TestApi
+    public boolean grantRuntimePermission(String packageName, String permission,
             UserHandle userHandle) {
         synchronized (mLock) {
             throwIfNotConnectedLocked();
@@ -1037,41 +928,24 @@ public final class UiAutomation {
             // Calling out without a lock held.
             mUiAutomationConnection.grantRuntimePermission(packageName,
                     permission, userHandle.getIdentifier());
-        } catch (Exception e) {
-            throw new SecurityException("Error granting runtime permission", e);
+            // TODO: The package manager API should return boolean.
+            return true;
+        } catch (RemoteException re) {
+            Log.e(LOG_TAG, "Error granting runtime permission", re);
         }
+        return false;
     }
 
     /**
-     * Revokes a runtime permission from a package.
-     * @param packageName The package to which to grant.
-     * @param permission The permission to grant.
-     * @throws SecurityException if unable to revoke the permission.
-     */
-    public void revokeRuntimePermission(String packageName, String permission) {
-        revokeRuntimePermissionAsUser(packageName, permission, android.os.Process.myUserHandle());
-    }
-
-    /**
-     * @deprecated replaced by
-     *             {@link #revokeRuntimePermissionAsUser(String, String, UserHandle)}.
+     * Revokes a runtime permission from a package for a user.
+     * @param packageName The package from which to revoke.
+     * @param permission The permission to revoke.
+     * @return Whether revoking succeeded.
+     *
      * @hide
      */
-    @Deprecated
     @TestApi
     public boolean revokeRuntimePermission(String packageName, String permission,
-            UserHandle userHandle) {
-        revokeRuntimePermissionAsUser(packageName, permission, userHandle);
-        return true;
-    }
-
-    /**
-     * Revokes a runtime permission from a package.
-     * @param packageName The package to which to grant.
-     * @param permission The permission to grant.
-     * @throws SecurityException if unable to revoke the permission.
-     */
-    public void revokeRuntimePermissionAsUser(String packageName, String permission,
             UserHandle userHandle) {
         synchronized (mLock) {
             throwIfNotConnectedLocked();
@@ -1083,30 +957,30 @@ public final class UiAutomation {
             // Calling out without a lock held.
             mUiAutomationConnection.revokeRuntimePermission(packageName,
                     permission, userHandle.getIdentifier());
-        } catch (Exception e) {
-            throw new SecurityException("Error granting runtime permission", e);
+            // TODO: The package manager API should return boolean.
+            return true;
+        } catch (RemoteException re) {
+            Log.e(LOG_TAG, "Error revoking runtime permission", re);
         }
+        return false;
     }
 
     /**
-     * Executes a shell command. This method returns a file descriptor that points
+     * Executes a shell command. This method returs a file descriptor that points
      * to the standard output stream. The command execution is similar to running
      * "adb shell <command>" from a host connected to the device.
      * <p>
-     * <strong>Note:</strong> It is your responsibility to close the returned file
+     * <strong>Note:</strong> It is your responsibility to close the retunred file
      * descriptor once you are done reading.
      * </p>
      *
      * @param command The command to execute.
      * @return A file descriptor to the standard output stream.
-     *
-     * @see #adoptShellPermissionIdentity()
      */
     public ParcelFileDescriptor executeShellCommand(String command) {
         synchronized (mLock) {
             throwIfNotConnectedLocked();
         }
-        warnIfBetterCommand(command);
 
         ParcelFileDescriptor source = null;
         ParcelFileDescriptor sink = null;
@@ -1117,7 +991,7 @@ public final class UiAutomation {
             sink = pipe[1];
 
             // Calling out without a lock held.
-            mUiAutomationConnection.executeShellCommand(command, sink, null);
+            mUiAutomationConnection.executeShellCommand(command, sink);
         } catch (IOException ioe) {
             Log.e(LOG_TAG, "Error executing shell command!", ioe);
         } catch (RemoteException re) {
@@ -1129,58 +1003,20 @@ public final class UiAutomation {
         return source;
     }
 
-    /**
-     * Executes a shell command. This method returns two file descriptors,
-     * one that points to the standard output stream (element at index 0), and one that points
-     * to the standard input stream (element at index 1). The command execution is similar
-     * to running "adb shell <command>" from a host connected to the device.
-     * <p>
-     * <strong>Note:</strong> It is your responsibility to close the returned file
-     * descriptors once you are done reading/writing.
-     * </p>
-     *
-     * @param command The command to execute.
-     * @return File descriptors (out, in) to the standard output/input streams.
-     *
-     * @hide
-     */
-    @TestApi
-    public ParcelFileDescriptor[] executeShellCommandRw(String command) {
-        synchronized (mLock) {
-            throwIfNotConnectedLocked();
+    private static float getDegreesForRotation(int value) {
+        switch (value) {
+            case Surface.ROTATION_90: {
+                return 360f - 90f;
+            }
+            case Surface.ROTATION_180: {
+                return 360f - 180f;
+            }
+            case Surface.ROTATION_270: {
+                return 360f - 270f;
+            } default: {
+                return 0;
+            }
         }
-        warnIfBetterCommand(command);
-
-        ParcelFileDescriptor source_read = null;
-        ParcelFileDescriptor sink_read = null;
-
-        ParcelFileDescriptor source_write = null;
-        ParcelFileDescriptor sink_write = null;
-
-        try {
-            ParcelFileDescriptor[] pipe_read = ParcelFileDescriptor.createPipe();
-            source_read = pipe_read[0];
-            sink_read = pipe_read[1];
-
-            ParcelFileDescriptor[] pipe_write = ParcelFileDescriptor.createPipe();
-            source_write = pipe_write[0];
-            sink_write = pipe_write[1];
-
-            // Calling out without a lock held.
-            mUiAutomationConnection.executeShellCommand(command, sink_read, source_write);
-        } catch (IOException ioe) {
-            Log.e(LOG_TAG, "Error executing shell command!", ioe);
-        } catch (RemoteException re) {
-            Log.e(LOG_TAG, "Error executing shell command!", re);
-        } finally {
-            IoUtils.closeQuietly(sink_read);
-            IoUtils.closeQuietly(source_write);
-        }
-
-        ParcelFileDescriptor[] result = new ParcelFileDescriptor[2];
-        result[0] = source_read;
-        result[1] = sink_write;
-        return result;
     }
 
     private boolean isConnectedLocked() {
@@ -1196,16 +1032,6 @@ public final class UiAutomation {
     private void throwIfNotConnectedLocked() {
         if (!isConnectedLocked()) {
             throw new IllegalStateException("UiAutomation not connected!");
-        }
-    }
-
-    private void warnIfBetterCommand(String cmd) {
-        if (cmd.startsWith("pm grant ")) {
-            Log.w(LOG_TAG, "UiAutomation.grantRuntimePermission() "
-                    + "is more robust and should be used instead of 'pm grant'");
-        } else if (cmd.startsWith("pm revoke ")) {
-            Log.w(LOG_TAG, "UiAutomation.revokeRuntimePermission() "
-                    + "is more robust and should be used instead of 'pm revoke'");
         }
     }
 
@@ -1239,20 +1065,17 @@ public final class UiAutomation {
 
                 @Override
                 public void onAccessibilityEvent(AccessibilityEvent event) {
-                    final OnAccessibilityEventListener listener;
                     synchronized (mLock) {
                         mLastEventTimeMillis = event.getEventTime();
                         if (mWaitingForEventDelivery) {
                             mEventQueue.add(AccessibilityEvent.obtain(event));
                         }
                         mLock.notifyAll();
-                        listener = mOnAccessibilityEventListener;
                     }
+                    // Calling out only without a lock held.
+                    final OnAccessibilityEventListener listener = mOnAccessibilityEventListener;
                     if (listener != null) {
-                        // Calling out only without a lock held.
-                        mLocalCallbackHandler.sendMessage(PooledLambda.obtainMessage(
-                                OnAccessibilityEventListener::onAccessibilityEvent,
-                                listener, AccessibilityEvent.obtain(event)));
+                        listener.onAccessibilityEvent(AccessibilityEvent.obtain(event));
                     }
                 }
 
@@ -1262,7 +1085,7 @@ public final class UiAutomation {
                 }
 
                 @Override
-                public void onMagnificationChanged(int displayId, @NonNull Region region,
+                public void onMagnificationChanged(@NonNull Region region,
                         float scale, float centerX, float centerY) {
                     /* do nothing */
                 }
@@ -1274,26 +1097,6 @@ public final class UiAutomation {
 
                 @Override
                 public void onPerformGestureResult(int sequence, boolean completedSuccessfully) {
-                    /* do nothing */
-                }
-
-                @Override
-                public void onFingerprintCapturingGesturesChanged(boolean active) {
-                    /* do nothing */
-                }
-
-                @Override
-                public void onFingerprintGesture(int gesture) {
-                    /* do nothing */
-                }
-
-                @Override
-                public void onAccessibilityButtonClicked() {
-                    /* do nothing */
-                }
-
-                @Override
-                public void onAccessibilityButtonAvailabilityChanged(boolean available) {
                     /* do nothing */
                 }
             });

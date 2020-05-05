@@ -25,6 +25,5 @@ interface IUceListener
      * @param serviceStatusValue defined in ImsUceManager
      * @hide
      */
-    @UnsupportedAppUsage
     void setStatus(int serviceStatusValue);
 }

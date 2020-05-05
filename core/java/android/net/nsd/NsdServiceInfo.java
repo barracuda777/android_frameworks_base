@@ -17,7 +17,6 @@
 package android.net.nsd;
 
 import android.annotation.NonNull;
-import android.annotation.UnsupportedAppUsage;
 import android.os.Parcelable;
 import android.os.Parcel;
 import android.text.TextUtils;
@@ -31,6 +30,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Map;
 
+
 /**
  * A class representing service information for network service discovery
  * {@see NsdManager}
@@ -43,7 +43,7 @@ public final class NsdServiceInfo implements Parcelable {
 
     private String mServiceType;
 
-    private final ArrayMap<String, byte[]> mTxtRecord = new ArrayMap<>();
+    private final ArrayMap<String, byte[]> mTxtRecord = new ArrayMap<String, byte[]>();
 
     private InetAddress mHost;
 
@@ -186,7 +186,6 @@ public final class NsdServiceInfo implements Parcelable {
     }
 
     /** @hide */
-    @UnsupportedAppUsage
     public void setAttribute(String key, byte[] value) {
         if (TextUtils.isEmpty(key)) {
             throw new IllegalArgumentException("Key cannot be empty");
@@ -251,8 +250,7 @@ public final class NsdServiceInfo implements Parcelable {
     }
 
     /**
-     * Retrieve attributes as a map of String keys to byte[] values. The attributes map is only
-     * valid for a resolved service.
+     * Retrive attributes as a map of String keys to byte[] values.
      *
      * <p> The returned map is unmodifiable; changes must be made through {@link #setAttribute} and
      * {@link #removeAttribute}.
@@ -355,7 +353,7 @@ public final class NsdServiceInfo implements Parcelable {
     }
 
     /** Implement the Parcelable interface */
-    public static final @android.annotation.NonNull Creator<NsdServiceInfo> CREATOR =
+    public static final Creator<NsdServiceInfo> CREATOR =
         new Creator<NsdServiceInfo>() {
             public NsdServiceInfo createFromParcel(Parcel in) {
                 NsdServiceInfo info = new NsdServiceInfo();

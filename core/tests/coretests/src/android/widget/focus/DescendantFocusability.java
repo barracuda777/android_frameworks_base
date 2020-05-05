@@ -16,12 +16,12 @@
 
 package android.widget.focus;
 
+import com.android.frameworks.coretests.R;
+
 import android.app.Activity;
 import android.os.Bundle;
 import android.view.ViewGroup;
 import android.widget.Button;
-
-import com.android.frameworks.coretests.R;
 
 public class DescendantFocusability extends Activity {
 
@@ -40,13 +40,13 @@ public class DescendantFocusability extends Activity {
 
         setContentView(R.layout.descendant_focusability);
 
-        beforeDescendants = findViewById(R.id.beforeDescendants);
+        beforeDescendants = (ViewGroup) findViewById(R.id.beforeDescendants);
         beforeDescendantsChild = (Button) beforeDescendants.getChildAt(0);
 
-        afterDescendants = findViewById(R.id.afterDescendants);
+        afterDescendants = (ViewGroup) findViewById(R.id.afterDescendants);
         afterDescendantsChild = (Button) afterDescendants.getChildAt(0);
 
-        blocksDescendants = findViewById(R.id.blocksDescendants);
+        blocksDescendants = (ViewGroup) findViewById(R.id.blocksDescendants);
         blocksDescendantsChild = (Button) blocksDescendants.getChildAt(0);
     }
 

@@ -25,61 +25,53 @@ import static android.system.OsConstants.S_ISDIR;
 import static android.system.OsConstants.S_IXGRP;
 import static android.system.OsConstants.S_IXOTH;
 
+import android.app.PackageInstallObserver;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
-import android.content.IIntentReceiver;
-import android.content.IIntentSender;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.IntentSender;
-import android.content.pm.PackageInstaller.SessionParams;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.PackageParser.PackageParserException;
 import android.content.res.Resources;
 import android.content.res.Resources.NotFoundException;
 import android.net.Uri;
 import android.os.Binder;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.FileUtils;
 import android.os.IBinder;
 import android.os.Process;
 import android.os.RemoteException;
+import android.os.ServiceManager;
 import android.os.StatFs;
 import android.os.SystemClock;
+import android.os.UserManager;
+import android.os.storage.IMountService;
+import android.os.storage.StorageListener;
+import android.os.storage.StorageManager;
+import android.os.storage.StorageResultCode;
 import android.provider.Settings;
 import android.provider.Settings.SettingNotFoundException;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.system.StructStat;
 import android.test.AndroidTestCase;
+import android.test.suitebuilder.annotation.LargeTest;
+import android.test.suitebuilder.annotation.SmallTest;
+import android.test.suitebuilder.annotation.Suppress;
 import android.util.Log;
-
-import androidx.test.filters.LargeTest;
-import androidx.test.filters.SmallTest;
-import androidx.test.filters.Suppress;
 
 import com.android.frameworks.coretests.R;
 import com.android.internal.content.PackageHelper;
 
-import dalvik.system.VMRuntime;
-
-import libcore.io.IoUtils;
-
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
 
 public class PackageManagerTests extends AndroidTestCase {
@@ -87,9 +79,9 @@ public class PackageManagerTests extends AndroidTestCase {
 
     public static final String TAG = "PackageManagerTests";
 
-    public static final long MAX_WAIT_TIME = 25 * 1000;
+    public final long MAX_WAIT_TIME = 25 * 1000;
 
-    public static final long WAIT_TIME_INCR = 5 * 1000;
+    public final long WAIT_TIME_INCR = 5 * 1000;
 
     private static final String SECURE_CONTAINERS_PREFIX = "/mnt/asec";
 
@@ -98,6 +90,8 @@ public class PackageManagerTests extends AndroidTestCase {
     private static final int APP_INSTALL_DEVICE = PackageHelper.APP_INSTALL_INTERNAL;
 
     private static final int APP_INSTALL_SDCARD = PackageHelper.APP_INSTALL_EXTERNAL;
+
+    private boolean mOrigState;
 
     void failStr(String errMsg) {
         Log.w(TAG, "errMsg=" + errMsg);
@@ -108,7 +102,52 @@ public class PackageManagerTests extends AndroidTestCase {
         failStr(e.getMessage());
     }
 
-    private abstract static class GenericReceiver extends BroadcastReceiver {
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp();
+        mOrigState = checkMediaState(Environment.MEDIA_MOUNTED);
+        if (!mountMedia()) {
+            Log.i(TAG, "sdcard not mounted? Some of these tests might fail");
+        }
+    }
+
+    @Override
+    protected void tearDown() throws Exception {
+        // Restore media state.
+        boolean newState = checkMediaState(Environment.MEDIA_MOUNTED);
+        if (newState != mOrigState) {
+            if (mOrigState) {
+                mountMedia();
+            } else {
+                unmountMedia();
+            }
+        }
+        super.tearDown();
+    }
+
+    private class TestInstallObserver extends PackageInstallObserver {
+        public int returnCode;
+
+        private boolean doneFlag = false;
+
+        @Override
+        public void onPackageInstalled(String basePackageName, int returnCode, String msg,
+                Bundle extras) {
+            Log.d(TAG, "onPackageInstalled: code=" + returnCode + ", msg=" + msg + ", extras="
+                    + extras);
+            synchronized (this) {
+                this.returnCode = returnCode;
+                doneFlag = true;
+                notifyAll();
+            }
+        }
+
+        public boolean isDone() {
+            return doneFlag;
+        }
+    }
+
+    abstract class GenericReceiver extends BroadcastReceiver {
         private boolean doneFlag = false;
 
         boolean received = false;
@@ -140,7 +179,7 @@ public class PackageManagerTests extends AndroidTestCase {
         }
     }
 
-    private static class InstallReceiver extends GenericReceiver {
+    class InstallReceiver extends GenericReceiver {
         String pkgName;
 
         InstallReceiver(String pkgName) {
@@ -164,152 +203,100 @@ public class PackageManagerTests extends AndroidTestCase {
         }
     }
 
-    private static class LocalIntentReceiver {
-        private final SynchronousQueue<Intent> mResult = new SynchronousQueue<>();
-
-        private IIntentSender.Stub mLocalSender = new IIntentSender.Stub() {
-            @Override
-            public void send(int code, Intent intent, String resolvedType, IBinder whitelistToken,
-                    IIntentReceiver finishedReceiver, String requiredPermission, Bundle options) {
-                try {
-                    mResult.offer(intent, 5, TimeUnit.SECONDS);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        };
-
-        public IntentSender getIntentSender() {
-            return new IntentSender((IIntentSender) mLocalSender);
-        }
-
-        public Intent getResult() {
-            try {
-                return mResult.take();
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }
-    }
-
     private PackageManager getPm() {
         return mContext.getPackageManager();
     }
 
-    private PackageInstaller getPi() {
-        return getPm().getPackageInstaller();
+    private IPackageManager getIPm() {
+        IPackageManager ipm  = IPackageManager.Stub.asInterface(
+                ServiceManager.getService("package"));
+        return ipm;
     }
 
-    private void writeSplitToInstallSession(PackageInstaller.Session session, String inPath,
-            String splitName) throws RemoteException {
-        long sizeBytes = 0;
-        final File file = new File(inPath);
-        if (file.isFile()) {
-            sizeBytes = file.length();
-        } else {
-            return;
-        }
-
-        InputStream in = null;
-        OutputStream out = null;
-        try {
-            in = new FileInputStream(inPath);
-            out = session.openWrite(splitName, 0, sizeBytes);
-
-            int total = 0;
-            byte[] buffer = new byte[65536];
-            int c;
-            while ((c = in.read(buffer)) != -1) {
-                total += c;
-                out.write(buffer, 0, c);
-            }
-            session.fsync(out);
-        } catch (IOException e) {
-            fail("Error: failed to write; " + e.getMessage());
-        } finally {
-            IoUtils.closeQuietly(out);
-            IoUtils.closeQuietly(in);
-            IoUtils.closeQuietly(session);
-        }
-    }
-
-    private void invokeInstallPackage(Uri packageUri, int flags, GenericReceiver receiver,
+    public void invokeInstallPackage(Uri packageURI, int flags, GenericReceiver receiver,
             boolean shouldSucceed) {
+        TestInstallObserver observer = new TestInstallObserver();
         mContext.registerReceiver(receiver, receiver.filter);
-        synchronized (receiver) {
-            final String inPath = packageUri.getPath();
-            PackageInstaller.Session session = null;
-            try {
-                final SessionParams sessionParams =
-                        new SessionParams(SessionParams.MODE_FULL_INSTALL);
-                sessionParams.installFlags = flags;
-                final int sessionId = getPi().createSession(sessionParams);
-                session = getPi().openSession(sessionId);
-                writeSplitToInstallSession(session, inPath, "base.apk");
-                final LocalIntentReceiver localReceiver = new LocalIntentReceiver();
-                session.commit(localReceiver.getIntentSender());
-                final Intent result = localReceiver.getResult();
-                final int status = result.getIntExtra(PackageInstaller.EXTRA_STATUS,
-                        PackageInstaller.STATUS_FAILURE);
-                if (shouldSucceed) {
-                    if (status != PackageInstaller.STATUS_SUCCESS) {
-                        fail("Installation should have succeeded, but got code " + status);
+        try {
+            // Wait on observer
+            synchronized (observer) {
+                synchronized (receiver) {
+                    getPm().installPackage(packageURI, observer, flags, null);
+                    long waitTime = 0;
+                    while ((!observer.isDone()) && (waitTime < MAX_WAIT_TIME)) {
+                        try {
+                            observer.wait(WAIT_TIME_INCR);
+                            waitTime += WAIT_TIME_INCR;
+                        } catch (InterruptedException e) {
+                            Log.i(TAG, "Interrupted during sleep", e);
+                        }
                     }
-                } else {
-                    if (status == PackageInstaller.STATUS_SUCCESS) {
-                        fail("Installation should have failed");
+                    if (!observer.isDone()) {
+                        fail("Timed out waiting for packageInstalled callback");
                     }
-                    // We'll never get a broadcast since the package failed to install
-                    return;
+
+                    if (shouldSucceed) {
+                        if (observer.returnCode != PackageManager.INSTALL_SUCCEEDED) {
+                            fail("Package installation should have succeeded, but got code "
+                                    + observer.returnCode);
+                        }
+                    } else {
+                        if (observer.returnCode == PackageManager.INSTALL_SUCCEEDED) {
+                            fail("Package installation should fail");
+                        }
+
+                        /*
+                         * We'll never expect get a notification since we
+                         * shouldn't succeed.
+                         */
+                        return;
+                    }
+
+                    // Verify we received the broadcast
+                    waitTime = 0;
+                    while ((!receiver.isDone()) && (waitTime < MAX_WAIT_TIME)) {
+                        try {
+                            receiver.wait(WAIT_TIME_INCR);
+                            waitTime += WAIT_TIME_INCR;
+                        } catch (InterruptedException e) {
+                            Log.i(TAG, "Interrupted during sleep", e);
+                        }
+                    }
+                    if (!receiver.isDone()) {
+                        fail("Timed out waiting for PACKAGE_ADDED notification");
+                    }
                 }
-                // Verify we received the broadcast
+            }
+        } finally {
+            mContext.unregisterReceiver(receiver);
+        }
+    }
+
+    public void invokeInstallPackageFail(Uri packageURI, int flags, int expectedResult) {
+        TestInstallObserver observer = new TestInstallObserver();
+        try {
+            // Wait on observer
+            synchronized (observer) {
+                getPm().installPackage(packageURI, observer, flags, null);
                 long waitTime = 0;
-                while ((!receiver.isDone()) && (waitTime < MAX_WAIT_TIME)) {
+                while ((!observer.isDone()) && (waitTime < MAX_WAIT_TIME)) {
                     try {
-                        receiver.wait(WAIT_TIME_INCR);
+                        observer.wait(WAIT_TIME_INCR);
                         waitTime += WAIT_TIME_INCR;
                     } catch (InterruptedException e) {
                         Log.i(TAG, "Interrupted during sleep", e);
                     }
                 }
-                if (!receiver.isDone()) {
-                    fail("Timed out waiting for PACKAGE_ADDED notification");
+                if (!observer.isDone()) {
+                    fail("Timed out waiting for packageInstalled callback");
                 }
-            } catch (IllegalArgumentException | IOException | RemoteException e) {
-                Log.w(TAG, "Failed to install package; path=" + inPath, e);
-                fail("Failed to install package; path=" + inPath + ", e=" + e);
-            } finally {
-                IoUtils.closeQuietly(session);
-                mContext.unregisterReceiver(receiver);
+                assertEquals(expectedResult, observer.returnCode);
             }
-        }
-    }
-
-    private void invokeInstallPackageFail(Uri packageUri, int flags, int expectedResult) {
-        final String inPath = packageUri.getPath();
-        PackageInstaller.Session session = null;
-        try {
-            final SessionParams sessionParams =
-                    new SessionParams(SessionParams.MODE_FULL_INSTALL);
-            sessionParams.installFlags = flags;
-            final int sessionId = getPi().createSession(sessionParams);
-            session = getPi().openSession(sessionId);
-            writeSplitToInstallSession(session, inPath, "base.apk");
-            final LocalIntentReceiver localReceiver = new LocalIntentReceiver();
-            session.commit(localReceiver.getIntentSender());
-            final Intent result = localReceiver.getResult();
-            final int status = result.getIntExtra(PackageInstaller.EXTRA_STATUS,
-                    PackageInstaller.STATUS_SUCCESS);
-            assertEquals(expectedResult, status);
-        } catch (IllegalArgumentException | IOException | RemoteException e) {
-            Log.w(TAG, "Failed to install package; path=" + inPath, e);
-            fail("Failed to install package; path=" + inPath + ", e=" + e);
         } finally {
-            IoUtils.closeQuietly(session);
         }
     }
 
-    private Uri getInstallablePackage(int fileResId, File outFile) {
+    Uri getInstallablePackage(int fileResId, File outFile) {
         Resources res = mContext.getResources();
         InputStream is = null;
         try {
@@ -365,7 +352,9 @@ public class PackageManagerTests extends AndroidTestCase {
 
     private int getInstallLoc(int flags, int expInstallLocation, long pkgLen) {
         // Flags explicitly over ride everything else.
-        if ((flags & PackageManager.INSTALL_INTERNAL) != 0) {
+        if ((flags & PackageManager.INSTALL_EXTERNAL) != 0) {
+            return INSTALL_LOC_SD;
+        } else if ((flags & PackageManager.INSTALL_INTERNAL) != 0) {
             return INSTALL_LOC_INT;
         }
         // Manifest option takes precedence next
@@ -436,15 +425,28 @@ public class PackageManagerTests extends AndroidTestCase {
 
             int rLoc = getInstallLoc(flags, expInstallLocation, pkgLen);
             if (rLoc == INSTALL_LOC_INT) {
-                assertEquals(appInstallPath, srcPath);
-                assertEquals(appInstallPath, publicSrcPath);
-                assertStartsWith("Native library should point to shared lib directory",
-                        expectedLibPath, info.nativeLibraryDir);
-                assertDirOwnerGroupPermsIfExists(
-                        "Native library directory should be owned by system:system and 0755",
-                        Process.SYSTEM_UID, Process.SYSTEM_UID,
-                        S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH,
-                        info.nativeLibraryDir);
+                if ((flags & PackageManager.INSTALL_FORWARD_LOCK) != 0) {
+                    assertTrue("The application should be installed forward locked",
+                            (info.privateFlags & ApplicationInfo.PRIVATE_FLAG_FORWARD_LOCK) != 0);
+                    assertStartsWith("The APK path should point to the ASEC",
+                            SECURE_CONTAINERS_PREFIX, srcPath);
+                    assertStartsWith("The public APK path should point to the ASEC",
+                            SECURE_CONTAINERS_PREFIX, publicSrcPath);
+                    assertStartsWith("The native library path should point to the ASEC",
+                            SECURE_CONTAINERS_PREFIX, info.nativeLibraryDir);
+                } else {
+                    assertFalse(
+                            (info.privateFlags & ApplicationInfo.PRIVATE_FLAG_FORWARD_LOCK) != 0);
+                    assertEquals(appInstallPath, srcPath);
+                    assertEquals(appInstallPath, publicSrcPath);
+                    assertStartsWith("Native library should point to shared lib directory",
+                            expectedLibPath, info.nativeLibraryDir);
+                    assertDirOwnerGroupPermsIfExists(
+                            "Native library directory should be owned by system:system and 0755",
+                            Process.SYSTEM_UID, Process.SYSTEM_UID,
+                            S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH,
+                            info.nativeLibraryDir);
+                }
                 assertFalse((info.flags & ApplicationInfo.FLAG_EXTERNAL_STORAGE) != 0);
 
                 // Make sure the native library dir is not a symlink
@@ -458,6 +460,13 @@ public class PackageManagerTests extends AndroidTestCase {
                     }
                 }
             } else if (rLoc == INSTALL_LOC_SD) {
+                if ((flags & PackageManager.INSTALL_FORWARD_LOCK) != 0) {
+                    assertTrue("The application should be installed forward locked",
+                            (info.privateFlags & ApplicationInfo.PRIVATE_FLAG_FORWARD_LOCK) != 0);
+                } else {
+                    assertFalse("The application should not be installed forward locked",
+                            (info.privateFlags & ApplicationInfo.PRIVATE_FLAG_FORWARD_LOCK) != 0);
+                }
                 assertTrue("Application flags (" + info.flags
                         + ") should contain FLAG_EXTERNAL_STORAGE",
                         (info.flags & ApplicationInfo.FLAG_EXTERNAL_STORAGE) != 0);
@@ -584,8 +593,7 @@ public class PackageManagerTests extends AndroidTestCase {
         }
     }
 
-    private InstallParams sampleInstallFromRawResource(int flags, boolean cleanUp)
-            throws Exception {
+    private InstallParams sampleInstallFromRawResource(int flags, boolean cleanUp) throws Exception {
         return installFromRawResource("install.apk", R.raw.install, flags, cleanUp, false, -1,
                 PackageInfo.INSTALL_LOCATION_UNSPECIFIED);
     }
@@ -613,7 +621,7 @@ public class PackageManagerTests extends AndroidTestCase {
                 try {
                     pkgInfo = pm.getPackageInfo(pkg,
                             PackageManager.GET_PERMISSIONS
-                            | PackageManager.MATCH_UNINSTALLED_PACKAGES);
+                            | PackageManager.GET_UNINSTALLED_PACKAGES);
                 } catch (NameNotFoundException e) {
                     pkgInfo = null;
                 }
@@ -705,10 +713,10 @@ public class PackageManagerTests extends AndroidTestCase {
             // Make sure the package doesn't exist
             try {
                 ApplicationInfo appInfo = pm.getApplicationInfo(pkg.packageName,
-                        PackageManager.MATCH_UNINSTALLED_PACKAGES);
+                        PackageManager.GET_UNINSTALLED_PACKAGES);
                 GenericReceiver receiver = new DeleteReceiver(pkg.packageName);
                 invokeDeletePackage(pkg.packageName, 0, receiver);
-            } catch (IllegalArgumentException | NameNotFoundException e) {
+            } catch (NameNotFoundException e) {
             }
         }
         try {
@@ -745,6 +753,22 @@ public class PackageManagerTests extends AndroidTestCase {
     @LargeTest
     public void testInstallNormalInternal() throws Exception {
         sampleInstallFromRawResource(0, true);
+    }
+
+    @LargeTest
+    public void testInstallFwdLockedInternal() throws Exception {
+        sampleInstallFromRawResource(PackageManager.INSTALL_FORWARD_LOCK, true);
+    }
+
+    @LargeTest
+    public void testInstallSdcard() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        mountMedia();
+        sampleInstallFromRawResource(PackageManager.INSTALL_EXTERNAL, true);
     }
 
     /* ------------------------- Test replacing packages -------------- */
@@ -825,7 +849,7 @@ public class PackageManagerTests extends AndroidTestCase {
             receiver = new InstallReceiver(ip.pkg.packageName);
         }
         try {
-            invokeInstallPackage(ip.packageURI, flags, receiver, true);
+            invokeInstallPackage(ip.packageURI, flags, receiver, replace);
             if (replace) {
                 assertInstall(ip.pkg, flags, ip.pkg.installLocation);
             }
@@ -835,13 +859,45 @@ public class PackageManagerTests extends AndroidTestCase {
     }
 
     @LargeTest
-    public void testReplaceFlagDoesNotNeedToBeSet() throws Exception {
+    public void testReplaceFailNormalInternal() throws Exception {
         sampleReplaceFromRawResource(0);
+    }
+
+    @LargeTest
+    public void testReplaceFailFwdLockedInternal() throws Exception {
+        sampleReplaceFromRawResource(PackageManager.INSTALL_FORWARD_LOCK);
+    }
+
+    @LargeTest
+    public void testReplaceFailSdcard() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        sampleReplaceFromRawResource(PackageManager.INSTALL_EXTERNAL);
     }
 
     @LargeTest
     public void testReplaceNormalInternal() throws Exception {
         sampleReplaceFromRawResource(PackageManager.INSTALL_REPLACE_EXISTING);
+    }
+
+    @LargeTest
+    public void testReplaceFwdLockedInternal() throws Exception {
+        sampleReplaceFromRawResource(PackageManager.INSTALL_REPLACE_EXISTING
+                | PackageManager.INSTALL_FORWARD_LOCK);
+    }
+
+    @LargeTest
+    public void testReplaceSdcard() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        sampleReplaceFromRawResource(PackageManager.INSTALL_REPLACE_EXISTING
+                | PackageManager.INSTALL_EXTERNAL);
     }
 
     /* -------------- Delete tests --- */
@@ -919,15 +975,14 @@ public class PackageManagerTests extends AndroidTestCase {
     public boolean invokeDeletePackage(final String pkgName, int flags, GenericReceiver receiver)
             throws Exception {
         ApplicationInfo info = getPm().getApplicationInfo(pkgName,
-                PackageManager.MATCH_UNINSTALLED_PACKAGES);
+                PackageManager.GET_UNINSTALLED_PACKAGES);
 
         mContext.registerReceiver(receiver, receiver.filter);
         try {
-            final LocalIntentReceiver localReceiver = new LocalIntentReceiver();
-            getPi().uninstall(pkgName,
-                    flags | PackageManager.DELETE_ALL_USERS,
-                    localReceiver.getIntentSender());
-            localReceiver.getResult();
+            DeleteObserver observer = new DeleteObserver(pkgName);
+
+            getPm().deletePackage(pkgName, observer, flags | PackageManager.DELETE_ALL_USERS);
+            observer.waitForCompletion(MAX_WAIT_TIME);
 
             assertUninstalled(info);
 
@@ -965,7 +1020,7 @@ public class PackageManagerTests extends AndroidTestCase {
             Log.i(TAG, "okay4");
             try {
                 info = getPm().getApplicationInfo(ip.pkg.packageName,
-                        PackageManager.MATCH_UNINSTALLED_PACKAGES);
+                        PackageManager.GET_UNINSTALLED_PACKAGES);
             } catch (NameNotFoundException e) {
                 info = null;
             }
@@ -989,10 +1044,273 @@ public class PackageManagerTests extends AndroidTestCase {
         deleteFromRawResource(0, 0);
     }
 
+    @LargeTest
+    public void testDeleteFwdLockedInternal() throws Exception {
+        deleteFromRawResource(PackageManager.INSTALL_FORWARD_LOCK, 0);
+    }
+
+    @LargeTest
+    public void testDeleteSdcard() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        deleteFromRawResource(PackageManager.INSTALL_EXTERNAL, 0);
+    }
 
     @LargeTest
     public void testDeleteNormalInternalRetainData() throws Exception {
         deleteFromRawResource(0, PackageManager.DELETE_KEEP_DATA);
+    }
+
+    @LargeTest
+    public void testDeleteFwdLockedInternalRetainData() throws Exception {
+        deleteFromRawResource(PackageManager.INSTALL_FORWARD_LOCK, PackageManager.DELETE_KEEP_DATA);
+    }
+
+    @LargeTest
+    public void testDeleteSdcardRetainData() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        deleteFromRawResource(PackageManager.INSTALL_EXTERNAL, PackageManager.DELETE_KEEP_DATA);
+    }
+
+    /* sdcard mount/unmount tests ***** */
+
+    class SdMountReceiver extends GenericReceiver {
+        String pkgNames[];
+
+        boolean status = true;
+
+        SdMountReceiver(String[] pkgNames) {
+            this.pkgNames = pkgNames;
+            IntentFilter filter = new IntentFilter(Intent.ACTION_EXTERNAL_APPLICATIONS_AVAILABLE);
+            super.setFilter(filter);
+        }
+
+        public boolean notifyNow(Intent intent) {
+            Log.i(TAG, "okay 1");
+            String action = intent.getAction();
+            if (!Intent.ACTION_EXTERNAL_APPLICATIONS_AVAILABLE.equals(action)) {
+                return false;
+            }
+            String rpkgList[] = intent.getStringArrayExtra(Intent.EXTRA_CHANGED_PACKAGE_LIST);
+            for (String pkg : pkgNames) {
+                boolean found = false;
+                for (String rpkg : rpkgList) {
+                    if (rpkg.equals(pkg)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    status = false;
+                    return true;
+                }
+            }
+            return true;
+        }
+    }
+
+    class SdUnMountReceiver extends GenericReceiver {
+        String pkgNames[];
+
+        boolean status = true;
+
+        SdUnMountReceiver(String[] pkgNames) {
+            this.pkgNames = pkgNames;
+            IntentFilter filter = new IntentFilter(Intent.ACTION_EXTERNAL_APPLICATIONS_UNAVAILABLE);
+            super.setFilter(filter);
+        }
+
+        public boolean notifyNow(Intent intent) {
+            String action = intent.getAction();
+            if (!Intent.ACTION_EXTERNAL_APPLICATIONS_UNAVAILABLE.equals(action)) {
+                return false;
+            }
+            String rpkgList[] = intent.getStringArrayExtra(Intent.EXTRA_CHANGED_PACKAGE_LIST);
+            for (String pkg : pkgNames) {
+                boolean found = false;
+                for (String rpkg : rpkgList) {
+                    if (rpkg.equals(pkg)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    status = false;
+                    return true;
+                }
+            }
+            return true;
+        }
+    }
+
+    IMountService getMs() {
+        IBinder service = ServiceManager.getService("mount");
+        if (service != null) {
+            return IMountService.Stub.asInterface(service);
+        } else {
+            Log.e(TAG, "Can't get mount service");
+        }
+        return null;
+    }
+
+    boolean checkMediaState(String desired) {
+        String actual = Environment.getExternalStorageState();
+        if (desired.equals(actual)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    boolean mountMedia() {
+        // We can't mount emulated storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return true;
+        }
+
+        if (checkMediaState(Environment.MEDIA_MOUNTED)) {
+            return true;
+        }
+
+        final String path = Environment.getExternalStorageDirectory().toString();
+        StorageListener observer = new StorageListener(Environment.MEDIA_MOUNTED);
+        StorageManager sm = (StorageManager) mContext.getSystemService(Context.STORAGE_SERVICE);
+        sm.registerListener(observer);
+        try {
+            // Wait on observer
+            synchronized (observer) {
+                int ret = getMs().mountVolume(path);
+                if (ret != StorageResultCode.OperationSucceeded) {
+                    throw new Exception("Could not mount the media");
+                }
+                long waitTime = 0;
+                while ((!observer.isDone()) && (waitTime < MAX_WAIT_TIME)) {
+                    observer.wait(WAIT_TIME_INCR);
+                    waitTime += WAIT_TIME_INCR;
+                }
+                if (!observer.isDone()) {
+                    throw new Exception("Timed out waiting for unmount media notification");
+                }
+                return true;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Exception : " + e);
+            return false;
+        } finally {
+            sm.unregisterListener(observer);
+        }
+    }
+
+    private boolean unmountMedia() {
+        // We can't unmount emulated storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return true;
+        }
+
+        if (checkMediaState(Environment.MEDIA_UNMOUNTED)) {
+            return true;
+        }
+
+        final String path = Environment.getExternalStorageDirectory().getPath();
+        StorageListener observer = new StorageListener(Environment.MEDIA_UNMOUNTED);
+        StorageManager sm = (StorageManager) mContext.getSystemService(Context.STORAGE_SERVICE);
+        sm.registerListener(observer);
+        try {
+            // Wait on observer
+            synchronized (observer) {
+                getMs().unmountVolume(path, true, false);
+                long waitTime = 0;
+                while ((!observer.isDone()) && (waitTime < MAX_WAIT_TIME)) {
+                    observer.wait(WAIT_TIME_INCR);
+                    waitTime += WAIT_TIME_INCR;
+                }
+                if (!observer.isDone()) {
+                    throw new Exception("Timed out waiting for unmount media notification");
+                }
+                return true;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Exception : " + e);
+            return false;
+        } finally {
+            sm.unregisterListener(observer);
+        }
+    }
+
+    private boolean mountFromRawResource() throws Exception {
+        // Install pkg on sdcard
+        InstallParams ip = sampleInstallFromRawResource(PackageManager.INSTALL_EXTERNAL, false);
+        if (localLOGV) Log.i(TAG, "Installed pkg on sdcard");
+        boolean origState = checkMediaState(Environment.MEDIA_MOUNTED);
+        boolean registeredReceiver = false;
+        SdMountReceiver receiver = new SdMountReceiver(new String[]{ip.pkg.packageName});
+        try {
+            if (localLOGV) Log.i(TAG, "Unmounting media");
+            // Unmount media
+            assertTrue(unmountMedia());
+            if (localLOGV) Log.i(TAG, "Unmounted media");
+            // Register receiver here
+            PackageManager pm = getPm();
+            mContext.registerReceiver(receiver, receiver.filter);
+            registeredReceiver = true;
+
+            // Wait on receiver
+            synchronized (receiver) {
+                if (localLOGV) Log.i(TAG, "Mounting media");
+                // Mount media again
+                assertTrue(mountMedia());
+                if (localLOGV) Log.i(TAG, "Mounted media");
+                if (localLOGV) Log.i(TAG, "Waiting for notification");
+                long waitTime = 0;
+                // Verify we received the broadcast
+                waitTime = 0;
+                while ((!receiver.isDone()) && (waitTime < MAX_WAIT_TIME)) {
+                    receiver.wait(WAIT_TIME_INCR);
+                    waitTime += WAIT_TIME_INCR;
+                }
+                if(!receiver.isDone()) {
+                    failStr("Timed out waiting for EXTERNAL_APPLICATIONS notification");
+                }
+                return receiver.received;
+            }
+        } catch (InterruptedException e) {
+            failStr(e);
+            return false;
+        } finally {
+            if (registeredReceiver) {
+                mContext.unregisterReceiver(receiver);
+            }
+            // Restore original media state
+            if (origState) {
+                mountMedia();
+            } else {
+                unmountMedia();
+            }
+            if (localLOGV) Log.i(TAG, "Cleaning up install");
+            cleanUpInstall(ip);
+        }
+    }
+
+    /*
+     * Install package on sdcard. Unmount and then mount the media.
+     * (Use PackageManagerService private api for now)
+     * Make sure the installed package is available.
+     */
+    @LargeTest
+    public void testMountSdNormalInternal() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        assertTrue(mountFromRawResource());
     }
 
     void cleanUpInstall(InstallParams ip) throws Exception {
@@ -1000,8 +1318,24 @@ public class PackageManagerTests extends AndroidTestCase {
             return;
         }
         Runtime.getRuntime().gc();
+
+        final String packageName = ip.pkg.packageName;
+        Log.i(TAG, "Deleting package : " + packageName);
+
+        ApplicationInfo info = null;
         try {
-            cleanUpInstall(ip.pkg.packageName);
+            info = getPm().getApplicationInfo(packageName, PackageManager.GET_UNINSTALLED_PACKAGES);
+        } catch (NameNotFoundException ignored) {
+        }
+
+        DeleteObserver observer = new DeleteObserver(packageName);
+        getPm().deletePackage(packageName, observer, PackageManager.DELETE_ALL_USERS);
+        observer.waitForCompletion(MAX_WAIT_TIME);
+
+        try {
+            if (info != null) {
+                assertUninstalled(info);
+            }
         } finally {
             File outFile = new File(ip.pkg.codePath);
             if (outFile != null && outFile.exists()) {
@@ -1016,17 +1350,16 @@ public class PackageManagerTests extends AndroidTestCase {
         }
         Log.i(TAG, "Deleting package : " + pkgName);
         try {
-            final ApplicationInfo info = getPm().getApplicationInfo(pkgName,
-                    PackageManager.MATCH_UNINSTALLED_PACKAGES);
+            ApplicationInfo info = getPm().getApplicationInfo(pkgName,
+                    PackageManager.GET_UNINSTALLED_PACKAGES);
+
             if (info != null) {
-                final LocalIntentReceiver localReceiver = new LocalIntentReceiver();
-                getPi().uninstall(pkgName,
-                        PackageManager.DELETE_ALL_USERS,
-                        localReceiver.getIntentSender());
-                localReceiver.getResult();
+                DeleteObserver observer = new DeleteObserver(pkgName);
+                getPm().deletePackage(pkgName, observer, PackageManager.DELETE_ALL_USERS);
+                observer.waitForCompletion(MAX_WAIT_TIME);
                 assertUninstalled(info);
             }
-        } catch (IllegalArgumentException | NameNotFoundException e) {
+        } catch (NameNotFoundException e) {
         }
     }
 
@@ -1057,6 +1390,85 @@ public class PackageManagerTests extends AndroidTestCase {
     public void testManifestInstallLocationUnspecified() throws Exception {
         installFromRawResource("install.apk", R.raw.install_loc_unspecified,
                 0, true, false, -1, PackageInfo.INSTALL_LOCATION_UNSPECIFIED);
+    }
+
+    @LargeTest
+    public void testManifestInstallLocationFwdLockedFlagSdcard() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        installFromRawResource("install.apk", R.raw.install_loc_unspecified,
+                PackageManager.INSTALL_FORWARD_LOCK |
+                PackageManager.INSTALL_EXTERNAL, true, false, -1,
+                PackageInfo.INSTALL_LOCATION_PREFER_EXTERNAL);
+    }
+
+    @LargeTest
+    public void testManifestInstallLocationFwdLockedSdcard() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        installFromRawResource("install.apk", R.raw.install_loc_sdcard,
+                PackageManager.INSTALL_FORWARD_LOCK, true, false, -1,
+                PackageInfo.INSTALL_LOCATION_PREFER_EXTERNAL);
+    }
+
+    /*
+     * Install a package on internal flash via PackageManager install flag. Replace
+     * the package via flag to install on sdcard. Make sure the new flag overrides
+     * the old install location.
+     */
+    @LargeTest
+    public void testReplaceFlagInternalSdcard() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        int iFlags = 0;
+        int rFlags = PackageManager.INSTALL_EXTERNAL;
+        InstallParams ip = sampleInstallFromRawResource(iFlags, false);
+        GenericReceiver receiver = new ReplaceReceiver(ip.pkg.packageName);
+        int replaceFlags = rFlags | PackageManager.INSTALL_REPLACE_EXISTING;
+        try {
+            invokeInstallPackage(ip.packageURI, replaceFlags, receiver, true);
+            assertInstall(ip.pkg, rFlags, ip.pkg.installLocation);
+        } catch (Exception e) {
+            failStr("Failed with exception : " + e);
+        } finally {
+            cleanUpInstall(ip);
+        }
+    }
+
+    /*
+     * Install a package on sdcard via PackageManager install flag. Replace
+     * the package with no flags or manifest option and make sure the old
+     * install location is retained.
+     */
+    @LargeTest
+    public void testReplaceFlagSdcardInternal() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        int iFlags = PackageManager.INSTALL_EXTERNAL;
+        int rFlags = 0;
+        InstallParams ip = sampleInstallFromRawResource(iFlags, false);
+        GenericReceiver receiver = new ReplaceReceiver(ip.pkg.packageName);
+        int replaceFlags = rFlags | PackageManager.INSTALL_REPLACE_EXISTING;
+        try {
+            invokeInstallPackage(ip.packageURI, replaceFlags, receiver, true);
+            assertInstall(ip.pkg, iFlags, ip.pkg.installLocation);
+        } catch (Exception e) {
+            failStr("Failed with exception : " + e);
+        } finally {
+            cleanUpInstall(ip);
+        }
     }
 
     @LargeTest
@@ -1276,6 +1688,48 @@ public class PackageManagerTests extends AndroidTestCase {
     }
 
     @LargeTest
+    public void testMoveAppExternalToExternal() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        int installFlags = PackageManager.INSTALL_EXTERNAL;
+        int moveFlags = PackageManager.MOVE_EXTERNAL_MEDIA;
+        boolean fail = true;
+        int result = PackageManager.MOVE_FAILED_INVALID_LOCATION;
+        sampleMoveFromRawResource(installFlags, moveFlags, fail, result);
+    }
+
+    @LargeTest
+    public void testMoveAppExternalToInternal() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        int installFlags = PackageManager.INSTALL_EXTERNAL;
+        int moveFlags = PackageManager.MOVE_INTERNAL;
+        boolean fail = false;
+        int result = PackageManager.MOVE_SUCCEEDED;
+        sampleMoveFromRawResource(installFlags, moveFlags, fail, result);
+    }
+
+    @LargeTest
+    public void testMoveAppForwardLocked() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        int installFlags = PackageManager.INSTALL_FORWARD_LOCK;
+        int moveFlags = PackageManager.MOVE_EXTERNAL_MEDIA;
+        boolean fail = false;
+        int result = PackageManager.MOVE_SUCCEEDED;
+        sampleMoveFromRawResource(installFlags, moveFlags, fail, result);
+    }
+
+    @LargeTest
     public void testMoveAppFailInternalToExternalDelete() throws Exception {
         // Do not run on devices with emulated external storage.
         if (Environment.isExternalStorageEmulated()) {
@@ -1311,6 +1765,64 @@ public class PackageManagerTests extends AndroidTestCase {
         }
     }
 
+    /*
+     * Test that an install error code is returned when media is unmounted
+     * and package installed on sdcard via package manager flag.
+     */
+    @LargeTest
+    public void testInstallSdcardUnmount() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        boolean origState = checkMediaState(Environment.MEDIA_MOUNTED);
+        try {
+            // Unmount sdcard
+            assertTrue(unmountMedia());
+            // Try to install and make sure an error code is returned.
+            installFromRawResource("install.apk", R.raw.install,
+                    PackageManager.INSTALL_EXTERNAL, false,
+                    true, PackageManager.INSTALL_FAILED_MEDIA_UNAVAILABLE,
+                    PackageInfo.INSTALL_LOCATION_AUTO);
+        } finally {
+            // Restore original media state
+            if (origState) {
+                mountMedia();
+            } else {
+                unmountMedia();
+            }
+        }
+    }
+
+    /*
+     * Unmount sdcard. Try installing an app with manifest option to install
+     * on sdcard. Make sure it gets installed on internal flash.
+     */
+    @LargeTest
+    public void testInstallManifestSdcardUnmount() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        boolean origState = checkMediaState(Environment.MEDIA_MOUNTED);
+        try {
+            // Unmount sdcard
+            assertTrue(unmountMedia());
+            InstallParams ip = new InstallParams("install.apk", R.raw.install_loc_sdcard);
+            installFromRawResource(ip, 0, true, false, -1,
+                    PackageInfo.INSTALL_LOCATION_INTERNAL_ONLY);
+        } finally {
+            // Restore original media state
+            if (origState) {
+                mountMedia();
+            } else {
+                unmountMedia();
+            }
+        }
+    }
+
     /*---------- Recommended install location tests ----*/
     /*
      * PrecedenceSuffixes:
@@ -1328,6 +1840,76 @@ public class PackageManagerTests extends AndroidTestCase {
     @LargeTest
     public void testFlagI() throws Exception {
         sampleInstallFromRawResource(PackageManager.INSTALL_INTERNAL, true);
+    }
+
+    /*
+     * Install an app on sdcard.
+     */
+    @LargeTest
+    public void testFlagE() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        sampleInstallFromRawResource(PackageManager.INSTALL_EXTERNAL, true);
+    }
+
+    /*
+     * Install an app forward-locked.
+     */
+    @LargeTest
+    public void testFlagF() throws Exception {
+        sampleInstallFromRawResource(PackageManager.INSTALL_FORWARD_LOCK, true);
+    }
+
+    /*
+     * Install an app with both internal and external flags set. should fail
+     */
+    @LargeTest
+    public void testFlagIE() throws Exception {
+        installFromRawResource("install.apk", R.raw.install,
+                PackageManager.INSTALL_EXTERNAL | PackageManager.INSTALL_INTERNAL,
+                false,
+                true, PackageManager.INSTALL_FAILED_INVALID_INSTALL_LOCATION,
+                PackageInfo.INSTALL_LOCATION_AUTO);
+    }
+
+    /*
+     * Install an app with both internal and forward-lock flags set.
+     */
+    @LargeTest
+    public void testFlagIF() throws Exception {
+        sampleInstallFromRawResource(PackageManager.INSTALL_FORWARD_LOCK
+                | PackageManager.INSTALL_INTERNAL, true);
+    }
+
+    /*
+     * Install an app with both external and forward-lock flags set.
+     */
+    @LargeTest
+    public void testFlagEF() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        sampleInstallFromRawResource(PackageManager.INSTALL_FORWARD_LOCK
+                | PackageManager.INSTALL_EXTERNAL, true);
+    }
+
+    /*
+     * Install an app with both internal and external flags set with forward
+     * lock. Should fail.
+     */
+    @LargeTest
+    public void testFlagIEF() throws Exception {
+        installFromRawResource("install.apk", R.raw.install,
+                PackageManager.INSTALL_FORWARD_LOCK | PackageManager.INSTALL_INTERNAL |
+                PackageManager.INSTALL_EXTERNAL,
+                false,
+                true, PackageManager.INSTALL_FAILED_INVALID_INSTALL_LOCATION,
+                PackageInfo.INSTALL_LOCATION_AUTO);
     }
 
     /*
@@ -1366,6 +1948,108 @@ public class PackageManagerTests extends AndroidTestCase {
                 false, -1,
                 PackageInfo.INSTALL_LOCATION_INTERNAL_ONLY);
     }
+    /*
+     * Install an app with both external and manifest option set.
+     * should install externally.
+     */
+    @LargeTest
+    public void testFlagEManifestI() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        installFromRawResource("install.apk", R.raw.install_loc_internal,
+                PackageManager.INSTALL_EXTERNAL,
+                true,
+                false, -1,
+                PackageInfo.INSTALL_LOCATION_PREFER_EXTERNAL);
+    }
+
+    /*
+     * Install an app with both external and manifest preference for
+     * preferExternal. Should install externally.
+     */
+    @LargeTest
+    public void testFlagEManifestE() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        installFromRawResource("install.apk", R.raw.install_loc_sdcard,
+                PackageManager.INSTALL_EXTERNAL,
+                true,
+                false, -1,
+                PackageInfo.INSTALL_LOCATION_PREFER_EXTERNAL);
+    }
+
+    /*
+     * Install an app with both external and manifest preference for
+     * auto. should install on external media.
+     */
+    @LargeTest
+    public void testFlagEManifestA() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        installFromRawResource("install.apk", R.raw.install_loc_auto,
+                PackageManager.INSTALL_EXTERNAL,
+                true,
+                false, -1,
+                PackageInfo.INSTALL_LOCATION_PREFER_EXTERNAL);
+    }
+
+    /*
+     * Install an app with fwd locked flag set and install location set to
+     * internal. should install internally.
+     */
+    @LargeTest
+    public void testFlagFManifestI() throws Exception {
+        installFromRawResource("install.apk", R.raw.install_loc_internal,
+                PackageManager.INSTALL_FORWARD_LOCK,
+                true,
+                false, -1,
+                PackageInfo.INSTALL_LOCATION_INTERNAL_ONLY);
+    }
+
+    /*
+     * Install an app with fwd locked flag set and install location set to
+     * preferExternal. Should install externally.
+     */
+    @LargeTest
+    public void testFlagFManifestE() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        installFromRawResource("install.apk", R.raw.install_loc_sdcard,
+                PackageManager.INSTALL_FORWARD_LOCK,
+                true,
+                false, -1,
+                PackageInfo.INSTALL_LOCATION_PREFER_EXTERNAL);
+    }
+
+    /*
+     * Install an app with fwd locked flag set and install location set to auto.
+     * should install externally.
+     */
+    @LargeTest
+    public void testFlagFManifestA() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        installFromRawResource("install.apk", R.raw.install_loc_auto,
+                PackageManager.INSTALL_FORWARD_LOCK,
+                true,
+                false, -1,
+                PackageInfo.INSTALL_LOCATION_AUTO);
+    }
 
     /*
      * The following test functions verify install location for existing apps.
@@ -1379,6 +2063,117 @@ public class PackageManagerTests extends AndroidTestCase {
     public void testFlagIExistingI() throws Exception {
         int iFlags = PackageManager.INSTALL_INTERNAL;
         int rFlags = PackageManager.INSTALL_INTERNAL | PackageManager.INSTALL_REPLACE_EXISTING;
+        // First install.
+        installFromRawResource("install.apk", R.raw.install,
+                iFlags,
+                false,
+                false, -1,
+                -1);
+        // Replace now
+        installFromRawResource("install.apk", R.raw.install,
+                rFlags,
+                true,
+                false, -1,
+                -1);
+    }
+
+    @LargeTest
+    public void testFlagIExistingE() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        int iFlags = PackageManager.INSTALL_EXTERNAL;
+        int rFlags = PackageManager.INSTALL_INTERNAL | PackageManager.INSTALL_REPLACE_EXISTING;
+        // First install.
+        installFromRawResource("install.apk", R.raw.install,
+                iFlags,
+                false,
+                false, -1,
+                -1);
+        // Replace now
+        installFromRawResource("install.apk", R.raw.install,
+                rFlags,
+                true,
+                false, -1,
+                -1);
+    }
+
+    @LargeTest
+    public void testFlagEExistingI() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        int iFlags = PackageManager.INSTALL_INTERNAL;
+        int rFlags = PackageManager.INSTALL_EXTERNAL | PackageManager.INSTALL_REPLACE_EXISTING;
+        // First install.
+        installFromRawResource("install.apk", R.raw.install,
+                iFlags,
+                false,
+                false, -1,
+                -1);
+        // Replace now
+        installFromRawResource("install.apk", R.raw.install,
+                rFlags,
+                true,
+                false, -1,
+                -1);
+    }
+
+    @LargeTest
+    public void testFlagEExistingE() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        int iFlags = PackageManager.INSTALL_EXTERNAL;
+        int rFlags = PackageManager.INSTALL_EXTERNAL | PackageManager.INSTALL_REPLACE_EXISTING;
+        // First install.
+        installFromRawResource("install.apk", R.raw.install,
+                iFlags,
+                false,
+                false, -1,
+                -1);
+        // Replace now
+        installFromRawResource("install.apk", R.raw.install,
+                rFlags,
+                true,
+                false, -1,
+                -1);
+    }
+
+    @Suppress
+    @LargeTest
+    public void testFlagFExistingI() throws Exception {
+        int iFlags = PackageManager.INSTALL_INTERNAL;
+        int rFlags = PackageManager.INSTALL_FORWARD_LOCK | PackageManager.INSTALL_REPLACE_EXISTING;
+        // First install.
+        installFromRawResource("install.apk", R.raw.install,
+                iFlags,
+                false,
+                false, -1,
+                -1);
+        // Replace now
+        installFromRawResource("install.apk", R.raw.install,
+                rFlags,
+                true,
+                false, -1,
+                -1);
+    }
+
+    @LargeTest
+    public void testFlagFExistingE() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        int iFlags = PackageManager.INSTALL_EXTERNAL;
+        int rFlags = PackageManager.INSTALL_FORWARD_LOCK | PackageManager.INSTALL_REPLACE_EXISTING;
         // First install.
         installFromRawResource("install.apk", R.raw.install,
                 iFlags,
@@ -1458,6 +2253,29 @@ public class PackageManagerTests extends AndroidTestCase {
     }
 
     @LargeTest
+    public void testManifestIExistingE() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        int iFlags = PackageManager.INSTALL_EXTERNAL;
+        int rFlags = PackageManager.INSTALL_REPLACE_EXISTING;
+        // First install.
+        installFromRawResource("install.apk", R.raw.install,
+                iFlags,
+                false,
+                false, -1,
+                -1);
+        // Replace now
+        installFromRawResource("install.apk", R.raw.install_loc_internal,
+                rFlags,
+                true,
+                false, -1,
+                PackageInfo.INSTALL_LOCATION_INTERNAL_ONLY);
+    }
+
+    @LargeTest
     public void testManifestEExistingI() throws Exception {
         // Do not run on devices with emulated external storage.
         if (Environment.isExternalStorageEmulated()) {
@@ -1465,6 +2283,29 @@ public class PackageManagerTests extends AndroidTestCase {
         }
 
         int iFlags = PackageManager.INSTALL_INTERNAL;
+        int rFlags = PackageManager.INSTALL_REPLACE_EXISTING;
+        // First install.
+        installFromRawResource("install.apk", R.raw.install,
+                iFlags,
+                false,
+                false, -1,
+                -1);
+        // Replace now
+        installFromRawResource("install.apk", R.raw.install_loc_sdcard,
+                rFlags,
+                true,
+                false, -1,
+                PackageInfo.INSTALL_LOCATION_PREFER_EXTERNAL);
+    }
+
+    @LargeTest
+    public void testManifestEExistingE() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        int iFlags = PackageManager.INSTALL_EXTERNAL;
         int rFlags = PackageManager.INSTALL_REPLACE_EXISTING;
         // First install.
         installFromRawResource("install.apk", R.raw.install,
@@ -1496,6 +2337,29 @@ public class PackageManagerTests extends AndroidTestCase {
                 true,
                 false, -1,
                 PackageInfo.INSTALL_LOCATION_AUTO);
+    }
+
+    @LargeTest
+    public void testManifestAExistingE() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        int iFlags = PackageManager.INSTALL_EXTERNAL;
+        int rFlags = PackageManager.INSTALL_REPLACE_EXISTING;
+        // First install.
+        installFromRawResource("install.apk", R.raw.install,
+                iFlags,
+                false,
+                false, -1,
+                -1);
+        // Replace now
+        installFromRawResource("install.apk", R.raw.install_loc_auto,
+                rFlags,
+                true,
+                false, -1,
+                PackageInfo.INSTALL_LOCATION_PREFER_EXTERNAL);
     }
 
     /*
@@ -1563,6 +2427,42 @@ public class PackageManagerTests extends AndroidTestCase {
         int userSetting = PackageHelper.APP_INSTALL_AUTO;
         int iFlags = PackageManager.INSTALL_INTERNAL;
         setExistingXUserX(userSetting, iFlags, PackageInfo.INSTALL_LOCATION_INTERNAL_ONLY);
+    }
+
+    @LargeTest
+    public void testExistingEUserI() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        int userSetting = PackageHelper.APP_INSTALL_INTERNAL;
+        int iFlags = PackageManager.INSTALL_EXTERNAL;
+        setExistingXUserX(userSetting, iFlags, PackageInfo.INSTALL_LOCATION_PREFER_EXTERNAL);
+    }
+
+    @LargeTest
+    public void testExistingEUserE() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        int userSetting = PackageHelper.APP_INSTALL_EXTERNAL;
+        int iFlags = PackageManager.INSTALL_EXTERNAL;
+        setExistingXUserX(userSetting, iFlags, PackageInfo.INSTALL_LOCATION_PREFER_EXTERNAL);
+    }
+
+    @LargeTest
+    public void testExistingEUserA() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        int userSetting = PackageHelper.APP_INSTALL_AUTO;
+        int iFlags = PackageManager.INSTALL_EXTERNAL;
+        setExistingXUserX(userSetting, iFlags, PackageInfo.INSTALL_LOCATION_PREFER_EXTERNAL);
     }
 
     /*
@@ -1827,6 +2727,133 @@ public class PackageManagerTests extends AndroidTestCase {
     }
 
     /*
+     * Ensure that permissions are properly declared.
+     */
+    @LargeTest
+    public void testInstallOnSdPermissionsUnmount() throws Exception {
+        InstallParams ip = null;
+        boolean origMediaState = checkMediaState(Environment.MEDIA_MOUNTED);
+        try {
+            // **: Upon installing a package, are its declared permissions published?
+            int iFlags = PackageManager.INSTALL_INTERNAL;
+            int iApk = R.raw.install_decl_perm;
+            ip = installFromRawResource("install.apk", iApk,
+                    iFlags, false,
+                    false, -1, PackageInfo.INSTALL_LOCATION_INTERNAL_ONLY);
+            assertInstall(ip.pkg, iFlags, ip.pkg.installLocation);
+            assertPermissions(BASE_PERMISSIONS_DEFINED);
+            // Unmount media here
+            assertTrue(unmountMedia());
+            // Mount media again
+            mountMedia();
+            //Check permissions now
+            assertPermissions(BASE_PERMISSIONS_DEFINED);
+        } finally {
+            if (ip != null) {
+                cleanUpInstall(ip);
+            }
+        }
+    }
+
+    /* This test creates a stale container via MountService and then installs
+     * a package and verifies that the stale container is cleaned up and install
+     * is successful.
+     * Please note that this test is very closely tied to the framework's
+     * naming convention for secure containers.
+     */
+    @LargeTest
+    public void testInstallSdcardStaleContainer() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        boolean origMediaState = checkMediaState(Environment.MEDIA_MOUNTED);
+        try {
+            // Mount media first
+            mountMedia();
+            String outFileName = "install.apk";
+            int rawResId = R.raw.install;
+            PackageManager pm = mContext.getPackageManager();
+            File filesDir = mContext.getFilesDir();
+            File outFile = new File(filesDir, outFileName);
+            Uri packageURI = getInstallablePackage(rawResId, outFile);
+            PackageParser.Package pkg = parsePackage(packageURI);
+            assertNotNull(pkg);
+            // Install an app on sdcard.
+            installFromRawResource(outFileName, rawResId,
+                    PackageManager.INSTALL_EXTERNAL, false,
+                    false, -1, PackageInfo.INSTALL_LOCATION_UNSPECIFIED);
+            // Unmount sdcard
+            unmountMedia();
+            // Delete the app on sdcard to leave a stale container on sdcard.
+            GenericReceiver receiver = new DeleteReceiver(pkg.packageName);
+            assertTrue(invokeDeletePackage(pkg.packageName, 0, receiver));
+            mountMedia();
+            // Reinstall the app and make sure it gets installed.
+            installFromRawResource(outFileName, rawResId,
+                    PackageManager.INSTALL_EXTERNAL, true,
+                    false, -1, PackageInfo.INSTALL_LOCATION_UNSPECIFIED);
+        } catch (Exception e) {
+            failStr(e.getMessage());
+        } finally {
+            if (origMediaState) {
+                mountMedia();
+            } else {
+                unmountMedia();
+            }
+
+        }
+    }
+
+    /* This test installs an application on sdcard and unmounts media.
+     * The app is then re-installed on internal storage. The sdcard is mounted
+     * and verified that the re-installation on internal storage takes precedence.
+     */
+    @LargeTest
+    public void testInstallSdcardStaleContainerReinstall() throws Exception {
+        // Do not run on devices with emulated external storage.
+        if (Environment.isExternalStorageEmulated()) {
+            return;
+        }
+
+        boolean origMediaState = checkMediaState(Environment.MEDIA_MOUNTED);
+        try {
+            // Mount media first
+            mountMedia();
+            String outFileName = "install.apk";
+            int rawResId = R.raw.install;
+            PackageManager pm = mContext.getPackageManager();
+            File filesDir = mContext.getFilesDir();
+            File outFile = new File(filesDir, outFileName);
+            Uri packageURI = getInstallablePackage(rawResId, outFile);
+            PackageParser.Package pkg = parsePackage(packageURI);
+            assertNotNull(pkg);
+            // Install an app on sdcard.
+            installFromRawResource(outFileName, rawResId,
+                    PackageManager.INSTALL_EXTERNAL, false,
+                    false, -1, PackageInfo.INSTALL_LOCATION_UNSPECIFIED);
+            // Unmount sdcard
+            unmountMedia();
+            // Reinstall the app and make sure it gets installed on internal storage.
+            installFromRawResource(outFileName, rawResId,
+                    PackageManager.INSTALL_REPLACE_EXISTING, false,
+                    false, -1, PackageInfo.INSTALL_LOCATION_UNSPECIFIED);
+            mountMedia();
+            // Verify that the app installed is on internal storage.
+            assertInstall(pkg, 0, PackageInfo.INSTALL_LOCATION_INTERNAL_ONLY);
+        } catch (Exception e) {
+            failStr(e.getMessage());
+        } finally {
+            if (origMediaState) {
+                mountMedia();
+            } else {
+                unmountMedia();
+            }
+        }
+    }
+
+    /*
      * The following series of tests are related to upgrading apps with
      * different certificates.
      */
@@ -1890,7 +2917,7 @@ public class PackageManagerTests extends AndroidTestCase {
     @LargeTest
     public void testReplaceMatchNoCerts1() throws Exception {
         replaceCerts(APP1_CERT1_CERT2, APP1_CERT3, true, true,
-                PackageInstaller.STATUS_FAILURE_CONFLICT);
+                PackageManager.INSTALL_FAILED_UPDATE_INCOMPATIBLE);
     }
 
     /*
@@ -1900,7 +2927,7 @@ public class PackageManagerTests extends AndroidTestCase {
     @LargeTest
     public void testReplaceMatchNoCerts2() throws Exception {
         replaceCerts(APP1_CERT1_CERT2, APP1_CERT3_CERT4, true, true,
-                PackageInstaller.STATUS_FAILURE_CONFLICT);
+                PackageManager.INSTALL_FAILED_UPDATE_INCOMPATIBLE);
     }
 
     /*
@@ -1910,7 +2937,7 @@ public class PackageManagerTests extends AndroidTestCase {
     @LargeTest
     public void testReplaceMatchSomeCerts1() throws Exception {
         replaceCerts(APP1_CERT1_CERT2, APP1_CERT1, true, true,
-                PackageInstaller.STATUS_FAILURE_CONFLICT);
+                PackageManager.INSTALL_FAILED_UPDATE_INCOMPATIBLE);
     }
 
     /*
@@ -1920,7 +2947,7 @@ public class PackageManagerTests extends AndroidTestCase {
     @LargeTest
     public void testReplaceMatchSomeCerts2() throws Exception {
         replaceCerts(APP1_CERT1_CERT2, APP1_CERT2, true, true,
-                PackageInstaller.STATUS_FAILURE_CONFLICT);
+                PackageManager.INSTALL_FAILED_UPDATE_INCOMPATIBLE);
     }
 
     /*
@@ -1930,7 +2957,7 @@ public class PackageManagerTests extends AndroidTestCase {
     @LargeTest
     public void testReplaceMatchMoreCerts() throws Exception {
         replaceCerts(APP1_CERT1, APP1_CERT1_CERT2, true, true,
-                PackageInstaller.STATUS_FAILURE_CONFLICT);
+                PackageManager.INSTALL_FAILED_UPDATE_INCOMPATIBLE);
     }
 
     /*
@@ -1941,7 +2968,7 @@ public class PackageManagerTests extends AndroidTestCase {
     @LargeTest
     public void testReplaceMatchMoreCertsReplaceSomeCerts() throws Exception {
         InstallParams ip = replaceCerts(APP1_CERT1, APP1_CERT1_CERT2, false, true,
-                PackageInstaller.STATUS_FAILURE_CONFLICT);
+                PackageManager.INSTALL_FAILED_UPDATE_INCOMPATIBLE);
         try {
             int rFlags = PackageManager.INSTALL_REPLACE_EXISTING;
             installFromRawResource("install.apk", APP1_CERT1, rFlags, false,
@@ -1981,7 +3008,7 @@ public class PackageManagerTests extends AndroidTestCase {
      */
     public void testUpgradeKSWithWrongKey() throws Exception {
         replaceCerts(R.raw.keyset_sa_ua, R.raw.keyset_sb_ua, true, true,
-                PackageInstaller.STATUS_FAILURE_CONFLICT);
+                PackageManager.INSTALL_FAILED_UPDATE_INCOMPATIBLE);
     }
 
     /*
@@ -1990,7 +3017,7 @@ public class PackageManagerTests extends AndroidTestCase {
      */
     public void testUpgradeKSWithWrongSigningKey() throws Exception {
         replaceCerts(R.raw.keyset_sa_ub, R.raw.keyset_sa_ub, true, true,
-                PackageInstaller.STATUS_FAILURE_CONFLICT);
+                PackageManager.INSTALL_FAILED_UPDATE_INCOMPATIBLE);
     }
 
     /*
@@ -2022,7 +3049,7 @@ public class PackageManagerTests extends AndroidTestCase {
      */
     public void testMultipleUpgradeKSWithSigningKey() throws Exception {
         replaceCerts(R.raw.keyset_sau_ub, R.raw.keyset_sa_ua, true, true,
-                PackageInstaller.STATUS_FAILURE_CONFLICT);
+                PackageManager.INSTALL_FAILED_UPDATE_INCOMPATIBLE);
     }
 
     /*
@@ -2456,12 +3483,7 @@ public class PackageManagerTests extends AndroidTestCase {
             int rawResId = apk2;
             Uri packageURI = getInstallablePackage(rawResId, outFile);
             PackageParser.Package pkg = parsePackage(packageURI);
-            try {
-                getPi().uninstall(pkg.packageName,
-                        PackageManager.DELETE_ALL_USERS,
-                        null /*statusReceiver*/);
-            } catch (IllegalArgumentException ignore) {
-            }
+            getPm().deletePackage(pkg.packageName, null, PackageManager.DELETE_ALL_USERS);
             // Check signatures now
             int match = mContext.getPackageManager().checkSignatures(
                     ip.pkg.packageName, pkg.packageName);
@@ -2477,7 +3499,7 @@ public class PackageManagerTests extends AndroidTestCase {
         String apk1Name = "install1.apk";
 
         installFromRawResource(apk1Name, apk1, 0, false,
-                true, PackageInstaller.STATUS_FAILURE_INVALID,
+                true, PackageManager.INSTALL_PARSE_FAILED_NO_CERTIFICATES,
                 PackageInfo.INSTALL_LOCATION_UNSPECIFIED);
     }
 
@@ -2547,7 +3569,7 @@ public class PackageManagerTests extends AndroidTestCase {
         int apk1 = SHARED1_CERT1;
         int apk2 = SHARED2_CERT2;
         boolean fail = true;
-        int retCode = PackageInstaller.STATUS_FAILURE_CONFLICT;
+        int retCode = PackageManager.INSTALL_FAILED_SHARED_USER_INCOMPATIBLE;
         int expMatchResult = -1;
         checkSharedSignatures(apk1, apk2, true, fail, retCode, expMatchResult);
     }
@@ -2561,7 +3583,7 @@ public class PackageManagerTests extends AndroidTestCase {
         int apk1 = SHARED1_CERT1_CERT2;
         int apk2 = SHARED2_CERT1;
         boolean fail = true;
-        int retCode = PackageInstaller.STATUS_FAILURE_CONFLICT;
+        int retCode = PackageManager.INSTALL_FAILED_SHARED_USER_INCOMPATIBLE;
         int expMatchResult = -1;
         checkSharedSignatures(apk1, apk2, true, fail, retCode, expMatchResult);
     }
@@ -2575,7 +3597,7 @@ public class PackageManagerTests extends AndroidTestCase {
         int apk1 = SHARED1_CERT1_CERT2;
         int apk2 = SHARED2_CERT2;
         boolean fail = true;
-        int retCode = PackageInstaller.STATUS_FAILURE_CONFLICT;
+        int retCode = PackageManager.INSTALL_FAILED_SHARED_USER_INCOMPATIBLE;
         int expMatchResult = -1;
         checkSharedSignatures(apk1, apk2, true, fail, retCode, expMatchResult);
     }
@@ -2594,11 +3616,7 @@ public class PackageManagerTests extends AndroidTestCase {
             PackageManager pm = mContext.getPackageManager();
             // Delete app2
             PackageParser.Package pkg = getParsedPackage(apk2Name, apk2);
-            try {
-                getPi().uninstall(
-                        pkg.packageName, PackageManager.DELETE_ALL_USERS, null /*statusReceiver*/);
-            } catch (IllegalArgumentException ignore) {
-            }
+            getPm().deletePackage(pkg.packageName, null, PackageManager.DELETE_ALL_USERS);
             // Check signatures now
             int match = mContext.getPackageManager().checkSignatures(
                     ip1.pkg.packageName, pkg.packageName);
@@ -2634,7 +3652,7 @@ public class PackageManagerTests extends AndroidTestCase {
         int apk2 = SHARED2_CERT1_CERT2;
         int rapk1 = SHARED1_CERT1;
         boolean fail = true;
-        int retCode = PackageInstaller.STATUS_FAILURE_CONFLICT;
+        int retCode = PackageManager.INSTALL_FAILED_UPDATE_INCOMPATIBLE;
         checkSharedSignatures(apk1, apk2, false, false, -1, PackageManager.SIGNATURE_MATCH);
         installFromRawResource("install.apk", rapk1, PackageManager.INSTALL_REPLACE_EXISTING, true,
                 fail, retCode, PackageInfo.INSTALL_LOCATION_UNSPECIFIED);
@@ -2646,7 +3664,7 @@ public class PackageManagerTests extends AndroidTestCase {
         int apk2 = SHARED2_CERT1_CERT2;
         int rapk2 = SHARED2_CERT1;
         boolean fail = true;
-        int retCode = PackageInstaller.STATUS_FAILURE_CONFLICT;
+        int retCode = PackageManager.INSTALL_FAILED_UPDATE_INCOMPATIBLE;
         checkSharedSignatures(apk1, apk2, false, false, -1, PackageManager.SIGNATURE_MATCH);
         installFromRawResource("install.apk", rapk2, PackageManager.INSTALL_REPLACE_EXISTING, true,
                 fail, retCode, PackageInfo.INSTALL_LOCATION_UNSPECIFIED);
@@ -2658,7 +3676,7 @@ public class PackageManagerTests extends AndroidTestCase {
         int apk2 = SHARED2_CERT1;
         int rapk1 = SHARED1_CERT2;
         boolean fail = true;
-        int retCode = PackageInstaller.STATUS_FAILURE_CONFLICT;
+        int retCode = PackageManager.INSTALL_FAILED_UPDATE_INCOMPATIBLE;
         checkSharedSignatures(apk1, apk2, false, false, -1, PackageManager.SIGNATURE_MATCH);
         installFromRawResource("install.apk", rapk1, PackageManager.INSTALL_REPLACE_EXISTING, true,
                 fail, retCode, PackageInfo.INSTALL_LOCATION_UNSPECIFIED);
@@ -2670,7 +3688,7 @@ public class PackageManagerTests extends AndroidTestCase {
         int apk2 = SHARED2_CERT1;
         int rapk2 = SHARED2_CERT2;
         boolean fail = true;
-        int retCode = PackageInstaller.STATUS_FAILURE_CONFLICT;
+        int retCode = PackageManager.INSTALL_FAILED_UPDATE_INCOMPATIBLE;
         checkSharedSignatures(apk1, apk2, false, false, -1, PackageManager.SIGNATURE_MATCH);
         installFromRawResource("install.apk", rapk2, PackageManager.INSTALL_REPLACE_EXISTING, true,
                 fail, retCode, PackageInfo.INSTALL_LOCATION_UNSPECIFIED);
@@ -2682,7 +3700,7 @@ public class PackageManagerTests extends AndroidTestCase {
         int apk2 = SHARED2_CERT1;
         int rapk1 = SHARED1_CERT1_CERT2;
         boolean fail = true;
-        int retCode = PackageInstaller.STATUS_FAILURE_CONFLICT;
+        int retCode = PackageManager.INSTALL_FAILED_UPDATE_INCOMPATIBLE;
         checkSharedSignatures(apk1, apk2, false, false, -1, PackageManager.SIGNATURE_MATCH);
         installFromRawResource("install.apk", rapk1, PackageManager.INSTALL_REPLACE_EXISTING, true,
                 fail, retCode, PackageInfo.INSTALL_LOCATION_UNSPECIFIED);
@@ -2694,7 +3712,7 @@ public class PackageManagerTests extends AndroidTestCase {
         int apk2 = SHARED2_CERT1;
         int rapk2 = SHARED2_CERT1_CERT2;
         boolean fail = true;
-        int retCode = PackageInstaller.STATUS_FAILURE_CONFLICT;
+        int retCode = PackageManager.INSTALL_FAILED_UPDATE_INCOMPATIBLE;
         checkSharedSignatures(apk1, apk2, false, false, -1, PackageManager.SIGNATURE_MATCH);
         installFromRawResource("install.apk", rapk2, PackageManager.INSTALL_REPLACE_EXISTING, true,
                 fail, retCode, PackageInfo.INSTALL_LOCATION_UNSPECIFIED);
@@ -2718,7 +3736,7 @@ public class PackageManagerTests extends AndroidTestCase {
 
     @LargeTest
     public void testInstallNonexistentFile() throws Exception {
-        int retCode = PackageInstaller.STATUS_FAILURE_INVALID;
+        int retCode = PackageManager.INSTALL_FAILED_INVALID_URI;
         File invalidFile = new File("/nonexistent-file.apk");
         invokeInstallPackageFail(Uri.fromFile(invalidFile), 0, retCode);
     }
@@ -2739,7 +3757,7 @@ public class PackageManagerTests extends AndroidTestCase {
 
     public void testGetUnInstalledPackages() throws Exception {
         List<PackageInfo> packages = getPm().getInstalledPackages(
-                PackageManager.MATCH_UNINSTALLED_PACKAGES);
+                PackageManager.GET_UNINSTALLED_PACKAGES);
         assertNotNull("installed packages cannot be null", packages);
         assertTrue("installed packages cannot be empty", packages.size() > 0);
     }
@@ -2752,7 +3770,7 @@ public class PackageManagerTests extends AndroidTestCase {
                 | PackageManager.GET_CONFIGURATIONS | PackageManager.GET_INSTRUMENTATION
                 | PackageManager.GET_PERMISSIONS | PackageManager.GET_PROVIDERS
                 | PackageManager.GET_RECEIVERS | PackageManager.GET_SERVICES
-                | PackageManager.GET_SIGNATURES | PackageManager.MATCH_UNINSTALLED_PACKAGES;
+                | PackageManager.GET_SIGNATURES | PackageManager.GET_UNINSTALLED_PACKAGES;
 
         final InstallParams ip =
                 installFromRawResource("install.apk", R.raw.install_complete_package_info,
@@ -2792,12 +3810,12 @@ public class PackageManagerTests extends AndroidTestCase {
      * flags when the GET_UNINSTALLED_PACKAGES flag is set.
      */
     public void testGetUnInstalledPackagesAll() throws Exception {
-        final int flags = PackageManager.MATCH_UNINSTALLED_PACKAGES
+        final int flags = PackageManager.GET_UNINSTALLED_PACKAGES
                 | PackageManager.GET_ACTIVITIES | PackageManager.GET_GIDS
                 | PackageManager.GET_CONFIGURATIONS | PackageManager.GET_INSTRUMENTATION
                 | PackageManager.GET_PERMISSIONS | PackageManager.GET_PROVIDERS
                 | PackageManager.GET_RECEIVERS | PackageManager.GET_SERVICES
-                | PackageManager.GET_SIGNATURES;
+                | PackageManager.GET_SIGNATURES | PackageManager.GET_UNINSTALLED_PACKAGES;
 
         // first, install the package
         final InstallParams ip =
@@ -2839,120 +3857,9 @@ public class PackageManagerTests extends AndroidTestCase {
 
     @Suppress
     public void testInstall_BadDex_CleanUp() throws Exception {
-        int retCode = PackageInstaller.STATUS_FAILURE_INVALID;
+        int retCode = PackageManager.INSTALL_FAILED_DEXOPT;
         installFromRawResource("install.apk", R.raw.install_bad_dex, 0, true, true, retCode,
                 PackageInfo.INSTALL_LOCATION_UNSPECIFIED);
-    }
-
-    private static class TestDexModuleRegisterCallback
-            extends PackageManager.DexModuleRegisterCallback {
-        private String mDexModulePath = null;
-        private boolean mSuccess = false;
-        private String mMessage = null;
-        CountDownLatch doneSignal = new CountDownLatch(1);
-
-        @Override
-        public void onDexModuleRegistered(String dexModulePath, boolean success, String message) {
-            mDexModulePath = dexModulePath;
-            mSuccess = success;
-            mMessage = message;
-            doneSignal.countDown();
-        }
-
-        boolean waitTillDone() {
-            long startTime = System.currentTimeMillis();
-            while (System.currentTimeMillis() - startTime < MAX_WAIT_TIME) {
-                try {
-                    return doneSignal.await(MAX_WAIT_TIME, TimeUnit.MILLISECONDS);
-                } catch (InterruptedException e) {
-                    Log.i(TAG, "Interrupted during sleep", e);
-                }
-            }
-            return false;
-        }
-
-    }
-
-    // Verify that the base code path cannot be registered.
-    public void testRegisterDexModuleBaseCode() throws Exception {
-        PackageManager pm = getPm();
-        ApplicationInfo info = getContext().getApplicationInfo();
-        TestDexModuleRegisterCallback callback = new TestDexModuleRegisterCallback();
-        pm.registerDexModule(info.getBaseCodePath(), callback);
-        assertTrue(callback.waitTillDone());
-        assertEquals(info.getBaseCodePath(), callback.mDexModulePath);
-        assertFalse("BaseCodePath should not be registered", callback.mSuccess);
-    }
-
-    // Verify thatmodules which are not own by the calling package are not registered.
-    public void testRegisterDexModuleNotOwningModule() throws Exception {
-        TestDexModuleRegisterCallback callback = new TestDexModuleRegisterCallback();
-        String moduleBelongingToOtherPackage = "/data/user/0/com.google.android.gms/module.apk";
-        getPm().registerDexModule(moduleBelongingToOtherPackage, callback);
-        assertTrue(callback.waitTillDone());
-        assertEquals(moduleBelongingToOtherPackage, callback.mDexModulePath);
-        assertTrue(callback.waitTillDone());
-        assertFalse("Only modules belonging to the calling package can be registered",
-                callback.mSuccess);
-    }
-
-    // Verify that modules owned by the package are successfully registered.
-    public void testRegisterDexModuleSuccessfully() throws Exception {
-        ApplicationInfo info = getContext().getApplicationInfo();
-        // Copy the main apk into the data folder and use it as a "module".
-        File dexModuleDir = new File(info.dataDir, "module-dir");
-        File dexModule = new File(dexModuleDir, "module.apk");
-        try {
-            assertNotNull(FileUtils.createDir(
-                    dexModuleDir.getParentFile(), dexModuleDir.getName()));
-            Files.copy(Paths.get(info.getBaseCodePath()), dexModule.toPath(),
-                    StandardCopyOption.REPLACE_EXISTING);
-            TestDexModuleRegisterCallback callback = new TestDexModuleRegisterCallback();
-            getPm().registerDexModule(dexModule.toString(), callback);
-            assertTrue(callback.waitTillDone());
-            assertEquals(dexModule.toString(), callback.mDexModulePath);
-            assertTrue(callback.waitTillDone());
-            assertTrue(callback.mMessage, callback.mSuccess);
-
-            // NOTE:
-            // This actually verifies internal behaviour which might change. It's not
-            // ideal but it's the best we can do since there's no other place we can currently
-            // write a better test.
-            for(String isa : getAppDexInstructionSets(info)) {
-                Files.exists(Paths.get(dexModuleDir.toString(), "oat", isa, "module.odex"));
-                Files.exists(Paths.get(dexModuleDir.toString(), "oat", isa, "module.vdex"));
-            }
-        } finally {
-            FileUtils.deleteContentsAndDir(dexModuleDir);
-        }
-    }
-
-    // If the module does not exist on disk we should get a failure.
-    public void testRegisterDexModuleNotExists() throws Exception {
-        ApplicationInfo info = getContext().getApplicationInfo();
-        String nonExistentApk = Paths.get(info.dataDir, "non-existent.apk").toString();
-        TestDexModuleRegisterCallback callback = new TestDexModuleRegisterCallback();
-        getPm().registerDexModule(nonExistentApk, callback);
-        assertTrue(callback.waitTillDone());
-        assertEquals(nonExistentApk, callback.mDexModulePath);
-        assertTrue(callback.waitTillDone());
-        assertFalse("DexModule registration should fail", callback.mSuccess);
-    }
-
-    // Copied from com.android.server.pm.InstructionSets because we don't have access to it here.
-    private static String[] getAppDexInstructionSets(ApplicationInfo info) {
-        if (info.primaryCpuAbi != null) {
-            if (info.secondaryCpuAbi != null) {
-                return new String[] {
-                        VMRuntime.getInstructionSet(info.primaryCpuAbi),
-                        VMRuntime.getInstructionSet(info.secondaryCpuAbi) };
-            } else {
-                return new String[] {
-                        VMRuntime.getInstructionSet(info.primaryCpuAbi) };
-            }
-        }
-
-        return new String[] { VMRuntime.getInstructionSet(Build.SUPPORTED_ABIS[0]) };
     }
 
     /*---------- Recommended install location tests ----*/
@@ -2963,4 +3870,21 @@ public class PackageManagerTests extends AndroidTestCase {
      * how to do tests on updated system apps?
      * verify updates to system apps cannot be installed on the sdcard.
      */
+
+    //CM Tests
+    public void testIsComponentProtectedFromSamePackage() {
+        ComponentName testComponentName = new ComponentName("com.android.test",
+                "com.android.test.component.protected");
+        getPm().setComponentProtectedSetting(testComponentName, true);
+        assertFalse(getPm().isComponentProtected(testComponentName.getPackageName(), getContext().getUserId(),
+                testComponentName));
+    }
+
+    public void testIsComponentProtectedFromManagers() {
+        ComponentName testComponentName = new ComponentName("com.android.test",
+                "com.android.test.component.protected");
+        getPm().setComponentProtectedSetting(testComponentName, true);
+        assertFalse(getPm().isComponentProtected(testComponentName.getPackageName(), getContext().getUserId(),
+                testComponentName));
+    }
 }

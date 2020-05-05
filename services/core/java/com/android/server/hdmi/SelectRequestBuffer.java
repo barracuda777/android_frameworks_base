@@ -56,10 +56,6 @@ public class SelectRequestBuffer {
             return mService.tv();
         }
 
-        protected HdmiCecLocalDeviceAudioSystem audioSystem() {
-            return mService.audioSystem();
-        }
-
         protected boolean isLocalDeviceReady() {
             if (tv() == null) {
                 Slog.e(TAG, "Local tv device not available");
@@ -109,15 +105,7 @@ public class SelectRequestBuffer {
         public void process() {
             if (isLocalDeviceReady()) {
                 Slog.v(TAG, "calling delayed portSelect id:" + mId);
-                HdmiCecLocalDeviceTv tv = tv();
-                if (tv != null) {
-                    tv.doManualPortSwitching(mId, mCallback);
-                    return;
-                }
-                HdmiCecLocalDeviceAudioSystem audioSystem = audioSystem();
-                if (audioSystem != null) {
-                    audioSystem.doManualPortSwitching(mId, mCallback);
-                }
+                tv().doManualPortSwitching(mId, mCallback);
             }
         }
     }

@@ -66,6 +66,9 @@ public class SurfaceCompositionTest extends
         super(SurfaceCompositionMeasuringActivity.class);
     }
 
+    private void testRestoreContexts() {
+    }
+
     @SmallTest
     public void testSurfaceCompositionPerformance() {
         Bundle status = new Bundle();

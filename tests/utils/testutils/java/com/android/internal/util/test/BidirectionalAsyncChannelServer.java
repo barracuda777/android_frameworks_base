@@ -27,7 +27,6 @@ import com.android.internal.util.AsyncChannel;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Provides an interface for the server side implementation of a bidirectional channel as described
@@ -82,10 +81,6 @@ public class BidirectionalAsyncChannelServer {
 
     public Messenger getMessenger() {
         return mMessenger;
-    }
-
-    public Set<Messenger> getClientMessengers() {
-        return mClients.keySet();
     }
 
 }

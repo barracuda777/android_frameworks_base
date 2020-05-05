@@ -18,11 +18,11 @@ package android.widget.listview;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.view.View;
-import android.view.ViewDebug;
 import android.widget.ArrayAdapter;
-import android.widget.ImageButton;
 import android.widget.ListView;
+import android.widget.ImageButton;
+import android.view.ViewDebug;
+import android.view.View;
 
 import com.android.frameworks.coretests.R;
 
@@ -38,14 +38,14 @@ public class ListRecyclerProfiling extends Activity {
             values[i] = ((Integer) i).toString();
         }
 
-        ListView listView = findViewById(R.id.list);
+        ListView listView = (ListView) findViewById(R.id.list);
 
         ViewDebug.startRecyclerTracing("SimpleList", listView);
 
         listView.setAdapter(new ArrayAdapter<String>(this,
                 android.R.layout.simple_list_item_1, values));
 
-        ImageButton stopProfiling = findViewById(R.id.pause);
+        ImageButton stopProfiling = (ImageButton) findViewById(R.id.pause);
         stopProfiling.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 ViewDebug.stopRecyclerTracing();

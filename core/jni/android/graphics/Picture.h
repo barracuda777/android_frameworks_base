@@ -37,7 +37,6 @@ class Canvas;
 class Picture {
 public:
     explicit Picture(const Picture* src = NULL);
-    explicit Picture(sk_sp<SkPicture>&& src);
 
     Canvas* beginRecording(int width, int height);
 
@@ -56,12 +55,14 @@ public:
 private:
     int mWidth;
     int mHeight;
-    sk_sp<SkPicture> mPicture;
+    SkAutoTUnref<const SkPicture> mPicture;
     std::unique_ptr<SkPictureRecorder> mRecorder;
 
     // Make a copy of a picture that is in the midst of being recorded. The
     // resulting picture will have balanced saves and restores.
-    sk_sp<SkPicture> makePartialCopy() const;
+    SkPicture* makePartialCopy() const;
+
+    void validate() const;
 };
 
 }; // namespace android

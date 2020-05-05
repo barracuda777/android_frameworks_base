@@ -19,7 +19,6 @@ package android.graphics;
 import android.annotation.FloatRange;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
-import android.annotation.UnsupportedAppUsage;
 import android.graphics.drawable.Drawable;
 
 import java.lang.annotation.Retention;
@@ -59,15 +58,10 @@ public final class Outline {
     @Mode
     public int mMode = MODE_EMPTY;
 
-    /**
-     * Only guaranteed to be non-null when mode == MODE_CONVEX_PATH
-     *
-     * @hide
-     */
-    public Path mPath;
+    /** @hide */
+    public final Path mPath = new Path();
 
     /** @hide */
-    @UnsupportedAppUsage
     public final Rect mRect = new Rect();
     /** @hide */
     public float mRadius = RADIUS_UNDEFINED;
@@ -93,11 +87,8 @@ public final class Outline {
      * @see #isEmpty()
      */
     public void setEmpty() {
-        if (mPath != null) {
-            // rewind here to avoid thrashing the allocations, but could alternately clear ref
-            mPath.rewind();
-        }
         mMode = MODE_EMPTY;
+        mPath.rewind();
         mRect.setEmpty();
         mRadius = RADIUS_UNDEFINED;
     }
@@ -157,12 +148,7 @@ public final class Outline {
      */
     public void set(@NonNull Outline src) {
         mMode = src.mMode;
-        if (src.mMode == MODE_CONVEX_PATH) {
-            if (mPath == null) {
-                mPath = new Path();
-            }
-            mPath.set(src.mPath);
-        }
+        mPath.set(src.mPath);
         mRect.set(src.mRect);
         mRadius = src.mRadius;
         mAlpha = src.mAlpha;
@@ -194,13 +180,10 @@ public final class Outline {
             return;
         }
 
-        if (mMode == MODE_CONVEX_PATH) {
-            // rewind here to avoid thrashing the allocations, but could alternately clear ref
-            mPath.rewind();
-        }
         mMode = MODE_ROUND_RECT;
         mRect.set(left, top, right, bottom);
         mRadius = radius;
+        mPath.rewind();
     }
 
     /**
@@ -253,13 +236,8 @@ public final class Outline {
             return;
         }
 
-        if (mPath == null) {
-            mPath = new Path();
-        } else {
-            mPath.rewind();
-        }
-
         mMode = MODE_CONVEX_PATH;
+        mPath.rewind();
         mPath.addOval(left, top, right, bottom, Path.Direction.CW);
         mRect.setEmpty();
         mRadius = RADIUS_UNDEFINED;
@@ -273,12 +251,8 @@ public final class Outline {
     }
 
     /**
-     * Sets the Outline to a
+     * Sets the Constructs an Outline from a
      * {@link android.graphics.Path#isConvex() convex path}.
-     *
-     * @param convexPath used to construct the Outline. As of
-     * {@link android.os.Build.VERSION_CODES#Q}, it is no longer required to be
-     * convex.
      */
     public void setConvexPath(@NonNull Path convexPath) {
         if (convexPath.isEmpty()) {
@@ -286,8 +260,8 @@ public final class Outline {
             return;
         }
 
-        if (mPath == null) {
-            mPath = new Path();
+        if (!convexPath.isConvex()) {
+            throw new IllegalArgumentException("path must be convex");
         }
 
         mMode = MODE_CONVEX_PATH;

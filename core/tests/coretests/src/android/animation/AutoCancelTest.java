@@ -13,27 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package android.animation;
 
-import static org.junit.Assert.assertTrue;
-
 import android.os.Handler;
-
-import androidx.test.filters.SmallTest;
-import androidx.test.rule.ActivityTestRule;
-
-import org.junit.Rule;
-import org.junit.Test;
+import android.test.ActivityInstrumentationTestCase2;
+import android.test.suitebuilder.annotation.SmallTest;
 
 import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 
-public class AutoCancelTest {
-
-    @Rule
-    public final ActivityTestRule<BasicAnimatorActivity> mActivityRule =
-            new ActivityTestRule<>(BasicAnimatorActivity.class);
+public class AutoCancelTest extends ActivityInstrumentationTestCase2<BasicAnimatorActivity> {
 
     boolean mAnimX1Canceled = false;
     boolean mAnimXY1Canceled = false;
@@ -45,6 +34,10 @@ public class AutoCancelTest {
     private static final long FUTURE_TIMEOUT = 1000;
 
     HashMap<Animator, Boolean> mCanceledMap = new HashMap<Animator, Boolean>();
+
+    public AutoCancelTest() {
+        super(BasicAnimatorActivity.class);
+    }
 
     ObjectAnimator setupAnimator(long startDelay, String... properties) {
         ObjectAnimator returnVal;
@@ -63,7 +56,8 @@ public class AutoCancelTest {
         return returnVal;
     }
 
-    private void setupAnimators(long startDelay, boolean startLater, final FutureWaiter future) {
+    private void setupAnimators(long startDelay, boolean startLater, final FutureWaiter future)
+    throws Exception {
         // Animators to be auto-canceled
         final ObjectAnimator animX1 = setupAnimator(startDelay, "x");
         final ObjectAnimator animY1 = setupAnimator(startDelay, "y");
@@ -127,56 +121,64 @@ public class AutoCancelTest {
     }
 
     @SmallTest
-    @Test
-    public void testAutoCancel() throws Throwable {
+    public void testAutoCancel() throws Exception {
         final FutureWaiter future = new FutureWaiter();
-        mActivityRule.runOnUiThread(() -> {
-            try {
-                setupAnimators(0, false, future);
-            } catch (Exception e) {
-                future.setException(e);
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    setupAnimators(0, false, future);
+                } catch (Exception e) {
+                    future.setException(e);
+                }
             }
         });
         assertTrue(future.get(FUTURE_TIMEOUT, TimeUnit.MILLISECONDS));
     }
 
     @SmallTest
-    @Test
-    public void testAutoCancelDelayed() throws Throwable {
+    public void testAutoCancelDelayed() throws Exception {
         final FutureWaiter future = new FutureWaiter();
-        mActivityRule.runOnUiThread(() -> {
-            try {
-                setupAnimators(START_DELAY, false, future);
-            } catch (Exception e) {
-                future.setException(e);
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    setupAnimators(START_DELAY, false, future);
+                } catch (Exception e) {
+                    future.setException(e);
+                }
             }
         });
         assertTrue(future.get(FUTURE_TIMEOUT, TimeUnit.MILLISECONDS));
     }
 
     @SmallTest
-    @Test
-    public void testAutoCancelTestLater() throws Throwable {
+    public void testAutoCancelTestLater() throws Exception {
         final FutureWaiter future = new FutureWaiter();
-        mActivityRule.runOnUiThread(() -> {
-            try {
-                setupAnimators(0, true, future);
-            } catch (Exception e) {
-                future.setException(e);
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    setupAnimators(0, true, future);
+                } catch (Exception e) {
+                    future.setException(e);
+                }
             }
         });
         assertTrue(future.get(FUTURE_TIMEOUT, TimeUnit.MILLISECONDS));
     }
 
     @SmallTest
-    @Test
-    public void testAutoCancelDelayedTestLater() throws Throwable {
+    public void testAutoCancelDelayedTestLater() throws Exception {
         final FutureWaiter future = new FutureWaiter();
-        mActivityRule.runOnUiThread(() -> {
-            try {
-                setupAnimators(START_DELAY, true, future);
-            } catch (Exception e) {
-                future.setException(e);
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    setupAnimators(START_DELAY, true, future);
+                } catch (Exception e) {
+                    future.setException(e);
+                }
             }
         });
         assertTrue(future.get(FUTURE_TIMEOUT, TimeUnit.MILLISECONDS));

@@ -363,7 +363,7 @@ public class Address implements Parcelable {
      * or null if it is unknown.
      *
      * @throws IllegalStateException if this Address has not been assigned
-     * a phone number.
+     * a latitude.
      */
     public String getPhone() {
         return mPhone;
@@ -472,7 +472,7 @@ public class Address implements Parcelable {
         return sb.toString();
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<Address> CREATOR =
+    public static final Parcelable.Creator<Address> CREATOR =
         new Parcelable.Creator<Address>() {
         public Address createFromParcel(Parcel in) {
             String language = in.readString();

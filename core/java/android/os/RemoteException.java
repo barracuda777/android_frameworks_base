@@ -16,7 +16,6 @@
 
 package android.os;
 
-import android.annotation.UnsupportedAppUsage;
 import android.util.AndroidException;
 
 /**
@@ -29,12 +28,6 @@ public class RemoteException extends AndroidException {
 
     public RemoteException(String message) {
         super(message);
-    }
-
-    /** @hide */
-    public RemoteException(String message, Throwable cause, boolean enableSuppression,
-            boolean writableStackTrace) {
-        super(message, cause, enableSuppression, writableStackTrace);
     }
 
     /** {@hide} */
@@ -55,7 +48,6 @@ public class RemoteException extends AndroidException {
      *
      * @hide
      */
-    @UnsupportedAppUsage
     public RuntimeException rethrowFromSystemServer() {
         if (this instanceof DeadObjectException) {
             throw new RuntimeException(new DeadSystemException());

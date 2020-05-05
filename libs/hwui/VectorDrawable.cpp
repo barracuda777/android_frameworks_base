@@ -16,13 +16,12 @@
 
 #include "VectorDrawable.h"
 
-#include <utils/Log.h>
 #include "PathParser.h"
 #include "SkColorFilter.h"
 #include "SkImageInfo.h"
 #include "SkShader.h"
+#include <utils/Log.h>
 #include "utils/Macros.h"
-#include "utils/TraceUtils.h"
 #include "utils/VectorDrawableUtils.h"
 
 #include <math.h>
@@ -34,8 +33,63 @@ namespace VectorDrawable {
 
 const int Tree::MAX_CACHED_BITMAP_SIZE = 2048;
 
+void Path::draw(SkCanvas* outCanvas, const SkMatrix& groupStackedMatrix, float scaleX, float scaleY,
+        bool useStagingData) {
+    float matrixScale = getMatrixScale(groupStackedMatrix);
+    if (matrixScale == 0) {
+        // When either x or y is scaled to 0, we don't need to draw anything.
+        return;
+    }
+
+    SkMatrix pathMatrix(groupStackedMatrix);
+    pathMatrix.postScale(scaleX, scaleY);
+
+    //TODO: try apply the path matrix to the canvas instead of creating a new path.
+    SkPath renderPath;
+    renderPath.reset();
+
+    if (useStagingData) {
+        SkPath tmpPath;
+        getStagingPath(&tmpPath);
+        renderPath.addPath(tmpPath, pathMatrix);
+    } else {
+        renderPath.addPath(getUpdatedPath(), pathMatrix);
+    }
+
+    float minScale = fmin(scaleX, scaleY);
+    float strokeScale = minScale * matrixScale;
+    drawPath(outCanvas, renderPath, strokeScale, pathMatrix, useStagingData);
+}
+
 void Path::dump() {
     ALOGD("Path: %s has %zu points", mName.c_str(), mProperties.getData().points.size());
+}
+
+float Path::getMatrixScale(const SkMatrix& groupStackedMatrix) {
+    // Given unit vectors A = (0, 1) and B = (1, 0).
+    // After matrix mapping, we got A' and B'. Let theta = the angel b/t A' and B'.
+    // Therefore, the final scale we want is min(|A'| * sin(theta), |B'| * sin(theta)),
+    // which is (|A'| * |B'| * sin(theta)) / max (|A'|, |B'|);
+    // If  max (|A'|, |B'|) = 0, that means either x or y has a scale of 0.
+    //
+    // For non-skew case, which is most of the cases, matrix scale is computing exactly the
+    // scale on x and y axis, and take the minimal of these two.
+    // For skew case, an unit square will mapped to a parallelogram. And this function will
+    // return the minimal height of the 2 bases.
+    SkVector skVectors[2];
+    skVectors[0].set(0, 1);
+    skVectors[1].set(1, 0);
+    groupStackedMatrix.mapVectors(skVectors, 2);
+    float scaleX = hypotf(skVectors[0].fX, skVectors[0].fY);
+    float scaleY = hypotf(skVectors[1].fX, skVectors[1].fY);
+    float crossProduct = skVectors[0].cross(skVectors[1]);
+    float maxScale = fmax(scaleX, scaleY);
+
+    float matrixScale = 0;
+    if (maxScale > 0) {
+        matrixScale = fabs(crossProduct) / maxScale;
+    }
+    return matrixScale;
 }
 
 // Called from UI thread during the initial setup/theme change.
@@ -50,19 +104,18 @@ Path::Path(const Path& path) : Node(path) {
     mStagingProperties.syncProperties(path.mStagingProperties);
 }
 
-const SkPath& Path::getUpdatedPath(bool useStagingData, SkPath* tempStagingPath) {
-    if (useStagingData) {
-        tempStagingPath->reset();
-        VectorDrawableUtils::verbsToPath(tempStagingPath, mStagingProperties.getData());
-        return *tempStagingPath;
-    } else {
-        if (mSkPathDirty) {
-            mSkPath.reset();
-            VectorDrawableUtils::verbsToPath(&mSkPath, mProperties.getData());
-            mSkPathDirty = false;
-        }
-        return mSkPath;
+const SkPath& Path::getUpdatedPath() {
+    if (mSkPathDirty) {
+        mSkPath.reset();
+        VectorDrawableUtils::verbsToPath(&mSkPath, mProperties.getData());
+        mSkPathDirty = false;
     }
+    return mSkPath;
+}
+
+void Path::getStagingPath(SkPath* outPath) {
+    outPath->reset();
+    VectorDrawableUtils::verbsToPath(outPath, mStagingProperties.getData());
 }
 
 void Path::syncProperties() {
@@ -79,7 +132,7 @@ FullPath::FullPath(const FullPath& path) : Path(path) {
 }
 
 static void applyTrim(SkPath* outPath, const SkPath& inPath, float trimPathStart, float trimPathEnd,
-                      float trimPathOffset) {
+        float trimPathOffset) {
     if (trimPathStart == 0.0f && trimPathEnd == 1.0f) {
         *outPath = inPath;
         return;
@@ -104,60 +157,54 @@ static void applyTrim(SkPath* outPath, const SkPath& inPath, float trimPathStart
     }
 }
 
-const SkPath& FullPath::getUpdatedPath(bool useStagingData, SkPath* tempStagingPath) {
-    if (!useStagingData && !mSkPathDirty && !mProperties.mTrimDirty) {
+const SkPath& FullPath::getUpdatedPath() {
+    if (!mSkPathDirty && !mProperties.mTrimDirty) {
         return mTrimmedSkPath;
     }
-    Path::getUpdatedPath(useStagingData, tempStagingPath);
-    SkPath* outPath;
-    if (useStagingData) {
-        SkPath inPath = *tempStagingPath;
-        applyTrim(tempStagingPath, inPath, mStagingProperties.getTrimPathStart(),
-                  mStagingProperties.getTrimPathEnd(), mStagingProperties.getTrimPathOffset());
-        outPath = tempStagingPath;
+    Path::getUpdatedPath();
+    if (mProperties.getTrimPathStart() != 0.0f || mProperties.getTrimPathEnd() != 1.0f) {
+        mProperties.mTrimDirty = false;
+        applyTrim(&mTrimmedSkPath, mSkPath, mProperties.getTrimPathStart(),
+                mProperties.getTrimPathEnd(), mProperties.getTrimPathOffset());
+        return mTrimmedSkPath;
     } else {
-        if (mProperties.getTrimPathStart() != 0.0f || mProperties.getTrimPathEnd() != 1.0f) {
-            mProperties.mTrimDirty = false;
-            applyTrim(&mTrimmedSkPath, mSkPath, mProperties.getTrimPathStart(),
-                      mProperties.getTrimPathEnd(), mProperties.getTrimPathOffset());
-            outPath = &mTrimmedSkPath;
-        } else {
-            outPath = &mSkPath;
-        }
+        return mSkPath;
     }
-    const FullPathProperties& properties = useStagingData ? mStagingProperties : mProperties;
-    bool setFillPath = properties.getFillGradient() != nullptr ||
-                       properties.getFillColor() != SK_ColorTRANSPARENT;
-    if (setFillPath) {
-        SkPath::FillType ft = static_cast<SkPath::FillType>(properties.getFillType());
-        outPath->setFillType(ft);
-    }
-    return *outPath;
+}
+
+void FullPath::getStagingPath(SkPath* outPath) {
+    Path::getStagingPath(outPath);
+    SkPath inPath = *outPath;
+    applyTrim(outPath, inPath, mStagingProperties.getTrimPathStart(),
+            mStagingProperties.getTrimPathEnd(), mStagingProperties.getTrimPathOffset());
 }
 
 void FullPath::dump() {
     Path::dump();
     ALOGD("stroke width, color, alpha: %f, %d, %f, fill color, alpha: %d, %f",
-          mProperties.getStrokeWidth(), mProperties.getStrokeColor(), mProperties.getStrokeAlpha(),
-          mProperties.getFillColor(), mProperties.getFillAlpha());
+            mProperties.getStrokeWidth(), mProperties.getStrokeColor(), mProperties.getStrokeAlpha(),
+            mProperties.getFillColor(), mProperties.getFillAlpha());
 }
+
 
 inline SkColor applyAlpha(SkColor color, float alpha) {
     int alphaBytes = SkColorGetA(color);
     return SkColorSetA(color, alphaBytes * alpha);
 }
 
-void FullPath::draw(SkCanvas* outCanvas, bool useStagingData) {
+void FullPath::drawPath(SkCanvas* outCanvas, SkPath& renderPath, float strokeScale,
+                        const SkMatrix& matrix, bool useStagingData){
     const FullPathProperties& properties = useStagingData ? mStagingProperties : mProperties;
-    SkPath tempStagingPath;
-    const SkPath& renderPath = getUpdatedPath(useStagingData, &tempStagingPath);
 
     // Draw path's fill, if fill color or gradient is valid
     bool needsFill = false;
     SkPaint paint;
     if (properties.getFillGradient() != nullptr) {
         paint.setColor(applyAlpha(SK_ColorBLACK, properties.getFillAlpha()));
-        paint.setShader(sk_sp<SkShader>(SkSafeRef(properties.getFillGradient())));
+        SkShader* newShader = properties.getFillGradient()->newWithLocalMatrix(matrix);
+        // newWithLocalMatrix(...) creates a new SkShader and returns a bare pointer. We need to
+        // remove the extra ref so that the ref count is correctly managed.
+        paint.setShader(newShader)->unref();
         needsFill = true;
     } else if (properties.getFillColor() != SK_ColorTRANSPARENT) {
         paint.setColor(applyAlpha(properties.getFillColor(), properties.getFillAlpha()));
@@ -166,7 +213,9 @@ void FullPath::draw(SkCanvas* outCanvas, bool useStagingData) {
 
     if (needsFill) {
         paint.setStyle(SkPaint::Style::kFill_Style);
-        paint.setAntiAlias(mAntiAlias);
+        paint.setAntiAlias(true);
+        SkPath::FillType ft = static_cast<SkPath::FillType>(properties.getFillType());
+        renderPath.setFillType(ft);
         outCanvas->drawPath(renderPath, paint);
     }
 
@@ -174,7 +223,10 @@ void FullPath::draw(SkCanvas* outCanvas, bool useStagingData) {
     bool needsStroke = false;
     if (properties.getStrokeGradient() != nullptr) {
         paint.setColor(applyAlpha(SK_ColorBLACK, properties.getStrokeAlpha()));
-        paint.setShader(sk_sp<SkShader>(SkSafeRef(properties.getStrokeGradient())));
+        SkShader* newShader = properties.getStrokeGradient()->newWithLocalMatrix(matrix);
+        // newWithLocalMatrix(...) creates a new SkShader and returns a bare pointer. We need to
+        // remove the extra ref so that the ref count is correctly managed.
+        paint.setShader(newShader)->unref();
         needsStroke = true;
     } else if (properties.getStrokeColor() != SK_ColorTRANSPARENT) {
         paint.setColor(applyAlpha(properties.getStrokeColor(), properties.getStrokeAlpha()));
@@ -182,11 +234,11 @@ void FullPath::draw(SkCanvas* outCanvas, bool useStagingData) {
     }
     if (needsStroke) {
         paint.setStyle(SkPaint::Style::kStroke_Style);
-        paint.setAntiAlias(mAntiAlias);
+        paint.setAntiAlias(true);
         paint.setStrokeJoin(SkPaint::Join(properties.getStrokeLineJoin()));
         paint.setStrokeCap(SkPaint::Cap(properties.getStrokeLineCap()));
         paint.setStrokeMiter(properties.getStrokeMiterLimit());
-        paint.setStrokeWidth(properties.getStrokeWidth());
+        paint.setStrokeWidth(properties.getStrokeWidth() * strokeScale);
         outCanvas->drawPath(renderPath, paint);
     }
 }
@@ -212,7 +264,7 @@ bool FullPath::FullPathProperties::copyProperties(int8_t* outProperties, int len
     int propertyDataSize = sizeof(FullPathProperties::PrimitiveFields);
     if (length != propertyDataSize) {
         LOG_ALWAYS_FATAL("Properties needs exactly %d bytes, a byte array of size %d is provided",
-                         propertyDataSize, length);
+                propertyDataSize, length);
         return false;
     }
 
@@ -228,68 +280,74 @@ void FullPath::FullPathProperties::setColorPropertyValue(int propertyId, int32_t
     } else if (currentProperty == Property::fillColor) {
         setFillColor(value);
     } else {
-        LOG_ALWAYS_FATAL(
-                "Error setting color property on FullPath: No valid property"
-                " with id: %d",
-                propertyId);
+        LOG_ALWAYS_FATAL("Error setting color property on FullPath: No valid property"
+                " with id: %d", propertyId);
     }
 }
 
 void FullPath::FullPathProperties::setPropertyValue(int propertyId, float value) {
     Property property = static_cast<Property>(propertyId);
     switch (property) {
-        case Property::strokeWidth:
-            setStrokeWidth(value);
-            break;
-        case Property::strokeAlpha:
-            setStrokeAlpha(value);
-            break;
-        case Property::fillAlpha:
-            setFillAlpha(value);
-            break;
-        case Property::trimPathStart:
-            setTrimPathStart(value);
-            break;
-        case Property::trimPathEnd:
-            setTrimPathEnd(value);
-            break;
-        case Property::trimPathOffset:
-            setTrimPathOffset(value);
-            break;
-        default:
-            LOG_ALWAYS_FATAL("Invalid property id: %d for animation", propertyId);
-            break;
+    case Property::strokeWidth:
+        setStrokeWidth(value);
+        break;
+    case Property::strokeAlpha:
+        setStrokeAlpha(value);
+        break;
+    case Property::fillAlpha:
+        setFillAlpha(value);
+        break;
+    case Property::trimPathStart:
+        setTrimPathStart(value);
+        break;
+    case Property::trimPathEnd:
+        setTrimPathEnd(value);
+        break;
+    case Property::trimPathOffset:
+        setTrimPathOffset(value);
+        break;
+    default:
+        LOG_ALWAYS_FATAL("Invalid property id: %d for animation", propertyId);
+        break;
     }
 }
 
-void ClipPath::draw(SkCanvas* outCanvas, bool useStagingData) {
-    SkPath tempStagingPath;
-    outCanvas->clipPath(getUpdatedPath(useStagingData, &tempStagingPath));
+void ClipPath::drawPath(SkCanvas* outCanvas, SkPath& renderPath,
+        float strokeScale, const SkMatrix& matrix, bool useStagingData){
+    outCanvas->clipPath(renderPath, SkRegion::kIntersect_Op);
 }
 
 Group::Group(const Group& group) : Node(group) {
     mStagingProperties.syncProperties(group.mStagingProperties);
 }
 
-void Group::draw(SkCanvas* outCanvas, bool useStagingData) {
-    // Save the current clip and matrix information, which is local to this group.
-    SkAutoCanvasRestore saver(outCanvas, true);
-    // apply the current group's matrix to the canvas
+void Group::draw(SkCanvas* outCanvas, const SkMatrix& currentMatrix, float scaleX,
+        float scaleY, bool useStagingData) {
+    // TODO: Try apply the matrix to the canvas instead of passing it down the tree
+
+    // Calculate current group's matrix by preConcat the parent's and
+    // and the current one on the top of the stack.
+    // Basically the Mfinal = Mviewport * M0 * M1 * M2;
+    // Mi the local matrix at level i of the group tree.
     SkMatrix stackedMatrix;
     const GroupProperties& prop = useStagingData ? mStagingProperties : mProperties;
     getLocalMatrix(&stackedMatrix, prop);
-    outCanvas->concat(stackedMatrix);
+    stackedMatrix.postConcat(currentMatrix);
+
+    // Save the current clip information, which is local to this group.
+    outCanvas->save();
     // Draw the group tree in the same order as the XML file.
     for (auto& child : mChildren) {
-        child->draw(outCanvas, useStagingData);
+        child->draw(outCanvas, stackedMatrix, scaleX, scaleY, useStagingData);
     }
-    // Restore the previous clip and matrix information.
+    // Restore the previous clip information.
+    outCanvas->restore();
 }
 
 void Group::dump() {
     ALOGD("Group %s has %zu children: ", mName.c_str(), mChildren.size());
     ALOGD("Group translateX, Y : %f, %f, scaleX, Y: %f, %f", mProperties.getTranslateX(),
-          mProperties.getTranslateY(), mProperties.getScaleX(), mProperties.getScaleY());
+            mProperties.getTranslateY(), mProperties.getScaleX(), mProperties.getScaleY());
     for (size_t i = 0; i < mChildren.size(); i++) {
         mChildren[i]->dump();
     }
@@ -316,7 +374,7 @@ void Group::getLocalMatrix(SkMatrix* outMatrix, const GroupProperties& propertie
     outMatrix->postScale(properties.getScaleX(), properties.getScaleY());
     outMatrix->postRotate(properties.getRotation(), 0, 0);
     outMatrix->postTranslate(properties.getTranslateX() + properties.getPivotX(),
-                             properties.getTranslateY() + properties.getPivotY());
+            properties.getTranslateY() + properties.getPivotY());
 }
 
 void Group::addChild(Node* child) {
@@ -330,7 +388,7 @@ bool Group::GroupProperties::copyProperties(float* outProperties, int length) co
     int propertyCount = static_cast<int>(Property::count);
     if (length != propertyCount) {
         LOG_ALWAYS_FATAL("Properties needs exactly %d bytes, a byte array of size %d is provided",
-                         propertyCount, length);
+                propertyCount, length);
         return false;
     }
 
@@ -344,23 +402,23 @@ bool Group::GroupProperties::copyProperties(float* outProperties, int length) co
 float Group::GroupProperties::getPropertyValue(int propertyId) const {
     Property currentProperty = static_cast<Property>(propertyId);
     switch (currentProperty) {
-        case Property::rotate:
-            return getRotation();
-        case Property::pivotX:
-            return getPivotX();
-        case Property::pivotY:
-            return getPivotY();
-        case Property::scaleX:
-            return getScaleX();
-        case Property::scaleY:
-            return getScaleY();
-        case Property::translateX:
-            return getTranslateX();
-        case Property::translateY:
-            return getTranslateY();
-        default:
-            LOG_ALWAYS_FATAL("Invalid property index: %d", propertyId);
-            return 0;
+    case Property::rotate:
+        return getRotation();
+    case Property::pivotX:
+        return getPivotX();
+    case Property::pivotY:
+        return getPivotY();
+    case Property::scaleX:
+        return getScaleX();
+    case Property::scaleY:
+        return getScaleY();
+    case Property::translateX:
+        return getTranslateX();
+    case Property::translateY:
+        return getTranslateY();
+    default:
+        LOG_ALWAYS_FATAL("Invalid property index: %d", propertyId);
+        return 0;
     }
 }
 
@@ -368,29 +426,29 @@ float Group::GroupProperties::getPropertyValue(int propertyId) const {
 void Group::GroupProperties::setPropertyValue(int propertyId, float value) {
     Property currentProperty = static_cast<Property>(propertyId);
     switch (currentProperty) {
-        case Property::rotate:
-            setRotation(value);
-            break;
-        case Property::pivotX:
-            setPivotX(value);
-            break;
-        case Property::pivotY:
-            setPivotY(value);
-            break;
-        case Property::scaleX:
-            setScaleX(value);
-            break;
-        case Property::scaleY:
-            setScaleY(value);
-            break;
-        case Property::translateX:
-            setTranslateX(value);
-            break;
-        case Property::translateY:
-            setTranslateY(value);
-            break;
-        default:
-            LOG_ALWAYS_FATAL("Invalid property index: %d", propertyId);
+    case Property::rotate:
+        setRotation(value);
+        break;
+    case Property::pivotX:
+        setPivotX(value);
+        break;
+    case Property::pivotY:
+        setPivotY(value);
+        break;
+    case Property::scaleX:
+        setScaleX(value);
+        break;
+    case Property::scaleY:
+        setScaleY(value);
+        break;
+    case Property::translateX:
+        setTranslateX(value);
+        break;
+    case Property::translateY:
+        setTranslateY(value);
+        break;
+    default:
+        LOG_ALWAYS_FATAL("Invalid property index: %d", propertyId);
     }
 }
 
@@ -402,8 +460,8 @@ bool Group::GroupProperties::isValidProperty(int propertyId) {
     return propertyId >= 0 && propertyId < static_cast<int>(Property::count);
 }
 
-int Tree::draw(Canvas* outCanvas, SkColorFilter* colorFilter, const SkRect& bounds,
-               bool needsMirroring, bool canReuseCache) {
+int Tree::draw(Canvas* outCanvas, SkColorFilter* colorFilter,
+        const SkRect& bounds, bool needsMirroring, bool canReuseCache) {
     // The imageView can scale the canvas in different ways, in order to
     // avoid blurry scaling, we have to draw into a bitmap with exact pixel
     // size first. This bitmap size is determined by the bounds and the
@@ -418,8 +476,8 @@ int Tree::draw(Canvas* outCanvas, SkColorFilter* colorFilter, const SkRect& boun
         canvasScaleX = fabs(canvasMatrix.getScaleX());
         canvasScaleY = fabs(canvasMatrix.getScaleY());
     }
-    int scaledWidth = (int)(bounds.width() * canvasScaleX);
-    int scaledHeight = (int)(bounds.height() * canvasScaleY);
+    int scaledWidth = (int) (bounds.width() * canvasScaleX);
+    int scaledHeight = (int) (bounds.height() * canvasScaleY);
     scaledWidth = std::min(Tree::MAX_CACHED_BITMAP_SIZE, scaledWidth);
     scaledHeight = std::min(Tree::MAX_CACHED_BITMAP_SIZE, scaledHeight);
 
@@ -450,176 +508,75 @@ int Tree::draw(Canvas* outCanvas, SkColorFilter* colorFilter, const SkRect& boun
 }
 
 void Tree::drawStaging(Canvas* outCanvas) {
-    bool redrawNeeded = allocateBitmapIfNeeded(mStagingCache, mStagingProperties.getScaledWidth(),
-                                               mStagingProperties.getScaledHeight());
+    bool redrawNeeded = allocateBitmapIfNeeded(&mStagingCache.bitmap,
+            mStagingProperties.getScaledWidth(), mStagingProperties.getScaledHeight());
     // draw bitmap cache
     if (redrawNeeded || mStagingCache.dirty) {
-        updateBitmapCache(*mStagingCache.bitmap, true);
+        updateBitmapCache(&mStagingCache.bitmap, true);
         mStagingCache.dirty = false;
     }
 
-    SkPaint paint;
-    getPaintFor(&paint, mStagingProperties);
-    outCanvas->drawBitmap(*mStagingCache.bitmap, 0, 0, mStagingCache.bitmap->width(),
-                          mStagingCache.bitmap->height(), mStagingProperties.getBounds().left(),
-                          mStagingProperties.getBounds().top(),
-                          mStagingProperties.getBounds().right(),
-                          mStagingProperties.getBounds().bottom(), &paint);
+    SkPaint tmpPaint;
+    SkPaint* paint = updatePaint(&tmpPaint, &mStagingProperties);
+    outCanvas->drawBitmap(mStagingCache.bitmap, 0, 0,
+            mStagingCache.bitmap.width(), mStagingCache.bitmap.height(),
+            mStagingProperties.getBounds().left(), mStagingProperties.getBounds().top(),
+            mStagingProperties.getBounds().right(), mStagingProperties.getBounds().bottom(), paint);
 }
 
-void Tree::getPaintFor(SkPaint* outPaint, const TreeProperties &prop) const {
-    // HWUI always draws VD with bilinear filtering.
-    outPaint->setFilterQuality(kLow_SkFilterQuality);
-    if (prop.getColorFilter() != nullptr) {
-        outPaint->setColorFilter(sk_ref_sp(prop.getColorFilter()));
-    }
-    outPaint->setAlpha(prop.getRootAlpha() * 255);
+SkPaint* Tree::getPaint() {
+    return updatePaint(&mPaint, &mProperties);
 }
 
-Bitmap& Tree::getBitmapUpdateIfDirty() {
-    bool redrawNeeded = allocateBitmapIfNeeded(mCache, mProperties.getScaledWidth(),
-                                               mProperties.getScaledHeight());
-    if (redrawNeeded || mCache.dirty) {
-        updateBitmapCache(*mCache.bitmap, false);
-        mCache.dirty = false;
-    }
-    return *mCache.bitmap;
-}
-
-void Tree::updateCache(sp<skiapipeline::VectorDrawableAtlas>& atlas, GrContext* context) {
-    SkRect dst;
-    sk_sp<SkSurface> surface = mCache.getSurface(&dst);
-    bool canReuseSurface = surface && dst.width() >= mProperties.getScaledWidth() &&
-                           dst.height() >= mProperties.getScaledHeight();
-    if (!canReuseSurface) {
-        int scaledWidth = SkScalarCeilToInt(mProperties.getScaledWidth());
-        int scaledHeight = SkScalarCeilToInt(mProperties.getScaledHeight());
-        auto atlasEntry = atlas->requestNewEntry(scaledWidth, scaledHeight, context);
-        if (INVALID_ATLAS_KEY != atlasEntry.key) {
-            dst = atlasEntry.rect;
-            surface = atlasEntry.surface;
-            mCache.setAtlas(atlas, atlasEntry.key);
-        } else {
-            // don't draw, if we failed to allocate an offscreen buffer
-            mCache.clear();
-            surface.reset();
-        }
-    }
-    if (!canReuseSurface || mCache.dirty) {
-        if (surface) {
-            Bitmap& bitmap = getBitmapUpdateIfDirty();
-            SkBitmap skiaBitmap;
-            bitmap.getSkBitmap(&skiaBitmap);
-            surface->writePixels(skiaBitmap, dst.fLeft, dst.fTop);
-        }
-        mCache.dirty = false;
-    }
-}
-
-void Tree::Cache::setAtlas(sp<skiapipeline::VectorDrawableAtlas> newAtlas,
-                           skiapipeline::AtlasKey newAtlasKey) {
-    LOG_ALWAYS_FATAL_IF(newAtlasKey == INVALID_ATLAS_KEY);
-    clear();
-    mAtlas = newAtlas;
-    mAtlasKey = newAtlasKey;
-}
-
-sk_sp<SkSurface> Tree::Cache::getSurface(SkRect* bounds) {
-    sk_sp<SkSurface> surface;
-    sp<skiapipeline::VectorDrawableAtlas> atlas = mAtlas.promote();
-    if (atlas.get() && mAtlasKey != INVALID_ATLAS_KEY) {
-        auto atlasEntry = atlas->getEntry(mAtlasKey);
-        *bounds = atlasEntry.rect;
-        surface = atlasEntry.surface;
-        mAtlasKey = atlasEntry.key;
-    }
-
-    return surface;
-}
-
-void Tree::Cache::clear() {
-    sp<skiapipeline::VectorDrawableAtlas> lockAtlas = mAtlas.promote();
-    if (lockAtlas.get()) {
-        lockAtlas->releaseEntry(mAtlasKey);
-    }
-    mAtlas = nullptr;
-    mAtlasKey = INVALID_ATLAS_KEY;
-}
-
-void Tree::draw(SkCanvas* canvas, const SkRect& bounds, const SkPaint& inPaint) {
-    if (canvas->quickReject(bounds)) {
-        // The RenderNode is on screen, but the AVD is not.
-        return;
-    }
-
-    // Update the paint for any animatable properties
-    SkPaint paint = inPaint;
-    paint.setAlpha(mProperties.getRootAlpha() * 255);
-
-    if (canvas->getGrContext() == nullptr) {
-        // Recording to picture, don't use the SkSurface which won't work off of renderthread.
-        Bitmap& bitmap = getBitmapUpdateIfDirty();
-        SkBitmap skiaBitmap;
-        bitmap.getSkBitmap(&skiaBitmap);
-
-        int scaledWidth = SkScalarCeilToInt(mProperties.getScaledWidth());
-        int scaledHeight = SkScalarCeilToInt(mProperties.getScaledHeight());
-        canvas->drawBitmapRect(skiaBitmap, SkRect::MakeWH(scaledWidth, scaledHeight), bounds,
-                               &paint, SkCanvas::kFast_SrcRectConstraint);
-        return;
-    }
-
-    SkRect src;
-    sk_sp<SkSurface> vdSurface = mCache.getSurface(&src);
-    if (vdSurface) {
-        canvas->drawImageRect(vdSurface->makeImageSnapshot().get(), src, bounds, &paint,
-                              SkCanvas::kFast_SrcRectConstraint);
+// Update the given paint with alpha and color filter. Return nullptr if no color filter is
+// specified and root alpha is 1. Otherwise, return updated paint.
+SkPaint* Tree::updatePaint(SkPaint* outPaint, TreeProperties* prop) {
+    if (prop->getRootAlpha() == 1.0f && prop->getColorFilter() == nullptr) {
+        return nullptr;
     } else {
-        // Handle the case when VectorDrawableAtlas has been destroyed, because of memory pressure.
-        // We render the VD into a temporary standalone buffer and mark the frame as dirty. Next
-        // frame will be cached into the atlas.
-        Bitmap& bitmap = getBitmapUpdateIfDirty();
-        SkBitmap skiaBitmap;
-        bitmap.getSkBitmap(&skiaBitmap);
-
-        int scaledWidth = SkScalarCeilToInt(mProperties.getScaledWidth());
-        int scaledHeight = SkScalarCeilToInt(mProperties.getScaledHeight());
-        canvas->drawBitmapRect(skiaBitmap, SkRect::MakeWH(scaledWidth, scaledHeight), bounds,
-                               &paint, SkCanvas::kFast_SrcRectConstraint);
-        mCache.clear();
-        markDirty();
+        outPaint->setColorFilter(prop->getColorFilter());
+        outPaint->setFilterQuality(kLow_SkFilterQuality);
+        outPaint->setAlpha(prop->getRootAlpha() * 255);
+        return outPaint;
     }
 }
 
-void Tree::updateBitmapCache(Bitmap& bitmap, bool useStagingData) {
-    SkBitmap outCache;
-    bitmap.getSkBitmap(&outCache);
-    int cacheWidth = outCache.width();
-    int cacheHeight = outCache.height();
-    ATRACE_FORMAT("VectorDrawable repaint %dx%d", cacheWidth, cacheHeight);
-    outCache.eraseColor(SK_ColorTRANSPARENT);
-    SkCanvas outCanvas(outCache);
-    float viewportWidth =
-            useStagingData ? mStagingProperties.getViewportWidth() : mProperties.getViewportWidth();
-    float viewportHeight = useStagingData ? mStagingProperties.getViewportHeight()
-                                          : mProperties.getViewportHeight();
-    float scaleX = cacheWidth / viewportWidth;
-    float scaleY = cacheHeight / viewportHeight;
-    outCanvas.scale(scaleX, scaleY);
-    mRootNode->draw(&outCanvas, useStagingData);
+const SkBitmap& Tree::getBitmapUpdateIfDirty() {
+    bool redrawNeeded = allocateBitmapIfNeeded(&mCache.bitmap, mProperties.getScaledWidth(),
+            mProperties.getScaledHeight());
+    if (redrawNeeded || mCache.dirty) {
+        updateBitmapCache(&mCache.bitmap, false);
+        mCache.dirty = false;
+    }
+    return mCache.bitmap;
 }
 
-bool Tree::allocateBitmapIfNeeded(Cache& cache, int width, int height) {
-    if (!canReuseBitmap(cache.bitmap.get(), width, height)) {
-        SkImageInfo info = SkImageInfo::MakeN32(width, height, kPremul_SkAlphaType);
-        cache.bitmap = Bitmap::allocateHeapBitmap(info);
+void Tree::updateBitmapCache(SkBitmap* outCache, bool useStagingData) {
+    outCache->eraseColor(SK_ColorTRANSPARENT);
+    SkCanvas outCanvas(*outCache);
+    float viewportWidth = useStagingData ?
+            mStagingProperties.getViewportWidth() : mProperties.getViewportWidth();
+    float viewportHeight = useStagingData ?
+            mStagingProperties.getViewportHeight() : mProperties.getViewportHeight();
+    float scaleX = outCache->width() / viewportWidth;
+    float scaleY = outCache->height() / viewportHeight;
+    mRootNode->draw(&outCanvas, SkMatrix::I(), scaleX, scaleY, useStagingData);
+}
+
+bool Tree::allocateBitmapIfNeeded(SkBitmap* outCache, int width, int height) {
+    if (!canReuseBitmap(*outCache, width, height)) {
+        SkImageInfo info = SkImageInfo::Make(width, height,
+                kN32_SkColorType, kPremul_SkAlphaType);
+        outCache->setInfo(info);
+        // TODO: Count the bitmap cache against app's java heap
+        outCache->allocPixels(info);
         return true;
     }
     return false;
 }
 
-bool Tree::canReuseBitmap(Bitmap* bitmap, int width, int height) {
-    return bitmap && width <= bitmap->width() && height <= bitmap->height();
+bool Tree::canReuseBitmap(const SkBitmap& bitmap, int width, int height) {
+    return width <= bitmap.width() && height <= bitmap.height();
 }
 
 void Tree::onPropertyChanged(TreeProperties* prop) {
@@ -630,81 +587,7 @@ void Tree::onPropertyChanged(TreeProperties* prop) {
     }
 }
 
-class MinMaxAverage {
-public:
-    void add(float sample) {
-        if (mCount == 0) {
-            mMin = sample;
-            mMax = sample;
-        } else {
-            mMin = std::min(mMin, sample);
-            mMax = std::max(mMax, sample);
-        }
-        mTotal += sample;
-        mCount++;
-    }
+}; // namespace VectorDrawable
 
-    float average() { return mTotal / mCount; }
-
-    float min() { return mMin; }
-
-    float max() { return mMax; }
-
-    float delta() { return mMax - mMin; }
-
-private:
-    float mMin = 0.0f;
-    float mMax = 0.0f;
-    float mTotal = 0.0f;
-    int mCount = 0;
-};
-
-BitmapPalette Tree::computePalette() {
-    // TODO Cache this and share the code with Bitmap.cpp
-
-    ATRACE_CALL();
-
-    // TODO: This calculation of converting to HSV & tracking min/max is probably overkill
-    // Experiment with something simpler since we just want to figure out if it's "color-ful"
-    // and then the average perceptual lightness.
-
-    MinMaxAverage hue, saturation, value;
-    int sampledCount = 0;
-
-    // Sample a grid of 100 pixels to get an overall estimation of the colors in play
-    mRootNode->forEachFillColor([&](SkColor color) {
-        if (SkColorGetA(color) < 75) {
-            return;
-        }
-        sampledCount++;
-        float hsv[3];
-        SkColorToHSV(color, hsv);
-        hue.add(hsv[0]);
-        saturation.add(hsv[1]);
-        value.add(hsv[2]);
-    });
-
-    if (sampledCount == 0) {
-        ALOGV("VectorDrawable is mostly translucent");
-        return BitmapPalette::Unknown;
-    }
-
-    ALOGV("samples = %d, hue [min = %f, max = %f, avg = %f]; saturation [min = %f, max = %f, avg = "
-          "%f]; value [min = %f, max = %f, avg = %f]",
-          sampledCount, hue.min(), hue.max(), hue.average(), saturation.min(), saturation.max(),
-          saturation.average(), value.min(), value.max(), value.average());
-
-    if (hue.delta() <= 20 && saturation.delta() <= .1f) {
-        if (value.average() >= .5f) {
-            return BitmapPalette::Light;
-        } else {
-            return BitmapPalette::Dark;
-        }
-    }
-    return BitmapPalette::Unknown;
-}
-
-}  // namespace VectorDrawable
-
-}  // namespace uirenderer
-}  // namespace android
+}; // namespace uirenderer
+}; // namespace android

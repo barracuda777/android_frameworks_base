@@ -16,7 +16,6 @@
 
 package com.google.android.util;
 
-import android.annotation.UnsupportedAppUsage;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -655,25 +654,15 @@ public abstract class AbstractMessageParser {
   public static abstract class Token {
     public enum Type {
 
-      @UnsupportedAppUsage
       HTML ("html"),
-      @UnsupportedAppUsage
       FORMAT ("format"),  // subtype of HTML
-      @UnsupportedAppUsage
       LINK ("l"),
-      @UnsupportedAppUsage
       SMILEY ("e"),
-      @UnsupportedAppUsage
       ACRONYM ("a"),
-      @UnsupportedAppUsage
       MUSIC ("m"),
-      @UnsupportedAppUsage
       GOOGLE_VIDEO ("v"),
-      @UnsupportedAppUsage
       YOUTUBE_VIDEO ("yt"),
-      @UnsupportedAppUsage
       PHOTO ("p"),
-      @UnsupportedAppUsage
       FLICKR ("f");
 
       //stringreps for HTML and FORMAT don't really matter

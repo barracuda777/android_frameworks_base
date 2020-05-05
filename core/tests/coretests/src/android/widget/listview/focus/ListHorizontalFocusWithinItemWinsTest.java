@@ -16,13 +16,15 @@
 
 package android.widget.listview.focus;
 
-import android.test.ActivityInstrumentationTestCase;
-import android.view.KeyEvent;
-import android.widget.Button;
-import android.widget.ListView;
 import android.widget.listview.ListHorizontalFocusWithinItemWins;
 
-import androidx.test.filters.MediumTest;
+import android.test.ActivityInstrumentationTestCase;
+import android.test.suitebuilder.annotation.MediumTest;
+import android.view.FocusFinder;
+import android.view.KeyEvent;
+import android.view.View;
+import android.widget.Button;
+import android.widget.ListView;
 
 public class ListHorizontalFocusWithinItemWinsTest extends ActivityInstrumentationTestCase<ListHorizontalFocusWithinItemWins> {
 
@@ -49,6 +51,12 @@ public class ListHorizontalFocusWithinItemWinsTest extends ActivityInstrumentati
     public void testPreconditions() {
         assertEquals("list position", 0, mListView.getSelectedItemPosition());
         assertTrue("mTopLeftButton.isFocused()", mTopLeftButton.isFocused());
+        assertEquals("global focus search to right from top left is bottom middle",
+                mBottomMiddleButton,
+                FocusFinder.getInstance().findNextFocus(mListView, mTopLeftButton, View.FOCUS_RIGHT));
+        assertEquals("global focus search to left from top right is bottom middle",
+                mBottomMiddleButton,
+                FocusFinder.getInstance().findNextFocus(mListView, mTopRightButton, View.FOCUS_LEFT));
     }
 
     @MediumTest

@@ -16,13 +16,14 @@
 
 #define LOG_TAG "backup_data"
 
+#include <androidfw/BackupHelpers.h>
+#include <utils/ByteOrder.h>
+
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
-#include <androidfw/BackupHelpers.h>
-#include <log/log.h>
-#include <utils/ByteOrder.h>
+#include <cutils/log.h>
 
 namespace android {
 

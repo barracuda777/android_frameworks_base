@@ -16,14 +16,11 @@
 
 package android.os.storage;
 
-import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.Intent;
+import android.net.TrafficStats;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Environment;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -35,7 +32,6 @@ import com.android.internal.util.Preconditions;
 
 import java.io.CharArrayWriter;
 import java.io.File;
-import java.util.Locale;
 
 /**
  * Information about a shared/external storage volume for a specific user.
@@ -81,18 +77,14 @@ import java.util.Locale;
 // user, but is now part of the public API.
 public final class StorageVolume implements Parcelable {
 
-    @UnsupportedAppUsage
     private final String mId;
-    @UnsupportedAppUsage
+    private final int mStorageId;
     private final File mPath;
-    private final File mInternalPath;
-    @UnsupportedAppUsage
     private final String mDescription;
-    @UnsupportedAppUsage
     private final boolean mPrimary;
-    @UnsupportedAppUsage
     private final boolean mRemovable;
     private final boolean mEmulated;
+    private final long mMtpReserveSize;
     private final boolean mAllowMassStorage;
     private final long mMaxFileSize;
     private final UserHandle mOwner;
@@ -129,16 +121,17 @@ public final class StorageVolume implements Parcelable {
     public static final int STORAGE_ID_PRIMARY = 0x00010001;
 
     /** {@hide} */
-    public StorageVolume(String id, File path, File internalPath, String description,
-            boolean primary, boolean removable, boolean emulated, boolean allowMassStorage,
+    public StorageVolume(String id, int storageId, File path, String description, boolean primary,
+            boolean removable, boolean emulated, long mtpReserveSize, boolean allowMassStorage,
             long maxFileSize, UserHandle owner, String fsUuid, String state) {
         mId = Preconditions.checkNotNull(id);
+        mStorageId = storageId;
         mPath = Preconditions.checkNotNull(path);
-        mInternalPath = Preconditions.checkNotNull(internalPath);
         mDescription = Preconditions.checkNotNull(description);
         mPrimary = primary;
         mRemovable = removable;
         mEmulated = emulated;
+        mMtpReserveSize = mtpReserveSize;
         mAllowMassStorage = allowMassStorage;
         mMaxFileSize = maxFileSize;
         mOwner = Preconditions.checkNotNull(owner);
@@ -148,12 +141,13 @@ public final class StorageVolume implements Parcelable {
 
     private StorageVolume(Parcel in) {
         mId = in.readString();
+        mStorageId = in.readInt();
         mPath = new File(in.readString());
-        mInternalPath = new File(in.readString());
         mDescription = in.readString();
         mPrimary = in.readInt() != 0;
         mRemovable = in.readInt() != 0;
         mEmulated = in.readInt() != 0;
+        mMtpReserveSize = in.readLong();
         mAllowMassStorage = in.readInt() != 0;
         mMaxFileSize = in.readLong();
         mOwner = in.readParcelable(null);
@@ -162,7 +156,6 @@ public final class StorageVolume implements Parcelable {
     }
 
     /** {@hide} */
-    @UnsupportedAppUsage
     public String getId() {
         return mId;
     }
@@ -173,23 +166,11 @@ public final class StorageVolume implements Parcelable {
      * @return the mount path
      * @hide
      */
-    @TestApi
     public String getPath() {
         return mPath.toString();
     }
 
-    /**
-     * Returns the path of the underlying filesystem.
-     *
-     * @return the internal path
-     * @hide
-     */
-    public String getInternalPath() {
-        return mInternalPath.toString();
-    }
-
     /** {@hide} */
-    @UnsupportedAppUsage
     public File getPathFile() {
         return mPath;
     }
@@ -230,12 +211,39 @@ public final class StorageVolume implements Parcelable {
     }
 
     /**
+     * Returns the MTP storage ID for the volume.
+     * this is also used for the storage_id column in the media provider.
+     *
+     * @return MTP storage ID
+     * @hide
+     */
+    public int getStorageId() {
+        return mStorageId;
+    }
+
+    /**
+     * Number of megabytes of space to leave unallocated by MTP.
+     * MTP will subtract this value from the free space it reports back
+     * to the host via GetStorageInfo, and will not allow new files to
+     * be added via MTP if there is less than this amount left free in the storage.
+     * If MTP has dedicated storage this value should be zero, but if MTP is
+     * sharing storage with the rest of the system, set this to a positive value
+     * to ensure that MTP activity does not result in the storage being
+     * too close to full.
+     *
+     * @return MTP reserve space
+     * @hide
+     */
+    public int getMtpReserveSpace() {
+        return (int) (mMtpReserveSize / TrafficStats.MB_IN_BYTES);
+    }
+
+    /**
      * Returns true if this volume can be shared via USB mass storage.
      *
      * @return whether mass storage is allowed
      * @hide
      */
-    @UnsupportedAppUsage
     public boolean allowMassStorage() {
         return mAllowMassStorage;
     }
@@ -246,13 +254,11 @@ public final class StorageVolume implements Parcelable {
      * @return maximum file size
      * @hide
      */
-    @UnsupportedAppUsage
     public long getMaxFileSize() {
         return mMaxFileSize;
     }
 
     /** {@hide} */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     public UserHandle getOwner() {
         return mOwner;
     }
@@ -264,35 +270,28 @@ public final class StorageVolume implements Parcelable {
         return mFsUuid;
     }
 
-    /** {@hide} */
-    public static @Nullable String normalizeUuid(@Nullable String fsUuid) {
-        return fsUuid != null ? fsUuid.toLowerCase(Locale.US) : null;
-    }
-
-    /** {@hide} */
-    public @Nullable String getNormalizedUuid() {
-        return normalizeUuid(mFsUuid);
-    }
-
     /**
-     * Parse and return volume UUID as FAT volume ID, or return -1 if unable to
+     * Parse and return volume UUID as volume ID, or return -1 if unable to
      * parse or UUID is unknown.
      * @hide
      */
-    @UnsupportedAppUsage
-    public int getFatVolumeId() {
-        if (mFsUuid == null || mFsUuid.length() != 9) {
+    public int getVolumeId() {
+        String id = mFsUuid;
+        if (id == null) {
             return -1;
         }
+        id = id.replace("-", "");
+        if (id.length() > 8) {
+            id = id.substring(0, 8);
+        }
         try {
-            return (int) Long.parseLong(mFsUuid.replace("-", ""), 16);
+            return (int) Long.parseLong(id, 16);
         } catch (NumberFormatException e) {
             return -1;
         }
     }
 
     /** {@hide} */
-    @UnsupportedAppUsage
     public String getUserLabel() {
         return mDescription;
     }
@@ -338,17 +337,12 @@ public final class StorageVolume implements Parcelable {
      *            {@link Environment#DIRECTORY_ALARMS}, {@link Environment#DIRECTORY_NOTIFICATIONS},
      *            {@link Environment#DIRECTORY_PICTURES}, {@link Environment#DIRECTORY_MOVIES},
      *            {@link Environment#DIRECTORY_DOWNLOADS}, {@link Environment#DIRECTORY_DCIM}, or
-     *            {@link Environment#DIRECTORY_DOCUMENTS}, or {@code null} to request access to the
+     *            {@link Environment#DIRECTORY_DOCUMENTS}, or {code null} to request access to the
      *            entire volume.
      * @return intent to request access, or {@code null} if the requested directory is invalid for
      *         that volume.
      * @see DocumentsContract
-     * @deprecated Callers should migrate to using {@link Intent#ACTION_OPEN_DOCUMENT_TREE} instead.
-     *             Launching this {@link Intent} on devices running
-     *             {@link android.os.Build.VERSION_CODES#Q} or higher, will immediately finish
-     *             with a result code of {@link android.app.Activity#RESULT_CANCELED}.
      */
-    @Deprecated
     public @Nullable Intent createAccessIntent(String directoryName) {
         if ((isPrimary() && directoryName == null) ||
                 (directoryName != null && !Environment.isStandardDirectory(directoryName))) {
@@ -357,32 +351,6 @@ public final class StorageVolume implements Parcelable {
         final Intent intent = new Intent(ACTION_OPEN_EXTERNAL_DIRECTORY);
         intent.putExtra(EXTRA_STORAGE_VOLUME, this);
         intent.putExtra(EXTRA_DIRECTORY_NAME, directoryName);
-        return intent;
-    }
-
-    /**
-     * Builds an {@link Intent#ACTION_OPEN_DOCUMENT_TREE} to allow the user to grant access to any
-     * directory subtree (or entire volume) from the {@link android.provider.DocumentsProvider}s
-     * available on the device. The initial location of the document navigation will be the root of
-     * this {@link StorageVolume}.
-     *
-     * Note that the returned {@link Intent} simply suggests that the user picks this {@link
-     * StorageVolume} by default, but the user may select a different location. Callers must respect
-     * the user's chosen location, even if it is different from the originally requested location.
-     *
-     * @return intent to {@link Intent#ACTION_OPEN_DOCUMENT_TREE} initially showing the contents
-     *         of this {@link StorageVolume}
-     * @see Intent#ACTION_OPEN_DOCUMENT_TREE
-     */
-    @NonNull public Intent createOpenDocumentTreeIntent() {
-        final String rootId = isEmulated()
-                ? DocumentsContract.EXTERNAL_STORAGE_PRIMARY_EMULATED_ROOT_ID
-                : mFsUuid;
-        final Uri rootUri = DocumentsContract.buildRootUri(
-                DocumentsContract.EXTERNAL_STORAGE_PROVIDER_AUTHORITY, rootId);
-        final Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
-                .putExtra(DocumentsContract.EXTRA_INITIAL_URI, rootUri)
-                .putExtra(DocumentsContract.EXTRA_SHOW_ADVANCED, true);
         return intent;
     }
 
@@ -410,7 +378,8 @@ public final class StorageVolume implements Parcelable {
     }
 
     /** {@hide} */
-    // TODO: find out where toString() is called internally and replace these calls by dump().
+    // TODO(b/26742218): find out where toString() is called internally and replace these calls by
+    // dump().
     public String dump() {
         final CharArrayWriter writer = new CharArrayWriter();
         dump(new IndentingPrintWriter(writer, "    ", 80));
@@ -422,12 +391,13 @@ public final class StorageVolume implements Parcelable {
         pw.println("StorageVolume:");
         pw.increaseIndent();
         pw.printPair("mId", mId);
+        pw.printPair("mStorageId", mStorageId);
         pw.printPair("mPath", mPath);
-        pw.printPair("mInternalPath", mInternalPath);
         pw.printPair("mDescription", mDescription);
         pw.printPair("mPrimary", mPrimary);
         pw.printPair("mRemovable", mRemovable);
         pw.printPair("mEmulated", mEmulated);
+        pw.printPair("mMtpReserveSize", mMtpReserveSize);
         pw.printPair("mAllowMassStorage", mAllowMassStorage);
         pw.printPair("mMaxFileSize", mMaxFileSize);
         pw.printPair("mOwner", mOwner);
@@ -436,7 +406,7 @@ public final class StorageVolume implements Parcelable {
         pw.decreaseIndent();
     }
 
-    public static final @android.annotation.NonNull Creator<StorageVolume> CREATOR = new Creator<StorageVolume>() {
+    public static final Creator<StorageVolume> CREATOR = new Creator<StorageVolume>() {
         @Override
         public StorageVolume createFromParcel(Parcel in) {
             return new StorageVolume(in);
@@ -456,12 +426,13 @@ public final class StorageVolume implements Parcelable {
     @Override
     public void writeToParcel(Parcel parcel, int flags) {
         parcel.writeString(mId);
+        parcel.writeInt(mStorageId);
         parcel.writeString(mPath.toString());
-        parcel.writeString(mInternalPath.toString());
         parcel.writeString(mDescription);
         parcel.writeInt(mPrimary ? 1 : 0);
         parcel.writeInt(mRemovable ? 1 : 0);
         parcel.writeInt(mEmulated ? 1 : 0);
+        parcel.writeLong(mMtpReserveSize);
         parcel.writeInt(mAllowMassStorage ? 1 : 0);
         parcel.writeLong(mMaxFileSize);
         parcel.writeParcelable(mOwner, flags);

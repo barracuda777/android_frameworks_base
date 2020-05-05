@@ -13,26 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package android.animation;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-
 import android.os.Handler;
+import android.test.ActivityInstrumentationTestCase2;
+import android.test.UiThreadTest;
+import android.test.suitebuilder.annotation.MediumTest;
+import android.test.suitebuilder.annotation.SmallTest;
 import android.view.ViewPropertyAnimator;
 import android.widget.Button;
-
-import androidx.test.annotation.UiThreadTest;
-import androidx.test.filters.MediumTest;
-import androidx.test.filters.SmallTest;
-import androidx.test.rule.ActivityTestRule;
-
 import com.android.frameworks.coretests.R;
-
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
 
 import java.util.concurrent.TimeUnit;
 
@@ -48,11 +38,8 @@ import java.util.concurrent.TimeUnit;
  * wait for some later event to occur before ending. These tests use a combination of an
  * AbstractFuture mechanism and a delayed action to release that Future later.
  */
-public class ViewPropertyAnimatorTest {
-
-    @Rule
-    public final ActivityTestRule<BasicAnimatorActivity> mActivityRule =
-            new ActivityTestRule<>(BasicAnimatorActivity.class);
+public abstract class ViewPropertyAnimatorTest
+        extends ActivityInstrumentationTestCase2<BasicAnimatorActivity> {
 
     protected static final int ANIM_DURATION = 400;
     protected static final int ANIM_DELAY = 100;
@@ -89,7 +76,7 @@ public class ViewPropertyAnimatorTest {
                 mFuture.setException(new RuntimeException(e));
             }
         }
-    }
+    };
 
     /**
      * Timeout length, based on when the animation should reasonably be complete.
@@ -118,14 +105,28 @@ public class ViewPropertyAnimatorTest {
         public FutureReleaseListener(FutureWaiter future, long timeout) {
             mFuture = future;
             Handler handler = new Handler();
-            handler.postDelayed(mFuture::release, timeout);
+            handler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    mFuture.release();
+                }
+            }, timeout);
         }
 
         @Override
         public void onAnimationEnd(Animator animation) {
             Handler handler = new Handler();
-            handler.postDelayed(mFuture::release, FUTURE_RELEASE_DELAY);
+            handler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    mFuture.release();
+                }
+            }, FUTURE_RELEASE_DELAY);
         }
+    };
+
+    public ViewPropertyAnimatorTest() {
+        super(BasicAnimatorActivity.class);
     }
 
     /**
@@ -134,12 +135,14 @@ public class ViewPropertyAnimatorTest {
      * and then call super.setup(), where further properties are set on that animator.
      * @throws Exception
      */
-    @Before
+    @Override
     public void setUp() throws Exception {
-        final BasicAnimatorActivity activity = mActivityRule.getActivity();
-        Button button = activity.findViewById(R.id.animatingButton);
+        final BasicAnimatorActivity activity = getActivity();
+        Button button = (Button) activity.findViewById(R.id.animatingButton);
 
         mAnimator = button.animate().x(100).y(100);
+
+        super.setUp();
 
         // mListener is the main testing mechanism of this file. The asserts of each test
         // are embedded in the listener callbacks that it implements.
@@ -189,7 +192,6 @@ public class ViewPropertyAnimatorTest {
      */
     @UiThreadTest
     @SmallTest
-    @Test
     public void testCancel() throws Exception {
         mAnimator.cancel();
     }
@@ -199,17 +201,19 @@ public class ViewPropertyAnimatorTest {
      */
     @UiThreadTest
     @SmallTest
-    @Test
-    public void testStartCancel() throws Throwable {
+    public void testStartCancel() throws Exception {
         mFutureListener = new FutureReleaseListener(mFuture);
-        mActivityRule.runOnUiThread(() -> {
-            try {
-                mRunning = true;
-                mAnimator.start();
-                mAnimator.cancel();
-                mFuture.release();
-            } catch (junit.framework.AssertionFailedError e) {
-                mFuture.setException(new RuntimeException(e));
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    mRunning = true;
+                    mAnimator.start();
+                    mAnimator.cancel();
+                    mFuture.release();
+                } catch (junit.framework.AssertionFailedError e) {
+                    mFuture.setException(new RuntimeException(e));
+                }
             }
         });
         mFuture.get(getTimeout(), TimeUnit.MILLISECONDS);
@@ -219,18 +223,20 @@ public class ViewPropertyAnimatorTest {
      * Same as testStartCancel, but with a startDelayed animator
      */
     @SmallTest
-    @Test
-    public void testStartDelayedCancel() throws Throwable {
+    public void testStartDelayedCancel() throws Exception {
         mFutureListener = new FutureReleaseListener(mFuture);
         mAnimator.setStartDelay(ANIM_DELAY);
-        mActivityRule.runOnUiThread(() -> {
-            try {
-                mRunning = true;
-                mAnimator.start();
-                mAnimator.cancel();
-                mFuture.release();
-            } catch (junit.framework.AssertionFailedError e) {
-                mFuture.setException(new RuntimeException(e));
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    mRunning = true;
+                    mAnimator.start();
+                    mAnimator.cancel();
+                    mFuture.release();
+                } catch (junit.framework.AssertionFailedError e) {
+                    mFuture.setException(new RuntimeException(e));
+                }
             }
         });
         mFuture.get(getTimeout(), TimeUnit.MILLISECONDS);
@@ -240,18 +246,20 @@ public class ViewPropertyAnimatorTest {
      * Verify that canceling an animator that is playing does the right thing.
      */
     @MediumTest
-    @Test
-    public void testPlayingCancel() throws Throwable {
+    public void testPlayingCancel() throws Exception {
         mFutureListener = new FutureReleaseListener(mFuture);
-        mActivityRule.runOnUiThread(() -> {
-            try {
-                Handler handler = new Handler();
-                mAnimator.setListener(mFutureListener);
-                mRunning = true;
-                mAnimator.start();
-                handler.postDelayed(new Canceler(mAnimator, mFuture), ANIM_MID_DURATION);
-            } catch (junit.framework.AssertionFailedError e) {
-                mFuture.setException(new RuntimeException(e));
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Handler handler = new Handler();
+                    mAnimator.setListener(mFutureListener);
+                    mRunning = true;
+                    mAnimator.start();
+                    handler.postDelayed(new Canceler(mAnimator, mFuture), ANIM_MID_DURATION);
+                } catch (junit.framework.AssertionFailedError e) {
+                    mFuture.setException(new RuntimeException(e));
+                }
             }
         });
         mFuture.get(getTimeout(), TimeUnit.MILLISECONDS);
@@ -261,19 +269,21 @@ public class ViewPropertyAnimatorTest {
      * Same as testPlayingCancel, but with a startDelayed animator
      */
     @MediumTest
-    @Test
-    public void testPlayingDelayedCancel() throws Throwable {
+    public void testPlayingDelayedCancel() throws Exception {
         mAnimator.setStartDelay(ANIM_DELAY);
         mFutureListener = new FutureReleaseListener(mFuture);
-        mActivityRule.runOnUiThread(() -> {
-            try {
-                Handler handler = new Handler();
-                mAnimator.setListener(mFutureListener);
-                mRunning = true;
-                mAnimator.start();
-                handler.postDelayed(new Canceler(mAnimator, mFuture), ANIM_MID_DURATION);
-            } catch (junit.framework.AssertionFailedError e) {
-                mFuture.setException(new RuntimeException(e));
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Handler handler = new Handler();
+                    mAnimator.setListener(mFutureListener);
+                    mRunning = true;
+                    mAnimator.start();
+                    handler.postDelayed(new Canceler(mAnimator, mFuture), ANIM_MID_DURATION);
+                } catch (junit.framework.AssertionFailedError e) {
+                    mFuture.setException(new RuntimeException(e));
+                }
             }
         });
         mFuture.get(getTimeout(),  TimeUnit.MILLISECONDS);
@@ -283,21 +293,24 @@ public class ViewPropertyAnimatorTest {
      * Same as testPlayingDelayedCancel, but cancel during the startDelay period
      */
     @MediumTest
-    @Test
-    public void testPlayingDelayedCancelMidDelay() throws Throwable {
+    public void testPlayingDelayedCancelMidDelay() throws Exception {
         mAnimator.setStartDelay(ANIM_DELAY);
-        mActivityRule.runOnUiThread(() -> {
-            try {
-                // Set the listener to automatically timeout after an uncanceled animation would
-                // have finished. This tests to make sure that we're not calling the listeners with
-                // cancel/end callbacks since they won't be called with the start event.
-                mFutureListener = new FutureReleaseListener(mFuture, getTimeout());
-                Handler handler = new Handler();
-                mRunning = true;
-                mAnimator.start();
-                handler.postDelayed(new Canceler(mAnimator, mFuture), ANIM_MID_DELAY);
-            } catch (junit.framework.AssertionFailedError e) {
-                mFuture.setException(new RuntimeException(e));
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    // Set the listener to automatically timeout after an uncanceled animation
+                    // would have finished. This tests to make sure that we're not calling
+                    // the listeners with cancel/end callbacks since they won't be called
+                    // with the start event.
+                    mFutureListener = new FutureReleaseListener(mFuture, getTimeout());
+                    Handler handler = new Handler();
+                    mRunning = true;
+                    mAnimator.start();
+                    handler.postDelayed(new Canceler(mAnimator, mFuture), ANIM_MID_DELAY);
+                } catch (junit.framework.AssertionFailedError e) {
+                    mFuture.setException(new RuntimeException(e));
+                }
             }
         });
         mFuture.get(getTimeout() + 100,  TimeUnit.MILLISECONDS);
@@ -308,18 +321,20 @@ public class ViewPropertyAnimatorTest {
      * does nothing.
      */
     @MediumTest
-    @Test
-    public void testStartDoubleCancel() throws Throwable {
+    public void testStartDoubleCancel() throws Exception {
         mFutureListener = new FutureReleaseListener(mFuture);
-        mActivityRule.runOnUiThread(() -> {
-            try {
-                mRunning = true;
-                mAnimator.start();
-                mAnimator.cancel();
-                mAnimator.cancel();
-                mFuture.release();
-            } catch (junit.framework.AssertionFailedError e) {
-                mFuture.setException(new RuntimeException(e));
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    mRunning = true;
+                    mAnimator.start();
+                    mAnimator.cancel();
+                    mAnimator.cancel();
+                    mFuture.release();
+                } catch (junit.framework.AssertionFailedError e) {
+                    mFuture.setException(new RuntimeException(e));
+                }
             }
         });
         mFuture.get(getTimeout(), TimeUnit.MILLISECONDS);
@@ -329,21 +344,24 @@ public class ViewPropertyAnimatorTest {
      * Same as testStartDoubleCancel, but with a startDelayed animator
      */
     @MediumTest
-    @Test
-    public void testStartDelayedDoubleCancel() throws Throwable {
+    public void testStartDelayedDoubleCancel() throws Exception {
         mAnimator.setStartDelay(ANIM_DELAY);
         mFutureListener = new FutureReleaseListener(mFuture);
-        mActivityRule.runOnUiThread(() -> {
-            try {
-                mRunning = true;
-                mAnimator.start();
-                mAnimator.cancel();
-                mAnimator.cancel();
-                mFuture.release();
-            } catch (junit.framework.AssertionFailedError e) {
-                mFuture.setException(new RuntimeException(e));
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    mRunning = true;
+                    mAnimator.start();
+                    mAnimator.cancel();
+                    mAnimator.cancel();
+                    mFuture.release();
+                } catch (junit.framework.AssertionFailedError e) {
+                    mFuture.setException(new RuntimeException(e));
+                }
             }
         });
         mFuture.get(getTimeout(),  TimeUnit.MILLISECONDS);
      }
+
 }

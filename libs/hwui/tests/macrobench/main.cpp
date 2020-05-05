@@ -14,27 +14,23 @@
  * limitations under the License.
  */
 
-#include "tests/common/LeakChecker.h"
 #include "tests/common/TestScene.h"
 
+#include "protos/hwui.pb.h"
 #include "Properties.h"
-#include "hwui/Typeface.h"
-#include "HardwareBitmapUploader.h"
-#include "renderthread/RenderProxy.h"
 
-#include <benchmark/benchmark.h>
 #include <getopt.h>
-#include <pthread.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <string>
+#include <unistd.h>
 #include <unordered_map>
 #include <vector>
+#include <pthread.h>
 
-#include <errno.h>
-#include <fcntl.h>
-#include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
 
 using namespace android;
 using namespace android::uirenderer;
@@ -43,14 +39,12 @@ using namespace android::uirenderer::test;
 static int gRepeatCount = 1;
 static std::vector<TestScene::Info> gRunTests;
 static TestScene::Options gOpts;
-std::unique_ptr<benchmark::BenchmarkReporter> gBenchmarkReporter;
 
-void run(const TestScene::Info& info, const TestScene::Options& opts,
-         benchmark::BenchmarkReporter* reporter);
+void run(const TestScene::Info& info, const TestScene::Options& opts);
 
 static void printHelp() {
     printf(R"(
-USAGE: hwuimacro [OPTIONS] <TESTNAME>
+USAGE: hwuitest [OPTIONS] <TESTNAME>
 
 OPTIONS:
   -c, --count=NUM      NUM loops a test should run (example, number of frames)
@@ -64,12 +58,6 @@ OPTIONS:
                        moving average frametime. Weight is optional, default is 10
   --cpuset=name        Adds the test to the specified cpuset before running
                        Not supported on all devices and needs root
-  --offscreen          Render tests off device screen. This option is on by default
-  --onscreen           Render tests on device screen. By default tests
-                       are offscreen rendered
-  --benchmark_format   Set output format. Possible values are tabular, json, csv
-  --renderer=TYPE      Sets the render pipeline to use. May be skiagl or skiavk
-  --render-ahead=NUM   Sets how far to render-ahead. Must be 0 (default), 1, or 2.
 )");
 }
 
@@ -84,7 +72,7 @@ static void listTests() {
         do {
             int toPrint = dlen;
             if (toPrint > 50) {
-                char* found = (char*)memrchr(col2, ' ', 50);
+                char* found = (char*) memrchr(col2, ' ', 50);
                 if (found) {
                     toPrint = found - col2;
                 } else {
@@ -96,8 +84,7 @@ static void listTests() {
             col2 += toPrint;
             dlen -= toPrint;
             while (*col2 == ' ') {
-                col2++;
-                dlen--;
+                col2++; dlen--;
             }
         } while (dlen > 0);
         printf("\n");
@@ -123,7 +110,7 @@ static void moveToCpuSet(const char* cpusetName) {
     }
     pid_t pid = getpid();
 
-    int towrite = snprintf(buffer, BUF_SIZE, "%ld", (long)pid);
+    int towrite = snprintf(buffer, BUF_SIZE, "%ld", (long) pid);
     if (towrite >= BUF_SIZE) {
         fprintf(stderr, "Buffer wasn't large enough?\n");
     } else {
@@ -132,30 +119,6 @@ static void moveToCpuSet(const char* cpusetName) {
         }
     }
     close(fd);
-}
-
-static bool setBenchmarkFormat(const char* format) {
-    if (!strcmp(format, "tabular")) {
-        gBenchmarkReporter.reset(new benchmark::ConsoleReporter());
-    } else if (!strcmp(format, "json")) {
-        gBenchmarkReporter.reset(new benchmark::JSONReporter());
-    } else {
-        fprintf(stderr, "Unknown format '%s'", format);
-        return false;
-    }
-    return true;
-}
-
-static bool setRenderer(const char* renderer) {
-    if (!strcmp(renderer, "skiagl")) {
-        Properties::overrideRenderPipelineType(RenderPipelineType::SkiaGL);
-    } else if (!strcmp(renderer, "skiavk")) {
-        Properties::overrideRenderPipelineType(RenderPipelineType::SkiaVulkan);
-    } else {
-        fprintf(stderr, "Unknown format '%s'", renderer);
-        return false;
-    }
-    return true;
 }
 
 // For options that only exist in long-form. Anything in the
@@ -167,28 +130,19 @@ enum {
     WaitForGpu,
     ReportFrametime,
     CpuSet,
-    BenchmarkFormat,
-    Onscreen,
-    Offscreen,
-    Renderer,
-    RenderAhead,
 };
 }
 
 static const struct option LONG_OPTIONS[] = {
-        {"frames", required_argument, nullptr, 'f'},
-        {"repeat", required_argument, nullptr, 'r'},
-        {"help", no_argument, nullptr, 'h'},
-        {"list", no_argument, nullptr, LongOpts::List},
-        {"wait-for-gpu", no_argument, nullptr, LongOpts::WaitForGpu},
-        {"report-frametime", optional_argument, nullptr, LongOpts::ReportFrametime},
-        {"cpuset", required_argument, nullptr, LongOpts::CpuSet},
-        {"benchmark_format", required_argument, nullptr, LongOpts::BenchmarkFormat},
-        {"onscreen", no_argument, nullptr, LongOpts::Onscreen},
-        {"offscreen", no_argument, nullptr, LongOpts::Offscreen},
-        {"renderer", required_argument, nullptr, LongOpts::Renderer},
-        {"render-ahead", required_argument, nullptr, LongOpts::RenderAhead},
-        {0, 0, 0, 0}};
+    { "frames", required_argument, nullptr, 'f' },
+    { "repeat", required_argument, nullptr, 'r' },
+    { "help", no_argument, nullptr, 'h' },
+    { "list", no_argument, nullptr, LongOpts::List },
+    { "wait-for-gpu", no_argument, nullptr, LongOpts::WaitForGpu },
+    { "report-frametime", optional_argument, nullptr, LongOpts::ReportFrametime },
+    { "cpuset", required_argument, nullptr, LongOpts::CpuSet },
+    { 0, 0, 0, 0 }
+};
 
 static const char* SHORT_OPTIONS = "c:r:h";
 
@@ -198,115 +152,79 @@ void parseOptions(int argc, char* argv[]) {
     opterr = 0;
 
     while (true) {
+
         /* getopt_long stores the option index here. */
         int option_index = 0;
 
         c = getopt_long(argc, argv, SHORT_OPTIONS, LONG_OPTIONS, &option_index);
 
-        if (c == -1) break;
+        if (c == -1)
+            break;
 
         switch (c) {
-            case 0:
-                // Option set a flag, don't need to do anything
-                // (although none of the current LONG_OPTIONS do this...)
-                break;
+        case 0:
+            // Option set a flag, don't need to do anything
+            // (although none of the current LONG_OPTIONS do this...)
+            break;
 
-            case LongOpts::List:
-                listTests();
-                exit(EXIT_SUCCESS);
-                break;
+        case LongOpts::List:
+            listTests();
+            exit(EXIT_SUCCESS);
+            break;
 
-            case 'c':
-                gOpts.count = atoi(optarg);
-                if (!gOpts.count) {
-                    fprintf(stderr, "Invalid frames argument '%s'\n", optarg);
+        case 'c':
+            gOpts.count = atoi(optarg);
+            if (!gOpts.count) {
+                fprintf(stderr, "Invalid frames argument '%s'\n", optarg);
+                error = true;
+            }
+            break;
+
+        case 'r':
+            gRepeatCount = atoi(optarg);
+            if (!gRepeatCount) {
+                fprintf(stderr, "Invalid repeat argument '%s'\n", optarg);
+                error = true;
+            } else {
+                gRepeatCount = (gRepeatCount > 0 ? gRepeatCount : INT_MAX);
+            }
+            break;
+
+        case LongOpts::ReportFrametime:
+            if (optarg) {
+                gOpts.reportFrametimeWeight = atoi(optarg);
+                if (!gOpts.reportFrametimeWeight) {
+                    fprintf(stderr, "Invalid report frametime weight '%s'\n", optarg);
                     error = true;
                 }
-                break;
+            } else {
+                gOpts.reportFrametimeWeight = 10;
+            }
+            break;
 
-            case 'r':
-                gRepeatCount = atoi(optarg);
-                if (!gRepeatCount) {
-                    fprintf(stderr, "Invalid repeat argument '%s'\n", optarg);
-                    error = true;
-                } else {
-                    gRepeatCount = (gRepeatCount > 0 ? gRepeatCount : INT_MAX);
-                }
-                break;
+        case LongOpts::WaitForGpu:
+            Properties::waitForGpuCompletion = true;
+            break;
 
-            case LongOpts::ReportFrametime:
-                if (optarg) {
-                    gOpts.reportFrametimeWeight = atoi(optarg);
-                    if (!gOpts.reportFrametimeWeight) {
-                        fprintf(stderr, "Invalid report frametime weight '%s'\n", optarg);
-                        error = true;
-                    }
-                } else {
-                    gOpts.reportFrametimeWeight = 10;
-                }
-                break;
-
-            case LongOpts::WaitForGpu:
-                Properties::waitForGpuCompletion = true;
-                break;
-
-            case LongOpts::CpuSet:
-                if (!optarg) {
-                    error = true;
-                    break;
-                }
-                moveToCpuSet(optarg);
-                break;
-
-            case LongOpts::BenchmarkFormat:
-                if (!optarg) {
-                    error = true;
-                    break;
-                }
-                if (!setBenchmarkFormat(optarg)) {
-                    error = true;
-                }
-                break;
-
-            case LongOpts::Renderer:
-                if (!optarg) {
-                    error = true;
-                    break;
-                }
-                if (!setRenderer(optarg)) {
-                    error = true;
-                }
-                break;
-
-            case LongOpts::Onscreen:
-                gOpts.renderOffscreen = false;
-                break;
-
-            case LongOpts::Offscreen:
-                gOpts.renderOffscreen = true;
-                break;
-
-            case LongOpts::RenderAhead:
-                if (!optarg) {
-                    error = true;
-                }
-                gOpts.renderAhead = atoi(optarg);
-                if (gOpts.renderAhead < 0 || gOpts.renderAhead > 2) {
-                    error = true;
-                }
-                break;
-
-            case 'h':
-                printHelp();
-                exit(EXIT_SUCCESS);
-                break;
-
-            case '?':
-                fprintf(stderr, "Unrecognized option '%s'\n", argv[optind - 1]);
-                [[fallthrough]];
-            default:
+        case LongOpts::CpuSet:
+            if (!optarg) {
                 error = true;
                 break;
+            }
+            moveToCpuSet(optarg);
+            break;
+
+        case 'h':
+            printHelp();
+            exit(EXIT_SUCCESS);
+            break;
+
+        case '?':
+            fprintf(stderr, "Unrecognized option '%s'\n", argv[optind - 1]);
+            // fall-through
+        default:
+            error = true;
+            break;
         }
     }
 
@@ -328,9 +246,7 @@ void parseOptions(int argc, char* argv[]) {
             }
         } while (optind < argc);
     } else {
-        for (auto& iter : TestScene::testMap()) {
-            gRunTests.push_back(iter.second);
-        }
+        gRunTests.push_back(TestScene::testMap()["shadowgrid"]);
     }
 }
 
@@ -338,39 +254,13 @@ int main(int argc, char* argv[]) {
     // set defaults
     gOpts.count = 150;
 
-    Typeface::setRobotoTypefaceForTest();
-
     parseOptions(argc, argv);
-    if (!gBenchmarkReporter && gOpts.renderOffscreen) {
-        gBenchmarkReporter.reset(new benchmark::ConsoleReporter());
-    }
-
-    if (gBenchmarkReporter) {
-        size_t name_field_width = 10;
-        for (auto&& test : gRunTests) {
-            name_field_width = std::max<size_t>(name_field_width, test.name.size());
-        }
-        // _50th, _90th, etc...
-        name_field_width += 5;
-
-        benchmark::BenchmarkReporter::Context context;
-        context.name_field_width = name_field_width;
-        gBenchmarkReporter->ReportContext(context);
-    }
 
     for (int i = 0; i < gRepeatCount; i++) {
         for (auto&& test : gRunTests) {
-            run(test, gOpts, gBenchmarkReporter.get());
+            run(test, gOpts);
         }
     }
-
-    if (gBenchmarkReporter) {
-        gBenchmarkReporter->Finalize();
-    }
-
-    renderthread::RenderProxy::trimMemory(100);
-    HardwareBitmapUploader::terminate();
-
-    LeakChecker::checkForLeaks();
+    printf("Success!\n");
     return 0;
 }

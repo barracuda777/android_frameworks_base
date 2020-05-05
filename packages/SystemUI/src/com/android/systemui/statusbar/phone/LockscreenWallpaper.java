@@ -20,7 +20,6 @@ import android.annotation.Nullable;
 import android.app.ActivityManager;
 import android.app.IWallpaperManager;
 import android.app.IWallpaperManagerCallback;
-import android.app.WallpaperColors;
 import android.app.WallpaperManager;
 import android.content.Context;
 import android.content.res.Resources;
@@ -40,8 +39,6 @@ import android.os.UserHandle;
 import android.util.Log;
 
 import com.android.keyguard.KeyguardUpdateMonitor;
-import com.android.systemui.Dependency;
-import com.android.systemui.statusbar.NotificationMediaManager;
 
 import libcore.io.IoUtils;
 
@@ -54,10 +51,7 @@ public class LockscreenWallpaper extends IWallpaperManagerCallback.Stub implemen
 
     private static final String TAG = "LockscreenWallpaper";
 
-    private final NotificationMediaManager mMediaManager =
-            Dependency.get(NotificationMediaManager.class);
-
-    private final StatusBar mBar;
+    private final PhoneStatusBar mBar;
     private final WallpaperManager mWallpaperManager;
     private final Handler mH;
     private final KeyguardUpdateMonitor mUpdateMonitor;
@@ -70,7 +64,7 @@ public class LockscreenWallpaper extends IWallpaperManagerCallback.Stub implemen
     private UserHandle mSelectedUser;
     private AsyncTask<Void, Void, LoaderResult> mLoader;
 
-    public LockscreenWallpaper(Context ctx, StatusBar bar, Handler h) {
+    public LockscreenWallpaper(Context ctx, PhoneStatusBar bar, Handler h) {
         mBar = bar;
         mH = h;
         mWallpaperManager = (WallpaperManager) ctx.getSystemService(Context.WALLPAPER_SERVICE);
@@ -79,13 +73,10 @@ public class LockscreenWallpaper extends IWallpaperManagerCallback.Stub implemen
 
         IWallpaperManager service = IWallpaperManager.Stub.asInterface(
                 ServiceManager.getService(Context.WALLPAPER_SERVICE));
-        if (service != null) {
-            // Service is disabled on some devices like Automotive
-            try {
-                service.setLockWallpaperCallback(this);
-            } catch (RemoteException e) {
-                Log.e(TAG, "System dead?" + e);
-            }
+        try {
+            service.setLockWallpaperCallback(this);
+        } catch (RemoteException e) {
+            Log.e(TAG, "System dead?" + e);
         }
     }
 
@@ -111,11 +102,6 @@ public class LockscreenWallpaper extends IWallpaperManagerCallback.Stub implemen
     public LoaderResult loadBitmap(int currentUserId, UserHandle selectedUser) {
         // May be called on any thread - only use thread safe operations.
 
-        if (!mWallpaperManager.isWallpaperSupported()) {
-            // When wallpaper is not supported, show the system wallpaper
-            return LoaderResult.success(null);
-        }
-
         // Prefer the selected user (when specified) over the current user for the FLAG_SET_LOCK
         // wallpaper.
         final int lockWallpaperUserId =
@@ -135,13 +121,15 @@ public class LockscreenWallpaper extends IWallpaperManagerCallback.Stub implemen
                 IoUtils.closeQuietly(fd);
             }
         } else {
-            if (selectedUser != null) {
-                // Show the selected user's static wallpaper.
-                return LoaderResult.success(mWallpaperManager.getBitmapAsUser(
-                        selectedUser.getIdentifier(), true /* hardware */));
+            if (selectedUser != null && selectedUser.getIdentifier() != currentUserId) {
+                // When selected user is different from the current user, show the selected
+                // user's static wallpaper.
+                return LoaderResult.success(
+                        mWallpaperManager.getBitmapAsUser(selectedUser.getIdentifier()));
 
             } else {
-                // When there is no selected user, show the system wallpaper
+                // When there is no selected user, or it's same as the current user, show the
+                // system (possibly dynamic) wallpaper for the selected user.
                 return LoaderResult.success(null);
             }
         }
@@ -149,9 +137,7 @@ public class LockscreenWallpaper extends IWallpaperManagerCallback.Stub implemen
 
     public void setCurrentUser(int user) {
         if (user != mCurrentUserId) {
-            if (mSelectedUser == null || user != mSelectedUser.getIdentifier()) {
-                mCached = false;
-            }
+            mCached = false;
             mCurrentUserId = user;
         }
     }
@@ -168,11 +154,6 @@ public class LockscreenWallpaper extends IWallpaperManagerCallback.Stub implemen
     public void onWallpaperChanged() {
         // Called on Binder thread.
         postUpdateWallpaper();
-    }
-
-    @Override
-    public void onWallpaperColorsChanged(WallpaperColors colors, int which, int userId) {
-
     }
 
     private void postUpdateWallpaper() {
@@ -206,7 +187,7 @@ public class LockscreenWallpaper extends IWallpaperManagerCallback.Stub implemen
                     mCached = true;
                     mCache = result.bitmap;
                     mUpdateMonitor.setHasLockscreenWallpaper(result.bitmap != null);
-                    mMediaManager.updateMediaMetaData(
+                    mBar.updateMediaMetaData(
                             true /* metaDataChanged */, true /* allowEnterAnimation */);
                 }
                 mLoader = null;

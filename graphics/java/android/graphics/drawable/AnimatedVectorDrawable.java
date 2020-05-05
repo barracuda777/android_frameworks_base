@@ -25,7 +25,6 @@ import android.animation.TimeInterpolator;
 import android.animation.ValueAnimator;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
 import android.app.ActivityThread;
 import android.app.Application;
 import android.content.pm.ActivityInfo.Config;
@@ -33,17 +32,14 @@ import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.content.res.Resources.Theme;
 import android.content.res.TypedArray;
-import android.graphics.BlendMode;
 import android.graphics.Canvas;
 import android.graphics.ColorFilter;
 import android.graphics.Insets;
 import android.graphics.Outline;
 import android.graphics.PixelFormat;
-import android.graphics.RecordingCanvas;
+import android.graphics.PorterDuff;
 import android.graphics.Rect;
-import android.graphics.RenderNode;
 import android.os.Build;
-import android.os.Handler;
 import android.util.ArrayMap;
 import android.util.AttributeSet;
 import android.util.IntArray;
@@ -53,14 +49,13 @@ import android.util.PathParser;
 import android.util.Property;
 import android.util.TimeUtils;
 import android.view.Choreographer;
-import android.view.NativeVectorDrawableAnimator;
+import android.view.DisplayListCanvas;
+import android.view.RenderNode;
 import android.view.RenderNodeAnimatorSetHelper;
 import android.view.View;
 
 import com.android.internal.R;
 import com.android.internal.util.VirtualRefBasePtr;
-
-import dalvik.annotation.optimization.FastNative;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -68,7 +63,6 @@ import org.xmlpull.v1.XmlPullParserException;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
-
 
 /**
  * This class animates properties of a {@link android.graphics.drawable.VectorDrawable} with
@@ -136,7 +130,7 @@ import java.util.ArrayList;
  *         <td>translateY</td>
  *     </tr>
  *     <tr>
- *         <td rowspan="9">&lt;path&gt;</td>
+ *         <td rowspan="8">&lt;path&gt;</td>
  *         <td>pathData</td>
  *     </tr>
  *     <tr>
@@ -158,9 +152,6 @@ import java.util.ArrayList;
  *         <td>trimPathStart</td>
  *     </tr>
  *     <tr>
- *         <td>trimPathEnd</td>
- *     </tr>
- *     <tr>
  *         <td>trimPathOffset</td>
  *     </tr>
  *     <tr>
@@ -171,7 +162,7 @@ import java.util.ArrayList;
  * </p>
  * Below is an example of a VectorDrawable defined in vectordrawable.xml. This VectorDrawable is
  * referred to by its file name (not including file suffix) in the
- * <a href="#AVDExample">AnimatedVectorDrawable XML example</a>.
+ * <a href="AVDExample">AnimatedVectorDrawable XML example</a>.
  * <pre>
  * &lt;vector xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;
  *     android:height=&quot;64dp&quot;
@@ -205,10 +196,10 @@ import java.util.ArrayList;
  *     android:drawable=&quot;@drawable/vectordrawable&quot; &gt;
  *     &lt;target
  *         android:name=&quot;rotationGroup&quot;
- *         android:animation=&quot;@animator/rotation&quot; /&gt;
+ *         android:animation=&quot;@anim/rotation&quot; /&gt;
  *     &lt;target
  *         android:name=&quot;v&quot;
- *         android:animation=&quot;@animator/path_morph&quot; /&gt;
+ *         android:animation=&quot;@anim/path_morph&quot; /&gt;
  * &lt;/animated-vector&gt;
  * </pre>
  * </li>
@@ -308,7 +299,6 @@ public class AnimatedVectorDrawable extends Drawable implements Animatable2 {
     private static final boolean DBG_ANIMATION_VECTOR_DRAWABLE = false;
 
     /** Local, mutable animator set. */
-    @UnsupportedAppUsage
     private VectorDrawableAnimator mAnimatorSet;
 
     /**
@@ -317,7 +307,6 @@ public class AnimatedVectorDrawable extends Drawable implements Animatable2 {
      */
     private Resources mRes;
 
-    @UnsupportedAppUsage
     private AnimatedVectorDrawableState mAnimatedVectorState;
 
     /** The animator set that is parsed from the xml. */
@@ -477,8 +466,8 @@ public class AnimatedVectorDrawable extends Drawable implements Animatable2 {
     }
 
     @Override
-    public void setTintBlendMode(@NonNull BlendMode blendMode) {
-        mAnimatedVectorState.mVectorDrawable.setTintBlendMode(blendMode);
+    public void setTintMode(PorterDuff.Mode tintMode) {
+        mAnimatedVectorState.mVectorDrawable.setTintMode(tintMode);
     }
 
     @Override
@@ -521,6 +510,7 @@ public class AnimatedVectorDrawable extends Drawable implements Animatable2 {
         mAnimatedVectorState.mVectorDrawable.getOutline(outline);
     }
 
+    /** @hide */
     @Override
     public Insets getOpticalInsets() {
         return mAnimatedVectorState.mVectorDrawable.getOpticalInsets();
@@ -646,7 +636,6 @@ public class AnimatedVectorDrawable extends Drawable implements Animatable2 {
      * Force to animate on UI thread.
      * @hide
      */
-    @UnsupportedAppUsage
     public void forceAnimationOnUI() {
         if (mAnimatorSet instanceof VectorDrawableAnimatorRT) {
             VectorDrawableAnimatorRT animator = (VectorDrawableAnimatorRT) mAnimatorSet;
@@ -843,16 +832,6 @@ public class AnimatedVectorDrawable extends Drawable implements Animatable2 {
             final Animator localAnimator = animator.clone();
             final String targetName = mTargetNameMap.get(animator);
             final Object target = mVectorDrawable.getTargetByName(targetName);
-            if (!mShouldIgnoreInvalidAnim) {
-                if (target == null) {
-                    throw new IllegalStateException("Target with the name \"" + targetName
-                            + "\" cannot be found in the VectorDrawable to be animated.");
-                } else if (!(target instanceof VectorDrawable.VectorDrawableState)
-                        && !(target instanceof VectorDrawable.VObject)) {
-                    throw new UnsupportedOperationException("Target should be either VGroup, VPath,"
-                            + " or ConstantState, " + target.getClass() + " is not supported");
-                }
-            }
             localAnimator.setTarget(target);
             return localAnimator;
         }
@@ -1233,8 +1212,7 @@ public class AnimatedVectorDrawable extends Drawable implements Animatable2 {
     /**
      * @hide
      */
-    public static class VectorDrawableAnimatorRT implements VectorDrawableAnimator,
-            NativeVectorDrawableAnimator {
+    public static class VectorDrawableAnimatorRT implements VectorDrawableAnimator {
         private static final int START_ANIMATION = 1;
         private static final int REVERSE_ANIMATION = 2;
         private static final int RESET_ANIMATION = 3;
@@ -1242,7 +1220,6 @@ public class AnimatedVectorDrawable extends Drawable implements Animatable2 {
 
         // If the duration of an animation is more than 300 frames, we cap the sample size to 300.
         private static final int MAX_SAMPLE_POINTS = 300;
-        private Handler mHandler;
         private AnimatorListener mListener = null;
         private final LongArray mStartDelays = new LongArray();
         private PropertyValuesHolder.PropertyValues mTmpValues =
@@ -1253,6 +1230,7 @@ public class AnimatedVectorDrawable extends Drawable implements Animatable2 {
         private boolean mInitialized = false;
         private boolean mIsReversible = false;
         private boolean mIsInfinite = false;
+        // TODO: Consider using NativeAllocationRegistery to track native allocation
         private final VirtualRefBasePtr mSetRefBasePtr;
         private WeakReference<RenderNode> mLastSeenTarget = null;
         private int mLastListenerId = 0;
@@ -1341,10 +1319,16 @@ public class AnimatedVectorDrawable extends Drawable implements Animatable2 {
                         throw new IllegalArgumentException("ClipPath only supports PathData " +
                                 "property");
                     }
+
                 }
             } else if (target instanceof VectorDrawable.VectorDrawableState) {
                 createRTAnimatorForRootGroup(values, animator,
                         (VectorDrawable.VectorDrawableState) target, startTime);
+            } else if (!mDrawable.mAnimatedVectorState.mShouldIgnoreInvalidAnim) {
+                // Should never get here
+                throw new UnsupportedOperationException("Target should be either VGroup, VPath, " +
+                        "or ConstantState, " + target == null ? "Null target" : target.getClass() +
+                        " is not supported");
             }
         }
 
@@ -1543,11 +1527,11 @@ public class AnimatedVectorDrawable extends Drawable implements Animatable2 {
         }
 
         /**
-         * Holds a weak reference to the target that was last seen (through the RecordingCanvas
+         * Holds a weak reference to the target that was last seen (through the DisplayListCanvas
          * in the last draw call), so that when animator set needs to start, we can add the animator
          * to the last seen RenderNode target and start right away.
          */
-        protected void recordLastSeenTarget(RecordingCanvas canvas) {
+        protected void recordLastSeenTarget(DisplayListCanvas canvas) {
             final RenderNode node = RenderNodeAnimatorSetHelper.getTarget(canvas);
             mLastSeenTarget = new WeakReference<RenderNode>(node);
             // Add the animator to the list of animators on every draw
@@ -1672,9 +1656,6 @@ public class AnimatedVectorDrawable extends Drawable implements Animatable2 {
                                 .mRootName);
             }
             mStarted = true;
-            if (mHandler == null) {
-                mHandler = new Handler();
-            }
             nStart(mSetPtr, this, ++mLastListenerId);
             invalidateOwningView();
             if (mListener != null) {
@@ -1710,7 +1691,6 @@ public class AnimatedVectorDrawable extends Drawable implements Animatable2 {
             }
         }
 
-        @Override
         public long getAnimatorNativePtr() {
             return mSetPtr;
         }
@@ -1746,7 +1726,7 @@ public class AnimatedVectorDrawable extends Drawable implements Animatable2 {
         @Override
         public void onDraw(Canvas canvas) {
             if (canvas.isHardwareAccelerated()) {
-                recordLastSeenTarget((RecordingCanvas) canvas);
+                recordLastSeenTarget((DisplayListCanvas) canvas);
             }
         }
 
@@ -1782,9 +1762,8 @@ public class AnimatedVectorDrawable extends Drawable implements Animatable2 {
         }
 
         // onFinished: should be called from native
-        @UnsupportedAppUsage
         private static void callOnFinished(VectorDrawableAnimatorRT set, int id) {
-            set.mHandler.post(() -> set.onAnimationEnd(id));
+            set.onAnimationEnd(id);
         }
 
         private void transferPendingActions(VectorDrawableAnimator animatorSet) {
@@ -1812,30 +1791,22 @@ public class AnimatedVectorDrawable extends Drawable implements Animatable2 {
     private static native void nAddAnimator(long setPtr, long propertyValuesHolder,
             long nativeInterpolator, long startDelay, long duration, int repeatCount,
             int repeatMode);
+
+    private static native long nCreateGroupPropertyHolder(long nativePtr, int propertyId,
+            float startValue, float endValue);
+
+    private static native long nCreatePathDataPropertyHolder(long nativePtr, long startValuePtr,
+            long endValuePtr);
+    private static native long nCreatePathColorPropertyHolder(long nativePtr, int propertyId,
+            int startValue, int endValue);
+    private static native long nCreatePathPropertyHolder(long nativePtr, int propertyId,
+            float startValue, float endValue);
+    private static native long nCreateRootAlphaPropertyHolder(long nativePtr, float startValue,
+            float endValue);
     private static native void nSetPropertyHolderData(long nativePtr, float[] data, int length);
     private static native void nSetPropertyHolderData(long nativePtr, int[] data, int length);
     private static native void nStart(long animatorSetPtr, VectorDrawableAnimatorRT set, int id);
     private static native void nReverse(long animatorSetPtr, VectorDrawableAnimatorRT set, int id);
-
-    // ------------- @FastNative -------------------
-
-    @FastNative
-    private static native long nCreateGroupPropertyHolder(long nativePtr, int propertyId,
-            float startValue, float endValue);
-    @FastNative
-    private static native long nCreatePathDataPropertyHolder(long nativePtr, long startValuePtr,
-            long endValuePtr);
-    @FastNative
-    private static native long nCreatePathColorPropertyHolder(long nativePtr, int propertyId,
-            int startValue, int endValue);
-    @FastNative
-    private static native long nCreatePathPropertyHolder(long nativePtr, int propertyId,
-            float startValue, float endValue);
-    @FastNative
-    private static native long nCreateRootAlphaPropertyHolder(long nativePtr, float startValue,
-            float endValue);
-    @FastNative
     private static native void nEnd(long animatorSetPtr);
-    @FastNative
     private static native void nReset(long animatorSetPtr);
 }

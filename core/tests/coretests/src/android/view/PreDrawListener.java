@@ -20,11 +20,14 @@ import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
 import android.util.AttributeSet;
+import android.view.View;
+import android.view.ViewTreeObserver;
 import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.LinearLayout;
 
 import com.android.frameworks.coretests.R;
+
 
 /**
  * Tests views with popupWindows becoming invisible
@@ -72,9 +75,9 @@ public class PreDrawListener extends Activity implements OnClickListener {
         super.onCreate(icicle);
         setContentView(R.layout.pre_draw_listener);
 
-        mFrame = findViewById(R.id.frame);
+        mFrame = (MyLinearLayout) findViewById(R.id.frame);
 
-        Button mGoButton = findViewById(R.id.go);
+        Button mGoButton = (Button) findViewById(R.id.go);
         mGoButton.setOnClickListener(this);
     }
 

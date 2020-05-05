@@ -220,12 +220,7 @@ public class MountServiceTests extends AndroidTestCase {
 
         final File outFile = getFilePath("test1_nosig.obb");
 
-        try {
-            mountObb(sm, R.raw.test1_nosig, outFile, OnObbStateChangeListener.ERROR_INTERNAL);
-            fail("mountObb should've failed with an exception");
-        } catch (IllegalArgumentException e) {
-            // Expected
-        }
+        mountObb(sm, R.raw.test1_nosig, outFile, OnObbStateChangeListener.ERROR_INTERNAL);
 
         assertFalse("OBB should not be mounted",
                 sm.isObbMounted(outFile.getPath()));

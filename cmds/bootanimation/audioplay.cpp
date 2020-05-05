@@ -17,36 +17,31 @@
 
 // cribbed from samples/native-audio
 
+#include "audioplay.h"
+
 #define CHATTY ALOGD
 #define LOG_TAG "audioplay"
-
-#include "audioplay.h"
 
 #include <string.h>
 
 #include <utils/Log.h>
-#include <utils/threads.h>
 
 // for native audio
 #include <SLES/OpenSLES.h>
 #include <SLES/OpenSLES_Android.h>
 
-#include "BootAnimationUtil.h"
-
 namespace audioplay {
 namespace {
 
-using namespace android;
-
 // engine interfaces
-static SLObjectItf engineObject = nullptr;
+static SLObjectItf engineObject = NULL;
 static SLEngineItf engineEngine;
 
 // output mix interfaces
-static SLObjectItf outputMixObject = nullptr;
+static SLObjectItf outputMixObject = NULL;
 
 // buffer queue player interfaces
-static SLObjectItf bqPlayerObject = nullptr;
+static SLObjectItf bqPlayerObject = NULL;
 static SLPlayItf bqPlayerPlay;
 static SLAndroidSimpleBufferQueueItf bqPlayerBufferQueue;
 static SLMuteSoloItf bqPlayerMuteSolo;
@@ -89,7 +84,7 @@ void bqPlayerCallback(SLAndroidSimpleBufferQueueItf bq, void *context) {
 }
 
 bool hasPlayer() {
-    return (engineObject != nullptr && bqPlayerObject != nullptr);
+    return (engineObject != NULL && bqPlayerObject != NULL);
 }
 
 // create the engine and output mix objects
@@ -97,7 +92,7 @@ bool createEngine() {
     SLresult result;
 
     // create engine
-    result = slCreateEngine(&engineObject, 0, nullptr, 0, nullptr, nullptr);
+    result = slCreateEngine(&engineObject, 0, NULL, 0, NULL, NULL);
     if (result != SL_RESULT_SUCCESS) {
         ALOGE("slCreateEngine failed with result %d", result);
         return false;
@@ -121,7 +116,7 @@ bool createEngine() {
     (void)result;
 
     // create output mix
-    result = (*engineEngine)->CreateOutputMix(engineEngine, &outputMixObject, 0, nullptr, nullptr);
+    result = (*engineEngine)->CreateOutputMix(engineEngine, &outputMixObject, 0, NULL, NULL);
     if (result != SL_RESULT_SUCCESS) {
         ALOGE("sl engine CreateOutputMix failed with result %d", result);
         return false;
@@ -173,7 +168,7 @@ bool createBufferQueueAudioPlayer(const ChunkFormat* chunkFormat) {
 
     // configure audio sink
     SLDataLocator_OutputMix loc_outmix = {SL_DATALOCATOR_OUTPUTMIX, outputMixObject};
-    SLDataSink audioSnk = {&loc_outmix, nullptr};
+    SLDataSink audioSnk = {&loc_outmix, NULL};
 
     // create audio player
     const SLInterfaceID ids[3] = {SL_IID_BUFFERQUEUE, SL_IID_VOLUME, SL_IID_ANDROIDCONFIGURATION};
@@ -236,7 +231,7 @@ bool createBufferQueueAudioPlayer(const ChunkFormat* chunkFormat) {
     (void)result;
 
     // register callback on the buffer queue
-    result = (*bqPlayerBufferQueue)->RegisterCallback(bqPlayerBufferQueue, bqPlayerCallback, nullptr);
+    result = (*bqPlayerBufferQueue)->RegisterCallback(bqPlayerBufferQueue, bqPlayerCallback, NULL);
     if (result != SL_RESULT_SUCCESS) {
         ALOGE("sl bqPlayerBufferQueue RegisterCallback failed with result %d", result);
         return false;
@@ -261,7 +256,7 @@ bool parseClipBuf(const uint8_t* clipBuf, int clipBufSize, const ChunkFormat** o
                   const uint8_t** oSoundBuf, unsigned* oSoundBufSize) {
     *oSoundBuf = clipBuf;
     *oSoundBufSize = clipBufSize;
-    *oChunkFormat = nullptr;
+    *oChunkFormat = NULL;
     const RiffWaveHeader* wavHeader = (const RiffWaveHeader*)*oSoundBuf;
     if (*oSoundBufSize < sizeof(*wavHeader) || (wavHeader->riff_id != ID_RIFF) ||
         (wavHeader->wave_id != ID_WAVE)) {
@@ -303,80 +298,12 @@ bool parseClipBuf(const uint8_t* clipBuf, int clipBufSize, const ChunkFormat** o
         }
     }
 
-    if (*oChunkFormat == nullptr) {
+    if (*oChunkFormat == NULL) {
         ALOGE("format not found in WAV file");
         return false;
     }
     return true;
 }
-
-class InitAudioThread : public Thread {
-public:
-    InitAudioThread(uint8_t* exampleAudioData, int exampleAudioLength)
-        : Thread(false),
-          mExampleAudioData(exampleAudioData),
-          mExampleAudioLength(exampleAudioLength) {}
-private:
-    virtual bool threadLoop() {
-        audioplay::create(mExampleAudioData, mExampleAudioLength);
-        // Exit immediately
-        return false;
-    }
-
-    uint8_t* mExampleAudioData;
-    int mExampleAudioLength;
-};
-
-// Typedef to aid readability.
-typedef android::BootAnimation::Animation Animation;
-
-class AudioAnimationCallbacks : public android::BootAnimation::Callbacks {
-public:
-    void init(const Vector<Animation::Part>& parts) override {
-        const Animation::Part* partWithAudio = nullptr;
-        for (const Animation::Part& part : parts) {
-            if (part.audioData != nullptr) {
-                partWithAudio = &part;
-                break;
-            }
-        }
-
-        if (partWithAudio == nullptr) {
-            return;
-        }
-
-        ALOGD("found audio.wav, creating playback engine");
-        // The audioData is used to initialize the audio system. Different data
-        // can be played later for other parts BUT the assumption is that they
-        // will all be the same format and only the format of this audioData
-        // will work correctly.
-        initAudioThread = new InitAudioThread(partWithAudio->audioData,
-                partWithAudio->audioLength);
-        initAudioThread->run("BootAnimation::InitAudioThread", PRIORITY_NORMAL);
-    };
-
-    void playPart(int partNumber, const Animation::Part& part, int playNumber) override {
-        // only play audio file the first time we animate the part
-        if (playNumber == 0 && part.audioData && playSoundsAllowed()) {
-            ALOGD("playing clip for part%d, size=%d",
-                  partNumber, part.audioLength);
-            // Block until the audio engine is finished initializing.
-            if (initAudioThread != nullptr) {
-                initAudioThread->join();
-            }
-            audioplay::playClip(part.audioData, part.audioLength);
-        }
-    };
-
-    void shutdown() override {
-        // we've finally played everything we're going to play
-        audioplay::setPlaying(false);
-        audioplay::destroy();
-    };
-
-private:
-    sp<InitAudioThread> initAudioThread = nullptr;
-};
 
 } // namespace
 
@@ -435,7 +362,7 @@ void setPlaying(bool isPlaying) {
 
     SLresult result;
 
-    if (nullptr != bqPlayerPlay) {
+    if (NULL != bqPlayerPlay) {
         // set the player's state
         result = (*bqPlayerPlay)->SetPlayState(bqPlayerPlay,
             isPlaying ? SL_PLAYSTATE_PLAYING : SL_PLAYSTATE_STOPPED);
@@ -445,33 +372,29 @@ void setPlaying(bool isPlaying) {
 
 void destroy() {
     // destroy buffer queue audio player object, and invalidate all associated interfaces
-    if (bqPlayerObject != nullptr) {
+    if (bqPlayerObject != NULL) {
         CHATTY("destroying audio player");
         (*bqPlayerObject)->Destroy(bqPlayerObject);
-        bqPlayerObject = nullptr;
-        bqPlayerPlay = nullptr;
-        bqPlayerBufferQueue = nullptr;
-        bqPlayerMuteSolo = nullptr;
-        bqPlayerVolume = nullptr;
+        bqPlayerObject = NULL;
+        bqPlayerPlay = NULL;
+        bqPlayerBufferQueue = NULL;
+        bqPlayerMuteSolo = NULL;
+        bqPlayerVolume = NULL;
     }
 
     // destroy output mix object, and invalidate all associated interfaces
-    if (outputMixObject != nullptr) {
+    if (outputMixObject != NULL) {
         (*outputMixObject)->Destroy(outputMixObject);
-        outputMixObject = nullptr;
+        outputMixObject = NULL;
     }
 
     // destroy engine object, and invalidate all associated interfaces
-    if (engineObject != nullptr) {
+    if (engineObject != NULL) {
         CHATTY("destroying audio engine");
         (*engineObject)->Destroy(engineObject);
-        engineObject = nullptr;
-        engineEngine = nullptr;
+        engineObject = NULL;
+        engineEngine = NULL;
     }
-}
-
-sp<BootAnimation::Callbacks> createAnimationCallbacks() {
-  return new AudioAnimationCallbacks();
 }
 
 }  // namespace audioplay

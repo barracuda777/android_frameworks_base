@@ -18,17 +18,23 @@ package com.android.server.content;
 
 import android.accounts.Account;
 import android.content.ContentResolver;
+import android.content.Context;
 import android.os.Bundle;
 import android.os.PersistableBundle;
+import android.os.SystemClock;
+import android.provider.Settings;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
 /**
- * Test for SyncOperation.
+ * You can run those tests with:
  *
- * atest ${ANDROID_BUILD_TOP}/frameworks/base/services/tests/servicestests/src/com/android/server/content/SyncOperationTest.java
+ * adb shell am instrument
+ * -e debug false
+ * -w
+ * -e class android.content.SyncOperationTest com.android.frameworks.coretests/android.test.InstrumentationTestRunner
  */
-@SmallTest
+
 public class SyncOperationTest extends AndroidTestCase {
 
     Account mDummy;
@@ -60,8 +66,7 @@ public class SyncOperationTest extends AndroidTestCase {
                 SyncOperation.REASON_PERIODIC,
                 "authority1",
                 b1,
-                false,
-                ContentResolver.SYNC_EXEMPTION_NONE);
+                false);
 
         // Same as op1 but different time infos
         SyncOperation op2 = new SyncOperation(account1, 0,
@@ -69,8 +74,7 @@ public class SyncOperationTest extends AndroidTestCase {
                 SyncOperation.REASON_PERIODIC,
                 "authority1",
                 b1,
-                false,
-                ContentResolver.SYNC_EXEMPTION_NONE);
+                false);
 
         // Same as op1 but different authority
         SyncOperation op3 = new SyncOperation(account1, 0,
@@ -78,8 +82,7 @@ public class SyncOperationTest extends AndroidTestCase {
                 SyncOperation.REASON_PERIODIC,
                 "authority2",
                 b1,
-                false,
-                ContentResolver.SYNC_EXEMPTION_NONE);
+                false);
 
         // Same as op1 but different account
         SyncOperation op4 = new SyncOperation(account2, 0,
@@ -87,8 +90,7 @@ public class SyncOperationTest extends AndroidTestCase {
                 SyncOperation.REASON_PERIODIC,
                 "authority1",
                 b1,
-                false,
-                ContentResolver.SYNC_EXEMPTION_NONE);
+                false);
 
         // Same as op1 but different bundle
         SyncOperation op5 = new SyncOperation(account1, 0,
@@ -96,8 +98,7 @@ public class SyncOperationTest extends AndroidTestCase {
                 SyncOperation.REASON_PERIODIC,
                 "authority1",
                 b2,
-                false,
-                ContentResolver.SYNC_EXEMPTION_NONE);
+                false);
 
         assertEquals(op1.key, op2.key);
         assertNotSame(op1.key, op3.key);
@@ -117,8 +118,7 @@ public class SyncOperationTest extends AndroidTestCase {
                 SyncOperation.REASON_PERIODIC,
                 "authority1",
                 b1,
-                false,
-                ContentResolver.SYNC_EXEMPTION_NONE);
+                false);
 
         PersistableBundle pb = op1.toJobInfoExtras();
         SyncOperation op2 = SyncOperation.maybeCreateFromJobExtras(pb);
@@ -145,8 +145,7 @@ public class SyncOperationTest extends AndroidTestCase {
                 "provider", 0);
         Bundle extras = new Bundle();
         SyncOperation periodic = new SyncOperation(ep, 0, "package", 0, 0, extras, false, true,
-                SyncOperation.NO_JOB_ID, 60000, 10000,
-                ContentResolver.SYNC_EXEMPTION_NONE);
+                SyncOperation.NO_JOB_ID, 60000, 10000);
         SyncOperation oneoff = periodic.createOneTimeSyncOperation();
         assertFalse("Conversion to oneoff sync failed.", oneoff.isPeriodic);
         assertEquals("Period not restored", periodic.periodMillis, oneoff.periodMillis);

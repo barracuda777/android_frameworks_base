@@ -16,12 +16,9 @@
 
 package android.database;
 
-import android.annotation.UnsupportedAppUsage;
 import android.content.ContentResolver;
 import android.net.Uri;
 import android.os.Bundle;
-
-import java.util.List;
 
 /**
  * Wrapper class for Cursor that delegates all calls to the actual cursor object.  The primary
@@ -29,7 +26,6 @@ import java.util.List;
  */
 public class CursorWrapper implements Cursor {
     /** @hide */
-    @UnsupportedAppUsage
     protected final Cursor mCursor;
 
     /**
@@ -243,18 +239,8 @@ public class CursorWrapper implements Cursor {
     }
 
     @Override
-    public void setNotificationUris(ContentResolver cr, List<Uri> uris) {
-        mCursor.setNotificationUris(cr, uris);
-    }
-
-    @Override
     public Uri getNotificationUri() {
         return mCursor.getNotificationUri();
-    }
-
-    @Override
-    public List<Uri> getNotificationUris() {
-        return mCursor.getNotificationUris();
     }
 
     @Override

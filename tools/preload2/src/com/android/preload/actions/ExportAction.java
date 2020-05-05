@@ -19,11 +19,14 @@ package com.android.preload.actions;
 import com.android.preload.DumpDataIO;
 import com.android.preload.DumpTableModel;
 import com.android.preload.Main;
+
 import java.awt.event.ActionEvent;
 import java.io.File;
 import java.io.PrintWriter;
 
-public class ExportAction extends AbstractThreadedAction {
+import javax.swing.AbstractAction;
+
+public class ExportAction extends AbstractAction implements Runnable {
     private File lastSaveFile;
     private DumpTableModel dataTableModel;
 
@@ -36,7 +39,7 @@ public class ExportAction extends AbstractThreadedAction {
     public void actionPerformed(ActionEvent e) {
         lastSaveFile = Main.getUI().showSaveDialog();
         if (lastSaveFile != null) {
-            super.actionPerformed(e);
+            new Thread(this).start();
         }
     }
 

@@ -15,12 +15,8 @@
  */
 package android.view;
 
-import android.annotation.UnsupportedAppUsage;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
-import android.graphics.RecordingCanvas;
-import android.graphics.RenderNode;
-import android.os.Build;
 import android.widget.FrameLayout;
 
 import java.util.ArrayList;
@@ -49,11 +45,11 @@ public class GhostView extends View {
 
     @Override
     protected void onDraw(Canvas canvas) {
-        if (canvas instanceof RecordingCanvas) {
-            RecordingCanvas dlCanvas = (RecordingCanvas) canvas;
+        if (canvas instanceof DisplayListCanvas) {
+            DisplayListCanvas dlCanvas = (DisplayListCanvas) canvas;
             mView.mRecreateDisplayList = true;
             RenderNode renderNode = mView.updateDisplayListIfDirty();
-            if (renderNode.hasDisplayList()) {
+            if (renderNode.isValid()) {
                 dlCanvas.insertReorderBarrier(); // enable shadow for this rendernode
                 dlCanvas.drawRenderNode(renderNode);
                 dlCanvas.insertInorderBarrier(); // re-disable reordering/shadows
@@ -95,7 +91,6 @@ public class GhostView extends View {
         host.transformMatrixToLocal(matrix);
     }
 
-    @UnsupportedAppUsage
     public static GhostView addGhost(View view, ViewGroup viewGroup, Matrix matrix) {
         if (!(view.getParent() instanceof ViewGroup)) {
             throw new IllegalArgumentException("Ghosted views must be parented by a ViewGroup");
@@ -136,12 +131,10 @@ public class GhostView extends View {
         return ghostView;
     }
 
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P)
     public static GhostView addGhost(View view, ViewGroup viewGroup) {
         return addGhost(view, viewGroup, null);
     }
 
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P)
     public static void removeGhost(View view) {
         GhostView ghostView = view.mGhostView;
         if (ghostView != null) {

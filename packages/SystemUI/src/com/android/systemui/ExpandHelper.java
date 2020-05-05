@@ -31,10 +31,10 @@ import android.view.VelocityTracker;
 import android.view.View;
 import android.view.ViewConfiguration;
 
-import com.android.internal.annotations.VisibleForTesting;
+import com.android.systemui.statusbar.ExpandableNotificationRow;
+import com.android.systemui.statusbar.ExpandableView;
 import com.android.systemui.statusbar.FlingAnimationUtils;
-import com.android.systemui.statusbar.notification.row.ExpandableNotificationRow;
-import com.android.systemui.statusbar.notification.row.ExpandableView;
+import com.android.systemui.statusbar.MediaExpandableNotificationRow;
 import com.android.systemui.statusbar.policy.ScrollAdapter;
 
 public class ExpandHelper implements Gefingerpoken {
@@ -98,7 +98,7 @@ public class ExpandHelper implements Gefingerpoken {
     private float mCurrentHeight;
 
     private int mSmallSize;
-    private int mLargeSize;
+    private int mLargeSize, mInitialLargeSize;
     private float mMaximumStretch;
     private boolean mOnlyMovements;
 
@@ -130,11 +130,6 @@ public class ExpandHelper implements Gefingerpoken {
         public void onScaleEnd(ScaleGestureDetector detector) {
         }
     };
-
-    @VisibleForTesting
-    ObjectAnimator getScaleAnimation() {
-        return mScaleAnimation;
-    }
 
     private class ViewScaler {
         ExpandableView mView;
@@ -168,6 +163,7 @@ public class ExpandHelper implements Gefingerpoken {
         mSmallSize = small;
         mMaximumStretch = mSmallSize * STRETCH_INTERVAL;
         mLargeSize = large;
+        mInitialLargeSize = large;
         mContext = context;
         mCallback = callback;
         mScaler = new ViewScaler();
@@ -182,8 +178,7 @@ public class ExpandHelper implements Gefingerpoken {
         mFlingAnimationUtils = new FlingAnimationUtils(context, EXPAND_DURATION);
     }
 
-    @VisibleForTesting
-    void updateExpansion() {
+    private void updateExpansion() {
         if (DEBUG_SCALE) Log.v(TAG, "updateExpansion()");
         // are we scaling or dragging?
         float span = mSGD.getCurrentSpan() - mInitialTouchSpan;
@@ -507,8 +502,7 @@ public class ExpandHelper implements Gefingerpoken {
     /**
      * @return True if the view is expandable, false otherwise.
      */
-    @VisibleForTesting
-    boolean startExpanding(ExpandableView v, int expandType) {
+    private boolean startExpanding(ExpandableView v, int expandType) {
         if (!(v instanceof ExpandableNotificationRow)) {
             return false;
         }
@@ -526,8 +520,15 @@ public class ExpandHelper implements Gefingerpoken {
         boolean canBeExpanded = mCallback.canChildBeExpanded(v);
         if (canBeExpanded) {
             if (DEBUG) Log.d(TAG, "working on an expandable child");
-            mNaturalHeight = mScaler.getNaturalHeight();
             mSmallSize = v.getCollapsedHeight();
+            if (v instanceof MediaExpandableNotificationRow) {
+                final int maxHeight = ((MediaExpandableNotificationRow) v).getMaxContentHeight();
+                mLargeSize = maxHeight;
+                mNaturalHeight = maxHeight;
+            } else {
+                mLargeSize = mInitialLargeSize;
+                mNaturalHeight = mScaler.getNaturalHeight();
+            }
         } else {
             if (DEBUG) Log.d(TAG, "working on a non-expandable child");
             mNaturalHeight = mOldHeight;
@@ -543,18 +544,7 @@ public class ExpandHelper implements Gefingerpoken {
      *                   state
      * @param velocity the velocity this was expanded/ collapsed with
      */
-    @VisibleForTesting
-    void finishExpanding(boolean forceAbort, float velocity) {
-        finishExpanding(forceAbort, velocity, true /* allowAnimation */);
-    }
-
-    /**
-     * Finish the current expand motion
-     * @param forceAbort whether the expansion should be forcefully aborted and returned to the old
-     *                   state
-     * @param velocity the velocity this was expanded/ collapsed with
-     */
-    private void finishExpanding(boolean forceAbort, float velocity, boolean allowAnimation) {
+    private void finishExpanding(boolean forceAbort, float velocity) {
         if (!mExpanding) return;
 
         if (DEBUG) Log.d(TAG, "scale in finishing on view: " + mResizedView);
@@ -578,7 +568,7 @@ public class ExpandHelper implements Gefingerpoken {
         mCallback.expansionStateChanged(false);
         int naturalHeight = mScaler.getNaturalHeight();
         float targetHeight = nowExpanded ? naturalHeight : mSmallSize;
-        if (targetHeight != currentHeight && mEnabled && allowAnimation) {
+        if (targetHeight != currentHeight && mEnabled) {
             mScaleAnimation.setFloatValues(targetHeight);
             mScaleAnimation.setupStartValues();
             final View scaledView = mResizedView;
@@ -590,9 +580,6 @@ public class ExpandHelper implements Gefingerpoken {
                 public void onAnimationEnd(Animator animation) {
                     if (!mCancelled) {
                         mCallback.setUserExpandedChild(scaledView, expand);
-                        if (!mExpanding) {
-                            mScaler.setView(null);
-                        }
                     } else {
                         mCallback.setExpansionCancelled(scaledView);
                     }
@@ -614,7 +601,6 @@ public class ExpandHelper implements Gefingerpoken {
             }
             mCallback.setUserExpandedChild(mResizedView, nowExpanded);
             mCallback.setUserLockedChild(mResizedView, false);
-            mScaler.setView(null);
         }
 
         mExpanding = false;
@@ -632,22 +618,10 @@ public class ExpandHelper implements Gefingerpoken {
     }
 
     /**
-     * Use this to abort any pending expansions in progress and force that there will be no
-     * animations.
-     */
-    public void cancelImmediately() {
-        cancel(false /* allowAnimation */);
-    }
-
-    /**
      * Use this to abort any pending expansions in progress.
      */
     public void cancel() {
-        cancel(true /* allowAnimation */);
-    }
-
-    private void cancel(boolean allowAnimation) {
-        finishExpanding(true /* forceAbort */, 0f /* velocity */, allowAnimation);
+        finishExpanding(true /* forceAbort */, 0f /* velocity */);
         clearView();
 
         // reset the gesture detector

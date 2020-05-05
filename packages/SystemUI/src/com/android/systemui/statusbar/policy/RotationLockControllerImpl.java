@@ -23,11 +23,7 @@ import com.android.internal.view.RotationPolicy;
 
 import java.util.concurrent.CopyOnWriteArrayList;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-
 /** Platform implementation of the rotation lock controller. **/
-@Singleton
 public final class RotationLockControllerImpl implements RotationLockController {
     private final Context mContext;
     private final CopyOnWriteArrayList<RotationLockControllerCallback> mCallbacks =
@@ -41,18 +37,17 @@ public final class RotationLockControllerImpl implements RotationLockController 
         }
     };
 
-    @Inject
     public RotationLockControllerImpl(Context context) {
         mContext = context;
         setListening(true);
     }
 
-    public void addCallback(RotationLockControllerCallback callback) {
+    public void addRotationLockControllerCallback(RotationLockControllerCallback callback) {
         mCallbacks.add(callback);
         notifyChanged(callback);
     }
 
-    public void removeCallback(RotationLockControllerCallback callback) {
+    public void removeRotationLockControllerCallback(RotationLockControllerCallback callback) {
         mCallbacks.remove(callback);
     }
 
@@ -66,10 +61,6 @@ public final class RotationLockControllerImpl implements RotationLockController 
 
     public void setRotationLocked(boolean locked) {
         RotationPolicy.setRotationLock(mContext, locked);
-    }
-
-    public void setRotationLockedAtAngle(boolean locked, int rotation){
-        RotationPolicy.setRotationLockAtAngle(mContext, locked, rotation);
     }
 
     public boolean isRotationLockAffordanceVisible() {

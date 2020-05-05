@@ -16,6 +16,15 @@
 
 package android.widget;
 
+import static android.support.test.espresso.Espresso.onView;
+import static android.support.test.espresso.Espresso.pressBack;
+import static android.support.test.espresso.action.ViewActions.clearText;
+import static android.support.test.espresso.action.ViewActions.click;
+import static android.support.test.espresso.action.ViewActions.replaceText;
+import static android.support.test.espresso.assertion.ViewAssertions.matches;
+import static android.support.test.espresso.matcher.RootMatchers.withDecorView;
+import static android.support.test.espresso.matcher.ViewMatchers.withId;
+import static android.support.test.espresso.matcher.ViewMatchers.withText;
 import static android.widget.espresso.DragHandleUtils.onHandleView;
 import static android.widget.espresso.FloatingToolbarEspressoUtils.assertFloatingToolbarContainsItem;
 import static android.widget.espresso.FloatingToolbarEspressoUtils.clickFloatingToolbarItem;
@@ -27,56 +36,42 @@ import static android.widget.espresso.SuggestionsPopupwindowUtils.clickSuggestio
 import static android.widget.espresso.SuggestionsPopupwindowUtils.onSuggestionsPopup;
 import static android.widget.espresso.TextViewActions.clickOnTextAtIndex;
 import static android.widget.espresso.TextViewActions.longPressOnTextAtIndex;
-
-import static androidx.test.espresso.Espresso.onView;
-import static androidx.test.espresso.Espresso.pressBack;
-import static androidx.test.espresso.action.ViewActions.clearText;
-import static androidx.test.espresso.action.ViewActions.click;
-import static androidx.test.espresso.action.ViewActions.replaceText;
-import static androidx.test.espresso.assertion.ViewAssertions.matches;
-import static androidx.test.espresso.matcher.RootMatchers.withDecorView;
-import static androidx.test.espresso.matcher.ViewMatchers.withId;
-import static androidx.test.espresso.matcher.ViewMatchers.withText;
-import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
-
 import static org.hamcrest.Matchers.is;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-
 import android.content.res.TypedArray;
+import android.support.test.espresso.NoMatchingViewException;
+import android.support.test.espresso.ViewAssertion;
+import android.test.ActivityInstrumentationTestCase2;
+import android.test.suitebuilder.annotation.SmallTest;
+import android.test.suitebuilder.annotation.Suppress;
 import android.text.Selection;
 import android.text.Spannable;
 import android.text.Spanned;
 import android.text.TextPaint;
 import android.text.style.SuggestionSpan;
 import android.text.style.TextAppearanceSpan;
-
-import androidx.test.filters.SmallTest;
-import androidx.test.rule.ActivityTestRule;
+import android.view.View;
 
 import com.android.frameworks.coretests.R;
-
-import org.junit.Rule;
-import org.junit.Test;
 
 /**
  * SuggestionsPopupWindowTest tests.
  *
  * TODO: Add tests for when there are no suggestions
  */
-@SmallTest
-public class SuggestionsPopupWindowTest {
+public class SuggestionsPopupWindowTest extends ActivityInstrumentationTestCase2<TextViewActivity> {
 
-    @Rule
-    public final ActivityTestRule<TextViewActivity> mActivityRule =
-            new ActivityTestRule<>(TextViewActivity.class);
+    public SuggestionsPopupWindowTest() {
+        super(TextViewActivity.class);
+    }
 
-    private TextViewActivity getActivity() {
-        return mActivityRule.getActivity();
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp();
+        getActivity();
     }
 
     private void setSuggestionSpan(SuggestionSpan span, int start, int end) {
-        final TextView textView = getActivity().findViewById(R.id.textview);
+        final TextView textView = (TextView) getActivity().findViewById(R.id.textview);
         textView.post(
                 () -> {
                     final Spannable text = (Spannable) textView.getText();
@@ -86,7 +81,7 @@ public class SuggestionsPopupWindowTest {
         getInstrumentation().waitForIdleSync();
     }
 
-    @Test
+    @SmallTest
     public void testOnTextContextMenuItem() {
         final String text = "abc def ghi";
 
@@ -97,14 +92,14 @@ public class SuggestionsPopupWindowTest {
                 new String[]{"DEF", "Def"}, SuggestionSpan.FLAG_AUTO_CORRECTION);
         setSuggestionSpan(suggestionSpan, text.indexOf('d'), text.indexOf('f') + 1);
 
-        final TextView textView = getActivity().findViewById(R.id.textview);
+        final TextView textView = (TextView) getActivity().findViewById(R.id.textview);
         textView.post(() -> textView.onTextContextMenuItem(TextView.ID_REPLACE));
         getInstrumentation().waitForIdleSync();
 
         assertSuggestionsPopupIsDisplayed();
     }
 
-    @Test
+    @SmallTest
     public void testSelectionActionMode() {
         final String text = "abc def ghi";
 
@@ -126,7 +121,7 @@ public class SuggestionsPopupWindowTest {
         assertSuggestionsPopupIsDisplayed();
     }
 
-    @Test
+    @SmallTest
     public void testInsertionActionMode() {
         final String text = "abc def ghi";
 
@@ -149,13 +144,13 @@ public class SuggestionsPopupWindowTest {
     }
 
     private void showSuggestionsPopup() {
-        final TextView textView = getActivity().findViewById(R.id.textview);
+        final TextView textView = (TextView) getActivity().findViewById(R.id.textview);
         textView.post(() -> textView.onTextContextMenuItem(TextView.ID_REPLACE));
         getInstrumentation().waitForIdleSync();
         assertSuggestionsPopupIsDisplayed();
     }
 
-    @Test
+    @SmallTest
     public void testSuggestionItems() {
         final String text = "abc def ghi";
 
@@ -193,7 +188,7 @@ public class SuggestionsPopupWindowTest {
         onView(withId(R.id.textview)).check(matches(withText("abc ghi")));
     }
 
-    @Test
+    @SmallTest
     public void testMisspelled() {
         final String text = "abc def ghi";
 
@@ -220,7 +215,7 @@ public class SuggestionsPopupWindowTest {
         // TODO: Check if add to dictionary dialog is displayed.
     }
 
-    @Test
+    @SmallTest
     public void testEasyCorrect() {
         final String text = "abc def ghi";
 
@@ -256,7 +251,7 @@ public class SuggestionsPopupWindowTest {
                 getActivity().getString(com.android.internal.R.string.delete));
     }
 
-    @Test
+    @SmallTest
     public void testTextAppearanceInSuggestionsPopup() {
         final String text = "abc def ghi";
 
@@ -305,49 +300,53 @@ public class SuggestionsPopupWindowTest {
             assertSuggestionsPopupContainsItem(
                     getActivity().getString(com.android.internal.R.string.delete));
 
-            onSuggestionsPopup().check((view, e) -> {
-                final ListView listView = view.findViewById(
-                        com.android.internal.R.id.suggestionContainer);
-                assertNotNull(listView);
-                final int childNum = listView.getChildCount();
-                assertEquals(singleWordCandidates.length + multiWordCandidates.length, childNum);
+            onSuggestionsPopup().check(new ViewAssertion() {
+                @Override
+                public void check(View view, NoMatchingViewException e) {
+                    final ListView listView = (ListView) view.findViewById(
+                            com.android.internal.R.id.suggestionContainer);
+                    assertNotNull(listView);
+                    final int childNum = listView.getChildCount();
+                    assertEquals(singleWordCandidates.length + multiWordCandidates.length,
+                            childNum);
 
-                for (int j = 0; j < childNum; j++) {
-                    final TextView suggestion = (TextView) listView.getChildAt(j);
-                    assertNotNull(suggestion);
-                    final Spanned spanned = (Spanned) suggestion.getText();
-                    assertNotNull(spanned);
+                    for (int j = 0; j < childNum; j++) {
+                        final TextView suggestion = (TextView) listView.getChildAt(j);
+                        assertNotNull(suggestion);
+                        final Spanned spanned = (Spanned) suggestion.getText();
+                        assertNotNull(spanned);
 
-                    // Check that the suggestion item order is kept.
-                    final String expectedText;
-                    if (j < singleWordCandidates.length) {
-                        expectedText = "abc " + singleWordCandidates[j] + " ghi";
-                    } else {
-                        expectedText = multiWordCandidates[j - singleWordCandidates.length];
+                        // Check that the suggestion item order is kept.
+                        final String expectedText;
+                        if (j < singleWordCandidates.length) {
+                            expectedText = "abc " + singleWordCandidates[j] + " ghi";
+                        } else {
+                            expectedText = multiWordCandidates[j - singleWordCandidates.length];
+                        }
+                        assertEquals(expectedText, spanned.toString());
+
+                        // Check that the text is highlighted with correct color and text size.
+                        final TextAppearanceSpan[] taSpan = spanned.getSpans(
+                                text.indexOf('d'), text.indexOf('f') + 1, TextAppearanceSpan.class);
+                        assertEquals(1, taSpan.length);
+                        TextPaint tp = new TextPaint();
+                        taSpan[0].updateDrawState(tp);
+                        assertEquals(expectedHighlightTextColor, tp.getColor());
+                        assertEquals(expectedHighlightTextSize, tp.getTextSize());
+
+                        // Check the correct part of the text is highlighted.
+                        final int expectedStart;
+                        final int expectedEnd;
+                        if (j < singleWordCandidates.length) {
+                            expectedStart = text.indexOf('d');
+                            expectedEnd = text.indexOf('f') + 1;
+                        } else {
+                            expectedStart = 0;
+                            expectedEnd = text.length();
+                        }
+                        assertEquals(expectedStart, spanned.getSpanStart(taSpan[0]));
+                        assertEquals(expectedEnd, spanned.getSpanEnd(taSpan[0]));
                     }
-                    assertEquals(expectedText, spanned.toString());
-
-                    // Check that the text is highlighted with correct color and text size.
-                    final TextAppearanceSpan[] taSpan = spanned.getSpans(
-                            text.indexOf('d'), text.indexOf('f') + 1, TextAppearanceSpan.class);
-                    assertEquals(1, taSpan.length);
-                    TextPaint tp = new TextPaint();
-                    taSpan[0].updateDrawState(tp);
-                    assertEquals(expectedHighlightTextColor, tp.getColor());
-                    assertEquals(expectedHighlightTextSize, tp.getTextSize(), 0f);
-
-                    // Check the correct part of the text is highlighted.
-                    final int expectedStart;
-                    final int expectedEnd;
-                    if (j < singleWordCandidates.length) {
-                        expectedStart = text.indexOf('d');
-                        expectedEnd = text.indexOf('f') + 1;
-                    } else {
-                        expectedStart = 0;
-                        expectedEnd = text.length();
-                    }
-                    assertEquals(expectedStart, spanned.getSpanStart(taSpan[0]));
-                    assertEquals(expectedEnd, spanned.getSpanEnd(taSpan[0]));
                 }
             });
             pressBack();

@@ -19,10 +19,6 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="car_guest" msgid="3738772168718508650">"Convidado"</string>
-    <string name="start_guest_session" msgid="7055742120180595689">"Convidado"</string>
-    <string name="car_add_user" msgid="5245196248349230898">"Adicionar utilizador"</string>
-    <string name="car_new_user" msgid="8142927244990323906">"Novo utilizador"</string>
-    <string name="user_add_user_message_setup" msgid="1791011504259527329">"Ao adicionar um novo utilizador, essa pessoa tem de configurar o respetivo espaço."</string>
-    <string name="user_add_user_message_update" msgid="3383320289232716179">"Qualquer utilizador pode atualizar aplicações para todos os outros utilizadores."</string>
+    <string name="car_lockscreen_disclaimer_title" msgid="7997539137376896441">"Conduza com segurança"</string>
+    <string name="car_lockscreen_disclaimer_text" msgid="3061224684092952864">"Mantenha-se completamente atento às condições de condução e respeite sempre as leis aplicáveis. As direções podem ser imprecisas, incompletas, perigosas, inadequadas, proibidas ou envolver a travessia de áreas administrativas. Os dados das empresas também podem ser imprecisos ou incompletos. Os dados não são fornecidos em tempo real e não é possível garantir a precisão da localização. Não manuseie o dispositivo móvel nem utilize aplicações não destinadas ao Android Auto durante a condução."</string>
 </resources>

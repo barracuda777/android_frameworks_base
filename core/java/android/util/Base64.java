@@ -16,7 +16,6 @@
 
 package android.util;
 
-import android.annotation.UnsupportedAppUsage;
 import java.io.UnsupportedEncodingException;
 
 /**
@@ -738,6 +737,5 @@ public class Base64 {
         }
     }
 
-    @UnsupportedAppUsage
     private Base64() { }   // don't instantiate
 }

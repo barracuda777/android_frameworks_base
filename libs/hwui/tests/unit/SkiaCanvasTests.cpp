@@ -16,97 +16,46 @@
 
 #include "tests/common/TestUtils.h"
 
-#include <SkBlurDrawLooper.h>
-#include <SkCanvasStateUtils.h>
+#include <gtest/gtest.h>
+#include <RecordingCanvas.h>
 #include <SkPicture.h>
 #include <SkPictureRecorder.h>
-#include <gtest/gtest.h>
 
 using namespace android;
 using namespace android::uirenderer;
 
-TEST(SkiaCanvas, drawShadowLayer) {
-    auto surface = SkSurface::MakeRasterN32Premul(10, 10);
-    SkiaCanvas canvas(surface->getCanvas());
+/**
+ * Verify that we get the same culling bounds for text for (1) drawing glyphs
+ * directly to a Canvas or (2) going through a SkPicture as an intermediate step.
+ */
+TEST(SkiaCanvasProxy, drawGlyphsViaPicture) {
+    auto dl = TestUtils::createDisplayList<RecordingCanvas>(200, 200, [](RecordingCanvas& canvas) {
+        // setup test variables
+        SkPaint paint;
+        paint.setAntiAlias(true);
+        paint.setTextSize(20);
+        paint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
+        static const char* text = "testing text bounds";
 
-    // clear to white
-    canvas.drawColor(SK_ColorWHITE, SkBlendMode::kSrc);
+        // draw text directly into Recording canvas
+        TestUtils::drawUtf8ToCanvas(&canvas, text, paint, 25, 25);
 
-    SkPaint paint;
-    // it is transparent to ensure that we still draw the rect since it has a looper
-    paint.setColor(SK_ColorTRANSPARENT);
-    // this is how view's shadow layers are implemented
-    paint.setLooper(SkBlurDrawLooper::Make(0xF0000000, 6.0f, 0, 10));
-    canvas.drawRect(3, 3, 7, 7, paint);
+        // record the same text draw into a SkPicture and replay it into a Recording canvas
+        SkPictureRecorder recorder;
+        SkCanvas* skCanvas = recorder.beginRecording(200, 200, NULL, 0);
+        std::unique_ptr<Canvas> pictCanvas(Canvas::create_canvas(skCanvas));
+        TestUtils::drawUtf8ToCanvas(pictCanvas.get(), text, paint, 25, 25);
+        SkAutoTUnref<const SkPicture> picture(recorder.endRecording());
 
-    ASSERT_EQ(TestUtils::getColor(surface, 0, 0), SK_ColorWHITE);
-    ASSERT_NE(TestUtils::getColor(surface, 5, 5), SK_ColorWHITE);
-}
+        canvas.asSkCanvas()->drawPicture(picture);
+    });
 
-TEST(SkiaCanvas, colorSpaceXform) {
-    sk_sp<SkColorSpace> adobe = SkColorSpace::MakeRGB(SkNamedTransferFn::kSRGB,
-                                                      SkNamedGamut::kAdobeRGB);
-
-    SkImageInfo adobeInfo = SkImageInfo::Make(1, 1, kN32_SkColorType, kOpaque_SkAlphaType, adobe);
-    sk_sp<Bitmap> adobeBitmap = Bitmap::allocateHeapBitmap(adobeInfo);
-    SkBitmap adobeSkBitmap;
-    adobeBitmap->getSkBitmap(&adobeSkBitmap);
-    *adobeSkBitmap.getAddr32(0, 0) = 0xFF0000F0;  // Opaque, almost fully-red
-
-    SkImageInfo info = adobeInfo.makeColorSpace(SkColorSpace::MakeSRGB());
-    sk_sp<Bitmap> bitmap = Bitmap::allocateHeapBitmap(info);
-    SkBitmap skBitmap;
-    bitmap->getSkBitmap(&skBitmap);
-
-    // Create a software sRGB canvas.
-    SkiaCanvas canvas(skBitmap);
-    canvas.drawBitmap(*adobeBitmap, 0, 0, nullptr);
-    // The result should be fully red, since we convert to sRGB at draw time.
-    ASSERT_EQ(0xFF0000FF, *skBitmap.getAddr32(0, 0));
-
-    // Create a software canvas with an Adobe color space.
-    SkiaCanvas adobeSkCanvas(adobeSkBitmap);
-    adobeSkCanvas.drawBitmap(*bitmap, 0, 0, nullptr);
-    // The result should be less than fully red, since we convert to Adobe RGB at draw time.
-    ASSERT_EQ(0xFF0000DC, *adobeSkBitmap.getAddr32(0, 0));
-
-    // Test picture recording.
-    SkPictureRecorder recorder;
-    SkCanvas* skPicCanvas = recorder.beginRecording(1, 1, NULL, 0);
-    SkiaCanvas picCanvas(skPicCanvas);
-    picCanvas.drawBitmap(*adobeBitmap, 0, 0, nullptr);
-    sk_sp<SkPicture> picture = recorder.finishRecordingAsPicture();
-
-    // Playback to a software sRGB canvas.  The result should be fully red.
-    canvas.asSkCanvas()->drawPicture(picture);
-    ASSERT_EQ(0xFF0000FF, *skBitmap.getAddr32(0, 0));
-}
-
-TEST(SkiaCanvas, captureCanvasState) {
-    // Create a software canvas.
-    SkImageInfo info = SkImageInfo::Make(1, 1, kN32_SkColorType, kOpaque_SkAlphaType);
-    sk_sp<Bitmap> bitmap = Bitmap::allocateHeapBitmap(info);
-    SkBitmap skBitmap;
-    bitmap->getSkBitmap(&skBitmap);
-    skBitmap.eraseColor(0);
-    SkiaCanvas canvas(skBitmap);
-
-    // Translate, then capture and verify the CanvasState.
-    canvas.translate(1.0f, 1.0f);
-    SkCanvasState* state = canvas.captureCanvasState();
-    ASSERT_NE(state, nullptr);
-    std::unique_ptr<SkCanvas> newCanvas = SkCanvasStateUtils::MakeFromCanvasState(state);
-    ASSERT_NE(newCanvas.get(), nullptr);
-    newCanvas->translate(-1.0f, -1.0f);
-    ASSERT_TRUE(newCanvas->getTotalMatrix().isIdentity());
-    SkCanvasStateUtils::ReleaseCanvasState(state);
-
-    // Create a picture canvas.
-    SkPictureRecorder recorder;
-    SkCanvas* skPicCanvas = recorder.beginRecording(1, 1, NULL, 0);
-    SkiaCanvas picCanvas(skPicCanvas);
-    state = picCanvas.captureCanvasState();
-
-    // Verify that we cannot get the CanvasState.
-    ASSERT_EQ(state, nullptr);
+    // verify that the text bounds and matrices match
+    ASSERT_EQ(2U, dl->getOps().size());
+    auto directOp = dl->getOps()[0];
+    auto pictureOp = dl->getOps()[1];
+    ASSERT_EQ(RecordedOpId::TextOp, directOp->opId);
+    EXPECT_EQ(directOp->opId, pictureOp->opId);
+    EXPECT_EQ(directOp->unmappedBounds, pictureOp->unmappedBounds);
+    EXPECT_EQ(directOp->localMatrix, pictureOp->localMatrix);
 }

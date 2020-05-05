@@ -15,7 +15,6 @@
 */
 package com.android.server.notification;
 
-import android.app.Notification;
 import android.content.Context;
 import android.util.Slog;
 
@@ -23,7 +22,7 @@ import android.util.Slog;
  * Determines if the given notification can bypass Do Not Disturb.
  */
 public class PriorityExtractor implements NotificationSignalExtractor {
-    private static final String TAG = "PriorityExtractor";
+    private static final String TAG = "ImportantTopicExtractor";
     private static final boolean DBG = false;
 
     private RankingConfig mConfig;
@@ -43,8 +42,8 @@ public class PriorityExtractor implements NotificationSignalExtractor {
             return null;
         }
 
-        record.setPackagePriority(record.getChannel().canBypassDnd()
-                ? Notification.PRIORITY_MAX : Notification.PRIORITY_DEFAULT);
+        record.setPackagePriority(
+                mConfig.getPriority(record.sbn.getPackageName(), record.sbn.getUid()));
 
         return null;
     }
@@ -52,10 +51,5 @@ public class PriorityExtractor implements NotificationSignalExtractor {
     @Override
     public void setConfig(RankingConfig config) {
         mConfig = config;
-    }
-
-    @Override
-    public void setZenHelper(ZenModeHelper helper) {
-
     }
 }

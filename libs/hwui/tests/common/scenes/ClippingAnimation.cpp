@@ -19,25 +19,27 @@
 class ClippingAnimation;
 
 static TestScene::Registrar _RectGrid(TestScene::Info{
-        "clip",
-        "Complex clip cases"
-        "Low CPU/GPU load.",
-        TestScene::simpleCreateScene<ClippingAnimation>});
+    "clip",
+    "Complex clip cases"
+    "Low CPU/GPU load.",
+    TestScene::simpleCreateScene<ClippingAnimation>
+});
 
 class ClippingAnimation : public TestScene {
 public:
     sp<RenderNode> card;
-    void createContent(int width, int height, Canvas& canvas) override {
-        canvas.drawColor(Color::White, SkBlendMode::kSrcOver);
-        card = TestUtils::createNode(0, 0, 200, 400, [](RenderProperties& props, Canvas& canvas) {
+    void createContent(int width, int height, TestCanvas& canvas) override {
+        canvas.drawColor(Color::White, SkXfermode::kSrcOver_Mode);
+        card = TestUtils::createNode(0, 0, 200, 400,
+                [](RenderProperties& props, TestCanvas& canvas) {
             canvas.save(SaveFlags::MatrixClip);
             {
-                canvas.clipRect(0, 0, 200, 200, SkClipOp::kIntersect);
+                canvas.clipRect(0, 0, 200, 200, SkRegion::kIntersect_Op);
                 canvas.translate(100, 100);
                 canvas.rotate(45);
                 canvas.translate(-100, -100);
-                canvas.clipRect(0, 0, 200, 200, SkClipOp::kIntersect);
-                canvas.drawColor(Color::Blue_500, SkBlendMode::kSrcOver);
+                canvas.clipRect(0, 0, 200, 200, SkRegion::kIntersect_Op);
+                canvas.drawColor(Color::Blue_500, SkXfermode::kSrcOver_Mode);
             }
             canvas.restore();
 
@@ -45,8 +47,8 @@ public:
             {
                 SkPath clipCircle;
                 clipCircle.addCircle(100, 300, 100);
-                canvas.clipPath(&clipCircle, SkClipOp::kIntersect);
-                canvas.drawColor(Color::Red_500, SkBlendMode::kSrcOver);
+                canvas.clipPath(&clipCircle, SkRegion::kIntersect_Op);
+                canvas.drawColor(Color::Red_500, SkXfermode::kSrcOver_Mode);
             }
             canvas.restore();
 

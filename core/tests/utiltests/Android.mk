@@ -15,19 +15,15 @@ LOCAL_SRC_FILES += src/android/util/IRemoteMemoryIntArray.aidl
 LOCAL_JNI_SHARED_LIBRARIES := libmemoryintarraytest libcutils libc++
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    androidx.test.rules \
-    frameworks-base-testutils \
-    mockito-target-minus-junit4 \
-    androidx.test.ext.junit
+    android-support-test \
+    mockito-target
 
-LOCAL_JAVA_LIBRARIES := android.test.runner android.test.base android.test.mock
+LOCAL_JAVA_LIBRARIES := android.test.runner
 
 LOCAL_PACKAGE_NAME := FrameworksUtilTests
-LOCAL_PRIVATE_PLATFORM_APIS := true
 
 LOCAL_CERTIFICATE := platform
 
-LOCAL_COMPATIBILITY_SUITE := device-tests
-
 include $(BUILD_PACKAGE)
 
+include $(call all-makefiles-under,$(LOCAL_PATH))

@@ -20,14 +20,15 @@
 #include "VectorDrawable.h"
 #include "utils/VectorDrawableUtils.h"
 
+#include <jni.h>
 #include <android/log.h>
 #include <cutils/compiler.h>
-#include <jni.h>
 
 #include <string>
 
 namespace android {
 namespace uirenderer {
+
 
 class PathParser {
 public:
@@ -39,13 +40,13 @@ public:
      * Parse the string literal and create a Skia Path. Return true on success.
      */
     ANDROID_API static void parseAsciiStringForSkPath(SkPath* outPath, ParseResult* result,
-                                                      const char* pathStr, size_t strLength);
+            const char* pathStr, size_t strLength);
     ANDROID_API static void getPathDataFromAsciiString(PathData* outData, ParseResult* result,
-                                                       const char* pathStr, size_t strLength);
+            const char* pathStr, size_t strLength);
     static void dump(const PathData& data);
-    static void validateVerbAndPoints(char verb, size_t points, ParseResult* result);
+    static bool isVerbValid(char verb);
 };
 
-}      // namespace uirenderer
-}      // namespace android
-#endif  // ANDROID_HWUI_PATHPARSER_H
+}; // namespace uirenderer
+}; // namespace android
+#endif //ANDROID_HWUI_PATHPARSER_H

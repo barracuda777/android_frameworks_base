@@ -34,7 +34,6 @@ import android.mtp.MtpConstants;
 import android.mtp.MtpObjectInfo;
 import android.net.Uri;
 import android.provider.DocumentsContract;
-import android.provider.MetadataReader;
 import android.provider.DocumentsContract.Document;
 import android.provider.DocumentsContract.Root;
 
@@ -201,7 +200,10 @@ class MtpDatabase {
                     storageCursor.close();
                 }
 
-                putValuesToCursor(values, result);
+                final RowBuilder row = result.newRow();
+                for (final String key : values.keySet()) {
+                    row.add(key, values.get(key));
+                }
             }
 
             return result;
@@ -758,9 +760,7 @@ class MtpDatabase {
                 Document.MIME_TYPE_DIR,
                 0,
                 MtpConstants.PROTECTION_STATUS_NONE,
-                // Storages are placed under device so we cannot create a document just under
-                // device.
-                DOCUMENT_TYPE_DEVICE) & ~Document.FLAG_DIR_SUPPORTS_CREATE);
+                DOCUMENT_TYPE_DEVICE));
         values.putNull(Document.COLUMN_SIZE);
 
         extraValues.clear();
@@ -851,7 +851,25 @@ class MtpDatabase {
             return DocumentsContract.Document.MIME_TYPE_DIR;
         }
 
-        return MediaFile.getMimeType(info.getName(), info.getFormat());
+        final String formatCodeMimeType = MediaFile.getMimeTypeForFormatCode(info.getFormat());
+        final String mediaFileMimeType = MediaFile.getMimeTypeForFile(info.getName());
+
+        // Format code can be mapped with multiple mime types, e.g. FORMAT_MPEG is mapped with
+        // audio/mp4 and video/mp4.
+        // As file extension contains more information than format code, returns mime type obtained
+        // from file extension if it is consistent with format code.
+        if (mediaFileMimeType != null &&
+                MediaFile.getFormatCode("", mediaFileMimeType) == info.getFormat()) {
+            return mediaFileMimeType;
+        }
+        if (formatCodeMimeType != null) {
+            return formatCodeMimeType;
+        }
+        if (mediaFileMimeType != null) {
+            return mediaFileMimeType;
+        }
+        // We don't know the file type.
+        return "application/octet-stream";
     }
 
     private static int getRootFlags(int[] operationsSupported) {
@@ -883,9 +901,6 @@ class MtpDatabase {
                 protectionState == MtpConstants.PROTECTION_STATUS_NONE) {
             flag |= Document.FLAG_DIR_SUPPORTS_CREATE;
         }
-        if (MetadataReader.isSupportedMimeType(mimeType)) {
-            flag |= Document.FLAG_SUPPORTS_METADATA;
-        }
         if (thumbnailSize > 0) {
             flag |= Document.FLAG_SUPPORTS_THUMBNAIL;
         }
@@ -898,13 +913,6 @@ class MtpDatabase {
             results[i] = Objects.toString(args[i]);
         }
         return results;
-    }
-
-    static void putValuesToCursor(ContentValues values, MatrixCursor cursor) {
-        final RowBuilder row = cursor.newRow();
-        for (final String name : cursor.getColumnNames()) {
-            row.add(values.get(name));
-        }
     }
 
     private static String getIdList(Set<String> ids) {

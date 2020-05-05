@@ -16,7 +16,6 @@
 
 package android.renderscript;
 
-import android.annotation.UnsupportedAppUsage;
 import java.io.File;
 
 /**
@@ -31,13 +30,11 @@ public class RenderScriptCacheDir {
      * @hide
      * @param cacheDir A directory the current process can write to
      */
-    @UnsupportedAppUsage
     public static void setupDiskCache(File cacheDir) {
         // Defer creation of cache path to nScriptCCreate().
         mCacheDir = cacheDir;
     }
 
-    @UnsupportedAppUsage
     static File mCacheDir;
 
 }

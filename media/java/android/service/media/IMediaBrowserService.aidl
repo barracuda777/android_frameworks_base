@@ -2,7 +2,9 @@
 
 package android.service.media;
 
+import android.content.res.Configuration;
 import android.service.media.IMediaBrowserServiceCallbacks;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.ResultReceiver;
 

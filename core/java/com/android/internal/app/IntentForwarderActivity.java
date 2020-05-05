@@ -18,21 +18,15 @@ package com.android.internal.app;
 
 import static android.content.pm.PackageManager.MATCH_DEFAULT_ONLY;
 
-import android.annotation.Nullable;
-import android.annotation.StringRes;
-import android.annotation.UnsupportedAppUsage;
 import android.app.Activity;
-import android.app.ActivityTaskManager;
+import android.app.ActivityManagerNative;
 import android.app.ActivityThread;
 import android.app.AppGlobals;
 import android.app.admin.DevicePolicyManager;
+import android.content.Context;
 import android.content.Intent;
-import android.content.pm.ActivityInfo;
 import android.content.pm.IPackageManager;
-import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
 import android.content.pm.UserInfo;
-import android.metrics.LogMaker;
 import android.os.Bundle;
 import android.os.RemoteException;
 import android.os.UserHandle;
@@ -40,14 +34,7 @@ import android.os.UserManager;
 import android.util.Slog;
 import android.widget.Toast;
 
-import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.logging.MetricsLogger;
-import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
-
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * This is used in conjunction with
@@ -55,7 +42,7 @@ import java.util.Set;
  * be passed in and out of a managed profile.
  */
 public class IntentForwarderActivity extends Activity  {
-    @UnsupportedAppUsage
+
     public static String TAG = "IntentForwarderActivity";
 
     public static String FORWARD_INTENT_TO_PARENT
@@ -64,38 +51,21 @@ public class IntentForwarderActivity extends Activity  {
     public static String FORWARD_INTENT_TO_MANAGED_PROFILE
             = "com.android.internal.app.ForwardIntentToManagedProfile";
 
-    private static final Set<String> ALLOWED_TEXT_MESSAGE_SCHEMES
-            = new HashSet<>(Arrays.asList("sms", "smsto", "mms", "mmsto"));
-
-    private static final String TEL_SCHEME = "tel";
-
-    private Injector mInjector;
-
-    private MetricsLogger mMetricsLogger;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        mInjector = createInjector();
-
         Intent intentReceived = getIntent();
+
         String className = intentReceived.getComponent().getClassName();
         final int targetUserId;
         final int userMessageId;
+
         if (className.equals(FORWARD_INTENT_TO_PARENT)) {
             userMessageId = com.android.internal.R.string.forward_intent_to_owner;
             targetUserId = getProfileParent();
-
-            getMetricsLogger().write(
-                    new LogMaker(MetricsEvent.ACTION_SWITCH_SHARE_PROFILE)
-                    .setSubtype(MetricsEvent.PARENT_PROFILE));
         } else if (className.equals(FORWARD_INTENT_TO_MANAGED_PROFILE)) {
             userMessageId = com.android.internal.R.string.forward_intent_to_work;
             targetUserId = getManagedProfile();
-
-            getMetricsLogger().write(
-                    new LogMaker(MetricsEvent.ACTION_SWITCH_SHARE_PROFILE)
-                    .setSubtype(MetricsEvent.MANAGED_PROFILE));
         } else {
             Slog.wtf(TAG, IntentForwarderActivity.class.getName() + " cannot be called directly");
             userMessageId = -1;
@@ -106,31 +76,43 @@ public class IntentForwarderActivity extends Activity  {
             finish();
             return;
         }
+        Intent newIntent = new Intent(intentReceived);
+        newIntent.setComponent(null);
+        // Apps should not be allowed to target a specific package in the target user.
+        newIntent.setPackage(null);
+        newIntent.addFlags(Intent.FLAG_ACTIVITY_FORWARD_RESULT
+                |Intent.FLAG_ACTIVITY_PREVIOUS_IS_TOP);
+        int callingUserId = getUserId();
 
-        final int callingUserId = getUserId();
-        final Intent newIntent = canForward(intentReceived, targetUserId);
-        if (newIntent != null) {
+        if (canForward(newIntent, targetUserId)) {
             if (Intent.ACTION_CHOOSER.equals(newIntent.getAction())) {
-                Intent innerIntent = newIntent.getParcelableExtra(Intent.EXTRA_INTENT);
+                Intent innerIntent = (Intent) newIntent.getParcelableExtra(Intent.EXTRA_INTENT);
                 // At this point, innerIntent is not null. Otherwise, canForward would have returned
                 // false.
                 innerIntent.prepareToLeaveUser(callingUserId);
-                innerIntent.fixUris(callingUserId);
             } else {
                 newIntent.prepareToLeaveUser(callingUserId);
             }
 
-            final ResolveInfo ri = mInjector.resolveActivityAsUser(newIntent, MATCH_DEFAULT_ONLY,
-                    targetUserId);
+            final android.content.pm.ResolveInfo ri = getPackageManager().resolveActivityAsUser(
+                        newIntent, MATCH_DEFAULT_ONLY, targetUserId);
+
+            // Don't show the disclosure if next activity is ResolverActivity or ChooserActivity
+            // as those will already have shown work / personal as neccesary etc.
+            final boolean shouldShowDisclosure = ri == null || ri.activityInfo == null ||
+                    !"android".equals(ri.activityInfo.packageName) ||
+                    !(ResolverActivity.class.getName().equals(ri.activityInfo.name)
+                    || ChooserActivity.class.getName().equals(ri.activityInfo.name));
+
             try {
-                startActivityAsCaller(newIntent, null, null, false, targetUserId);
+                startActivityAsCaller(newIntent, null, false, targetUserId);
             } catch (RuntimeException e) {
                 int launchedFromUid = -1;
                 String launchedFromPackage = "?";
                 try {
-                    launchedFromUid = ActivityTaskManager.getService().getLaunchedFromUid(
+                    launchedFromUid = ActivityManagerNative.getDefault().getLaunchedFromUid(
                             getActivityToken());
-                    launchedFromPackage = ActivityTaskManager.getService().getLaunchedFromPackage(
+                    launchedFromPackage = ActivityManagerNative.getDefault().getLaunchedFromPackage(
                             getActivityToken());
                 } catch (RemoteException ignored) {
                 }
@@ -140,97 +122,48 @@ public class IntentForwarderActivity extends Activity  {
                         + ActivityThread.currentProcessName(), e);
             }
 
-            if (shouldShowDisclosure(ri, intentReceived)) {
-                mInjector.showToast(userMessageId, Toast.LENGTH_LONG);
+            if (shouldShowDisclosure) {
+                Toast.makeText(this, getString(userMessageId), Toast.LENGTH_LONG).show();
             }
         } else {
-            Slog.wtf(TAG, "the intent: " + intentReceived + " cannot be forwarded from user "
+            Slog.wtf(TAG, "the intent: " + newIntent + " cannot be forwarded from user "
                     + callingUserId + " to user " + targetUserId);
         }
         finish();
     }
 
-    private boolean shouldShowDisclosure(@Nullable ResolveInfo ri, Intent intent) {
-        if (ri == null || ri.activityInfo == null) {
-            return true;
-        }
-        if (ri.activityInfo.applicationInfo.isSystemApp()
-                && (isDialerIntent(intent) || isTextMessageIntent(intent))) {
-            return false;
-        }
-        return !isTargetResolverOrChooserActivity(ri.activityInfo);
-    }
-
-    private boolean isTextMessageIntent(Intent intent) {
-        return (Intent.ACTION_SENDTO.equals(intent.getAction()) || isViewActionIntent(intent))
-                && ALLOWED_TEXT_MESSAGE_SCHEMES.contains(intent.getScheme());
-    }
-
-    private boolean isDialerIntent(Intent intent) {
-        return Intent.ACTION_DIAL.equals(intent.getAction())
-                || Intent.ACTION_CALL.equals(intent.getAction())
-                || Intent.ACTION_CALL_PRIVILEGED.equals(intent.getAction())
-                || Intent.ACTION_CALL_EMERGENCY.equals(intent.getAction())
-                || (isViewActionIntent(intent) && TEL_SCHEME.equals(intent.getScheme()));
-    }
-
-    private boolean isViewActionIntent(Intent intent) {
-        return Intent.ACTION_VIEW.equals(intent.getAction())
-                && intent.hasCategory(Intent.CATEGORY_BROWSABLE);
-    }
-
-    private boolean isTargetResolverOrChooserActivity(ActivityInfo activityInfo) {
-        if (!"android".equals(activityInfo.packageName)) {
-            return false;
-        }
-        return ResolverActivity.class.getName().equals(activityInfo.name)
-            || ChooserActivity.class.getName().equals(activityInfo.name);
-    }
-
-    /**
-     * Check whether the intent can be forwarded to target user. Return the intent used for
-     * forwarding if it can be forwarded, {@code null} otherwise.
-     */
-    Intent canForward(Intent incomingIntent, int targetUserId)  {
-        Intent forwardIntent = new Intent(incomingIntent);
-        forwardIntent.addFlags(
-                Intent.FLAG_ACTIVITY_FORWARD_RESULT | Intent.FLAG_ACTIVITY_PREVIOUS_IS_TOP);
-        sanitizeIntent(forwardIntent);
-
-        Intent intentToCheck = forwardIntent;
-        if (Intent.ACTION_CHOOSER.equals(forwardIntent.getAction())) {
+    boolean canForward(Intent intent, int targetUserId)  {
+        IPackageManager ipm = AppGlobals.getPackageManager();
+        if (Intent.ACTION_CHOOSER.equals(intent.getAction())) {
             // The EXTRA_INITIAL_INTENTS may not be allowed to be forwarded.
-            if (forwardIntent.hasExtra(Intent.EXTRA_INITIAL_INTENTS)) {
+            if (intent.hasExtra(Intent.EXTRA_INITIAL_INTENTS)) {
                 Slog.wtf(TAG, "An chooser intent with extra initial intents cannot be forwarded to"
                         + " a different user");
-                return null;
+                return false;
             }
-            if (forwardIntent.hasExtra(Intent.EXTRA_REPLACEMENT_EXTRAS)) {
+            if (intent.hasExtra(Intent.EXTRA_REPLACEMENT_EXTRAS)) {
                 Slog.wtf(TAG, "A chooser intent with replacement extras cannot be forwarded to a"
                         + " different user");
-                return null;
+                return false;
             }
-            intentToCheck = forwardIntent.getParcelableExtra(Intent.EXTRA_INTENT);
-            if (intentToCheck == null) {
+            intent = (Intent) intent.getParcelableExtra(Intent.EXTRA_INTENT);
+            if (intent == null) {
                 Slog.wtf(TAG, "Cannot forward a chooser intent with no extra "
                         + Intent.EXTRA_INTENT);
-                return null;
+                return false;
             }
         }
-        if (forwardIntent.getSelector() != null) {
-            intentToCheck = forwardIntent.getSelector();
+        String resolvedType = intent.resolveTypeIfNeeded(getContentResolver());
+        if (intent.getSelector() != null) {
+            intent = intent.getSelector();
         }
-        String resolvedType = intentToCheck.resolveTypeIfNeeded(getContentResolver());
-        sanitizeIntent(intentToCheck);
         try {
-            if (mInjector.getIPackageManager().
-                    canForwardTo(intentToCheck, resolvedType, getUserId(), targetUserId)) {
-                return forwardIntent;
-            }
+            return ipm.canForwardTo(intent, resolvedType, getUserId(),
+                    targetUserId);
         } catch (RemoteException e) {
             Slog.e(TAG, "PackageManagerService is dead?");
+            return false;
         }
-        return null;
     }
 
     /**
@@ -241,7 +174,8 @@ public class IntentForwarderActivity extends Activity  {
      * on the device.
      */
     private int getManagedProfile() {
-        List<UserInfo> relatedUsers = mInjector.getUserManager().getProfiles(UserHandle.myUserId());
+        UserManager userManager = (UserManager) getSystemService(Context.USER_SERVICE);
+        List<UserInfo> relatedUsers = userManager.getProfiles(UserHandle.myUserId());
         for (UserInfo userInfo : relatedUsers) {
             if (userInfo.isManagedProfile()) return userInfo.id;
         }
@@ -255,73 +189,13 @@ public class IntentForwarderActivity extends Activity  {
      * no parent.
      */
     private int getProfileParent() {
-        UserInfo parent = mInjector.getUserManager().getProfileParent(UserHandle.myUserId());
+        UserManager userManager = (UserManager) getSystemService(Context.USER_SERVICE);
+        UserInfo parent = userManager.getProfileParent(UserHandle.myUserId());
         if (parent == null) {
             Slog.wtf(TAG, FORWARD_INTENT_TO_PARENT
                     + " has been called, but there is no parent");
             return UserHandle.USER_NULL;
         }
         return parent.id;
-    }
-
-    /**
-     * Sanitize the intent in place.
-     */
-    private void sanitizeIntent(Intent intent) {
-        // Apps should not be allowed to target a specific package/ component in the target user.
-        intent.setPackage(null);
-        intent.setComponent(null);
-    }
-
-    protected MetricsLogger getMetricsLogger() {
-        if (mMetricsLogger == null) {
-            mMetricsLogger = new MetricsLogger();
-        }
-        return mMetricsLogger;
-    }
-
-    @VisibleForTesting
-    protected Injector createInjector() {
-        return new InjectorImpl();
-    }
-
-    private class InjectorImpl implements Injector {
-
-        @Override
-        public IPackageManager getIPackageManager() {
-            return AppGlobals.getPackageManager();
-        }
-
-        @Override
-        public UserManager getUserManager() {
-            return getSystemService(UserManager.class);
-        }
-
-        @Override
-        public PackageManager getPackageManager() {
-            return IntentForwarderActivity.this.getPackageManager();
-        }
-
-        @Override
-        public ResolveInfo resolveActivityAsUser(Intent intent, int flags, int userId) {
-            return getPackageManager().resolveActivityAsUser(intent, flags, userId);
-        }
-
-        @Override
-        public void showToast(int messageId, int duration) {
-            Toast.makeText(IntentForwarderActivity.this, getString(messageId), duration).show();
-        }
-    }
-
-    public interface Injector {
-        IPackageManager getIPackageManager();
-
-        UserManager getUserManager();
-
-        PackageManager getPackageManager();
-
-        ResolveInfo resolveActivityAsUser(Intent intent, int flags, int userId);
-
-        void showToast(@StringRes int messageId, int duration);
     }
 }

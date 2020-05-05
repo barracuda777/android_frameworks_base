@@ -19,22 +19,12 @@ package android.content;
 import android.accounts.Account;
 import android.os.Bundle;
 import android.content.ISyncContext;
-import android.content.ISyncAdapterUnsyncableAccountCallback;
 
 /**
  * Interface used to control the sync activity on a SyncAdapter
  * @hide
  */
 oneway interface ISyncAdapter {
-    /**
-     * Called before {@link #startSync}. This allows the adapter to defer syncs until the
-     * adapter is ready for the account
-     *
-     * @param cb If called back with {@code false} accounts are not synced.
-     */
-    @UnsupportedAppUsage
-    void onUnsyncableAccount(ISyncAdapterUnsyncableAccountCallback cb);
-
     /**
      * Initiate a sync for this account. SyncAdapter-specific parameters may
      * be specified in extras, which is guaranteed to not be null.
@@ -45,7 +35,6 @@ oneway interface ISyncAdapter {
      * @param account the account that should be synced
      * @param extras SyncAdapter-specific parameters
      */
-    @UnsupportedAppUsage
     void startSync(ISyncContext syncContext, String authority,
       in Account account, in Bundle extras);
 
@@ -54,6 +43,13 @@ oneway interface ISyncAdapter {
      * after the ISyncContext.onFinished() for that sync was called.
      * @param syncContext the ISyncContext that was passed to {@link #startSync}
      */
-    @UnsupportedAppUsage
     void cancelSync(ISyncContext syncContext);
+
+    /**
+     * Initialize the SyncAdapter for this account and authority.
+     *
+     * @param account the account that should be synced
+     * @param authority the authority that should be synced
+     */
+    void initialize(in Account account, String authority);
 }

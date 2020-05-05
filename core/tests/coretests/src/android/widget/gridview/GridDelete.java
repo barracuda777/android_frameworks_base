@@ -16,13 +16,14 @@
 
 package android.widget.gridview;
 
-import android.util.GridScenario;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.GridView;
 import android.widget.ListAdapter;
+
+import android.util.GridScenario;
 
 import java.util.ArrayList;
 

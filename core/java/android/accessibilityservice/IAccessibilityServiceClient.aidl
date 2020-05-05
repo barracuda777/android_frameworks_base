@@ -31,7 +31,7 @@ import android.view.KeyEvent;
 
     void init(in IAccessibilityServiceConnection connection, int connectionId, IBinder windowToken);
 
-    void onAccessibilityEvent(in AccessibilityEvent event, in boolean serviceWantsEvent);
+    void onAccessibilityEvent(in AccessibilityEvent event);
 
     void onInterrupt();
 
@@ -41,17 +41,9 @@ import android.view.KeyEvent;
 
     void onKeyEvent(in KeyEvent event, int sequence);
 
-    void onMagnificationChanged(int displayId, in Region region, float scale, float centerX, float centerY);
+    void onMagnificationChanged(in Region region, float scale, float centerX, float centerY);
 
     void onSoftKeyboardShowModeChanged(int showMode);
 
     void onPerformGestureResult(int sequence, boolean completedSuccessfully);
-
-    void onFingerprintCapturingGesturesChanged(boolean capturing);
-
-    void onFingerprintGesture(int gesture);
-
-    void onAccessibilityButtonClicked();
-
-    void onAccessibilityButtonAvailabilityChanged(boolean available);
 }

@@ -18,8 +18,7 @@ package com.android.internal.os;
 
 import android.os.Debug;
 
-import androidx.test.filters.SmallTest;
-
+import android.test.suitebuilder.annotation.SmallTest;
 import junit.framework.TestCase;
 
 @SmallTest
@@ -64,13 +63,5 @@ public class DebugTest extends TestCase {
 
     public void testGetCallers() {
         assertTrue(callDepth1().matches(EXPECTED_GET_CALLERS));
-    }
-
-    /**
-     * Regression test for b/31943543. Note: must be run under CheckJNI to detect the issue.
-     */
-    public void testGetMemoryInfo() {
-        Debug.MemoryInfo info = new Debug.MemoryInfo();
-        Debug.getMemoryInfo(-1, info);
     }
 }

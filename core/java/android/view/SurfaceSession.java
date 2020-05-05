@@ -16,8 +16,6 @@
 
 package android.view;
 
-import android.annotation.UnsupportedAppUsage;
-
 /**
  * An instance of this class represents a connection to the surface
  * flinger, from which you can create one or more Surface instances that will
@@ -26,7 +24,6 @@ import android.annotation.UnsupportedAppUsage;
  */
 public final class SurfaceSession {
     // Note: This field is accessed by native code.
-    @UnsupportedAppUsage
     private long mNativeClient; // SurfaceComposerClient*
 
     private static native long nativeCreate();
@@ -34,7 +31,6 @@ public final class SurfaceSession {
     private static native void nativeKill(long ptr);
 
     /** Create a new connection with the surface flinger. */
-    @UnsupportedAppUsage
     public SurfaceSession() {
         mNativeClient = nativeCreate();
     }
@@ -56,7 +52,6 @@ public final class SurfaceSession {
      * Unlike destroy(), after this call any surfaces that were created
      * from the session will no longer work.
      */
-    @UnsupportedAppUsage
     public void kill() {
         nativeKill(mNativeClient);
     }

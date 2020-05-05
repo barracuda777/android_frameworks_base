@@ -16,7 +16,7 @@
 
 package com.android.ims.internal;
 
-import android.telephony.ims.ImsReasonInfo;
+import com.android.ims.ImsReasonInfo;
 
 import android.net.Uri;
 
@@ -26,13 +26,12 @@ import android.net.Uri;
  *
  * {@hide}
  */
-oneway interface IImsRegistrationListener {
+interface IImsRegistrationListener {
     /**
      * Notifies the application when the device is connected to the IMS network.
      *
      * @deprecated see {@link registrationConnectedWithRadioTech}
      */
-    @UnsupportedAppUsage
     void registrationConnected();
 
     /**
@@ -48,7 +47,6 @@ oneway interface IImsRegistrationListener {
      * @param imsRadioTech the radio access technology. Valid values are {@code
      * RIL_RADIO_TECHNOLOGY_*} defined in {@link ServiceState}.
      */
-    @UnsupportedAppUsage
     void registrationConnectedWithRadioTech(int imsRadioTech);
 
     /**
@@ -57,14 +55,12 @@ oneway interface IImsRegistrationListener {
      * @param imsRadioTech the radio access technology. Valid values are {@code
      * RIL_RADIO_TECHNOLOGY_*} defined in {@link ServiceState}.
      */
-    @UnsupportedAppUsage
     void registrationProgressingWithRadioTech(int imsRadioTech);
 
 
     /**
      * Notifies the application when the device is disconnected from the IMS network.
      */
-    @UnsupportedAppUsage
     void registrationDisconnected(in ImsReasonInfo imsReasonInfo);
 
     /**
@@ -98,7 +94,6 @@ oneway interface IImsRegistrationListener {
      * @param enabledFeatures features enabled as defined in com.android.ims.ImsConfig#FeatureConstants.
      * @param disabledFeatures features disabled as defined in com.android.ims.ImsConfig#FeatureConstants.
      */
-    @UnsupportedAppUsage
     void registrationFeatureCapabilityChanged(int serviceClass,
             in int[] enabledFeatures, in int[] disabledFeatures);
 
@@ -106,13 +101,11 @@ oneway interface IImsRegistrationListener {
      * Updates the application with the waiting voice message count.
      * @param count The number of waiting voice messages.
      */
-    @UnsupportedAppUsage
     void voiceMessageCountUpdate(int count);
 
     /**
      * Notifies the application when the list of URIs associated with IMS client is updated.
      */
-    @UnsupportedAppUsage
     void registrationAssociatedUriChanged(in Uri[] uris);
 
     /**
@@ -123,6 +116,5 @@ oneway interface IImsRegistrationListener {
      *         attempted.
      * @param imsReasonInfo Reason for the failure.
      */
-    @UnsupportedAppUsage
     void registrationChangeFailed(in int targetAccessTech, in ImsReasonInfo imsReasonInfo);
 }

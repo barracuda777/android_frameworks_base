@@ -16,45 +16,40 @@
 
 package com.android.systemui;
 
-import android.app.AlarmManager;
 import android.content.Context;
-import android.os.Handler;
-import android.os.Looper;
 import android.util.Log;
+import android.view.View;
 import android.view.ViewGroup;
 
-import com.android.internal.colorextraction.ColorExtractor.GradientColors;
-import com.android.internal.util.function.TriConsumer;
 import com.android.internal.widget.LockPatternUtils;
-import com.android.keyguard.KeyguardUpdateMonitor;
 import com.android.keyguard.ViewMediatorCallback;
-import com.android.systemui.keyguard.DismissCallbackRegistry;
-import com.android.systemui.plugins.FalsingManager;
-import com.android.systemui.plugins.statusbar.StatusBarStateController;
-import com.android.systemui.screenshot.ScreenshotNotificationSmartActionsProvider;
-import com.android.systemui.statusbar.KeyguardIndicationController;
-import com.android.systemui.statusbar.NotificationMediaManager;
+import com.android.systemui.R;
+import com.android.systemui.assist.AssistManager;
+import com.android.systemui.statusbar.BaseStatusBar;
 import com.android.systemui.statusbar.ScrimView;
-import com.android.systemui.statusbar.notification.NotificationWakeUpCoordinator;
-import com.android.systemui.statusbar.phone.DozeParameters;
 import com.android.systemui.statusbar.phone.KeyguardBouncer;
-import com.android.systemui.statusbar.phone.KeyguardBypassController;
-import com.android.systemui.statusbar.phone.LockIcon;
 import com.android.systemui.statusbar.phone.LockscreenWallpaper;
 import com.android.systemui.statusbar.phone.NotificationIconAreaController;
+import com.android.systemui.statusbar.phone.PhoneStatusBar;
+import com.android.systemui.statusbar.phone.QSTileHost;
 import com.android.systemui.statusbar.phone.ScrimController;
-import com.android.systemui.statusbar.phone.ScrimState;
-import com.android.systemui.statusbar.phone.StatusBar;
+import com.android.systemui.statusbar.phone.StatusBarIconController;
 import com.android.systemui.statusbar.phone.StatusBarKeyguardViewManager;
-import com.android.systemui.statusbar.phone.UnlockMethodCache;
+import com.android.systemui.statusbar.phone.StatusBarWindowManager;
+import com.android.systemui.statusbar.policy.BatteryController;
+import com.android.systemui.statusbar.policy.BluetoothController;
+import com.android.systemui.statusbar.policy.CastController;
+import com.android.systemui.statusbar.policy.FlashlightController;
+import com.android.systemui.statusbar.policy.HotspotController;
 import com.android.systemui.statusbar.policy.KeyguardMonitor;
-import com.android.systemui.volume.VolumeDialogComponent;
-
-import java.util.concurrent.Executor;
-import java.util.function.Consumer;
-
-import dagger.Module;
-import dagger.Provides;
+import com.android.systemui.statusbar.policy.LocationController;
+import com.android.systemui.statusbar.policy.NetworkController;
+import com.android.systemui.statusbar.policy.NextAlarmController;
+import com.android.systemui.statusbar.policy.RotationLockController;
+import com.android.systemui.statusbar.policy.SecurityController;
+import com.android.systemui.statusbar.policy.UserInfoController;
+import com.android.systemui.statusbar.policy.UserSwitcherController;
+import com.android.systemui.statusbar.policy.ZenModeController;
 
 /**
  * Class factory to provide customizable SystemUI components.
@@ -63,10 +58,9 @@ public class SystemUIFactory {
     private static final String TAG = "SystemUIFactory";
 
     static SystemUIFactory mFactory;
-    protected SystemUIRootComponent mRootComponent;
 
-    public static <T extends SystemUIFactory> T getInstance() {
-        return (T) mFactory;
+    public static SystemUIFactory getInstance() {
+        return mFactory;
     }
 
     public static void createFromConfig(Context context) {
@@ -79,7 +73,6 @@ public class SystemUIFactory {
             Class<?> cls = null;
             cls = context.getClassLoader().loadClass(clsName);
             mFactory = (SystemUIFactory) cls.newInstance();
-            mFactory.init(context);
         } catch (Throwable t) {
             Log.w(TAG, "Error creating SystemUIFactory component: " + clsName, t);
             throw new RuntimeException(t);
@@ -88,92 +81,46 @@ public class SystemUIFactory {
 
     public SystemUIFactory() {}
 
-    private void init(Context context) {
-        mRootComponent = buildSystemUIRootComponent(context);
-
-        // Every other part of our codebase currently relies on Dependency, so we
-        // really need to ensure the Dependency gets initialized early on.
-        Dependency.initDependencies(mRootComponent);
-    }
-
-    protected SystemUIRootComponent buildSystemUIRootComponent(Context context) {
-        return DaggerSystemUIRootComponent.builder()
-                .dependencyProvider(new com.android.systemui.DependencyProvider())
-                .contextHolder(new ContextHolder(context))
-                .build();
-    }
-
-    public SystemUIRootComponent getRootComponent() {
-        return mRootComponent;
-    }
-
     public StatusBarKeyguardViewManager createStatusBarKeyguardViewManager(Context context,
             ViewMediatorCallback viewMediatorCallback, LockPatternUtils lockPatternUtils) {
         return new StatusBarKeyguardViewManager(context, viewMediatorCallback, lockPatternUtils);
     }
 
-    /**
-     * Creates an instance of ScreenshotNotificationSmartActionsProvider.
-     * This method is overridden in vendor specific implementation of Sys UI.
-     */
-    public ScreenshotNotificationSmartActionsProvider
-            createScreenshotNotificationSmartActionsProvider(Context context,
-            Executor executor,
-            Handler uiHandler) {
-        return new ScreenshotNotificationSmartActionsProvider();
-    }
-
     public KeyguardBouncer createKeyguardBouncer(Context context, ViewMediatorCallback callback,
-            LockPatternUtils lockPatternUtils, ViewGroup container,
-            DismissCallbackRegistry dismissCallbackRegistry,
-            KeyguardBouncer.BouncerExpansionCallback expansionCallback,
-            FalsingManager falsingManager, KeyguardBypassController bypassController) {
-        return new KeyguardBouncer(context, callback, lockPatternUtils, container,
-                dismissCallbackRegistry, falsingManager,
-                expansionCallback, UnlockMethodCache.getInstance(context),
-                KeyguardUpdateMonitor.getInstance(context), bypassController,
-                new Handler(Looper.getMainLooper()));
+            LockPatternUtils lockPatternUtils, StatusBarWindowManager windowManager,
+            ViewGroup container) {
+        return new KeyguardBouncer(context, callback, lockPatternUtils, windowManager, container);
     }
 
     public ScrimController createScrimController(ScrimView scrimBehind, ScrimView scrimInFront,
-            LockscreenWallpaper lockscreenWallpaper,
-            TriConsumer<ScrimState, Float, GradientColors> scrimStateListener,
-            Consumer<Integer> scrimVisibleListener, DozeParameters dozeParameters,
-            AlarmManager alarmManager, KeyguardMonitor keyguardMonitor) {
-        return new ScrimController(scrimBehind, scrimInFront, scrimStateListener,
-                scrimVisibleListener, dozeParameters, alarmManager, keyguardMonitor);
+            View headsUpScrim, LockscreenWallpaper lockscreenWallpaper) {
+        return new ScrimController(scrimBehind, scrimInFront, headsUpScrim);
     }
 
     public NotificationIconAreaController createNotificationIconAreaController(Context context,
-            StatusBar statusBar,
-            NotificationWakeUpCoordinator wakeUpCoordinator,
-            KeyguardBypassController keyguardBypassController,
-            StatusBarStateController statusBarStateController) {
-        return new NotificationIconAreaController(context, statusBar, statusBarStateController,
-                wakeUpCoordinator, keyguardBypassController,
-                Dependency.get(NotificationMediaManager.class));
+            PhoneStatusBar phoneStatusBar) {
+        return new NotificationIconAreaController(context, phoneStatusBar);
     }
 
-    public KeyguardIndicationController createKeyguardIndicationController(Context context,
-            ViewGroup indicationArea, LockIcon lockIcon) {
-        return new KeyguardIndicationController(context, indicationArea, lockIcon);
+    public QSTileHost createQSTileHost(Context context, PhoneStatusBar statusBar,
+            BluetoothController bluetooth, LocationController location,
+            RotationLockController rotation, NetworkController network,
+            ZenModeController zen, HotspotController hotspot,
+            CastController cast, FlashlightController flashlight,
+            UserSwitcherController userSwitcher, UserInfoController userInfo,
+            KeyguardMonitor keyguard, SecurityController security,
+            BatteryController battery, StatusBarIconController iconController,
+            NextAlarmController nextAlarmController) {
+        return new QSTileHost(context, statusBar, bluetooth, location, rotation, network, zen,
+                hotspot, cast, flashlight, userSwitcher, userInfo, keyguard, security, battery,
+                iconController, nextAlarmController);
     }
 
-    public VolumeDialogComponent createVolumeDialogComponent(SystemUI systemUi, Context context) {
-        return new VolumeDialogComponent(systemUi, context);
+    public <T> T createInstance(Class<T> classType) {
+        return null;
     }
 
-    @Module
-    public static class ContextHolder {
-        private Context mContext;
-
-        public ContextHolder(Context context) {
-            mContext = context;
-        }
-
-        @Provides
-        public Context provideContext() {
-            return mContext;
-        }
+    public AssistManager createAssistManager(BaseStatusBar bar, Context context) {
+        return new AssistManager(bar, context);
     }
 }

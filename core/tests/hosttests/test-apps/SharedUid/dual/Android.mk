@@ -56,3 +56,8 @@ LOCAL_PROGUARD_ENABLED := disabled
 
 LOCAL_SDK_VERSION := current
 include $(BUILD_PACKAGE)
+
+# ============================================================
+
+# Also build all of the sub-targets under this one: the shared library.
+include $(call all-makefiles-under,$(LOCAL_PATH))

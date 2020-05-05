@@ -472,13 +472,9 @@ key PLUS {
 ### Non-printing keys ###
 
 key ESCAPE {
-    base:                               none
+    base:                               fallback BACK
     alt, meta:                          fallback HOME
     ctrl:                               fallback MENU
-}
-
-key DEL {
-    ctrl+alt:                           fallback BACK
 }
 
 ### Gamepad buttons ###
@@ -540,7 +536,7 @@ key BUTTON_SELECT {
 }
 
 key BUTTON_MODE {
-    base:                               fallback HOME
+    base:                               fallback MENU
 }
 
 key BUTTON_1 {

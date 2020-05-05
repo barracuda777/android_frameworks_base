@@ -354,7 +354,7 @@ public class FrameManager {
         assertNotRunning();
         FrameSlot slot = getSlot(name);
         slot.releaseFrame();
-        mFrameSlots.remove(name);
+        mFrameSlots.remove(slot);
     }
 
     /**

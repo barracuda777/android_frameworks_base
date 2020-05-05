@@ -41,10 +41,9 @@ import com.android.ims.internal.IImsVideoCallCallback;
  * @hide
  */
 oneway interface IImsVideoCallProvider {
-    @UnsupportedAppUsage
     void setCallback(IImsVideoCallCallback callback);
 
-    void setCamera(String cameraId, int uid);
+    void setCamera(String cameraId);
 
     void setPreviewSurface(in Surface surface);
 

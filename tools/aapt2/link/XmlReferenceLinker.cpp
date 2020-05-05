@@ -14,18 +14,13 @@
  * limitations under the License.
  */
 
-#include "link/Linkers.h"
-
-#include "androidfw/ResourceTypes.h"
-
 #include "Diagnostics.h"
 #include "ResourceUtils.h"
 #include "SdkConstants.h"
-#include "ValueVisitor.h"
+#include "link/Linkers.h"
 #include "link/ReferenceLinker.h"
 #include "process/IResourceTableConsumer.h"
 #include "process/SymbolTable.h"
-#include "trace/TraceBuffer.h"
 #include "util/Util.h"
 #include "xml/XmlDom.h"
 
@@ -33,143 +28,146 @@ namespace aapt {
 
 namespace {
 
-// Visits all references (including parents of styles, references in styles, arrays, etc) and
-// links their symbolic name to their Resource ID, performing mangling and package aliasing
-// as needed.
-class ReferenceVisitor : public DescendingValueVisitor {
- public:
-  using DescendingValueVisitor::Visit;
+/**
+ * Visits all references (including parents of styles, references in styles, arrays, etc) and
+ * links their symbolic name to their Resource ID, performing mangling and package aliasing
+ * as needed.
+ */
+class ReferenceVisitor : public ValueVisitor {
+public:
+    using ValueVisitor::visit;
 
-  ReferenceVisitor(const CallSite& callsite, IAaptContext* context, SymbolTable* symbols,
-                   xml::IPackageDeclStack* decls)
-      : callsite_(callsite), context_(context), symbols_(symbols), decls_(decls), error_(false) {}
-
-  void Visit(Reference* ref) override {
-    if (!ReferenceLinker::LinkReference(callsite_, ref, context_, symbols_, decls_)) {
-      error_ = true;
+    ReferenceVisitor(IAaptContext* context, SymbolTable* symbols, xml::IPackageDeclStack* decls,
+                     CallSite* callSite) :
+             mContext(context), mSymbols(symbols), mDecls(decls), mCallSite(callSite),
+             mError(false) {
     }
-  }
 
-  bool HasError() const {
-    return error_;
-  }
+    void visit(Reference* ref) override {
+        if (!ReferenceLinker::linkReference(ref, mContext, mSymbols, mDecls, mCallSite)) {
+            mError = true;
+        }
+    }
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(ReferenceVisitor);
+    bool hasError() const {
+        return mError;
+    }
 
-  const CallSite& callsite_;
-  IAaptContext* context_;
-  SymbolTable* symbols_;
-  xml::IPackageDeclStack* decls_;
-  bool error_;
+private:
+    IAaptContext* mContext;
+    SymbolTable* mSymbols;
+    xml::IPackageDeclStack* mDecls;
+    CallSite* mCallSite;
+    bool mError;
 };
 
-// Visits each xml Element and compiles the attributes within.
+/**
+ * Visits each xml Element and compiles the attributes within.
+ */
 class XmlVisitor : public xml::PackageAwareVisitor {
- public:
-  using xml::PackageAwareVisitor::Visit;
+public:
+    using xml::PackageAwareVisitor::visit;
 
-  XmlVisitor(const Source& source, const CallSite& callsite, IAaptContext* context,
-             SymbolTable* symbols)
-      : source_(source),
-        callsite_(callsite),
-        context_(context),
-        symbols_(symbols),
-        reference_visitor_(callsite, context, symbols, this) {
-  }
+    XmlVisitor(IAaptContext* context, SymbolTable* symbols, const Source& source,
+               std::set<int>* sdkLevelsFound, CallSite* callSite) :
+            mContext(context), mSymbols(symbols), mSource(source), mSdkLevelsFound(sdkLevelsFound),
+            mCallSite(callSite), mReferenceVisitor(context, symbols, this, callSite) {
+    }
 
-  void Visit(xml::Element* el) override {
-    // The default Attribute allows everything except enums or flags.
-    Attribute default_attribute(android::ResTable_map::TYPE_ANY);
-    default_attribute.SetWeak(true);
+    void visit(xml::Element* el) override {
+        const Source source = mSource.withLine(el->lineNumber);
+        for (xml::Attribute& attr : el->attributes) {
+            Maybe<xml::ExtractedPackage> maybePackage =
+                    xml::extractPackageFromNamespace(attr.namespaceUri);
+            if (maybePackage) {
+                // There is a valid package name for this attribute. We will look this up.
+                StringPiece16 package = maybePackage.value().package;
+                if (package.empty()) {
+                    // Empty package means the 'current' or 'local' package.
+                    package = mContext->getCompilationPackage();
+                }
 
-    const Source source = source_.WithLine(el->line_number);
-    for (xml::Attribute& attr : el->attributes) {
-      // If the attribute has no namespace, interpret values as if
-      // they were assigned to the default Attribute.
+                Reference attrRef(ResourceNameRef(package, ResourceType::kAttr, attr.name));
+                attrRef.privateReference = maybePackage.value().privateNamespace;
 
-      const Attribute* attribute = &default_attribute;
+                std::string errStr;
+                attr.compiledAttribute = ReferenceLinker::compileXmlAttribute(
+                        attrRef, mContext->getNameMangler(), mSymbols, mCallSite, &errStr);
 
-      if (Maybe<xml::ExtractedPackage> maybe_package =
-              xml::ExtractPackageFromNamespace(attr.namespace_uri)) {
-        // There is a valid package name for this attribute. We will look this up.
-        Reference attr_ref(
-            ResourceNameRef(maybe_package.value().package, ResourceType::kAttr, attr.name));
-        attr_ref.private_reference = maybe_package.value().private_namespace;
+                // Convert the string value into a compiled Value if this is a valid attribute.
+                if (attr.compiledAttribute) {
+                    if (attr.compiledAttribute.value().id) {
+                        // Record all SDK levels from which the attributes were defined.
+                        const size_t sdkLevel = findAttributeSdkLevel(
+                                attr.compiledAttribute.value().id.value());
+                        if (sdkLevel > 1) {
+                            mSdkLevelsFound->insert(sdkLevel);
+                        }
+                    }
 
-        std::string err_str;
-        attr.compiled_attribute =
-            ReferenceLinker::CompileXmlAttribute(attr_ref, callsite_, symbols_, &err_str);
+                    const Attribute* attribute = &attr.compiledAttribute.value().attribute;
+                    attr.compiledValue = ResourceUtils::parseItemForAttribute(attr.value,
+                                                                              attribute);
+                    if (!attr.compiledValue &&
+                            !(attribute->typeMask & android::ResTable_map::TYPE_STRING)) {
+                        // We won't be able to encode this as a string.
+                        mContext->getDiagnostics()->error(
+                                DiagMessage(source) << "'" << attr.value << "' "
+                                                    << "is incompatible with attribute "
+                                                    << package << ":" << attr.name << " "
+                                                    << *attribute);
+                        mError = true;
+                    }
 
-        if (!attr.compiled_attribute) {
-          DiagMessage error_msg(source);
-          error_msg << "attribute ";
-          ReferenceLinker::WriteAttributeName(attr_ref, callsite_, this, &error_msg);
-          error_msg << " " << err_str;
-          context_->GetDiagnostics()->Error(error_msg);
-          error_ = true;
-          continue;
+                } else {
+                    mContext->getDiagnostics()->error(DiagMessage(source)
+                                                      << "attribute '" << package << ":"
+                                                      << attr.name << "' " << errStr);
+                    mError = true;
+
+                }
+            } else {
+                // We still encode references.
+                attr.compiledValue = ResourceUtils::tryParseReference(attr.value);
+            }
+
+            if (attr.compiledValue) {
+                // With a compiledValue, we must resolve the reference and assign it an ID.
+                attr.compiledValue->setSource(source);
+                attr.compiledValue->accept(&mReferenceVisitor);
+            }
         }
 
-        attribute = &attr.compiled_attribute.value().attribute;
-      }
-
-      attr.compiled_value = ResourceUtils::TryParseItemForAttribute(attr.value, attribute);
-      if (attr.compiled_value) {
-        // With a compiledValue, we must resolve the reference and assign it an ID.
-        attr.compiled_value->SetSource(source);
-        attr.compiled_value->Accept(&reference_visitor_);
-      } else if ((attribute->type_mask & android::ResTable_map::TYPE_STRING) == 0) {
-        // We won't be able to encode this as a string.
-        DiagMessage msg(source);
-        msg << "'" << attr.value << "' is incompatible with attribute " << attr.name << " "
-            << *attribute;
-        context_->GetDiagnostics()->Error(msg);
-        error_ = true;
-      }
+        // Call the super implementation.
+        xml::PackageAwareVisitor::visit(el);
     }
 
-    // Call the super implementation.
-    xml::PackageAwareVisitor::Visit(el);
-  }
+    bool hasError() {
+        return mError || mReferenceVisitor.hasError();
+    }
 
-  bool HasError() {
-    return error_ || reference_visitor_.HasError();
-  }
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(XmlVisitor);
-
-  Source source_;
-  const CallSite& callsite_;
-  IAaptContext* context_;
-  SymbolTable* symbols_;
-
-  ReferenceVisitor reference_visitor_;
-  bool error_ = false;
+private:
+    IAaptContext* mContext;
+    SymbolTable* mSymbols;
+    Source mSource;
+    std::set<int>* mSdkLevelsFound;
+    CallSite* mCallSite;
+    ReferenceVisitor mReferenceVisitor;
+    bool mError = false;
 };
 
-}  // namespace
+} // namespace
 
-bool XmlReferenceLinker::Consume(IAaptContext* context, xml::XmlResource* resource) {
-  TRACE_NAME("XmlReferenceLinker::Consume");
-  CallSite callsite{resource->file.name.package};
-
-  std::string out_name = resource->file.name.entry;
-  NameMangler::Unmangle(&out_name, &callsite.package);
-
-  if (callsite.package.empty()) {
-    // Assume an empty package means that the XML file is local. This is true of AndroidManifest.xml
-    // for example.
-    callsite.package = context->GetCompilationPackage();
-  }
-
-  XmlVisitor visitor(resource->file.source, callsite, context, context->GetExternalSymbols());
-  if (resource->root) {
-    resource->root->Accept(&visitor);
-    return !visitor.HasError();
-  }
-  return false;
+bool XmlReferenceLinker::consume(IAaptContext* context, xml::XmlResource* resource) {
+    mSdkLevelsFound.clear();
+    CallSite callSite = { resource->file.name };
+    XmlVisitor visitor(context, context->getExternalSymbols(), resource->file.source,
+                       &mSdkLevelsFound, &callSite);
+    if (resource->root) {
+        resource->root->accept(&visitor);
+        return !visitor.hasError();
+    }
+    return false;
 }
 
-}  // namespace aapt
+} // namespace aapt

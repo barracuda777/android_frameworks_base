@@ -30,6 +30,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.android.internal.util.ArrayUtils;
+import com.android.settingslib.drawable.UserIconDrawable;
 import com.android.systemui.FontSizeUtils;
 import com.android.systemui.R;
 import com.android.systemui.statusbar.phone.UserAvatarView;
@@ -38,8 +39,6 @@ import com.android.systemui.statusbar.phone.UserAvatarView;
  * Displays one user in the {@link UserDetailView} view.
  */
 public class UserDetailItemView extends LinearLayout {
-
-    protected static int layoutResId = R.layout.qs_user_detail_item;
 
     private UserAvatarView mAvatar;
     private TextView mName;
@@ -68,10 +67,13 @@ public class UserDetailItemView extends LinearLayout {
         final int N = a.getIndexCount();
         for (int i = 0; i < N; i++) {
             int attr = a.getIndex(i);
-            if (attr == R.styleable.UserDetailItemView_regularFontFamily) {
-                mRegularTypeface = Typeface.create(a.getString(attr), 0 /* style */);
-            } else if (attr == R.styleable.UserDetailItemView_activatedFontFamily) {
-                mActivatedTypeface = Typeface.create(a.getString(attr), 0 /* style */);
+            switch (attr) {
+                case R.styleable.UserDetailItemView_regularFontFamily:
+                    mRegularTypeface = Typeface.create(a.getString(attr), 0 /* style */);
+                    break;
+                case R.styleable.UserDetailItemView_activatedFontFamily:
+                    mActivatedTypeface = Typeface.create(a.getString(attr), 0 /* style */);
+                    break;
             }
         }
         a.recycle();
@@ -81,7 +83,7 @@ public class UserDetailItemView extends LinearLayout {
             ViewGroup root) {
         if (!(convertView instanceof UserDetailItemView)) {
             convertView = LayoutInflater.from(context).inflate(
-                    layoutResId, root, false);
+                    R.layout.qs_user_detail_item, root, false);
         }
         return (UserDetailItemView) convertView;
     }
@@ -113,8 +115,8 @@ public class UserDetailItemView extends LinearLayout {
 
     @Override
     protected void onFinishInflate() {
-        mAvatar = findViewById(R.id.user_picture);
-        mName = findViewById(R.id.user_name);
+        mAvatar = (UserAvatarView) findViewById(R.id.user_picture);
+        mName = (TextView) findViewById(R.id.user_name);
         if (mRegularTypeface == null) {
             mRegularTypeface = mName.getTypeface();
         }

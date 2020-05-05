@@ -23,6 +23,8 @@
          erschéngt uewen um Schierm, wa VPN aktiv ass.
     </string>
     <string name="legacy_title">VPN connectéiert</string>
+    <string name="configure">Astellen</string>
+    <string name="disconnect">Deconnectéieren</string>
     <string name="session">Sëtzung:</string>
     <string name="duration">Dauer:</string>
     <string name="data_transmitted">Geschéckt:</string>
@@ -30,6 +32,4 @@
     <string name="data_value_format">        <xliff:g id="number">%1$s</xliff:g> Bytes /
         <xliff:g id="number">%2$s</xliff:g> Päck
     </string>
-    <string name="configure">Astellen</string>
-    <string name="disconnect">Deconnectéieren</string>
 </resources>

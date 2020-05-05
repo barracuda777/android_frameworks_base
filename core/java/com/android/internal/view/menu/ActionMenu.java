@@ -19,7 +19,6 @@ package com.android.internal.view.menu;
 import java.util.ArrayList;
 import java.util.List;
 
-import android.annotation.UnsupportedAppUsage;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -39,8 +38,7 @@ public class ActionMenu implements Menu {
     private boolean mIsQwerty;
     
     private ArrayList<ActionMenuItem> mItems;
-
-    @UnsupportedAppUsage
+    
     public ActionMenu(Context context) {
         mContext = context;
         mItems = new ArrayList<ActionMenuItem>();
@@ -159,22 +157,18 @@ public class ActionMenu implements Menu {
         
         return false;
     }
-
+    
     private ActionMenuItem findItemWithShortcut(int keyCode, KeyEvent event) {
         // TODO Make this smarter.
         final boolean qwerty = mIsQwerty;
         final ArrayList<ActionMenuItem> items = mItems;
         final int itemCount = items.size();
-        final int modifierState = event.getModifiers();
+        
         for (int i = 0; i < itemCount; i++) {
             ActionMenuItem item = items.get(i);
             final char shortcut = qwerty ? item.getAlphabeticShortcut() :
                     item.getNumericShortcut();
-            final int shortcutModifiers =
-                    qwerty ? item.getAlphabeticModifiers() : item.getNumericModifiers();
-            final boolean is_modifiers_exact_match = (modifierState & SUPPORTED_MODIFIERS_MASK)
-                    == (shortcutModifiers & SUPPORTED_MODIFIERS_MASK);
-            if ((keyCode == shortcut) && is_modifiers_exact_match) {
+            if (keyCode == shortcut) {
                 return item;
             }
         }

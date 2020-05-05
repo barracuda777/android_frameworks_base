@@ -46,8 +46,7 @@ public class NotificationGroup implements Parcelable {
 
     private boolean mDirty;
 
-    public static final Parcelable.Creator<NotificationGroup> CREATOR =
-            new Parcelable.Creator<NotificationGroup>() {
+    public static final Parcelable.Creator<NotificationGroup> CREATOR = new Parcelable.Creator<NotificationGroup>() {
         public NotificationGroup createFromParcel(Parcel in) {
             return new NotificationGroup(in);
         }

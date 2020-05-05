@@ -16,85 +16,83 @@
 
 #include "util/BigBuffer.h"
 
-#include "test/Test.h"
-
-using ::testing::NotNull;
+#include <gtest/gtest.h>
 
 namespace aapt {
 
 TEST(BigBufferTest, AllocateSingleBlock) {
-  BigBuffer buffer(4);
+    BigBuffer buffer(4);
 
-  EXPECT_THAT(buffer.NextBlock<char>(2), NotNull());
-  EXPECT_EQ(2u, buffer.size());
+    EXPECT_NE(nullptr, buffer.nextBlock<char>(2));
+    EXPECT_EQ(2u, buffer.size());
 }
 
 TEST(BigBufferTest, ReturnSameBlockIfNextAllocationFits) {
-  BigBuffer buffer(16);
+    BigBuffer buffer(16);
 
-  char* b1 = buffer.NextBlock<char>(8);
-  EXPECT_THAT(b1, NotNull());
+    char* b1 = buffer.nextBlock<char>(8);
+    EXPECT_NE(nullptr, b1);
 
-  char* b2 = buffer.NextBlock<char>(4);
-  EXPECT_THAT(b2, NotNull());
+    char* b2 = buffer.nextBlock<char>(4);
+    EXPECT_NE(nullptr, b2);
 
-  EXPECT_EQ(b1 + 8, b2);
+    EXPECT_EQ(b1 + 8, b2);
 }
 
 TEST(BigBufferTest, AllocateExactSizeBlockIfLargerThanBlockSize) {
-  BigBuffer buffer(16);
+    BigBuffer buffer(16);
 
-  EXPECT_THAT(buffer.NextBlock<char>(32), NotNull());
-  EXPECT_EQ(32u, buffer.size());
+    EXPECT_NE(nullptr, buffer.nextBlock<char>(32));
+    EXPECT_EQ(32u, buffer.size());
 }
 
 TEST(BigBufferTest, AppendAndMoveBlock) {
-  BigBuffer buffer(16);
+    BigBuffer buffer(16);
 
-  uint32_t* b1 = buffer.NextBlock<uint32_t>();
-  ASSERT_THAT(b1, NotNull());
-  *b1 = 33;
+    uint32_t* b1 = buffer.nextBlock<uint32_t>();
+    ASSERT_NE(nullptr, b1);
+    *b1 = 33;
 
-  {
-    BigBuffer buffer2(16);
-    b1 = buffer2.NextBlock<uint32_t>();
-    ASSERT_THAT(b1, NotNull());
-    *b1 = 44;
+    {
+        BigBuffer buffer2(16);
+        b1 = buffer2.nextBlock<uint32_t>();
+        ASSERT_NE(nullptr, b1);
+        *b1 = 44;
 
-    buffer.AppendBuffer(std::move(buffer2));
-    EXPECT_EQ(0u, buffer2.size());
-    EXPECT_EQ(buffer2.begin(), buffer2.end());
-  }
+        buffer.appendBuffer(std::move(buffer2));
+        EXPECT_EQ(0u, buffer2.size());
+        EXPECT_EQ(buffer2.begin(), buffer2.end());
+    }
 
-  EXPECT_EQ(2 * sizeof(uint32_t), buffer.size());
+    EXPECT_EQ(2 * sizeof(uint32_t), buffer.size());
 
-  auto b = buffer.begin();
-  ASSERT_NE(b, buffer.end());
-  ASSERT_EQ(sizeof(uint32_t), b->size);
-  ASSERT_EQ(33u, *reinterpret_cast<uint32_t*>(b->buffer.get()));
-  ++b;
+    auto b = buffer.begin();
+    ASSERT_NE(b, buffer.end());
+    ASSERT_EQ(sizeof(uint32_t), b->size);
+    ASSERT_EQ(33u, *reinterpret_cast<uint32_t*>(b->buffer.get()));
+    ++b;
 
-  ASSERT_NE(b, buffer.end());
-  ASSERT_EQ(sizeof(uint32_t), b->size);
-  ASSERT_EQ(44u, *reinterpret_cast<uint32_t*>(b->buffer.get()));
-  ++b;
+    ASSERT_NE(b, buffer.end());
+    ASSERT_EQ(sizeof(uint32_t), b->size);
+    ASSERT_EQ(44u, *reinterpret_cast<uint32_t*>(b->buffer.get()));
+    ++b;
 
-  ASSERT_EQ(b, buffer.end());
+    ASSERT_EQ(b, buffer.end());
 }
 
 TEST(BigBufferTest, PadAndAlignProperly) {
-  BigBuffer buffer(16);
+    BigBuffer buffer(16);
 
-  ASSERT_THAT(buffer.NextBlock<char>(2), NotNull());
-  ASSERT_EQ(2u, buffer.size());
-  buffer.Pad(2);
-  ASSERT_EQ(4u, buffer.size());
-  buffer.Align4();
-  ASSERT_EQ(4u, buffer.size());
-  buffer.Pad(2);
-  ASSERT_EQ(6u, buffer.size());
-  buffer.Align4();
-  ASSERT_EQ(8u, buffer.size());
+    ASSERT_NE(buffer.nextBlock<char>(2), nullptr);
+    ASSERT_EQ(2u, buffer.size());
+    buffer.pad(2);
+    ASSERT_EQ(4u, buffer.size());
+    buffer.align4();
+    ASSERT_EQ(4u, buffer.size());
+    buffer.pad(2);
+    ASSERT_EQ(6u, buffer.size());
+    buffer.align4();
+    ASSERT_EQ(8u, buffer.size());
 }
 
-}  // namespace aapt
+} // namespace aapt

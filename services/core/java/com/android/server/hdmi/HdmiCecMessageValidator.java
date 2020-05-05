@@ -22,7 +22,7 @@ import android.util.SparseArray;
 /**
  * A helper class to validates {@link HdmiCecMessage}.
  */
-public class HdmiCecMessageValidator {
+public final class HdmiCecMessageValidator {
     private static final String TAG = "HdmiCecMessageValidator";
 
     static final int OK = 0;

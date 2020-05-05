@@ -17,47 +17,33 @@
 #ifndef AAPT_SOURCE_H
 #define AAPT_SOURCE_H
 
+#include "util/Maybe.h"
+#include "util/StringPiece.h"
+
 #include <ostream>
 #include <string>
 
-#include "android-base/stringprintf.h"
-#include "androidfw/StringPiece.h"
-
-#include "util/Maybe.h"
-
 namespace aapt {
 
-// Represents a file on disk. Used for logging and showing errors.
+/**
+ * Represents a file on disk. Used for logging and
+ * showing errors.
+ */
 struct Source {
-  std::string path;
-  Maybe<size_t> line;
-  Maybe<std::string> archive;
+    std::string path;
+    Maybe<size_t> line;
 
-  Source() = default;
+    Source() = default;
 
-  inline Source(const android::StringPiece& path) : path(path.to_string()) {  // NOLINT(implicit)
-  }
-
-  inline Source(const android::StringPiece& path, const android::StringPiece& archive)
-      : path(path.to_string()), archive(archive.to_string()) {}
-
-  inline Source(const android::StringPiece& path, size_t line)
-      : path(path.to_string()), line(line) {}
-
-  inline Source WithLine(size_t line) const {
-    return Source(path, line);
-  }
-
-  std::string to_string() const {
-    std::string s = path;
-    if (archive) {
-      s = ::android::base::StringPrintf("%s@%s", archive.value().c_str(), s.c_str());
+    inline Source(const StringPiece& path) : path(path.toString()) {
     }
-    if (line) {
-      s = ::android::base::StringPrintf("%s:%zd", s.c_str(), line.value());
+
+    inline Source(const StringPiece& path, size_t line) : path(path.toString()), line(line) {
     }
-    return s;
-  }
+
+    inline Source withLine(size_t line) const {
+        return Source(path, line);
+    }
 };
 
 //
@@ -65,26 +51,30 @@ struct Source {
 //
 
 inline ::std::ostream& operator<<(::std::ostream& out, const Source& source) {
-  return out << source.to_string();
+    out << source.path;
+    if (source.line) {
+        out << ":" << source.line.value();
+    }
+    return out;
 }
 
 inline bool operator==(const Source& lhs, const Source& rhs) {
-  return lhs.path == rhs.path && lhs.line == rhs.line;
+    return lhs.path == rhs.path && lhs.line == rhs.line;
 }
 
 inline bool operator<(const Source& lhs, const Source& rhs) {
-  int cmp = lhs.path.compare(rhs.path);
-  if (cmp < 0) return true;
-  if (cmp > 0) return false;
-  if (lhs.line) {
-    if (rhs.line) {
-      return lhs.line.value() < rhs.line.value();
+    int cmp = lhs.path.compare(rhs.path);
+    if (cmp < 0) return true;
+    if (cmp > 0) return false;
+    if (lhs.line) {
+        if (rhs.line) {
+            return lhs.line.value() < rhs.line.value();
+        }
+        return false;
     }
-    return false;
-  }
-  return bool(rhs.line);
+    return bool(rhs.line);
 }
 
-}  // namespace aapt
+} // namespace aapt
 
-#endif  // AAPT_SOURCE_H
+#endif // AAPT_SOURCE_H

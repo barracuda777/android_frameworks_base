@@ -16,17 +16,14 @@
 
 package android.security.keymaster;
 
-import android.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 
 /**
  * @hide
  */
 class KeymasterIntArgument extends KeymasterArgument {
-    @UnsupportedAppUsage
     public final int value;
 
-    @UnsupportedAppUsage
     public KeymasterIntArgument(int tag, int value) {
         super(tag);
         switch (KeymasterDefs.getTagType(tag)) {
@@ -41,7 +38,6 @@ class KeymasterIntArgument extends KeymasterArgument {
         this.value = value;
     }
 
-    @UnsupportedAppUsage
     public KeymasterIntArgument(int tag, Parcel in) {
         super(tag);
         value = in.readInt();

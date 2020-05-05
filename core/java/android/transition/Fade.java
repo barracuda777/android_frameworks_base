@@ -94,7 +94,7 @@ public class Fade extends Visibility {
      * @param fadingMode The behavior of this transition, a combination of
      * {@link #IN} and {@link #OUT}.
      */
-    public Fade(@VisibilityMode int fadingMode) {
+    public Fade(int fadingMode) {
         setMode(fadingMode);
     }
 
@@ -103,7 +103,6 @@ public class Fade extends Visibility {
         TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.Fade);
         int fadingMode = a.getInt(R.styleable.Fade_fadingMode, getMode());
         setMode(fadingMode);
-        a.recycle();
     }
 
     @Override
@@ -131,7 +130,6 @@ public class Fade extends Visibility {
             @Override
             public void onTransitionEnd(Transition transition) {
                 view.setTransitionAlpha(1);
-                transition.removeListener(this);
             }
         });
         return anim;

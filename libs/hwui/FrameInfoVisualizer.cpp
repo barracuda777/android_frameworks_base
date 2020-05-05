@@ -15,36 +15,35 @@
  */
 #include "FrameInfoVisualizer.h"
 
-#include "IProfileRenderer.h"
+#if HWUI_NEW_OPS
+#include "BakedOpRenderer.h"
+#else
+#include "OpenGLRenderer.h"
+#endif
 #include "utils/Color.h"
-#include "utils/TimeUtils.h"
 
 #include <cutils/compiler.h>
 #include <array>
 
-#define RETURN_IF_PROFILING_DISABLED() \
-    if (CC_LIKELY(mType == ProfileType::None)) return
-#define RETURN_IF_DISABLED() \
-    if (CC_LIKELY(mType == ProfileType::None && !mShowDirtyRegions)) return
+#define RETURN_IF_PROFILING_DISABLED() if (CC_LIKELY(mType == ProfileType::None)) return
+#define RETURN_IF_DISABLED() if (CC_LIKELY(mType == ProfileType::None && !mShowDirtyRegions)) return
+
+#define PROFILE_DRAW_WIDTH 3
+#define PROFILE_DRAW_THRESHOLD_STROKE_WIDTH 2
+#define PROFILE_DRAW_DP_PER_MS 7
 
 namespace android {
 namespace uirenderer {
 
-static constexpr auto PROFILE_DRAW_THRESHOLD_STROKE_WIDTH = 2;
-static constexpr auto PROFILE_DRAW_DP_PER_MS = 7;
+// Must be NUM_ELEMENTS in size
+static const SkColor THRESHOLD_COLOR = Color::Green_500;
+static const SkColor BAR_FAST_MASK = 0x8FFFFFFF;
+static const SkColor BAR_JANKY_MASK = 0xDFFFFFFF;
 
-struct Threshold {
-    SkColor color;
-    float percentFrametime;
-};
-
-static constexpr std::array<Threshold, 3> THRESHOLDS{
-        Threshold{.color = Color::Green_500, .percentFrametime = 0.8f},
-        Threshold{.color = Color::Lime_500, .percentFrametime = 1.0f},
-        Threshold{.color = Color::Red_500, .percentFrametime = 1.5f},
-};
-static constexpr SkColor BAR_FAST_MASK = 0x8FFFFFFF;
-static constexpr SkColor BAR_JANKY_MASK = 0xDFFFFFFF;
+// We could get this from TimeLord and use the actual frame interval, but
+// this is good enough
+#define FRAME_THRESHOLD 16
+#define FRAME_THRESHOLD_NS 16000000
 
 struct BarSegment {
     FrameInfoIndex start;
@@ -52,25 +51,23 @@ struct BarSegment {
     SkColor color;
 };
 
-static const std::array<BarSegment, 7> Bar{{
-        {FrameInfoIndex::IntendedVsync, FrameInfoIndex::HandleInputStart, Color::Teal_700},
-        {FrameInfoIndex::HandleInputStart, FrameInfoIndex::PerformTraversalsStart,
-         Color::Green_700},
-        {FrameInfoIndex::PerformTraversalsStart, FrameInfoIndex::DrawStart, Color::LightGreen_700},
-        {FrameInfoIndex::DrawStart, FrameInfoIndex::SyncStart, Color::Blue_500},
-        {FrameInfoIndex::SyncStart, FrameInfoIndex::IssueDrawCommandsStart, Color::LightBlue_300},
-        {FrameInfoIndex::IssueDrawCommandsStart, FrameInfoIndex::SwapBuffers, Color::Red_500},
-        {FrameInfoIndex::SwapBuffers, FrameInfoIndex::FrameCompleted, Color::Orange_500},
+static const std::array<BarSegment,7> Bar {{
+    { FrameInfoIndex::IntendedVsync, FrameInfoIndex::HandleInputStart, Color::Teal_700 },
+    { FrameInfoIndex::HandleInputStart, FrameInfoIndex::PerformTraversalsStart, Color::Green_700 },
+    { FrameInfoIndex::PerformTraversalsStart, FrameInfoIndex::DrawStart, Color::LightGreen_700 },
+    { FrameInfoIndex::DrawStart, FrameInfoIndex::SyncStart, Color::Blue_500 },
+    { FrameInfoIndex::SyncStart, FrameInfoIndex::IssueDrawCommandsStart, Color::LightBlue_300 },
+    { FrameInfoIndex::IssueDrawCommandsStart, FrameInfoIndex::SwapBuffers, Color::Red_500},
+    { FrameInfoIndex::SwapBuffers, FrameInfoIndex::FrameCompleted, Color::Orange_500},
 }};
 
 static int dpToPx(int dp, float density) {
-    return (int)(dp * density + 0.5f);
+    return (int) (dp * density + 0.5f);
 }
 
-FrameInfoVisualizer::FrameInfoVisualizer(FrameInfoSource& source, nsecs_t frameInterval)
-        : mFrameSource(source), mFrameInterval(frameInterval) {
+FrameInfoVisualizer::FrameInfoVisualizer(FrameInfoSource& source)
+        : mFrameSource(source) {
     setDensity(1);
-    consumeProperties();
 }
 
 FrameInfoVisualizer::~FrameInfoVisualizer() {
@@ -80,10 +77,7 @@ FrameInfoVisualizer::~FrameInfoVisualizer() {
 void FrameInfoVisualizer::setDensity(float density) {
     if (CC_UNLIKELY(mDensity != density)) {
         mDensity = density;
-        // We want the vertical units to scale height relative to a baseline 16ms.
-        // This keeps the threshold lines consistent across varying refresh rates
-        mVerticalUnit = static_cast<int>(dpToPx(PROFILE_DRAW_DP_PER_MS, density) * (float)16_ms /
-                                         (float)mFrameInterval);
+        mVerticalUnit = dpToPx(PROFILE_DRAW_DP_PER_MS, density);
         mThresholdStroke = dpToPx(PROFILE_DRAW_THRESHOLD_STROKE_WIDTH, density);
     }
 }
@@ -98,7 +92,7 @@ void FrameInfoVisualizer::unionDirty(SkRect* dirty) {
     }
 }
 
-void FrameInfoVisualizer::draw(IProfileRenderer& renderer) {
+void FrameInfoVisualizer::draw(ContentRenderer* renderer) {
     RETURN_IF_DISABLED();
 
     if (mShowDirtyRegions) {
@@ -106,8 +100,8 @@ void FrameInfoVisualizer::draw(IProfileRenderer& renderer) {
         if (mFlashToggle) {
             SkPaint paint;
             paint.setColor(0x7fff0000);
-            renderer.drawRect(mDirtyRegion.fLeft, mDirtyRegion.fTop, mDirtyRegion.fRight,
-                              mDirtyRegion.fBottom, paint);
+            renderer->drawRect(mDirtyRegion.fLeft, mDirtyRegion.fTop,
+                    mDirtyRegion.fRight, mDirtyRegion.fBottom, &paint);
         }
     }
 
@@ -121,7 +115,7 @@ void FrameInfoVisualizer::draw(IProfileRenderer& renderer) {
         info.markSwapBuffers();
         info.markFrameCompleted();
 
-        initializeRects(renderer.getViewportHeight(), renderer.getViewportWidth());
+        initializeRects(renderer->getViewportHeight(), renderer->getViewportWidth());
         drawGraph(renderer);
         drawThreshold(renderer);
     }
@@ -155,7 +149,7 @@ void FrameInfoVisualizer::initializeRects(const int baseline, const int width) {
         float* rect;
         int ri;
         // Rects are LTRB
-        if (mFrameSource[fi].totalDuration() <= mFrameInterval) {
+        if (mFrameSource[fi].totalDuration() <= FRAME_THRESHOLD_NS) {
             rect = mFastRects.get();
             ri = fast_i;
             fast_i += 4;
@@ -178,8 +172,7 @@ void FrameInfoVisualizer::initializeRects(const int baseline, const int width) {
 
 void FrameInfoVisualizer::nextBarSegment(FrameInfoIndex start, FrameInfoIndex end) {
     int fast_i = (mNumFastRects - 1) * 4;
-    int janky_i = (mNumJankyRects - 1) * 4;
-    ;
+    int janky_i = (mNumJankyRects - 1) * 4;;
     for (size_t fi = 0; fi < mFrameSource.size(); fi++) {
         if (mFrameSource[fi][FrameInfoIndex::Flags] & FrameInfoFlags::SkippedFrame) {
             continue;
@@ -188,7 +181,7 @@ void FrameInfoVisualizer::nextBarSegment(FrameInfoIndex start, FrameInfoIndex en
         float* rect;
         int ri;
         // Rects are LTRB
-        if (mFrameSource[fi].totalDuration() <= mFrameInterval) {
+        if (mFrameSource[fi].totalDuration() <= FRAME_THRESHOLD_NS) {
             rect = mFastRects.get();
             ri = fast_i;
             fast_i -= 4;
@@ -205,26 +198,26 @@ void FrameInfoVisualizer::nextBarSegment(FrameInfoIndex start, FrameInfoIndex en
     }
 }
 
-void FrameInfoVisualizer::drawGraph(IProfileRenderer& renderer) {
+void FrameInfoVisualizer::drawGraph(ContentRenderer* renderer) {
     SkPaint paint;
     for (size_t i = 0; i < Bar.size(); i++) {
         nextBarSegment(Bar[i].start, Bar[i].end);
         paint.setColor(Bar[i].color & BAR_FAST_MASK);
-        renderer.drawRects(mFastRects.get(), mNumFastRects * 4, paint);
+        renderer->drawRects(mFastRects.get(), mNumFastRects * 4, &paint);
         paint.setColor(Bar[i].color & BAR_JANKY_MASK);
-        renderer.drawRects(mJankyRects.get(), mNumJankyRects * 4, paint);
+        renderer->drawRects(mJankyRects.get(), mNumJankyRects * 4, &paint);
     }
 }
 
-void FrameInfoVisualizer::drawThreshold(IProfileRenderer& renderer) {
+void FrameInfoVisualizer::drawThreshold(ContentRenderer* renderer) {
     SkPaint paint;
-    for (auto& t : THRESHOLDS) {
-        paint.setColor(t.color);
-        float yLocation = renderer.getViewportHeight() -
-                          (ns2ms(mFrameInterval) * t.percentFrametime * mVerticalUnit);
-        renderer.drawRect(0.0f, yLocation - mThresholdStroke / 2, renderer.getViewportWidth(),
-                          yLocation + mThresholdStroke / 2, paint);
-    }
+    paint.setColor(THRESHOLD_COLOR);
+    float yLocation = renderer->getViewportHeight() - (FRAME_THRESHOLD * mVerticalUnit);
+    renderer->drawRect(0.0f,
+            yLocation - mThresholdStroke/2,
+            renderer->getViewportWidth(),
+            yLocation + mThresholdStroke/2,
+            &paint);
 }
 
 bool FrameInfoVisualizer::consumeProperties() {
@@ -255,19 +248,22 @@ void FrameInfoVisualizer::dumpData(int fd) {
     // last call to dumpData(). In other words if there's a dumpData(), draw frame,
     // dumpData(), the last dumpData() should only log 1 frame.
 
-    dprintf(fd, "\n\tDraw\tPrepare\tProcess\tExecute\n");
+    FILE *file = fdopen(fd, "a");
+    fprintf(file, "\n\tDraw\tPrepare\tProcess\tExecute\n");
 
     for (size_t i = 0; i < mFrameSource.size(); i++) {
         if (mFrameSource[i][FrameInfoIndex::IntendedVsync] <= mLastFrameLogged) {
             continue;
         }
         mLastFrameLogged = mFrameSource[i][FrameInfoIndex::IntendedVsync];
-        dprintf(fd, "\t%3.2f\t%3.2f\t%3.2f\t%3.2f\n",
+        fprintf(file, "\t%3.2f\t%3.2f\t%3.2f\t%3.2f\n",
                 durationMS(i, FrameInfoIndex::IntendedVsync, FrameInfoIndex::SyncStart),
                 durationMS(i, FrameInfoIndex::SyncStart, FrameInfoIndex::IssueDrawCommandsStart),
                 durationMS(i, FrameInfoIndex::IssueDrawCommandsStart, FrameInfoIndex::SwapBuffers),
                 durationMS(i, FrameInfoIndex::SwapBuffers, FrameInfoIndex::FrameCompleted));
     }
+
+    fflush(file);
 }
 
 } /* namespace uirenderer */

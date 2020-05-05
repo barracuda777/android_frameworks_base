@@ -16,8 +16,12 @@
 
 package android.os;
 
+import android.os.IPowerManager;
+
 import android.app.Activity;
-import android.hardware.display.DisplayManager;
+import android.os.Bundle;
+import android.os.RemoteException;
+import android.os.ServiceManager;
 import android.provider.Settings;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -33,16 +37,23 @@ public class BrightnessLimit extends Activity implements OnClickListener {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
+        
         setContentView(R.layout.brightness_limit);
-
-        Button b = findViewById(R.id.go);
+        
+        Button b = (Button) findViewById(R.id.go);
         b.setOnClickListener(this);
     }
 
     public void onClick(View v) {
-        DisplayManager dm = getSystemService(DisplayManager.class);
-        dm.setTemporaryBrightness(0);
+        IPowerManager power = IPowerManager.Stub.asInterface(
+                ServiceManager.getService("power"));
+        if (power != null) {
+            try {
+                power.setTemporaryScreenBrightnessSettingOverride(0);
+            } catch (RemoteException darn) {
+                
+            }
+        }
         Settings.System.putInt(getContentResolver(), Settings.System.SCREEN_BRIGHTNESS, 0);
     }
 }

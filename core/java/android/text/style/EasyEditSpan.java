@@ -16,8 +16,6 @@
 
 package android.text.style;
 
-import android.annotation.NonNull;
-import android.annotation.UnsupportedAppUsage;
 import android.app.PendingIntent;
 import android.os.Parcel;
 import android.text.ParcelableSpan;
@@ -40,6 +38,7 @@ public class EasyEditSpan implements ParcelableSpan {
      *
      * @see #TEXT_DELETED
      * @see #TEXT_MODIFIED
+     * @see #getPendingIntent()
      */
     public static final String EXTRA_TEXT_CHANGED_TYPE =
             "android.text.style.EXTRA_TEXT_CHANGED_TYPE";
@@ -80,7 +79,7 @@ public class EasyEditSpan implements ParcelableSpan {
     /**
      * Constructor called from {@link TextUtils} to restore the span.
      */
-    public EasyEditSpan(@NonNull Parcel source) {
+    public EasyEditSpan(Parcel source) {
         mPendingIntent = source.readParcelable(null);
         mDeleteEnabled = (source.readByte() == 1);
     }
@@ -91,12 +90,12 @@ public class EasyEditSpan implements ParcelableSpan {
     }
 
     @Override
-    public void writeToParcel(@NonNull Parcel dest, int flags) {
+    public void writeToParcel(Parcel dest, int flags) {
         writeToParcelInternal(dest, flags);
     }
 
     /** @hide */
-    public void writeToParcelInternal(@NonNull Parcel dest, int flags) {
+    public void writeToParcelInternal(Parcel dest, int flags) {
         dest.writeParcelable(mPendingIntent, 0);
         dest.writeByte((byte) (mDeleteEnabled ? 1 : 0));
     }
@@ -116,7 +115,6 @@ public class EasyEditSpan implements ParcelableSpan {
      *
      * @hide
      */
-    @UnsupportedAppUsage
     public boolean isDeleteEnabled() {
         return mDeleteEnabled;
     }
@@ -126,7 +124,6 @@ public class EasyEditSpan implements ParcelableSpan {
      *
      * @hide
      */
-    @UnsupportedAppUsage
     public void setDeleteEnabled(boolean value) {
         mDeleteEnabled = value;
     }
@@ -136,7 +133,6 @@ public class EasyEditSpan implements ParcelableSpan {
      *
      * @hide
      */
-    @UnsupportedAppUsage
     public PendingIntent getPendingIntent() {
         return mPendingIntent;
     }

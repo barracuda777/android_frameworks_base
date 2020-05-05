@@ -16,14 +16,9 @@
 
 package android.telephony;
 
-import android.annotation.IntRange;
-import android.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.os.PersistableBundle;
-
-import java.util.Arrays;
-import java.util.Objects;
+import android.telephony.Rlog;
 
 /**
  * LTE signal strength related information.
@@ -33,101 +28,95 @@ public final class CellSignalStrengthLte extends CellSignalStrength implements P
     private static final String LOG_TAG = "CellSignalStrengthLte";
     private static final boolean DBG = false;
 
-    /**
-     * Indicates the unknown or undetectable RSSI value in ASU.
-     *
-     * Reference: TS 27.007 8.5 - Signal quality +CSQ
-     */
-    private static final int SIGNAL_STRENGTH_LTE_RSSI_ASU_UNKNOWN = 99;
-    /**
-     * Indicates the maximum valid RSSI value in ASU.
-     *
-     * Reference: TS 27.007 8.5 - Signal quality +CSQ
-     */
-    private static final int SIGNAL_STRENGTH_LTE_RSSI_VALID_ASU_MAX_VALUE = 31;
-    /**
-     * Indicates the minimum valid RSSI value in ASU.
-     *
-     * Reference: TS 27.007 8.5 - Signal quality +CSQ
-     */
-    private static final int SIGNAL_STRENGTH_LTE_RSSI_VALID_ASU_MIN_VALUE = 0;
-
-    private static final int MAX_LTE_RSRP = -44;
-    private static final int MIN_LTE_RSRP = -140;
-
-    @UnsupportedAppUsage(maxTargetSdk = android.os.Build.VERSION_CODES.P)
-    private int mSignalStrength; // To be removed
-    private int mRssi;
-    @UnsupportedAppUsage(maxTargetSdk = android.os.Build.VERSION_CODES.P)
+    private int mSignalStrength;
     private int mRsrp;
-    @UnsupportedAppUsage(maxTargetSdk = android.os.Build.VERSION_CODES.P)
     private int mRsrq;
-    @UnsupportedAppUsage(maxTargetSdk = android.os.Build.VERSION_CODES.P)
     private int mRssnr;
-    @UnsupportedAppUsage(maxTargetSdk = android.os.Build.VERSION_CODES.P)
     private int mCqi;
-    @UnsupportedAppUsage(maxTargetSdk = android.os.Build.VERSION_CODES.P)
     private int mTimingAdvance;
-    private int mLevel;
 
-    /** @hide */
-    @UnsupportedAppUsage
+    /**
+     * Empty constructor
+     *
+     * @hide
+     */
     public CellSignalStrengthLte() {
         setDefaultValues();
     }
 
     /**
-     * Construct a cell signal strength
+     * Constructor
      *
-     * @param rssi in dBm [-113,-51], UNKNOWN
-     * @param rsrp in dBm [-140,-43], UNKNOWN
-     * @param rsrq in dB [-20,-3], UNKNOWN
-     * @param rssnr in 10*dB [-200, +300], UNKNOWN
-     * @param cqi [0, 15], UNKNOWN
-     * @param timingAdvance [0, 1282], UNKNOWN
-     *
+     * @hide
      */
-    /** @hide */
-    public CellSignalStrengthLte(int rssi, int rsrp, int rsrq, int rssnr, int cqi,
+    public CellSignalStrengthLte(int signalStrength, int rsrp, int rsrq, int rssnr, int cqi,
             int timingAdvance) {
-
-        mRssi = inRangeOrUnavailable(rssi, -113, -51);
-        mSignalStrength = mRssi;
-        mRsrp = inRangeOrUnavailable(rsrp, -140, -43);
-        mRsrq = inRangeOrUnavailable(rsrq, -20, -3);
-        mRssnr = inRangeOrUnavailable(rssnr, -200, 300);
-        mCqi = inRangeOrUnavailable(cqi, 0, 15);
-        mTimingAdvance = inRangeOrUnavailable(timingAdvance, 0, 1282);
-        updateLevel(null, null);
+        initialize(signalStrength, rsrp, rsrq, rssnr, cqi, timingAdvance);
     }
 
-    /** @hide */
-    public CellSignalStrengthLte(android.hardware.radio.V1_0.LteSignalStrength lte) {
-        // Convert from HAL values as part of construction.
-        this(convertRssiAsuToDBm(lte.signalStrength),
-                lte.rsrp != CellInfo.UNAVAILABLE ? -lte.rsrp : lte.rsrp,
-                lte.rsrq != CellInfo.UNAVAILABLE ? -lte.rsrq : lte.rsrq,
-                lte.rssnr, lte.cqi, lte.timingAdvance);
-    }
-
-    /** @hide */
+    /**
+     * Copy constructors
+     *
+     * @param s Source SignalStrength
+     *
+     * @hide
+     */
     public CellSignalStrengthLte(CellSignalStrengthLte s) {
         copyFrom(s);
     }
 
-    /** @hide */
+    /**
+     * Initialize all the values
+     *
+     * @param lteSignalStrength
+     * @param rsrp
+     * @param rsrq
+     * @param rssnr
+     * @param cqi
+     *
+     * @hide
+     */
+    public void initialize(int lteSignalStrength, int rsrp, int rsrq, int rssnr, int cqi,
+            int timingAdvance) {
+        mSignalStrength = lteSignalStrength;
+        mRsrp = rsrp;
+        mRsrq = rsrq;
+        mRssnr = rssnr;
+        mCqi = cqi;
+        mTimingAdvance = timingAdvance;
+    }
+
+    /**
+     * Initialize from the SignalStrength structure.
+     *
+     * @param ss
+     *
+     * @hide
+     */
+    public void initialize(SignalStrength ss, int timingAdvance) {
+        mSignalStrength = ss.getLteSignalStrength();
+        mRsrp = ss.getLteRsrp();
+        mRsrq = ss.getLteRsrq();
+        mRssnr = ss.getLteRssnr();
+        mCqi = ss.getLteCqi();
+        mTimingAdvance = timingAdvance;
+    }
+
+    /**
+     * @hide
+     */
     protected void copyFrom(CellSignalStrengthLte s) {
         mSignalStrength = s.mSignalStrength;
-        mRssi = s.mRssi;
         mRsrp = s.mRsrp;
         mRsrq = s.mRsrq;
         mRssnr = s.mRssnr;
         mCqi = s.mCqi;
         mTimingAdvance = s.mTimingAdvance;
-        mLevel = s.mLevel;
     }
 
-    /** @hide */
+    /**
+     * @hide
+     */
     @Override
     public CellSignalStrengthLte copy() {
         return new CellSignalStrengthLte(this);
@@ -136,178 +125,64 @@ public final class CellSignalStrengthLte extends CellSignalStrength implements P
     /** @hide */
     @Override
     public void setDefaultValues() {
-        mSignalStrength = CellInfo.UNAVAILABLE;
-        mRssi = CellInfo.UNAVAILABLE;
-        mRsrp = CellInfo.UNAVAILABLE;
-        mRsrq = CellInfo.UNAVAILABLE;
-        mRssnr = CellInfo.UNAVAILABLE;
-        mCqi = CellInfo.UNAVAILABLE;
-        mTimingAdvance = CellInfo.UNAVAILABLE;
-        mLevel = SIGNAL_STRENGTH_NONE_OR_UNKNOWN;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    @IntRange(from = SIGNAL_STRENGTH_NONE_OR_UNKNOWN, to = SIGNAL_STRENGTH_GREAT)
-    public int getLevel() {
-        return mLevel;
-    }
-
-    // Lifted from Default carrier configs and max range of RSRP
-    private static final int[] sThresholds = new int[]{-115, -105, -95, -85};
-    private static final int sRsrpBoost = 0;
-
-    /** @hide */
-    @Override
-    public void updateLevel(PersistableBundle cc, ServiceState ss) {
-        int[] thresholds;
-        boolean rsrpOnly;
-        if (cc == null) {
-            thresholds = sThresholds;
-            rsrpOnly = false;
-        } else {
-            rsrpOnly = cc.getBoolean(
-                    CarrierConfigManager.KEY_USE_ONLY_RSRP_FOR_LTE_SIGNAL_BAR_BOOL, false);
-            thresholds = cc.getIntArray(
-                    CarrierConfigManager.KEY_LTE_RSRP_THRESHOLDS_INT_ARRAY);
-            if (thresholds == null) thresholds = sThresholds;
-            if (DBG) log("updateLevel() carrierconfig - rsrpOnly="
-                    + rsrpOnly + ", thresholds=" + Arrays.toString(thresholds));
-        }
-
-
-        int rsrpBoost = 0;
-        if (ss != null) {
-            rsrpBoost = ss.getLteEarfcnRsrpBoost();
-        }
-
-        int rssiIconLevel = SIGNAL_STRENGTH_NONE_OR_UNKNOWN;
-        int rsrpIconLevel = SIGNAL_STRENGTH_NONE_OR_UNKNOWN;
-        int snrIconLevel = -1;
-
-        int rsrp = mRsrp + rsrpBoost;
-
-        if (rsrp < MIN_LTE_RSRP || rsrp > MAX_LTE_RSRP) {
-            rsrpIconLevel = -1;
-        } else {
-            rsrpIconLevel = thresholds.length;
-            while (rsrpIconLevel > 0 && rsrp < thresholds[rsrpIconLevel - 1]) rsrpIconLevel--;
-        }
-
-        if (rsrpOnly) {
-            if (DBG) log("updateLevel() - rsrp = " + rsrpIconLevel);
-            if (rsrpIconLevel != -1) {
-                mLevel = rsrpIconLevel;
-                return;
-            }
-        }
-
-        /*
-         * Values are -200 dB to +300 (SNR*10dB) RS_SNR >= 13.0 dB =>4 bars 4.5
-         * dB <= RS_SNR < 13.0 dB => 3 bars 1.0 dB <= RS_SNR < 4.5 dB => 2 bars
-         * -3.0 dB <= RS_SNR < 1.0 dB 1 bar RS_SNR < -3.0 dB/No Service Antenna
-         * Icon Only
-         */
-        if (mRssnr > 300) snrIconLevel = -1;
-        else if (mRssnr >= 130) snrIconLevel = SIGNAL_STRENGTH_GREAT;
-        else if (mRssnr >= 45) snrIconLevel = SIGNAL_STRENGTH_GOOD;
-        else if (mRssnr >= 10) snrIconLevel = SIGNAL_STRENGTH_MODERATE;
-        else if (mRssnr >= -30) snrIconLevel = SIGNAL_STRENGTH_POOR;
-        else if (mRssnr >= -200)
-            snrIconLevel = SIGNAL_STRENGTH_NONE_OR_UNKNOWN;
-
-        if (DBG) log("updateLevel() - rsrp:" + mRsrp + " snr:" + mRssnr + " rsrpIconLevel:"
-                + rsrpIconLevel + " snrIconLevel:" + snrIconLevel
-                + " lteRsrpBoost:" + sRsrpBoost);
-
-        /* Choose a measurement type to use for notification */
-        if (snrIconLevel != -1 && rsrpIconLevel != -1) {
-            /*
-             * The number of bars displayed shall be the smaller of the bars
-             * associated with LTE RSRP and the bars associated with the LTE
-             * RS_SNR
-             */
-            mLevel = (rsrpIconLevel < snrIconLevel ? rsrpIconLevel : snrIconLevel);
-            return;
-        }
-
-        if (snrIconLevel != -1) {
-            mLevel = snrIconLevel;
-            return;
-        }
-
-        if (rsrpIconLevel != -1) {
-            mLevel = rsrpIconLevel;
-            return;
-        }
-
-        if (mRssi > -51) rssiIconLevel = SIGNAL_STRENGTH_NONE_OR_UNKNOWN;
-        else if (mRssi >= -89) rssiIconLevel = SIGNAL_STRENGTH_GREAT;
-        else if (mRssi >= -97) rssiIconLevel = SIGNAL_STRENGTH_GOOD;
-        else if (mRssi >= -103) rssiIconLevel = SIGNAL_STRENGTH_MODERATE;
-        else if (mRssi >= -113) rssiIconLevel = SIGNAL_STRENGTH_POOR;
-        else rssiIconLevel = SIGNAL_STRENGTH_NONE_OR_UNKNOWN;
-        if (DBG) log("getLteLevel - rssi:" + mRssi + " rssiIconLevel:"
-                + rssiIconLevel);
-        mLevel = rssiIconLevel;
+        mSignalStrength = Integer.MAX_VALUE;
+        mRsrp = Integer.MAX_VALUE;
+        mRsrq = Integer.MAX_VALUE;
+        mRssnr = Integer.MAX_VALUE;
+        mCqi = Integer.MAX_VALUE;
+        mTimingAdvance = Integer.MAX_VALUE;
     }
 
     /**
-     * Get reference signal received quality
-     *
-     * @return the RSRQ if available or
-     *         {@link android.telephony.CellInfo#UNAVAILABLE UNAVAILABLE} if unavailable.
+     * Get signal level as an int from 0..4
+     */
+    @Override
+    public int getLevel() {
+        int levelRsrp = 0;
+        int levelRssnr = 0;
+
+        if (mRsrp == Integer.MAX_VALUE) levelRsrp = 0;
+        else if (mRsrp >= -95) levelRsrp = SIGNAL_STRENGTH_GREAT;
+        else if (mRsrp >= -105) levelRsrp = SIGNAL_STRENGTH_GOOD;
+        else if (mRsrp >= -115) levelRsrp = SIGNAL_STRENGTH_MODERATE;
+        else levelRsrp = SIGNAL_STRENGTH_POOR;
+
+        // See RIL_LTE_SignalStrength in ril.h
+        if (mRssnr == Integer.MAX_VALUE) levelRssnr = 0;
+        else if (mRssnr >= 45) levelRssnr = SIGNAL_STRENGTH_GREAT;
+        else if (mRssnr >= 10) levelRssnr = SIGNAL_STRENGTH_GOOD;
+        else if (mRssnr >= -30) levelRssnr = SIGNAL_STRENGTH_MODERATE;
+        else levelRssnr = SIGNAL_STRENGTH_POOR;
+
+        int level;
+        if (mRsrp == Integer.MAX_VALUE)
+            level = levelRssnr;
+        else if (mRssnr == Integer.MAX_VALUE)
+            level = levelRsrp;
+        else
+            level = (levelRssnr < levelRsrp) ? levelRssnr : levelRsrp;
+
+        if (DBG) log("Lte rsrp level: " + levelRsrp
+                + " snr level: " + levelRssnr + " level: " + level);
+        return level;
+    }
+
+    /**
+     * @hide
      */
     public int getRsrq() {
         return mRsrq;
     }
 
     /**
-     * Get Received Signal Strength Indication (RSSI) in dBm
-     *
-     * The value range is [-113, -51] inclusively or {@link CellInfo#UNAVAILABLE} if unavailable.
-     *
-     * Reference: TS 27.007 8.5 Signal quality +CSQ
-     *
-     * @return the RSSI if available or {@link CellInfo#UNAVAILABLE} if unavailable.
-     */
-    public int getRssi() {
-        return mRssi;
-    }
-
-    /**
-     * Get reference signal signal-to-noise ratio
-     *
-     * @return the RSSNR if available or
-     *         {@link android.telephony.CellInfo#UNAVAILABLE UNAVAILABLE} if unavailable.
+     * @hide
      */
     public int getRssnr() {
         return mRssnr;
     }
 
     /**
-     * Get reference signal received power in dBm
-     *
-     * @return the RSRP of the measured cell.
-     */
-    public int getRsrp() {
-        return mRsrp;
-    }
-
-    /**
-     * Get channel quality indicator
-     *
-     * @return the CQI if available or
-     *         {@link android.telephony.CellInfo#UNAVAILABLE UNAVAILABLE} if unavailable.
-     */
-    public int getCqi() {
-        return mCqi;
-    }
-
-    /**
-     * Get signal strength in dBm
-     *
-     * @return the RSRP of the measured cell.
+     * Get signal strength as dBm
      */
     @Override
     public int getDbm() {
@@ -315,17 +190,14 @@ public final class CellSignalStrengthLte extends CellSignalStrength implements P
     }
 
     /**
-     * Get the RSRP in ASU.
-     *
+     * Get the LTE signal level as an asu value between 0..97, 99 is unknown
      * Asu is calculated based on 3GPP RSRP. Refer to 3GPP 27.007 (Ver 10.3.0) Sec 8.69
-     *
-     * @return RSCP in ASU 0..97, 255, or UNAVAILABLE
      */
     @Override
     public int getAsuLevel() {
         int lteAsuLevel = 99;
-        int lteDbm = mRsrp;
-        if (lteDbm == CellInfo.UNAVAILABLE) lteAsuLevel = 99;
+        int lteDbm = getDbm();
+        if (lteDbm == Integer.MAX_VALUE) lteAsuLevel = 99;
         else if (lteDbm <= -140) lteAsuLevel = 0;
         else if (lteDbm >= -43) lteAsuLevel = 97;
         else lteAsuLevel = lteDbm + 140;
@@ -334,12 +206,8 @@ public final class CellSignalStrengthLte extends CellSignalStrength implements P
     }
 
     /**
-     * Get the timing advance value for LTE, as a value in range of 0..1282.
-     * {@link android.telephony.CellInfo#UNAVAILABLE UNAVAILABLE} is reported when there is no
-     * active RRC connection. Refer to 3GPP 36.213 Sec 4.2.3
-     *
-     * @return the LTE timing advance if available or
-     *         {@link android.telephony.CellInfo#UNAVAILABLE UNAVAILABLE} if unavailable.
+     * Get the timing advance value for LTE.
+     * See 3GPP xxxx
      */
     public int getTimingAdvance() {
         return mTimingAdvance;
@@ -347,31 +215,32 @@ public final class CellSignalStrengthLte extends CellSignalStrength implements P
 
     @Override
     public int hashCode() {
-        return Objects.hash(mRssi, mRsrp, mRsrq, mRssnr, mCqi, mTimingAdvance, mLevel);
-    }
-
-    private static final CellSignalStrengthLte sInvalid = new CellSignalStrengthLte();
-
-    /** @hide */
-    @Override
-    public boolean isValid() {
-        return !this.equals(sInvalid);
+        int primeNum = 31;
+        return (mSignalStrength * primeNum) + (mRsrp * primeNum)
+                + (mRsrq * primeNum) + (mRssnr * primeNum) + (mCqi * primeNum)
+                + (mTimingAdvance * primeNum);
     }
 
     @Override
     public boolean equals (Object o) {
         CellSignalStrengthLte s;
 
-        if (!(o instanceof CellSignalStrengthLte)) return false;
-        s = (CellSignalStrengthLte) o;
+        try {
+            s = (CellSignalStrengthLte) o;
+        } catch (ClassCastException ex) {
+            return false;
+        }
 
-        return mRssi == s.mRssi
+        if (o == null) {
+            return false;
+        }
+
+        return mSignalStrength == s.mSignalStrength
                 && mRsrp == s.mRsrp
                 && mRsrq == s.mRsrq
                 && mRssnr == s.mRssnr
                 && mCqi == s.mCqi
-                && mTimingAdvance == s.mTimingAdvance
-                && mLevel == s.mLevel;
+                && mTimingAdvance == s.mTimingAdvance;
     }
 
     /**
@@ -380,29 +249,27 @@ public final class CellSignalStrengthLte extends CellSignalStrength implements P
     @Override
     public String toString() {
         return "CellSignalStrengthLte:"
-                + " rssi=" + mRssi
+                + " ss=" + mSignalStrength
                 + " rsrp=" + mRsrp
                 + " rsrq=" + mRsrq
                 + " rssnr=" + mRssnr
                 + " cqi=" + mCqi
-                + " ta=" + mTimingAdvance
-                + " level=" + mLevel;
+                + " ta=" + mTimingAdvance;
     }
 
     /** Implement the Parcelable interface */
     @Override
     public void writeToParcel(Parcel dest, int flags) {
         if (DBG) log("writeToParcel(Parcel, int): " + toString());
-        dest.writeInt(mRssi);
+        dest.writeInt(mSignalStrength);
         // Need to multiply rsrp and rsrq by -1
         // to ensure consistency when reading values written here
         // unless the values are invalid
-        dest.writeInt(mRsrp);
-        dest.writeInt(mRsrq);
+        dest.writeInt(mRsrp * (mRsrp != Integer.MAX_VALUE ? -1 : 1));
+        dest.writeInt(mRsrq * (mRsrq != Integer.MAX_VALUE ? -1 : 1));
         dest.writeInt(mRssnr);
         dest.writeInt(mCqi);
         dest.writeInt(mTimingAdvance);
-        dest.writeInt(mLevel);
     }
 
     /**
@@ -410,14 +277,16 @@ public final class CellSignalStrengthLte extends CellSignalStrength implements P
      * where the token is already been processed.
      */
     private CellSignalStrengthLte(Parcel in) {
-        mRssi = in.readInt();
-        mSignalStrength = mRssi;
+        mSignalStrength = in.readInt();
+        // rsrp and rsrq are written into the parcel as positive values.
+        // Need to convert into negative values unless the values are invalid
         mRsrp = in.readInt();
+        if (mRsrp != Integer.MAX_VALUE) mRsrp *= -1;
         mRsrq = in.readInt();
+        if (mRsrq != Integer.MAX_VALUE) mRsrq *= -1;
         mRssnr = in.readInt();
         mCqi = in.readInt();
         mTimingAdvance = in.readInt();
-        mLevel = in.readInt();
         if (DBG) log("CellSignalStrengthLte(Parcel): " + toString());
     }
 
@@ -429,7 +298,7 @@ public final class CellSignalStrengthLte extends CellSignalStrength implements P
 
     /** Implement the Parcelable interface */
     @SuppressWarnings("hiding")
-    public static final @android.annotation.NonNull Parcelable.Creator<CellSignalStrengthLte> CREATOR =
+    public static final Parcelable.Creator<CellSignalStrengthLte> CREATOR =
             new Parcelable.Creator<CellSignalStrengthLte>() {
         @Override
         public CellSignalStrengthLte createFromParcel(Parcel in) {
@@ -447,17 +316,5 @@ public final class CellSignalStrengthLte extends CellSignalStrength implements P
      */
     private static void log(String s) {
         Rlog.w(LOG_TAG, s);
-    }
-
-    private static int convertRssiAsuToDBm(int rssiAsu) {
-        if (rssiAsu == SIGNAL_STRENGTH_LTE_RSSI_ASU_UNKNOWN) {
-            return CellInfo.UNAVAILABLE;
-        }
-        if ((rssiAsu < SIGNAL_STRENGTH_LTE_RSSI_VALID_ASU_MIN_VALUE
-                || rssiAsu > SIGNAL_STRENGTH_LTE_RSSI_VALID_ASU_MAX_VALUE)) {
-            Rlog.e(LOG_TAG, "convertRssiAsuToDBm: invalid RSSI in ASU=" + rssiAsu);
-            return CellInfo.UNAVAILABLE;
-        }
-        return -113 + (2 * rssiAsu);
     }
 }

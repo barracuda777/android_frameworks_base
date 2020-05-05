@@ -16,8 +16,6 @@
 
 package android.renderscript;
 
-import android.annotation.UnsupportedAppUsage;
-
 /**
  * <p>An Element represents one item within an {@link
  * android.renderscript.Allocation}.  An Element is roughly equivalent to a C
@@ -1073,6 +1071,7 @@ public class Element extends BaseObj {
             mSize += mElements[ct].mSize * mArraySizes[ct];
         }
         updateVisibleSubElements();
+        guard.open("destroy");
     }
 
     Element(long id, RenderScript rs, DataType dt, DataKind dk, boolean norm, int size) {
@@ -1092,6 +1091,7 @@ public class Element extends BaseObj {
         mKind = dk;
         mNormalized = norm;
         mVectorSize = size;
+        guard.open("destroy");
     }
 
     Element(long id, RenderScript rs) {
@@ -1148,7 +1148,6 @@ public class Element extends BaseObj {
      * @param dt The DataType for the new element.
      * @return Element
      */
-    @UnsupportedAppUsage
     static Element createUser(RenderScript rs, DataType dt) {
         DataKind dk = DataKind.USER;
         boolean norm = false;

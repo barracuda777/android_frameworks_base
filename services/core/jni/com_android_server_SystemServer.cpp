@@ -15,16 +15,9 @@
  */
 
 #include <jni.h>
-#include <nativehelper/JNIHelp.h>
+#include <JNIHelp.h>
 
-#include <binder/IServiceManager.h>
-#include <hidl/HidlTransportSupport.h>
-
-#include <schedulerservice/SchedulingPolicyService.h>
 #include <sensorservice/SensorService.h>
-#include <sensorservicehidl/SensorManager.h>
-
-#include <bionic_malloc.h>
 
 #include <cutils/properties.h>
 #include <utils/Log.h>
@@ -33,42 +26,19 @@
 
 namespace android {
 
+static int start_sensor_service(void* /*unused*/) {
+    SensorService::instantiate();
+    return 0;
+}
+
 static void android_server_SystemServer_startSensorService(JNIEnv* /* env */, jobject /* clazz */) {
     char propBuf[PROPERTY_VALUE_MAX];
     property_get("system_init.startsensorservice", propBuf, "1");
     if (strcmp(propBuf, "1") == 0) {
-        SensorService::publish(false /* allowIsolated */,
-                               IServiceManager::DUMP_FLAG_PRIORITY_CRITICAL);
+        // Start the sensor service in a new thread
+        createThreadEtc(start_sensor_service, nullptr,
+                        "StartSensorThread", PRIORITY_FOREGROUND);
     }
-
-}
-
-static void android_server_SystemServer_startHidlServices(JNIEnv* env, jobject /* clazz */) {
-    using ::android::frameworks::schedulerservice::V1_0::ISchedulingPolicyService;
-    using ::android::frameworks::schedulerservice::V1_0::implementation::SchedulingPolicyService;
-    using ::android::frameworks::sensorservice::V1_0::ISensorManager;
-    using ::android::frameworks::sensorservice::V1_0::implementation::SensorManager;
-    using ::android::hardware::configureRpcThreadpool;
-
-    status_t err;
-
-    configureRpcThreadpool(5, false /* callerWillJoin */);
-
-    JavaVM *vm;
-    LOG_ALWAYS_FATAL_IF(env->GetJavaVM(&vm) != JNI_OK, "Cannot get Java VM");
-
-    sp<ISensorManager> sensorService = new SensorManager(vm);
-    err = sensorService->registerAsService();
-    ALOGE_IF(err != OK, "Cannot register %s: %d", ISensorManager::descriptor, err);
-
-    sp<ISchedulingPolicyService> schedulingService = new SchedulingPolicyService();
-    err = schedulingService->registerAsService();
-    ALOGE_IF(err != OK, "Cannot register %s: %d", ISchedulingPolicyService::descriptor, err);
-}
-
-static void android_server_SystemServer_initZygoteChildHeapProfiling(JNIEnv* /* env */,
-                                                                     jobject /* clazz */) {
-   android_mallopt(M_INIT_ZYGOTE_CHILD_PROFILING, nullptr, 0);
 }
 
 /*
@@ -77,9 +47,6 @@ static void android_server_SystemServer_initZygoteChildHeapProfiling(JNIEnv* /* 
 static const JNINativeMethod gMethods[] = {
     /* name, signature, funcPtr */
     { "startSensorService", "()V", (void*) android_server_SystemServer_startSensorService },
-    { "startHidlServices", "()V", (void*) android_server_SystemServer_startHidlServices },
-    { "initZygoteChildHeapProfiling", "()V",
-      (void*) android_server_SystemServer_initZygoteChildHeapProfiling },
 };
 
 int register_android_server_SystemServer(JNIEnv* env)

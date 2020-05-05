@@ -18,7 +18,6 @@ package android.net.metrics;
 
 import android.annotation.IntDef;
 import android.annotation.SystemApi;
-import android.annotation.TestApi;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.util.SparseArray;
@@ -29,62 +28,58 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 /**
- * An event recorded by IpClient when IP provisioning completes for a network or
+ * An event recorded by IpManager when IP provisioning completes for a network or
  * when a network disconnects.
  * {@hide}
  */
 @SystemApi
-@TestApi
-public final class IpManagerEvent implements IpConnectivityLog.Event {
+public final class IpManagerEvent implements Parcelable {
 
-    public static final int PROVISIONING_OK                       = 1;
-    public static final int PROVISIONING_FAIL                     = 2;
-    public static final int COMPLETE_LIFECYCLE                    = 3;
-    public static final int ERROR_STARTING_IPV4                   = 4;
-    public static final int ERROR_STARTING_IPV6                   = 5;
-    public static final int ERROR_STARTING_IPREACHABILITYMONITOR  = 6;
-    public static final int ERROR_INVALID_PROVISIONING            = 7;
-    public static final int ERROR_INTERFACE_NOT_FOUND             = 8;
+    public static final int PROVISIONING_OK    = 1;
+    public static final int PROVISIONING_FAIL  = 2;
+    public static final int COMPLETE_LIFECYCLE = 3;
+    /** @hide */ public static final int ERROR_STARTING_IPV4 = 4;
+    /** @hide */ public static final int ERROR_STARTING_IPV6 = 5;
+    /** @hide */ public static final int ERROR_STARTING_IPREACHABILITYMONITOR = 6;
 
-    /** @hide */
+    /** {@hide} */
     @IntDef(value = {
             PROVISIONING_OK, PROVISIONING_FAIL, COMPLETE_LIFECYCLE,
             ERROR_STARTING_IPV4, ERROR_STARTING_IPV6, ERROR_STARTING_IPREACHABILITYMONITOR,
-            ERROR_INVALID_PROVISIONING, ERROR_INTERFACE_NOT_FOUND,
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface EventType {}
 
-    /** @hide */
+    public final String ifName;
     public final @EventType int eventType;
-    /** @hide */
     public final long durationMs;
 
-    public IpManagerEvent(@EventType int eventType, long duration) {
+    /** {@hide} */
+    public IpManagerEvent(String ifName, @EventType int eventType, long duration) {
+        this.ifName = ifName;
         this.eventType = eventType;
         this.durationMs = duration;
     }
 
     private IpManagerEvent(Parcel in) {
+        this.ifName = in.readString();
         this.eventType = in.readInt();
         this.durationMs = in.readLong();
     }
 
-    /** @hide */
     @Override
     public void writeToParcel(Parcel out, int flags) {
+        out.writeString(ifName);
         out.writeInt(eventType);
         out.writeLong(durationMs);
     }
 
-    /** @hide */
     @Override
     public int describeContents() {
         return 0;
     }
 
-    /** @hide */
-    public static final @android.annotation.NonNull Parcelable.Creator<IpManagerEvent> CREATOR
+    public static final Parcelable.Creator<IpManagerEvent> CREATOR
         = new Parcelable.Creator<IpManagerEvent>() {
         public IpManagerEvent createFromParcel(Parcel in) {
             return new IpManagerEvent(in);
@@ -95,18 +90,13 @@ public final class IpManagerEvent implements IpConnectivityLog.Event {
         }
     };
 
-    @Override
-    public String toString() {
-        return String.format("IpManagerEvent(%s, %dms)",
-                Decoder.constants.get(eventType), durationMs);
+    public static void logEvent(int eventType, String ifName, long durationMs) {
     }
 
     @Override
-    public boolean equals(Object obj) {
-        if (obj == null || !(obj.getClass().equals(IpManagerEvent.class))) return false;
-        final IpManagerEvent other = (IpManagerEvent) obj;
-        return eventType == other.eventType
-                && durationMs == other.durationMs;
+    public String toString() {
+        return String.format("IpManagerEvent(%s, %s, %dms)",
+                ifName, Decoder.constants.get(eventType), durationMs);
     }
 
     final static class Decoder {

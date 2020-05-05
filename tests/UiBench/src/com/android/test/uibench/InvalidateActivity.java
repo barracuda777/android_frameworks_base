@@ -21,8 +21,8 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.os.Bundle;
-import androidx.annotation.ColorInt;
-import androidx.appcompat.app.AppCompatActivity;
+import android.support.annotation.ColorInt;
+import android.support.v7.app.AppCompatActivity;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewGroup;
@@ -31,7 +31,7 @@ import android.view.ViewGroup;
  * Tests invalidation performance by invalidating a large number of easily rendered views,
  */
 public class InvalidateActivity extends AppCompatActivity {
-    private static class ColorView extends View {
+    public static class ColorView extends View {
         @ColorInt
         public int mColor;
 
@@ -50,7 +50,7 @@ public class InvalidateActivity extends AppCompatActivity {
         }
     }
 
-    private ColorView[][] mColorViews;
+    ColorView[][] mColorViews;
 
     @SuppressWarnings("unused")
     public void setColorValue(int colorValue) {

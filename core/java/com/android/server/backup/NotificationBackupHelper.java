@@ -18,7 +18,9 @@ package com.android.server.backup;
 
 import android.app.INotificationManager;
 import android.app.backup.BlobBackupHelper;
+import android.content.Context;
 import android.os.ServiceManager;
+import android.os.UserHandle;
 import android.util.Log;
 import android.util.Slog;
 
@@ -32,11 +34,9 @@ public class NotificationBackupHelper extends BlobBackupHelper {
     // Key under which the payload blob is stored
     static final String KEY_NOTIFICATIONS = "notifications";
 
-    private final int mUserId;
-
-    public NotificationBackupHelper(int userId) {
+    public NotificationBackupHelper(Context context) {
         super(BLOB_VERSION, KEY_NOTIFICATIONS);
-        mUserId = userId;
+        // context is currently unused
     }
 
     @Override
@@ -46,7 +46,8 @@ public class NotificationBackupHelper extends BlobBackupHelper {
             try {
                 INotificationManager nm = INotificationManager.Stub.asInterface(
                         ServiceManager.getService("notification"));
-                newPayload = nm.getBackupPayload(mUserId);
+                // TODO: http://b/22388012
+                newPayload = nm.getBackupPayload(UserHandle.USER_SYSTEM);
             } catch (Exception e) {
                 // Treat as no data
                 Slog.e(TAG, "Couldn't communicate with notification manager");
@@ -66,7 +67,8 @@ public class NotificationBackupHelper extends BlobBackupHelper {
             try {
                 INotificationManager nm = INotificationManager.Stub.asInterface(
                         ServiceManager.getService("notification"));
-                nm.applyRestore(payload, mUserId);
+                // TODO: http://b/22388012
+                nm.applyRestore(payload, UserHandle.USER_SYSTEM);
             } catch (Exception e) {
                 Slog.e(TAG, "Couldn't communicate with notification manager");
             }

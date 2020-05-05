@@ -28,7 +28,6 @@ interface ISearchManager {
    SearchableInfo getSearchableInfo(in ComponentName launchActivity);
    List<SearchableInfo> getSearchablesInGlobalSearch();
    List<ResolveInfo> getGlobalSearchActivities();
-   @UnsupportedAppUsage
    ComponentName getGlobalSearchActivity();
    ComponentName getWebSearchActivity();
    void launchAssist(in Bundle args);

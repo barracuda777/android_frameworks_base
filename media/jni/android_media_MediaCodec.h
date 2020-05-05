@@ -17,11 +17,8 @@
 #ifndef _ANDROID_MEDIA_MEDIACODEC_H_
 #define _ANDROID_MEDIA_MEDIACODEC_H_
 
-#include <mutex>
-
 #include "jni.h"
 
-#include <media/MediaAnalyticsItem.h>
 #include <media/hardware/CryptoAPI.h>
 #include <media/stagefright/foundation/ABase.h>
 #include <media/stagefright/foundation/AHandler.h>
@@ -34,17 +31,10 @@ struct ALooper;
 struct AMessage;
 struct AString;
 struct ICrypto;
-class IGraphicBufferProducer;
+struct IGraphicBufferProducer;
 struct MediaCodec;
 struct PersistentSurface;
 class Surface;
-namespace hardware {
-namespace cas {
-namespace native {
-namespace V1_0 {
-struct IDescrambler;
-}}}}
-using hardware::cas::native::V1_0::IDescrambler;
 
 struct JMediaCodec : public AHandler {
     JMediaCodec(
@@ -64,7 +54,6 @@ struct JMediaCodec : public AHandler {
             const sp<AMessage> &format,
             const sp<IGraphicBufferProducer> &bufferProducer,
             const sp<ICrypto> &crypto,
-            const sp<IDescrambler> &descrambler,
             int flags);
 
     status_t setSurface(
@@ -122,15 +111,9 @@ struct JMediaCodec : public AHandler {
 
     status_t getName(JNIEnv *env, jstring *name) const;
 
-    status_t getCodecInfo(JNIEnv *env, jobject *codecInfo) const;
-
-    status_t getMetrics(JNIEnv *env, MediaAnalyticsItem * &reply) const;
-
     status_t setParameters(const sp<AMessage> &params);
 
     void setVideoScalingMode(int mode);
-
-    void selectAudioPresentation(const int32_t presentationId, const int32_t programId);
 
 protected:
     virtual ~JMediaCodec();
@@ -157,17 +140,14 @@ private:
 
     sp<ALooper> mLooper;
     sp<MediaCodec> mCodec;
-    AString mNameAtCreation;
-    std::once_flag mReleaseFlag;
 
     sp<AMessage> mCallbackNotification;
     sp<AMessage> mOnFrameRenderedNotification;
 
     status_t mInitStatus;
 
-    template <typename T>
     status_t createByteBufferFromABuffer(
-            JNIEnv *env, bool readOnly, bool clearBuffer, const sp<T> &buffer,
+            JNIEnv *env, bool readOnly, bool clearBuffer, const sp<ABuffer> &buffer,
             jobject *buf) const;
 
     void cacheJavaObjects(JNIEnv *env);

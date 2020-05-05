@@ -16,7 +16,6 @@
 
 package android.content.res;
 
-import android.annotation.UnsupportedAppUsage;
 import android.content.pm.ActivityInfo.Config;
 
 /**

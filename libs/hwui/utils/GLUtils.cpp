@@ -39,42 +39,25 @@ bool GLUtils::dumpGLErrors() {
     while ((status = glGetError()) != GL_NO_ERROR) {
         errorObserved = true;
         switch (status) {
-            case GL_INVALID_ENUM:
-                ALOGE("GL error:  GL_INVALID_ENUM");
-                break;
-            case GL_INVALID_VALUE:
-                ALOGE("GL error:  GL_INVALID_VALUE");
-                break;
-            case GL_INVALID_OPERATION:
-                ALOGE("GL error:  GL_INVALID_OPERATION");
-                break;
-            case GL_OUT_OF_MEMORY:
-                ALOGE("GL error:  Out of memory!");
-                break;
-            default:
-                ALOGE("GL error: 0x%x", status);
+        case GL_INVALID_ENUM:
+            ALOGE("GL error:  GL_INVALID_ENUM");
+            break;
+        case GL_INVALID_VALUE:
+            ALOGE("GL error:  GL_INVALID_VALUE");
+            break;
+        case GL_INVALID_OPERATION:
+            ALOGE("GL error:  GL_INVALID_OPERATION");
+            break;
+        case GL_OUT_OF_MEMORY:
+            ALOGE("GL error:  Out of memory!");
+            break;
+        default:
+            ALOGE("GL error: 0x%x", status);
         }
     }
     return errorObserved;
 #endif
 }
 
-const char* GLUtils::getGLFramebufferError() {
-    switch (glCheckFramebufferStatus(GL_FRAMEBUFFER)) {
-        case GL_FRAMEBUFFER_COMPLETE:
-            return "GL_FRAMEBUFFER_COMPLETE";
-        case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
-            return "GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT";
-        case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
-            return "GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT";
-        case GL_FRAMEBUFFER_UNSUPPORTED:
-            return "GL_FRAMEBUFFER_UNSUPPORTED";
-        case GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS:
-            return "GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS";
-        default:
-            return "Unknown error";
-    }
-}
-
-}  // namespace uirenderer
-}  // namespace android
+}; // namespace uirenderer
+}; // namespace android

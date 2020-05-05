@@ -21,12 +21,9 @@
 #include "android_os_MessageQueue.h"
 #include "android_runtime/AndroidRuntime.h"
 #include "android_runtime/android_view_Surface.h"
-#include <nativehelper/JNIHelp.h>
+#include "JNIHelp.h"
 #include "jni.h"
 
-#include <android/hardware/tv/input/1.0/ITvInputCallback.h>
-#include <android/hardware/tv/input/1.0/ITvInput.h>
-#include <android/hardware/tv/input/1.0/types.h>
 #include <gui/Surface.h>
 #include <utils/Errors.h>
 #include <utils/KeyedVector.h>
@@ -34,20 +31,6 @@
 #include <utils/Looper.h>
 #include <utils/NativeHandle.h>
 #include <hardware/tv_input.h>
-
-using ::android::hardware::audio::common::V2_0::AudioDevice;
-using ::android::hardware::tv::input::V1_0::ITvInput;
-using ::android::hardware::tv::input::V1_0::ITvInputCallback;
-using ::android::hardware::tv::input::V1_0::Result;
-using ::android::hardware::tv::input::V1_0::TvInputDeviceInfo;
-using ::android::hardware::tv::input::V1_0::TvInputEvent;
-using ::android::hardware::tv::input::V1_0::TvInputEventType;
-using ::android::hardware::tv::input::V1_0::TvInputType;
-using ::android::hardware::tv::input::V1_0::TvStreamConfig;
-using ::android::hardware::Return;
-using ::android::hardware::Void;
-using ::android::hardware::hidl_vec;
-using ::android::hardware::hidl_string;
 
 namespace android {
 
@@ -81,7 +64,6 @@ static struct {
     jmethodID deviceId;
     jmethodID type;
     jmethodID hdmiPortId;
-    jmethodID cableConnectionStatus;
     jmethodID audioType;
     jmethodID audioAddress;
     jmethodID build;
@@ -257,9 +239,9 @@ public:
 
     int addOrUpdateStream(int deviceId, int streamId, const sp<Surface>& surface);
     int removeStream(int deviceId, int streamId);
-    const hidl_vec<TvStreamConfig> getStreamConfigs(int deviceId);
+    const tv_stream_config_t* getStreamConfigs(int deviceId, int* numConfigs);
 
-    void onDeviceAvailable(const TvInputDeviceInfo& info);
+    void onDeviceAvailable(const tv_input_device_info_t& info);
     void onDeviceUnavailable(int deviceId);
     void onStreamConfigurationsChanged(int deviceId);
     void onCaptured(int deviceId, int streamId, uint32_t seq, bool succeeded);
@@ -281,60 +263,73 @@ private:
 
     class NotifyHandler : public MessageHandler {
     public:
-        NotifyHandler(JTvInputHal* hal, const TvInputEvent& event);
+        NotifyHandler(JTvInputHal* hal, const tv_input_event_t* event);
+        ~NotifyHandler();
 
         virtual void handleMessage(const Message& message);
 
     private:
-        TvInputEvent mEvent;
+        tv_input_event_t mEvent;
         JTvInputHal* mHal;
     };
 
-    class TvInputCallback : public ITvInputCallback {
-    public:
-        explicit TvInputCallback(JTvInputHal* hal);
-        Return<void> notify(const TvInputEvent& event) override;
-    private:
-        JTvInputHal* mHal;
-    };
+    JTvInputHal(JNIEnv* env, jobject thiz, tv_input_device_t* dev, const sp<Looper>& looper);
 
-    JTvInputHal(JNIEnv* env, jobject thiz, sp<ITvInput> tvInput, const sp<Looper>& looper);
+    static void notify(
+            tv_input_device_t* dev, tv_input_event_t* event, void* data);
+
+    static void cloneTvInputEvent(
+            tv_input_event_t* dstEvent, const tv_input_event_t* srcEvent);
 
     Mutex mLock;
     jweak mThiz;
+    tv_input_device_t* mDevice;
+    tv_input_callback_ops_t mCallback;
     sp<Looper> mLooper;
 
     KeyedVector<int, KeyedVector<int, Connection> > mConnections;
-
-    sp<ITvInput> mTvInput;
-    sp<ITvInputCallback> mTvInputCallback;
 };
 
-JTvInputHal::JTvInputHal(JNIEnv* env, jobject thiz, sp<ITvInput> tvInput,
+JTvInputHal::JTvInputHal(JNIEnv* env, jobject thiz, tv_input_device_t* device,
         const sp<Looper>& looper) {
     mThiz = env->NewWeakGlobalRef(thiz);
-    mTvInput = tvInput;
+    mDevice = device;
+    mCallback.notify = &JTvInputHal::notify;
     mLooper = looper;
-    mTvInputCallback = new TvInputCallback(this);
-    mTvInput->setCallback(mTvInputCallback);
+
+    mDevice->initialize(mDevice, &mCallback, this);
 }
 
 JTvInputHal::~JTvInputHal() {
-    mTvInput->setCallback(nullptr);
+    mDevice->common.close((hw_device_t*)mDevice);
+
     JNIEnv* env = AndroidRuntime::getJNIEnv();
     env->DeleteWeakGlobalRef(mThiz);
     mThiz = NULL;
 }
 
 JTvInputHal* JTvInputHal::createInstance(JNIEnv* env, jobject thiz, const sp<Looper>& looper) {
-    // TODO(b/31632518)
-    sp<ITvInput> tvInput = ITvInput::getService();
-    if (tvInput == nullptr) {
-        ALOGE("Couldn't get tv.input service.");
-        return nullptr;
+    tv_input_module_t* module = NULL;
+    status_t err = hw_get_module(TV_INPUT_HARDWARE_MODULE_ID,
+            (hw_module_t const**)&module);
+    if (err) {
+        ALOGE("Couldn't load %s module (%s)",
+                TV_INPUT_HARDWARE_MODULE_ID, strerror(-err));
+        return 0;
     }
 
-    return new JTvInputHal(env, thiz, tvInput, looper);
+    tv_input_device_t* device = NULL;
+    err = module->common.methods->open(
+            (hw_module_t*)module,
+            TV_INPUT_DEFAULT_DEVICE,
+            (hw_device_t**)&device);
+    if (err) {
+        ALOGE("Couldn't open %s device (%s)",
+                TV_INPUT_DEFAULT_DEVICE, strerror(-err));
+        return 0;
+    }
+
+    return new JTvInputHal(env, thiz, device, looper);
 }
 
 int JTvInputHal::addOrUpdateStream(int deviceId, int streamId, const sp<Surface>& surface) {
@@ -358,22 +353,16 @@ int JTvInputHal::addOrUpdateStream(int deviceId, int streamId, const sp<Surface>
     }
     if (connection.mSourceHandle == NULL && connection.mThread == NULL) {
         // Need to configure stream
-        Result result = Result::UNKNOWN;
-        hidl_vec<TvStreamConfig> list;
-        mTvInput->getStreamConfigurations(deviceId,
-                [&result, &list](Result res, hidl_vec<TvStreamConfig> configs) {
-                    result = res;
-                    if (res == Result::OK) {
-                        list = configs;
-                    }
-                });
-        if (result != Result::OK) {
-            ALOGE("Couldn't get stream configs for device id:%d result:%d", deviceId, result);
+        int numConfigs = 0;
+        const tv_stream_config_t* configs = NULL;
+        if (mDevice->get_stream_configurations(
+                mDevice, deviceId, &numConfigs, &configs) != 0) {
+            ALOGE("Couldn't get stream configs");
             return UNKNOWN_ERROR;
         }
         int configIndex = -1;
-        for (size_t i = 0; i < list.size(); ++i) {
-            if (list[i].streamId == streamId) {
+        for (int i = 0; i < numConfigs; ++i) {
+            if (configs[i].stream_id == streamId) {
                 configIndex = i;
                 break;
             }
@@ -382,31 +371,34 @@ int JTvInputHal::addOrUpdateStream(int deviceId, int streamId, const sp<Surface>
             ALOGE("Cannot find a config with given stream ID: %d", streamId);
             return BAD_VALUE;
         }
-        connection.mStreamType = TV_STREAM_TYPE_INDEPENDENT_VIDEO_SOURCE;
+        connection.mStreamType = configs[configIndex].type;
 
-        result = Result::UNKNOWN;
-        const native_handle_t* sidebandStream;
-        mTvInput->openStream(deviceId, streamId,
-                [&result, &sidebandStream](Result res, const native_handle_t* handle) {
-                    result = res;
-                    if (res == Result::OK) {
-                        if (handle) {
-                            sidebandStream = native_handle_clone(handle);
-                        } else {
-                            result = Result::UNKNOWN;
-                        }
-                    }
-                });
-        if (result != Result::OK) {
-            ALOGE("Couldn't open stream. device id:%d stream id:%d result:%d", deviceId, streamId,
-                    result);
+        tv_stream_t stream;
+        stream.stream_id = configs[configIndex].stream_id;
+        if (connection.mStreamType == TV_STREAM_TYPE_BUFFER_PRODUCER) {
+            stream.buffer_producer.width = configs[configIndex].max_video_width;
+            stream.buffer_producer.height = configs[configIndex].max_video_height;
+        }
+        if (mDevice->open_stream(mDevice, deviceId, &stream) != 0) {
+            ALOGE("Couldn't add stream");
             return UNKNOWN_ERROR;
         }
-        connection.mSourceHandle = NativeHandle::create((native_handle_t*)sidebandStream, true);
+        if (connection.mStreamType == TV_STREAM_TYPE_INDEPENDENT_VIDEO_SOURCE) {
+            connection.mSourceHandle = NativeHandle::create(
+                    stream.sideband_stream_source_handle, false);
+        } else if (connection.mStreamType == TV_STREAM_TYPE_BUFFER_PRODUCER) {
+            if (connection.mThread != NULL) {
+                connection.mThread->shutdown();
+            }
+            connection.mThread = new BufferProducerThread(mDevice, deviceId, &stream);
+            connection.mThread->run("BufferProducerThread");
+        }
     }
     connection.mSurface = surface;
-    if (connection.mSurface != nullptr) {
+    if (connection.mStreamType == TV_STREAM_TYPE_INDEPENDENT_VIDEO_SOURCE) {
         connection.mSurface->setSidebandStream(connection.mSourceHandle);
+    } else if (connection.mStreamType == TV_STREAM_TYPE_BUFFER_PRODUCER) {
+        connection.mThread->setSurface(surface);
     }
     return NO_ERROR;
 }
@@ -429,8 +421,8 @@ int JTvInputHal::removeStream(int deviceId, int streamId) {
         connection.mThread->shutdown();
         connection.mThread.clear();
     }
-    if (mTvInput->closeStream(deviceId, streamId) != Result::OK) {
-        ALOGE("Couldn't close stream. device id:%d stream id:%d", deviceId, streamId);
+    if (mDevice->close_stream(mDevice, deviceId, streamId) != 0) {
+        ALOGE("Couldn't remove stream");
         return BAD_VALUE;
     }
     if (connection.mSourceHandle != NULL) {
@@ -439,26 +431,41 @@ int JTvInputHal::removeStream(int deviceId, int streamId) {
     return NO_ERROR;
 }
 
-const hidl_vec<TvStreamConfig> JTvInputHal::getStreamConfigs(int deviceId) {
-    Result result = Result::UNKNOWN;
-    hidl_vec<TvStreamConfig> list;
-    mTvInput->getStreamConfigurations(deviceId,
-            [&result, &list](Result res, hidl_vec<TvStreamConfig> configs) {
-                result = res;
-                if (res == Result::OK) {
-                    list = configs;
-                }
-            });
-    if (result != Result::OK) {
-        ALOGE("Couldn't get stream configs for device id:%d result:%d", deviceId, result);
+const tv_stream_config_t* JTvInputHal::getStreamConfigs(int deviceId, int* numConfigs) {
+    const tv_stream_config_t* configs = NULL;
+    if (mDevice->get_stream_configurations(
+            mDevice, deviceId, numConfigs, &configs) != 0) {
+        ALOGE("Couldn't get stream configs");
+        return NULL;
     }
-    return list;
+    return configs;
 }
 
-void JTvInputHal::onDeviceAvailable(const TvInputDeviceInfo& info) {
+// static
+void JTvInputHal::notify(
+        tv_input_device_t* dev, tv_input_event_t* event, void* data) {
+    JTvInputHal* thiz = (JTvInputHal*)data;
+    thiz->mLooper->sendMessage(new NotifyHandler(thiz, event), event->type);
+}
+
+// static
+void JTvInputHal::cloneTvInputEvent(
+        tv_input_event_t* dstEvent, const tv_input_event_t* srcEvent) {
+    memcpy(dstEvent, srcEvent, sizeof(tv_input_event_t));
+    if ((srcEvent->type == TV_INPUT_EVENT_DEVICE_AVAILABLE ||
+            srcEvent->type == TV_INPUT_EVENT_DEVICE_UNAVAILABLE ||
+            srcEvent->type == TV_INPUT_EVENT_STREAM_CONFIGURATIONS_CHANGED) &&
+            srcEvent->device_info.audio_address != NULL){
+        char* audio_address = new char[strlen(srcEvent->device_info.audio_address) + 1];
+        strcpy(audio_address, srcEvent->device_info.audio_address);
+        dstEvent->device_info.audio_address = audio_address;
+    }
+}
+
+void JTvInputHal::onDeviceAvailable(const tv_input_device_info_t& info) {
     {
         Mutex::Autolock autoLock(&mLock);
-        mConnections.add(info.deviceId, KeyedVector<int, Connection>());
+        mConnections.add(info.device_id, KeyedVector<int, Connection>());
     }
     JNIEnv* env = AndroidRuntime::getJNIEnv();
 
@@ -466,23 +473,17 @@ void JTvInputHal::onDeviceAvailable(const TvInputDeviceInfo& info) {
             gTvInputHardwareInfoBuilderClassInfo.clazz,
             gTvInputHardwareInfoBuilderClassInfo.constructor);
     env->CallObjectMethod(
-            builder, gTvInputHardwareInfoBuilderClassInfo.deviceId, info.deviceId);
+            builder, gTvInputHardwareInfoBuilderClassInfo.deviceId, info.device_id);
     env->CallObjectMethod(
             builder, gTvInputHardwareInfoBuilderClassInfo.type, info.type);
-    if (info.type == TvInputType::HDMI) {
+    if (info.type == TV_INPUT_TYPE_HDMI) {
         env->CallObjectMethod(
-                builder, gTvInputHardwareInfoBuilderClassInfo.hdmiPortId, info.portId);
+                builder, gTvInputHardwareInfoBuilderClassInfo.hdmiPortId, info.hdmi.port_id);
     }
     env->CallObjectMethod(
-            builder, gTvInputHardwareInfoBuilderClassInfo.cableConnectionStatus,
-            info.cableConnectionStatus);
-    env->CallObjectMethod(
-            builder, gTvInputHardwareInfoBuilderClassInfo.audioType, info.audioType);
-    if (info.audioType != AudioDevice::NONE) {
-        uint8_t buffer[info.audioAddress.size() + 1];
-        memcpy(buffer, info.audioAddress.data(), info.audioAddress.size());
-        buffer[info.audioAddress.size()] = '\0';
-        jstring audioAddress = env->NewStringUTF(reinterpret_cast<const char *>(buffer));
+            builder, gTvInputHardwareInfoBuilderClassInfo.audioType, info.audio_type);
+    if (info.audio_type != AUDIO_DEVICE_NONE) {
+        jstring audioAddress = env->NewStringUTF(info.audio_address);
         env->CallObjectMethod(
                 builder, gTvInputHardwareInfoBuilderClassInfo.audioAddress, audioAddress);
         env->DeleteLocalRef(audioAddress);
@@ -555,34 +556,46 @@ void JTvInputHal::onCaptured(int deviceId, int streamId, uint32_t seq, bool succ
     }
 }
 
-JTvInputHal::NotifyHandler::NotifyHandler(JTvInputHal* hal, const TvInputEvent& event) {
+JTvInputHal::NotifyHandler::NotifyHandler(JTvInputHal* hal, const tv_input_event_t* event) {
     mHal = hal;
-    mEvent = event;
+    cloneTvInputEvent(&mEvent, event);
+}
+
+JTvInputHal::NotifyHandler::~NotifyHandler() {
+    if ((mEvent.type == TV_INPUT_EVENT_DEVICE_AVAILABLE ||
+            mEvent.type == TV_INPUT_EVENT_DEVICE_UNAVAILABLE ||
+            mEvent.type == TV_INPUT_EVENT_STREAM_CONFIGURATIONS_CHANGED) &&
+            mEvent.device_info.audio_address != NULL) {
+        delete mEvent.device_info.audio_address;
+    }
 }
 
 void JTvInputHal::NotifyHandler::handleMessage(const Message& message) {
     switch (mEvent.type) {
-        case TvInputEventType::DEVICE_AVAILABLE: {
-            mHal->onDeviceAvailable(mEvent.deviceInfo);
+        case TV_INPUT_EVENT_DEVICE_AVAILABLE: {
+            mHal->onDeviceAvailable(mEvent.device_info);
         } break;
-        case TvInputEventType::DEVICE_UNAVAILABLE: {
-            mHal->onDeviceUnavailable(mEvent.deviceInfo.deviceId);
+        case TV_INPUT_EVENT_DEVICE_UNAVAILABLE: {
+            mHal->onDeviceUnavailable(mEvent.device_info.device_id);
         } break;
-        case TvInputEventType::STREAM_CONFIGURATIONS_CHANGED: {
-            mHal->onStreamConfigurationsChanged(mEvent.deviceInfo.deviceId);
+        case TV_INPUT_EVENT_STREAM_CONFIGURATIONS_CHANGED: {
+            mHal->onStreamConfigurationsChanged(mEvent.device_info.device_id);
+        } break;
+        case TV_INPUT_EVENT_CAPTURE_SUCCEEDED: {
+            mHal->onCaptured(mEvent.capture_result.device_id,
+                             mEvent.capture_result.stream_id,
+                             mEvent.capture_result.seq,
+                             true /* succeeded */);
+        } break;
+        case TV_INPUT_EVENT_CAPTURE_FAILED: {
+            mHal->onCaptured(mEvent.capture_result.device_id,
+                             mEvent.capture_result.stream_id,
+                             mEvent.capture_result.seq,
+                             false /* succeeded */);
         } break;
         default:
             ALOGE("Unrecognizable event");
     }
-}
-
-JTvInputHal::TvInputCallback::TvInputCallback(JTvInputHal* hal) {
-    mHal = hal;
-}
-
-Return<void> JTvInputHal::TvInputCallback::notify(const TvInputEvent& event) {
-    mHal->mLooper->sendMessage(new NotifyHandler(mHal, event), static_cast<int>(event.type));
-    return Void();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -615,22 +628,22 @@ static int nativeRemoveStream(JNIEnv* env, jclass clazz,
 static jobjectArray nativeGetStreamConfigs(JNIEnv* env, jclass clazz,
         jlong ptr, jint deviceId, jint generation) {
     JTvInputHal* tvInputHal = (JTvInputHal*)ptr;
-    const hidl_vec<TvStreamConfig> configs = tvInputHal->getStreamConfigs(deviceId);
+    int numConfigs = 0;
+    const tv_stream_config_t* configs = tvInputHal->getStreamConfigs(deviceId, &numConfigs);
 
-    jobjectArray result = env->NewObjectArray(configs.size(), gTvStreamConfigClassInfo.clazz, NULL);
-    for (size_t i = 0; i < configs.size(); ++i) {
+    jobjectArray result = env->NewObjectArray(numConfigs, gTvStreamConfigClassInfo.clazz, NULL);
+    for (int i = 0; i < numConfigs; ++i) {
         jobject builder = env->NewObject(
                 gTvStreamConfigBuilderClassInfo.clazz,
                 gTvStreamConfigBuilderClassInfo.constructor);
         env->CallObjectMethod(
-                builder, gTvStreamConfigBuilderClassInfo.streamId, configs[i].streamId);
+                builder, gTvStreamConfigBuilderClassInfo.streamId, configs[i].stream_id);
         env->CallObjectMethod(
-                builder, gTvStreamConfigBuilderClassInfo.type,
-                        TV_STREAM_TYPE_INDEPENDENT_VIDEO_SOURCE);
+                builder, gTvStreamConfigBuilderClassInfo.type, configs[i].type);
         env->CallObjectMethod(
-                builder, gTvStreamConfigBuilderClassInfo.maxWidth, configs[i].maxVideoWidth);
+                builder, gTvStreamConfigBuilderClassInfo.maxWidth, configs[i].max_video_width);
         env->CallObjectMethod(
-                builder, gTvStreamConfigBuilderClassInfo.maxHeight, configs[i].maxVideoHeight);
+                builder, gTvStreamConfigBuilderClassInfo.maxHeight, configs[i].max_video_height);
         env->CallObjectMethod(
                 builder, gTvStreamConfigBuilderClassInfo.generation, generation);
 
@@ -665,11 +678,11 @@ static const JNINativeMethod gTvInputHalMethods[] = {
 
 #define FIND_CLASS(var, className) \
         var = env->FindClass(className); \
-        LOG_FATAL_IF(! (var), "Unable to find class " className)
+        LOG_FATAL_IF(! var, "Unable to find class " className)
 
 #define GET_METHOD_ID(var, clazz, methodName, fieldDescriptor) \
         var = env->GetMethodID(clazz, methodName, fieldDescriptor); \
-        LOG_FATAL_IF(! (var), "Unable to find method" methodName)
+        LOG_FATAL_IF(! var, "Unable to find method" methodName)
 
 int register_android_server_tv_TvInputHal(JNIEnv* env) {
     int res = jniRegisterNativeMethods(env, "com/android/server/tv/TvInputHal",
@@ -749,10 +762,6 @@ int register_android_server_tv_TvInputHal(JNIEnv* env) {
             gTvInputHardwareInfoBuilderClassInfo.hdmiPortId,
             gTvInputHardwareInfoBuilderClassInfo.clazz,
             "hdmiPortId", "(I)Landroid/media/tv/TvInputHardwareInfo$Builder;");
-    GET_METHOD_ID(
-            gTvInputHardwareInfoBuilderClassInfo.cableConnectionStatus,
-            gTvInputHardwareInfoBuilderClassInfo.clazz,
-            "cableConnectionStatus", "(I)Landroid/media/tv/TvInputHardwareInfo$Builder;");
     GET_METHOD_ID(
             gTvInputHardwareInfoBuilderClassInfo.audioType,
             gTvInputHardwareInfoBuilderClassInfo.clazz,

@@ -14,316 +14,295 @@
  * limitations under the License.
  */
 
-#include <iostream>
-#include <string>
-
 #include "util/Maybe.h"
 #include "util/Util.h"
 #include "xml/XmlPullParser.h"
 #include "xml/XmlUtil.h"
 
-using ::aapt::io::InputStream;
-using ::android::StringPiece;
+#include <iostream>
+#include <string>
 
 namespace aapt {
 namespace xml {
 
 constexpr char kXmlNamespaceSep = 1;
 
-XmlPullParser::XmlPullParser(InputStream* in) : in_(in), empty_(), depth_(0) {
-  parser_ = XML_ParserCreateNS(nullptr, kXmlNamespaceSep);
-  XML_SetUserData(parser_, this);
-  XML_SetElementHandler(parser_, StartElementHandler, EndElementHandler);
-  XML_SetNamespaceDeclHandler(parser_, StartNamespaceHandler,
-                              EndNamespaceHandler);
-  XML_SetCharacterDataHandler(parser_, CharacterDataHandler);
-  XML_SetCommentHandler(parser_, CommentDataHandler);
-  XML_SetCdataSectionHandler(parser_, StartCdataSectionHandler, EndCdataSectionHandler);
-  event_queue_.push(EventData{Event::kStartDocument, 0, depth_++});
+XmlPullParser::XmlPullParser(std::istream& in) : mIn(in), mEmpty(), mDepth(0) {
+    mParser = XML_ParserCreateNS(nullptr, kXmlNamespaceSep);
+    XML_SetUserData(mParser, this);
+    XML_SetElementHandler(mParser, startElementHandler, endElementHandler);
+    XML_SetNamespaceDeclHandler(mParser, startNamespaceHandler, endNamespaceHandler);
+    XML_SetCharacterDataHandler(mParser, characterDataHandler);
+    XML_SetCommentHandler(mParser, commentDataHandler);
+    mEventQueue.push(EventData{ Event::kStartDocument, 0, mDepth++ });
 }
 
 XmlPullParser::~XmlPullParser() {
-  XML_ParserFree(parser_);
+    XML_ParserFree(mParser);
 }
 
-XmlPullParser::Event XmlPullParser::Next() {
-  const Event currentEvent = event();
-  if (currentEvent == Event::kBadDocument || currentEvent == Event::kEndDocument) {
-    return currentEvent;
-  }
-
-  event_queue_.pop();
-  while (event_queue_.empty()) {
-    const char* buffer = nullptr;
-    size_t buffer_size = 0;
-    bool done = false;
-    if (!in_->Next(reinterpret_cast<const void**>(&buffer), &buffer_size)) {
-      if (in_->HadError()) {
-        error_ = in_->GetError();
-        event_queue_.push(EventData{Event::kBadDocument});
-        break;
-      }
-
-      done = true;
+XmlPullParser::Event XmlPullParser::next() {
+    const Event currentEvent = getEvent();
+    if (currentEvent == Event::kBadDocument || currentEvent == Event::kEndDocument) {
+        return currentEvent;
     }
 
-    if (XML_Parse(parser_, buffer, buffer_size, done) == XML_STATUS_ERROR) {
-      error_ = XML_ErrorString(XML_GetErrorCode(parser_));
-      event_queue_.push(EventData{Event::kBadDocument});
-      break;
+    mEventQueue.pop();
+    while (mEventQueue.empty()) {
+        mIn.read(mBuffer, sizeof(mBuffer) / sizeof(*mBuffer));
+
+        const bool done = mIn.eof();
+        if (mIn.bad() && !done) {
+            mLastError = strerror(errno);
+            mEventQueue.push(EventData{ Event::kBadDocument });
+            continue;
+        }
+
+        if (XML_Parse(mParser, mBuffer, mIn.gcount(), done) == XML_STATUS_ERROR) {
+            mLastError = XML_ErrorString(XML_GetErrorCode(mParser));
+            mEventQueue.push(EventData{ Event::kBadDocument });
+            continue;
+        }
+
+        if (done) {
+            mEventQueue.push(EventData{ Event::kEndDocument, 0, 0 });
+        }
     }
 
-    if (done) {
-      event_queue_.push(EventData{Event::kEndDocument, 0, 0});
+    Event event = getEvent();
+
+    // Record namespace prefixes and package names so that we can do our own
+    // handling of references that use namespace aliases.
+    if (event == Event::kStartNamespace || event == Event::kEndNamespace) {
+        Maybe<ExtractedPackage> result = extractPackageFromNamespace(getNamespaceUri());
+        if (event == Event::kStartNamespace) {
+            if (result) {
+                mPackageAliases.emplace_back(
+                        PackageDecl{ getNamespacePrefix(), std::move(result.value()) });
+            }
+        } else {
+            if (result) {
+                mPackageAliases.pop_back();
+            }
+        }
     }
-  }
 
-  Event next_event = event();
+    return event;
+}
 
-  // Record namespace prefixes and package names so that we can do our own
-  // handling of references that use namespace aliases.
-  if (next_event == Event::kStartNamespace ||
-      next_event == Event::kEndNamespace) {
-    Maybe<ExtractedPackage> result =
-        ExtractPackageFromNamespace(namespace_uri());
-    if (next_event == Event::kStartNamespace) {
-      if (result) {
-        package_aliases_.emplace_back(
-            PackageDecl{namespace_prefix(), std::move(result.value())});
-      }
-    } else {
-      if (result) {
-        package_aliases_.pop_back();
-      }
+XmlPullParser::Event XmlPullParser::getEvent() const {
+    return mEventQueue.front().event;
+}
+
+const std::string& XmlPullParser::getLastError() const {
+    return mLastError;
+}
+
+const std::u16string& XmlPullParser::getComment() const {
+    return mEventQueue.front().data1;
+}
+
+size_t XmlPullParser::getLineNumber() const {
+    return mEventQueue.front().lineNumber;
+}
+
+size_t XmlPullParser::getDepth() const {
+    return mEventQueue.front().depth;
+}
+
+const std::u16string& XmlPullParser::getText() const {
+    if (getEvent() != Event::kText) {
+        return mEmpty;
     }
-  }
-
-  return next_event;
+    return mEventQueue.front().data1;
 }
 
-XmlPullParser::Event XmlPullParser::event() const {
-  return event_queue_.front().event;
-}
-
-const std::string& XmlPullParser::error() const { return error_; }
-
-const std::string& XmlPullParser::comment() const {
-  return event_queue_.front().data1;
-}
-
-size_t XmlPullParser::line_number() const {
-  return event_queue_.front().line_number;
-}
-
-size_t XmlPullParser::depth() const { return event_queue_.front().depth; }
-
-const std::string& XmlPullParser::text() const {
-  if (event() != Event::kText) {
-    return empty_;
-  }
-  return event_queue_.front().data1;
-}
-
-const std::string& XmlPullParser::namespace_prefix() const {
-  const Event current_event = event();
-  if (current_event != Event::kStartNamespace &&
-      current_event != Event::kEndNamespace) {
-    return empty_;
-  }
-  return event_queue_.front().data1;
-}
-
-const std::string& XmlPullParser::namespace_uri() const {
-  const Event current_event = event();
-  if (current_event != Event::kStartNamespace &&
-      current_event != Event::kEndNamespace) {
-    return empty_;
-  }
-  return event_queue_.front().data2;
-}
-
-Maybe<ExtractedPackage> XmlPullParser::TransformPackageAlias(const StringPiece& alias) const {
-  if (alias.empty()) {
-    return ExtractedPackage{{}, false /*private*/};
-  }
-
-  const auto end_iter = package_aliases_.rend();
-  for (auto iter = package_aliases_.rbegin(); iter != end_iter; ++iter) {
-    if (alias == iter->prefix) {
-      if (iter->package.package.empty()) {
-        return ExtractedPackage{{}, iter->package.private_namespace};
-      }
-      return iter->package;
+const std::u16string& XmlPullParser::getNamespacePrefix() const {
+    const Event currentEvent = getEvent();
+    if (currentEvent != Event::kStartNamespace && currentEvent != Event::kEndNamespace) {
+        return mEmpty;
     }
-  }
-  return {};
+    return mEventQueue.front().data1;
 }
 
-const std::string& XmlPullParser::element_namespace() const {
-  const Event current_event = event();
-  if (current_event != Event::kStartElement &&
-      current_event != Event::kEndElement) {
-    return empty_;
-  }
-  return event_queue_.front().data1;
+const std::u16string& XmlPullParser::getNamespaceUri() const {
+    const Event currentEvent = getEvent();
+    if (currentEvent != Event::kStartNamespace && currentEvent != Event::kEndNamespace) {
+        return mEmpty;
+    }
+    return mEventQueue.front().data2;
 }
 
-const std::string& XmlPullParser::element_name() const {
-  const Event current_event = event();
-  if (current_event != Event::kStartElement &&
-      current_event != Event::kEndElement) {
-    return empty_;
-  }
-  return event_queue_.front().data2;
+Maybe<ExtractedPackage> XmlPullParser::transformPackageAlias(
+        const StringPiece16& alias, const StringPiece16& localPackage) const {
+    if (alias.empty()) {
+        return ExtractedPackage{ localPackage.toString(), false /* private */ };
+    }
+
+    const auto endIter = mPackageAliases.rend();
+    for (auto iter = mPackageAliases.rbegin(); iter != endIter; ++iter) {
+        if (alias == iter->prefix) {
+            if (iter->package.package.empty()) {
+                return ExtractedPackage{ localPackage.toString(),
+                                         iter->package.privateNamespace };
+            }
+            return iter->package;
+        }
+    }
+    return {};
 }
 
-XmlPullParser::const_iterator XmlPullParser::begin_attributes() const {
-  return event_queue_.front().attributes.begin();
+const std::u16string& XmlPullParser::getElementNamespace() const {
+    const Event currentEvent = getEvent();
+    if (currentEvent != Event::kStartElement && currentEvent != Event::kEndElement) {
+        return mEmpty;
+    }
+    return mEventQueue.front().data1;
 }
 
-XmlPullParser::const_iterator XmlPullParser::end_attributes() const {
-  return event_queue_.front().attributes.end();
+const std::u16string& XmlPullParser::getElementName() const {
+    const Event currentEvent = getEvent();
+    if (currentEvent != Event::kStartElement && currentEvent != Event::kEndElement) {
+        return mEmpty;
+    }
+    return mEventQueue.front().data2;
 }
 
-size_t XmlPullParser::attribute_count() const {
-  if (event() != Event::kStartElement) {
-    return 0;
-  }
-  return event_queue_.front().attributes.size();
+XmlPullParser::const_iterator XmlPullParser::beginAttributes() const {
+    return mEventQueue.front().attributes.begin();
+}
+
+XmlPullParser::const_iterator XmlPullParser::endAttributes() const {
+    return mEventQueue.front().attributes.end();
+}
+
+size_t XmlPullParser::getAttributeCount() const {
+    if (getEvent() != Event::kStartElement) {
+        return 0;
+    }
+    return mEventQueue.front().attributes.size();
 }
 
 /**
  * Extracts the namespace and name of an expanded element or attribute name.
  */
-static void SplitName(const char* name, std::string* out_ns, std::string* out_name) {
-  const char* p = name;
-  while (*p != 0 && *p != kXmlNamespaceSep) {
-    p++;
-  }
-
-  if (*p == 0) {
-    out_ns->clear();
-    out_name->assign(name);
-  } else {
-    out_ns->assign(name, (p - name));
-    out_name->assign(p + 1);
-  }
-}
-
-void XMLCALL XmlPullParser::StartNamespaceHandler(void* user_data,
-                                                  const char* prefix,
-                                                  const char* uri) {
-  XmlPullParser* parser = reinterpret_cast<XmlPullParser*>(user_data);
-  std::string namespace_uri = uri != nullptr ? uri : std::string();
-  parser->namespace_uris_.push(namespace_uri);
-  parser->event_queue_.push(
-      EventData{Event::kStartNamespace,
-                XML_GetCurrentLineNumber(parser->parser_), parser->depth_++,
-                prefix != nullptr ? prefix : std::string(), namespace_uri});
-}
-
-void XMLCALL XmlPullParser::StartElementHandler(void* user_data,
-                                                const char* name,
-                                                const char** attrs) {
-  XmlPullParser* parser = reinterpret_cast<XmlPullParser*>(user_data);
-
-  EventData data = {Event::kStartElement,
-                    XML_GetCurrentLineNumber(parser->parser_),
-                    parser->depth_++};
-  SplitName(name, &data.data1, &data.data2);
-
-  while (*attrs) {
-    Attribute attribute;
-    SplitName(*attrs++, &attribute.namespace_uri, &attribute.name);
-    attribute.value = *attrs++;
-
-    // Insert in sorted order.
-    auto iter = std::lower_bound(data.attributes.begin(), data.attributes.end(),
-                                 attribute);
-    data.attributes.insert(iter, std::move(attribute));
-  }
-
-  // Move the structure into the queue (no copy).
-  parser->event_queue_.push(std::move(data));
-}
-
-void XMLCALL XmlPullParser::CharacterDataHandler(void* user_data, const char* s,
-                                                 int len) {
-  XmlPullParser* parser = reinterpret_cast<XmlPullParser*>(user_data);
-
-  parser->event_queue_.push(EventData{Event::kText, XML_GetCurrentLineNumber(parser->parser_),
-                                      parser->depth_, std::string(s, len)});
-}
-
-void XMLCALL XmlPullParser::EndElementHandler(void* user_data,
-                                              const char* name) {
-  XmlPullParser* parser = reinterpret_cast<XmlPullParser*>(user_data);
-
-  EventData data = {Event::kEndElement,
-                    XML_GetCurrentLineNumber(parser->parser_),
-                    --(parser->depth_)};
-  SplitName(name, &data.data1, &data.data2);
-
-  // Move the data into the queue (no copy).
-  parser->event_queue_.push(std::move(data));
-}
-
-void XMLCALL XmlPullParser::EndNamespaceHandler(void* user_data,
-                                                const char* prefix) {
-  XmlPullParser* parser = reinterpret_cast<XmlPullParser*>(user_data);
-
-  parser->event_queue_.push(
-      EventData{Event::kEndNamespace, XML_GetCurrentLineNumber(parser->parser_),
-                --(parser->depth_), prefix != nullptr ? prefix : std::string(),
-                parser->namespace_uris_.top()});
-  parser->namespace_uris_.pop();
-}
-
-void XMLCALL XmlPullParser::CommentDataHandler(void* user_data,
-                                               const char* comment) {
-  XmlPullParser* parser = reinterpret_cast<XmlPullParser*>(user_data);
-
-  parser->event_queue_.push(EventData{Event::kComment,
-                                      XML_GetCurrentLineNumber(parser->parser_),
-                                      parser->depth_, comment});
-}
-
-void XMLCALL XmlPullParser::StartCdataSectionHandler(void* user_data) {
-  XmlPullParser* parser = reinterpret_cast<XmlPullParser*>(user_data);
-
-  parser->event_queue_.push(EventData{Event::kCdataStart,
-                                      XML_GetCurrentLineNumber(parser->parser_),
-                                      parser->depth_ });
-}
-
-void XMLCALL XmlPullParser::EndCdataSectionHandler(void* user_data) {
-  XmlPullParser* parser = reinterpret_cast<XmlPullParser*>(user_data);
-
-  parser->event_queue_.push(EventData{Event::kCdataEnd,
-                                      XML_GetCurrentLineNumber(parser->parser_),
-                                      parser->depth_ });
-}
-
-Maybe<StringPiece> FindAttribute(const XmlPullParser* parser,
-                                 const StringPiece& name) {
-  auto iter = parser->FindAttribute("", name);
-  if (iter != parser->end_attributes()) {
-    return StringPiece(util::TrimWhitespace(iter->value));
-  }
-  return {};
-}
-
-Maybe<StringPiece> FindNonEmptyAttribute(const XmlPullParser* parser,
-                                         const StringPiece& name) {
-  auto iter = parser->FindAttribute("", name);
-  if (iter != parser->end_attributes()) {
-    StringPiece trimmed = util::TrimWhitespace(iter->value);
-    if (!trimmed.empty()) {
-      return trimmed;
+static void splitName(const char* name, std::u16string& outNs, std::u16string& outName) {
+    const char* p = name;
+    while (*p != 0 && *p != kXmlNamespaceSep) {
+        p++;
     }
-  }
-  return {};
+
+    if (*p == 0) {
+        outNs = std::u16string();
+        outName = util::utf8ToUtf16(name);
+    } else {
+        outNs = util::utf8ToUtf16(StringPiece(name, (p - name)));
+        outName = util::utf8ToUtf16(p + 1);
+    }
 }
 
-}  // namespace xml
-}  // namespace aapt
+void XMLCALL XmlPullParser::startNamespaceHandler(void* userData, const char* prefix,
+        const char* uri) {
+    XmlPullParser* parser = reinterpret_cast<XmlPullParser*>(userData);
+    std::u16string namespaceUri = uri != nullptr ? util::utf8ToUtf16(uri) : std::u16string();
+    parser->mNamespaceUris.push(namespaceUri);
+    parser->mEventQueue.push(EventData{
+            Event::kStartNamespace,
+            XML_GetCurrentLineNumber(parser->mParser),
+            parser->mDepth++,
+            prefix != nullptr ? util::utf8ToUtf16(prefix) : std::u16string(),
+            namespaceUri
+    });
+}
+
+void XMLCALL XmlPullParser::startElementHandler(void* userData, const char* name,
+        const char** attrs) {
+    XmlPullParser* parser = reinterpret_cast<XmlPullParser*>(userData);
+
+    EventData data = {
+            Event::kStartElement, XML_GetCurrentLineNumber(parser->mParser), parser->mDepth++
+    };
+    splitName(name, data.data1, data.data2);
+
+    while (*attrs) {
+        Attribute attribute;
+        splitName(*attrs++, attribute.namespaceUri, attribute.name);
+        attribute.value = util::utf8ToUtf16(*attrs++);
+
+        // Insert in sorted order.
+        auto iter = std::lower_bound(data.attributes.begin(), data.attributes.end(), attribute);
+        data.attributes.insert(iter, std::move(attribute));
+    }
+
+    // Move the structure into the queue (no copy).
+    parser->mEventQueue.push(std::move(data));
+}
+
+void XMLCALL XmlPullParser::characterDataHandler(void* userData, const char* s, int len) {
+    XmlPullParser* parser = reinterpret_cast<XmlPullParser*>(userData);
+
+    parser->mEventQueue.push(EventData{
+            Event::kText,
+            XML_GetCurrentLineNumber(parser->mParser),
+            parser->mDepth,
+            util::utf8ToUtf16(StringPiece(s, len))
+    });
+}
+
+void XMLCALL XmlPullParser::endElementHandler(void* userData, const char* name) {
+    XmlPullParser* parser = reinterpret_cast<XmlPullParser*>(userData);
+
+    EventData data = {
+            Event::kEndElement, XML_GetCurrentLineNumber(parser->mParser), --(parser->mDepth)
+    };
+    splitName(name, data.data1, data.data2);
+
+    // Move the data into the queue (no copy).
+    parser->mEventQueue.push(std::move(data));
+}
+
+void XMLCALL XmlPullParser::endNamespaceHandler(void* userData, const char* prefix) {
+    XmlPullParser* parser = reinterpret_cast<XmlPullParser*>(userData);
+
+    parser->mEventQueue.push(EventData{
+            Event::kEndNamespace,
+            XML_GetCurrentLineNumber(parser->mParser),
+            --(parser->mDepth),
+            prefix != nullptr ? util::utf8ToUtf16(prefix) : std::u16string(),
+            parser->mNamespaceUris.top()
+    });
+    parser->mNamespaceUris.pop();
+}
+
+void XMLCALL XmlPullParser::commentDataHandler(void* userData, const char* comment) {
+    XmlPullParser* parser = reinterpret_cast<XmlPullParser*>(userData);
+
+    parser->mEventQueue.push(EventData{
+            Event::kComment,
+            XML_GetCurrentLineNumber(parser->mParser),
+            parser->mDepth,
+            util::utf8ToUtf16(comment)
+    });
+}
+
+Maybe<StringPiece16> findAttribute(const XmlPullParser* parser, const StringPiece16& name) {
+    auto iter = parser->findAttribute(u"", name);
+    if (iter != parser->endAttributes()) {
+        return StringPiece16(util::trimWhitespace(iter->value));
+    }
+    return {};
+}
+
+Maybe<StringPiece16> findNonEmptyAttribute(const XmlPullParser* parser, const StringPiece16& name) {
+    auto iter = parser->findAttribute(u"", name);
+    if (iter != parser->endAttributes()) {
+        StringPiece16 trimmed = util::trimWhitespace(iter->value);
+        if (!trimmed.empty()) {
+            return trimmed;
+        }
+    }
+    return {};
+}
+
+} // namespace xml
+} // namespace aapt

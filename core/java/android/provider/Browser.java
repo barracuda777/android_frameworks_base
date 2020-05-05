@@ -16,7 +16,6 @@
 
 package android.provider;
 
-import android.annotation.UnsupportedAppUsage;
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
@@ -219,7 +218,6 @@ public class Browser {
      *  the string.
      *  @hide pending API council approval
      */
-    @UnsupportedAppUsage
     public static final void sendString(Context c,
                                         String stringToSend,
                                         String chooserDialogTitle) {
@@ -246,6 +244,7 @@ public class Browser {
      */
     public static final Cursor getAllBookmarks(ContentResolver cr) throws
             IllegalStateException {
+        android.util.SeempLog.record(32);
         return new MatrixCursor(new String[]{Bookmarks.URL}, 0);
     }
 
@@ -258,6 +257,7 @@ public class Browser {
      */
     public static final Cursor getAllVisitedUrls(ContentResolver cr) throws
             IllegalStateException {
+        android.util.SeempLog.record(33);
         return new MatrixCursor(new String[]{Combined.URL}, 0);
     }
 
@@ -266,6 +266,7 @@ public class Browser {
     }
 
     private static final Cursor getVisitedLike(ContentResolver cr, String url) {
+        android.util.SeempLog.record(34);
         boolean secure = false;
         String compareString = url;
         if (compareString.startsWith("http://")) {
@@ -325,8 +326,8 @@ public class Browser {
      *  @hide pending API council approval
      */
     @Deprecated
-    @UnsupportedAppUsage
     public static final String[] getVisitedHistory(ContentResolver cr) {
+        android.util.SeempLog.record(35);
         return new String[0];
     }
 
@@ -362,6 +363,7 @@ public class Browser {
      *  @removed
      */
     public static final void clearHistory(ContentResolver cr) {
+    android.util.SeempLog.record(37);
 
     }
 
@@ -423,6 +425,7 @@ public class Browser {
      */
     public static final void requestAllIcons(ContentResolver cr, String where,
             WebIconDatabase.IconListener listener) {
+        android.util.SeempLog.record(36);
         // Do nothing: this is no longer used.
     }
 

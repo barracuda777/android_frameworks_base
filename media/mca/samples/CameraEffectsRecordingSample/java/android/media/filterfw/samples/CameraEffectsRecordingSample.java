@@ -45,8 +45,8 @@ public class CameraEffectsRecordingSample extends Activity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
-        mRunButton = findViewById(R.id.runbutton);
-        mCameraView = findViewById(R.id.cameraview);
+        mRunButton = (Button) findViewById(R.id.runbutton);
+        mCameraView = (SurfaceView) findViewById(R.id.cameraview);
         mRunButton.setOnClickListener(mRunButtonClick);
 
         Intent intent = getIntent();

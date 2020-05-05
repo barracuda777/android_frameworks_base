@@ -16,7 +16,6 @@
 
 package com.android.internal.util;
 
-import android.annotation.UnsupportedAppUsage;
 import android.os.Message;
 
 /**
@@ -29,14 +28,12 @@ public class State implements IState {
     /**
      * Constructor
      */
-    @UnsupportedAppUsage
     protected State() {
     }
 
     /* (non-Javadoc)
      * @see com.android.internal.util.IState#enter()
      */
-    @UnsupportedAppUsage
     @Override
     public void enter() {
     }
@@ -44,7 +41,6 @@ public class State implements IState {
     /* (non-Javadoc)
      * @see com.android.internal.util.IState#exit()
      */
-    @UnsupportedAppUsage
     @Override
     public void exit() {
     }
@@ -52,7 +48,6 @@ public class State implements IState {
     /* (non-Javadoc)
      * @see com.android.internal.util.IState#processMessage(android.os.Message)
      */
-    @UnsupportedAppUsage
     @Override
     public boolean processMessage(Message msg) {
         return false;
@@ -70,7 +65,6 @@ public class State implements IState {
      *
      * @see com.android.internal.util.IState#processMessage(android.os.Message)
      */
-    @UnsupportedAppUsage
     @Override
     public String getName() {
         String name = getClass().getName();

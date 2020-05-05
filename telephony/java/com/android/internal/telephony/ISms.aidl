@@ -18,8 +18,6 @@ package com.android.internal.telephony;
 
 import android.app.PendingIntent;
 import android.net.Uri;
-import android.os.Bundle;
-import android.telephony.IFinancialSmsCallback;
 import com.android.internal.telephony.SmsRawData;
 
 /** Interface for applications to access the ICC phone book.
@@ -212,10 +210,6 @@ interface ISms {
      * @param deliveryIntent if not NULL this <code>PendingIntent</code> is
      *  broadcast when the message is delivered to the recipient.  The
      *  raw pdu of the status report is in the extended data ("pdu").
-     * @param persistMessageForNonDefaultSmsApp whether the sent message should
-     *   be automatically persisted in the SMS db. It only affects messages sent
-     *   by a non-default SMS app. Currently only the carrier app can set this
-     *   parameter to false to skip auto message persistence.
      * @param priority Priority level of the message
      *  Refer specification See 3GPP2 C.S0015-B, v2.0, table 4.5.9-1
      *  ---------------------------------
@@ -227,7 +221,7 @@ interface ISms {
      *      '11'      |     Emergency
      *  ----------------------------------
      *  Any Other values included Negative considered as Invalid Priority Indicator of the message.
-     * @param expectMore is a boolean to indicate the sending message is multi segmented or not.
+     * @param isExpectMore is a boolean to indicate the sending message is multi segmented or not.
      * @param validityPeriod Validity Period of the message in mins.
      *  Refer specification 3GPP TS 23.040 V6.8.1 section 9.2.3.12.1.
      *  Validity Period(Minimum) -> 5 mins
@@ -236,8 +230,8 @@ interface ISms {
      */
     void sendTextForSubscriberWithOptions(in int subId, String callingPkg, in String destAddr,
             in String scAddr, in String text, in PendingIntent sentIntent,
-            in PendingIntent deliveryIntent, in boolean persistMessageForNonDefaultSmsApp,
-            in int priority, in boolean expectMore, in int validityPeriod);
+            in PendingIntent deliveryIntent, in int priority, in boolean isExpectMore,
+            in int validityPeriod);
 
     /**
      * Inject an SMS PDU into the android platform.
@@ -308,10 +302,6 @@ interface ISms {
      *   broadcast when the corresponding message part has been delivered
      *   to the recipient.  The raw pdu of the status report is in the
      *   extended data ("pdu").
-     * @param persistMessageForNonDefaultSmsApp whether the sent message should
-     *   be automatically persisted in the SMS db. It only affects messages sent
-     *   by a non-default SMS app. Currently only the carrier app can set this
-     *   parameter to false to skip auto message persistence.
      * @param priority Priority level of the message
      *  Refer specification See 3GPP2 C.S0015-B, v2.0, table 4.5.9-1
      *  ---------------------------------
@@ -323,7 +313,7 @@ interface ISms {
      *      '11'      |     Emergency
      *  ----------------------------------
      *  Any Other values included Negative considered as Invalid Priority Indicator of the message.
-     * @param expectMore is a boolean to indicate the sending message is multi segmented or not.
+     * @param isExpectMore is a boolean to indicate the sending message is multi segmented or not.
      * @param validityPeriod Validity Period of the message in mins.
      *  Refer specification 3GPP TS 23.040 V6.8.1 section 9.2.3.12.1.
      *  Validity Period(Minimum) -> 5 mins
@@ -333,8 +323,7 @@ interface ISms {
     void sendMultipartTextForSubscriberWithOptions(in int subId, String callingPkg,
             in String destinationAddress, in String scAddress, in List<String> parts,
             in List<PendingIntent> sentIntents, in List<PendingIntent> deliveryIntents,
-            in boolean persistMessageForNonDefaultSmsApp, in int priority, in boolean expectMore,
-            in int validityPeriod);
+            in int priority, in boolean isExpectMore, in int validityPeriod);
 
     /**
      * Enable reception of cell broadcast (SMS-CB) messages with the given
@@ -552,47 +541,10 @@ interface ISms {
                 in List<PendingIntent> deliveryIntents);
 
     /**
-     * Create an app-only incoming SMS request for the calling package.
+     * Get the capacity count of sms on Icc card.
      *
-     * If an incoming text contains the token returned by this method the provided
-     * <code>PendingIntent</code> will be sent containing the SMS data.
-     *
-     * @param subId the SIM id.
-     * @param callingPkg the package name of the calling app.
-     * @param intent PendingIntent to be sent when an SMS is received containing the token.
+     * @param subId for subId which getSmsCapacityOnIcc is queried.
+     * @return capacity of ICC
      */
-    String createAppSpecificSmsToken(int subId, String callingPkg, in PendingIntent intent);
-
-    /**
-     * Create an app-only incoming SMS request for the calling package.
-     *
-     * If an incoming text contains the token returned by this method the provided
-     * <code>PendingIntent</code> will be sent containing the SMS data.
-     *
-     * @param subId the SIM id.
-     * @param callingPkg the package name of the calling app.
-     * @param prefixes the caller provided prefixes
-     * @param intent PendingIntent to be sent when a SMS is received containing the token and one
-     *   of the prefixes
-     */
-    String createAppSpecificSmsTokenWithPackageInfo(
-            int subId, String callingPkg, String prefixes, in PendingIntent intent);
-
-    /**
-     * Get sms inbox messages for the calling financial app.
-     *
-     * @param subId the SIM id.
-     * @param callingPkg the package name of the calling app.
-     * @param params parameters to filter the sms messages.
-     * @param callback the callback interface to deliver the result.
-     */
-    void getSmsMessagesForFinancialApp(
-        int subId, String callingPkg, in Bundle params, in IFinancialSmsCallback callback);
-
-    /**
-     * Check if the destination is a possible premium short code.
-     *
-     * @param destAddress the destination address to test for possible short code
-     */
-    int checkSmsShortCodeDestination(int subId, String callingApk, String destAddress, String countryIso);
+    int getSmsCapacityOnIccForSubscriber(int subId);
 }

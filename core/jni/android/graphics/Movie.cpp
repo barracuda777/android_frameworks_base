@@ -1,8 +1,8 @@
 #include "CreateJavaOutputStreamAdaptor.h"
 #include "GraphicsJNI.h"
-#include <nativehelper/ScopedLocalRef.h>
+#include "ScopedLocalRef.h"
 #include "SkFrontBufferedStream.h"
-#include "Movie.h"
+#include "SkMovie.h"
 #include "SkStream.h"
 #include "SkUtils.h"
 #include "Utils.h"
@@ -19,7 +19,7 @@ static jclass       gMovie_class;
 static jmethodID    gMovie_constructorMethodID;
 static jfieldID     gMovie_nativeInstanceID;
 
-jobject create_jmovie(JNIEnv* env, Movie* moov) {
+jobject create_jmovie(JNIEnv* env, SkMovie* moov) {
     if (NULL == moov) {
         return NULL;
     }
@@ -27,11 +27,11 @@ jobject create_jmovie(JNIEnv* env, Movie* moov) {
             static_cast<jlong>(reinterpret_cast<uintptr_t>(moov)));
 }
 
-static Movie* J2Movie(JNIEnv* env, jobject movie) {
+static SkMovie* J2Movie(JNIEnv* env, jobject movie) {
     SkASSERT(env);
     SkASSERT(movie);
     SkASSERT(env->IsInstanceOf(movie, gMovie_class));
-    Movie* m = (Movie*)env->GetLongField(movie, gMovie_nativeInstanceID);
+    SkMovie* m = (SkMovie*)env->GetLongField(movie, gMovie_nativeInstanceID);
     SkASSERT(m);
     return m;
 }
@@ -74,17 +74,17 @@ static void movie_draw(JNIEnv* env, jobject movie, jlong canvasHandle,
     // therefore may be NULL.
     SkASSERT(c != NULL);
 
-    Movie* m = J2Movie(env, movie);
+    SkMovie* m = J2Movie(env, movie);
     const SkBitmap& b = m->bitmap();
-    sk_sp<android::Bitmap> wrapper = android::Bitmap::createFrom(b.info(), *b.pixelRef());
-    c->drawBitmap(*wrapper, fx, fy, p);
+
+    c->drawBitmap(b, fx, fy, p);
 }
 
 static jobject movie_decodeAsset(JNIEnv* env, jobject clazz, jlong native_asset) {
     android::Asset* asset = reinterpret_cast<android::Asset*>(native_asset);
     if (asset == NULL) return NULL;
     android::AssetStreamAdaptor stream(asset);
-    Movie* moov = Movie::DecodeStream(&stream);
+    SkMovie* moov = SkMovie::DecodeStream(&stream);
     return create_jmovie(env, moov);
 }
 
@@ -104,11 +104,10 @@ static jobject movie_decodeStream(JNIEnv* env, jobject clazz, jobject istream) {
     // will only read 6.
     // FIXME: Get this number from SkImageDecoder
     // bufferedStream takes ownership of strm
-    std::unique_ptr<SkStreamRewindable> bufferedStream(SkFrontBufferedStream::Make(
-        std::unique_ptr<SkStream>(strm), 6));
+    std::unique_ptr<SkStreamRewindable> bufferedStream(SkFrontBufferedStream::Create(strm, 6));
     SkASSERT(bufferedStream.get() != NULL);
 
-    Movie* moov = Movie::DecodeStream(bufferedStream.get());
+    SkMovie* moov = SkMovie::DecodeStream(bufferedStream.get());
     return create_jmovie(env, moov);
 }
 
@@ -125,12 +124,12 @@ static jobject movie_decodeByteArray(JNIEnv* env, jobject clazz,
     }
 
     AutoJavaByteArray   ar(env, byteArray);
-    Movie* moov = Movie::DecodeMemory(ar.ptr() + offset, length);
+    SkMovie* moov = SkMovie::DecodeMemory(ar.ptr() + offset, length);
     return create_jmovie(env, moov);
 }
 
 static void movie_destructor(JNIEnv* env, jobject, jlong movieHandle) {
-    Movie* movie = (Movie*) movieHandle;
+    SkMovie* movie = (SkMovie*) movieHandle;
     delete movie;
 }
 

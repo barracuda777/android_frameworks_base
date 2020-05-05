@@ -17,6 +17,10 @@
 package com.android.mtp;
 
 class TestServiceIntentSender extends ServiceIntentSender {
+    TestServiceIntentSender() {
+        super(null);
+    }
+
     @Override
-    void sendUpdateNotificationIntent(MtpDeviceRecord[] record) {}
+    void sendUpdateNotificationIntent() {}
 }

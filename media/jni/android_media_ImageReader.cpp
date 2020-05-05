@@ -17,7 +17,6 @@
 //#define LOG_NDEBUG 0
 #define LOG_TAG "ImageReader_JNI"
 #include "android_media_Utils.h"
-#include <cutils/atomic.h>
 #include <utils/Log.h>
 #include <utils/misc.h>
 #include <utils/List.h>
@@ -27,28 +26,21 @@
 
 #include <gui/BufferItemConsumer.h>
 #include <gui/Surface.h>
+#include <camera3.h>
 
 #include <android_runtime/AndroidRuntime.h>
 #include <android_runtime/android_view_Surface.h>
-#include <android_runtime/android_hardware_HardwareBuffer.h>
-#include <grallocusage/GrallocUsageConversion.h>
-
-#include <private/android/AHardwareBufferHelpers.h>
 
 #include <jni.h>
-#include <nativehelper/JNIHelp.h>
+#include <JNIHelp.h>
 
 #include <stdint.h>
 #include <inttypes.h>
-#include <android/hardware_buffer_jni.h>
 
 #define ANDROID_MEDIA_IMAGEREADER_CTX_JNI_ID       "mNativeContext"
 #define ANDROID_MEDIA_SURFACEIMAGE_BUFFER_JNI_ID   "mNativeBuffer"
 #define ANDROID_MEDIA_SURFACEIMAGE_TS_JNI_ID       "mTimestamp"
-#define ANDROID_MEDIA_SURFACEIMAGE_TF_JNI_ID       "mTransform"
-#define ANDROID_MEDIA_SURFACEIMAGE_SM_JNI_ID       "mScalingMode"
 
-#define CONSUMER_BUFFER_USAGE_UNKNOWN              0;
 // ----------------------------------------------------------------------------
 
 using namespace android;
@@ -68,8 +60,6 @@ static struct {
 static struct {
     jfieldID mNativeBuffer;
     jfieldID mTimestamp;
-    jfieldID mTransform;
-    jfieldID mScalingMode;
     jfieldID mPlanes;
 } gSurfaceImageClassInfo;
 
@@ -183,7 +173,6 @@ BufferItem* JNIImageReaderContext::getBufferItem() {
 }
 
 void JNIImageReaderContext::returnBufferItem(BufferItem* buffer) {
-    buffer->mGraphicBuffer = nullptr;
     mBuffers.push_back(buffer);
 }
 
@@ -311,18 +300,6 @@ static void ImageReader_classInit(JNIEnv* env, jclass clazz)
                         "can't find android/graphics/ImageReader.%s",
                         ANDROID_MEDIA_SURFACEIMAGE_TS_JNI_ID);
 
-    gSurfaceImageClassInfo.mTransform = env->GetFieldID(
-            imageClazz, ANDROID_MEDIA_SURFACEIMAGE_TF_JNI_ID, "I");
-    LOG_ALWAYS_FATAL_IF(gSurfaceImageClassInfo.mTransform == NULL,
-                        "can't find android/graphics/ImageReader.%s",
-                        ANDROID_MEDIA_SURFACEIMAGE_TF_JNI_ID);
-
-    gSurfaceImageClassInfo.mScalingMode = env->GetFieldID(
-            imageClazz, ANDROID_MEDIA_SURFACEIMAGE_SM_JNI_ID, "I");
-    LOG_ALWAYS_FATAL_IF(gSurfaceImageClassInfo.mScalingMode == NULL,
-                        "can't find android/graphics/ImageReader.%s",
-                        ANDROID_MEDIA_SURFACEIMAGE_SM_JNI_ID);
-
     gSurfaceImageClassInfo.mPlanes = env->GetFieldID(
             imageClazz, "mPlanes", "[Landroid/media/ImageReader$SurfaceImage$SurfacePlane;");
     LOG_ALWAYS_FATAL_IF(gSurfaceImageClassInfo.mPlanes == NULL,
@@ -349,8 +326,8 @@ static void ImageReader_classInit(JNIEnv* env, jclass clazz)
             "Can not find SurfacePlane constructor");
 }
 
-static void ImageReader_init(JNIEnv* env, jobject thiz, jobject weakThiz, jint width, jint height,
-                             jint format, jint maxImages, jlong ndkUsage)
+static void ImageReader_init(JNIEnv* env, jobject thiz, jobject weakThiz,
+                             jint width, jint height, jint format, jint maxImages)
 {
     status_t res;
     int nativeFormat;
@@ -379,22 +356,20 @@ static void ImageReader_init(JNIEnv* env, jobject thiz, jobject weakThiz, jint w
     String8 consumerName = String8::format("ImageReader-%dx%df%xm%d-%d-%d",
             width, height, format, maxImages, getpid(),
             createProcessUniqueId());
-    uint64_t consumerUsage =
-            android_hardware_HardwareBuffer_convertToGrallocUsageBits(ndkUsage);
+    uint32_t consumerUsage = GRALLOC_USAGE_SW_READ_OFTEN;
 
+    if (isFormatOpaque(nativeFormat)) {
+        // Use the SW_READ_NEVER usage to tell producer that this format is not for preview or video
+        // encoding. The only possibility will be ZSL output.
+        consumerUsage = GRALLOC_USAGE_SW_READ_NEVER;
+    }
     bufferConsumer = new BufferItemConsumer(gbConsumer, consumerUsage, maxImages,
             /*controlledByApp*/true);
     if (bufferConsumer == nullptr) {
         jniThrowExceptionFmt(env, "java/lang/RuntimeException",
-                "Failed to allocate native buffer consumer for format 0x%x and usage 0x%x",
-                nativeFormat, consumerUsage);
+                "Failed to allocate native buffer consumer for format 0x%x", nativeFormat);
         return;
     }
-
-    if (consumerUsage & GRALLOC_USAGE_PROTECTED) {
-        gbConsumer->setConsumerIsProtected(true);
-    }
-
     ctx->setBufferConsumer(bufferConsumer);
     bufferConsumer->setName(consumerName);
 
@@ -602,14 +577,6 @@ static jint ImageReader_imageSetup(JNIEnv* env, jobject thiz, jobject image) {
     Image_setBufferItem(env, image, buffer);
     env->SetLongField(image, gSurfaceImageClassInfo.mTimestamp,
             static_cast<jlong>(buffer->mTimestamp));
-    auto transform = buffer->mTransform;
-    if (buffer->mTransformToDisplayInverse) {
-        transform |= NATIVE_WINDOW_TRANSFORM_INVERSE_DISPLAY;
-    }
-    env->SetIntField(image, gSurfaceImageClassInfo.mTransform,
-            static_cast<jint>(transform));
-    env->SetIntField(image, gSurfaceImageClassInfo.mScalingMode,
-            static_cast<jint>(buffer->mScalingMode));
 
     return ACQUIRE_SUCCESS;
 }
@@ -754,9 +721,6 @@ static jobjectArray Image_createSurfacePlanes(JNIEnv* env, jobject thiz,
 
     LockedImage lockedImg = LockedImage();
     Image_getLockedImage(env, thiz, &lockedImg);
-    if (env->ExceptionCheck()) {
-        return NULL;
-    }
     // Create all SurfacePlanes
     for (int i = 0; i < numPlanes; i++) {
         Image_getLockedImageInfo(env, &lockedImg, i, halReaderFormat,
@@ -814,21 +778,13 @@ static jint Image_getFormat(JNIEnv* env, jobject thiz, jint readerFormat)
     }
 }
 
-static jobject Image_getHardwareBuffer(JNIEnv* env, jobject thiz) {
-    BufferItem* buffer = Image_getBufferItem(env, thiz);
-    AHardwareBuffer* b = AHardwareBuffer_from_GraphicBuffer(buffer->mGraphicBuffer.get());
-    // don't user the public AHardwareBuffer_toHardwareBuffer() because this would force us
-    // to link against libandroid.so
-    return android_hardware_HardwareBuffer_createFromAHardwareBuffer(env, b);
-}
-
 } // extern "C"
 
 // ----------------------------------------------------------------------------
 
 static const JNINativeMethod gImageReaderMethods[] = {
     {"nativeClassInit",        "()V",                        (void*)ImageReader_classInit },
-    {"nativeInit",             "(Ljava/lang/Object;IIIIJ)V",  (void*)ImageReader_init },
+    {"nativeInit",             "(Ljava/lang/Object;IIII)V",  (void*)ImageReader_init },
     {"nativeClose",            "()V",                        (void*)ImageReader_close },
     {"nativeReleaseImage",     "(Landroid/media/Image;)V",   (void*)ImageReader_imageRelease },
     {"nativeImageSetup",       "(Landroid/media/Image;)I",   (void*)ImageReader_imageSetup },
@@ -839,12 +795,10 @@ static const JNINativeMethod gImageReaderMethods[] = {
 
 static const JNINativeMethod gImageMethods[] = {
     {"nativeCreatePlanes",      "(II)[Landroid/media/ImageReader$SurfaceImage$SurfacePlane;",
-                                                             (void*)Image_createSurfacePlanes },
-    {"nativeGetWidth",          "()I",                       (void*)Image_getWidth },
-    {"nativeGetHeight",         "()I",                       (void*)Image_getHeight },
-    {"nativeGetFormat",         "(I)I",                      (void*)Image_getFormat },
-    {"nativeGetHardwareBuffer", "()Landroid/hardware/HardwareBuffer;",
-                                                             (void*)Image_getHardwareBuffer },
+                                                              (void*)Image_createSurfacePlanes },
+    {"nativeGetWidth",         "()I",                        (void*)Image_getWidth },
+    {"nativeGetHeight",        "()I",                        (void*)Image_getHeight },
+    {"nativeGetFormat",        "(I)I",                        (void*)Image_getFormat },
 };
 
 int register_android_media_ImageReader(JNIEnv *env) {

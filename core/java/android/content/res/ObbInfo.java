@@ -16,7 +16,6 @@
 
 package android.content.res;
 
-import android.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 import android.os.Parcelable;
 
@@ -54,7 +53,6 @@ public class ObbInfo implements Parcelable {
      * 
      * @hide
      */
-    @UnsupportedAppUsage
     public byte[] salt;
 
     // Only allow things in this package to instantiate.
@@ -80,7 +78,6 @@ public class ObbInfo implements Parcelable {
     }
 
     public void writeToParcel(Parcel dest, int parcelableFlags) {
-        // Keep this in sync with writeToParcel() in ObbInfo.cpp
         dest.writeString(filename);
         dest.writeString(packageName);
         dest.writeInt(version);
@@ -88,7 +85,7 @@ public class ObbInfo implements Parcelable {
         dest.writeByteArray(salt);
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<ObbInfo> CREATOR
+    public static final Parcelable.Creator<ObbInfo> CREATOR
             = new Parcelable.Creator<ObbInfo>() {
         public ObbInfo createFromParcel(Parcel source) {
             return new ObbInfo(source);

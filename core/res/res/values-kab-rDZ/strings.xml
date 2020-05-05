@@ -20,10 +20,30 @@
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="byteShort">AṬ</string>
+    <string name="kilobyteShort">KAṬ</string>
     <string name="megabyteShort">MAṬ</string>
     <string name="gigabyteShort">GAṬ</string>
     <string name="terabyteShort">TAṬ</string>
     <string name="petabyteShort">PAṬ</string>
+    <string name="fileSizeSuffix"><xliff:g id="number" example="123">%1$s</xliff:g> <xliff:g id="unit" example="KAṬ">%2$s</xliff:g></string>
+    <string name="durationDays"><xliff:g id="days">%1$d</xliff:g> n wussan</string>
+    <string name="durationDayHours"><xliff:g id="days">%1$d</xliff:g> n wussan
+            <xliff:g id="hours">%2$d</xliff:g> n yisragen</string>
+    <string name="durationDayHour"><xliff:g id="days">%1$d</xliff:g> n wass
+            <xliff:g id="hours">%2$d</xliff:g> n usrag</string>
+    <string name="durationHours"><xliff:g id="hours">%1$d</xliff:g> n yisragen</string>
+    <string name="durationHourMinutes"><xliff:g id="hours">%1$d</xliff:g> n usrag
+            <xliff:g id="minutes">%2$d</xliff:g> n tisdatin</string>
+    <string name="durationHourMinute"><xliff:g id="hours">%1$d</xliff:g> n usrag
+            <xliff:g id="minutes">%2$d</xliff:g> n tesdat</string>
+    <string name="durationMinutes"><xliff:g id="minutes">%1$d</xliff:g> n tisdatin</string>
+    <string name="durationMinute"><xliff:g id="minutes">%1$d</xliff:g> n tesdat</string>
+    <string name="durationMinuteSeconds"><xliff:g id="minutes">%1$d</xliff:g> n tesdat
+            <xliff:g id="seconds">%2$d</xliff:g> n tasinin</string>
+    <string name="durationMinuteSecond"><xliff:g id="minutes">%1$d</xliff:g> n tesdat
+            <xliff:g id="seconds">%2$d</xliff:g> n tasint</string>
+    <string name="durationSeconds"><xliff:g id="seconds">%1$d</xliff:g> n tasinin</string>
+    <string name="durationSecond"><xliff:g id="seconds">%1$d</xliff:g> n tasint</string>
     <string name="untitled">&lt;War azwel&gt;</string>
     <string name="emptyPhoneNumber">(Ulac uṭṭun n tiliɣri)</string>
     <string name="unknownName">Arussin</string>
@@ -39,7 +59,4 @@
     <string name="badPin">Tangalt PIN teqburt i turiḍ mačči d tameɣtut.</string>
     <string-array name="fingerprint_acquired_vendor"/>
     <string-array name="fingerprint_error_vendor"/>
-    <string-array name="face_acquired_vendor"/>
-    <string-array name="face_error_vendor"/>
-    <string name="ringtone_unknown">Arussin</string>
 </resources>

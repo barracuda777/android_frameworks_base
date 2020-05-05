@@ -22,7 +22,7 @@
     android:layout_height="match_parent"
     android:padding="10dp"
     android:clipToPadding="false">
-    <androidx.cardview.widget.CardView
+    <android.support.v7.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
@@ -30,22 +30,22 @@
             android:id="@+id/upload_view"
             android:layout_width="match_parent"
             android:layout_height="match_parent"/>
-    </androidx.cardview.widget.CardView>
+    </android.support.v7.widget.CardView>
 
-    <androidx.legacy.widget.Space
+    <android.support.v4.widget.Space
         android:layout_height="10dp"
         android:layout_width="match_parent" />
 
-    <androidx.cardview.widget.CardView
+    <android.support.v7.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1" />
 
-    <androidx.legacy.widget.Space
+    <android.support.v4.widget.Space
         android:layout_height="10dp"
         android:layout_width="match_parent" />
 
-    <androidx.cardview.widget.CardView
+    <android.support.v7.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1" />

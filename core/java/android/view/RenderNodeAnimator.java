@@ -19,13 +19,9 @@ package android.view;
 import android.animation.Animator;
 import android.animation.TimeInterpolator;
 import android.animation.ValueAnimator;
-import android.annotation.UnsupportedAppUsage;
+import android.graphics.Canvas;
 import android.graphics.CanvasProperty;
 import android.graphics.Paint;
-import android.graphics.RecordingCanvas;
-import android.graphics.RenderNode;
-import android.os.Handler;
-import android.os.Looper;
 import android.util.SparseIntArray;
 
 import com.android.internal.util.VirtualRefBasePtr;
@@ -85,7 +81,6 @@ public class RenderNodeAnimator extends Animator {
 
     private VirtualRefBasePtr mNativePtr;
 
-    private Handler mHandler;
     private RenderNode mTarget;
     private View mViewTarget;
     private int mRenderProperty = -1;
@@ -109,12 +104,10 @@ public class RenderNodeAnimator extends Animator {
     private long mStartDelay = 0;
     private long mStartTime;
 
-    @UnsupportedAppUsage
     public static int mapViewPropertyToRenderProperty(int viewProperty) {
         return sViewPropertyAnimatorMap.get(viewProperty);
     }
 
-    @UnsupportedAppUsage
     public RenderNodeAnimator(int property, float finalValue) {
         mRenderProperty = property;
         mFinalValue = finalValue;
@@ -122,7 +115,6 @@ public class RenderNodeAnimator extends Animator {
         init(nCreateAnimator(property, finalValue));
     }
 
-    @UnsupportedAppUsage
     public RenderNodeAnimator(CanvasProperty<Float> property, float finalValue) {
         init(nCreateCanvasPropertyFloatAnimator(
                 property.getNativeContainer(), finalValue));
@@ -137,7 +129,6 @@ public class RenderNodeAnimator extends Animator {
      *            {@link #PAINT_STROKE_WIDTH}
      * @param finalValue The target value for the property
      */
-    @UnsupportedAppUsage
     public RenderNodeAnimator(CanvasProperty<Paint> property, int paintField, float finalValue) {
         init(nCreateCanvasPropertyPaintAnimator(
                 property.getNativeContainer(), paintField, finalValue));
@@ -168,7 +159,7 @@ public class RenderNodeAnimator extends Animator {
     }
 
     private void applyInterpolator() {
-        if (mInterpolator == null || mNativePtr == null) return;
+        if (mInterpolator == null) return;
 
         long ni;
         if (isNativeInterpolator(mInterpolator)) {
@@ -191,9 +182,6 @@ public class RenderNodeAnimator extends Animator {
         }
 
         mState = STATE_DELAYED;
-        if (mHandler == null) {
-            mHandler = new Handler(true);
-        }
         applyInterpolator();
 
         if (mNativePtr == null) {
@@ -212,8 +200,9 @@ public class RenderNodeAnimator extends Animator {
         // in mTransformationInfo instead of in RenderNode, so we need to update
         // it with the final value here.
         if (mRenderProperty == RenderNodeAnimator.ALPHA) {
-            mViewTarget.ensureTransformationInfo();
-            mViewTarget.setAlphaInternal(mFinalValue);
+            // Don't need null check because ViewPropertyAnimator's
+            // ctor calls ensureTransformationInfo()
+            mViewTarget.mTransformationInfo.mAlpha = mFinalValue;
         }
 
         moveToRunningState();
@@ -288,22 +277,17 @@ public class RenderNodeAnimator extends Animator {
         throw new UnsupportedOperationException();
     }
 
-    /** @hide */
-    @UnsupportedAppUsage
     public void setTarget(View view) {
         mViewTarget = view;
         setTarget(mViewTarget.mRenderNode);
     }
 
-    /** Sets the animation target to the owning view of the RecordingCanvas */
-    public void setTarget(RecordingCanvas canvas) {
-        setTarget(canvas.mNode);
-    }
-
-    /** @hide */
-    @UnsupportedAppUsage
-    public void setTarget(DisplayListCanvas canvas) {
-        setTarget((RecordingCanvas) canvas);
+    public void setTarget(Canvas canvas) {
+        if (!(canvas instanceof DisplayListCanvas)) {
+            throw new IllegalArgumentException("Not a GLES20RecordingCanvas");
+        }
+        final DisplayListCanvas recordingCanvas = (DisplayListCanvas) canvas;
+        setTarget(recordingCanvas.mNode);
     }
 
     private void setTarget(RenderNode node) {
@@ -316,7 +300,6 @@ public class RenderNodeAnimator extends Animator {
         mTarget.addAnimator(this);
     }
 
-    @UnsupportedAppUsage
     public void setStartValue(float startValue) {
         checkMutable();
         nSetStartValue(mNativePtr.get(), startValue);
@@ -337,7 +320,6 @@ public class RenderNodeAnimator extends Animator {
         return mUnscaledStartDelay;
     }
 
-    @UnsupportedAppUsage
     @Override
     public RenderNodeAnimator setDuration(long duration) {
         checkMutable();
@@ -421,7 +403,7 @@ public class RenderNodeAnimator extends Animator {
         return listeners;
     }
 
-    public long getNativeAnimator() {
+    long getNativeAnimator() {
         return mNativePtr.get();
     }
 
@@ -502,13 +484,8 @@ public class RenderNodeAnimator extends Animator {
     }
 
     // Called by native
-    @UnsupportedAppUsage
     private static void callOnFinished(RenderNodeAnimator animator) {
-        if (animator.mHandler != null) {
-            animator.mHandler.post(animator::onFinished);
-        } else {
-            new Handler(Looper.getMainLooper(), null, true).post(animator::onFinished);
-        }
+        animator.onFinished();
     }
 
     @Override

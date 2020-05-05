@@ -18,6 +18,4 @@
     <dimen name="alert_dialog_title_height">0dp</dimen>
     <!-- Dialog button bar height, not used in watch due to dynamically sized button bar -->
     <dimen name="alert_dialog_button_bar_height">0dp</dimen>
-
-    <dimen name="toast_y_offset">0dip</dimen>
 </resources>

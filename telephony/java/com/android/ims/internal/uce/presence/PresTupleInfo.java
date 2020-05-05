@@ -16,7 +16,6 @@
 
 package com.android.ims.internal.uce.presence;
 
-import android.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 import android.os.Parcelable;
 
@@ -40,7 +39,6 @@ public class PresTupleInfo implements Parcelable {
      * Sets the feature tag.
      * @hide
      */
-    @UnsupportedAppUsage
     public void setFeatureTag(String featureTag) {
         this.mFeatureTag = featureTag;
     }
@@ -56,7 +54,6 @@ public class PresTupleInfo implements Parcelable {
      * Sets the contact URI.
      * @hide
      */
-    @UnsupportedAppUsage
     public void setContactUri(String contactUri) {
         this.mContactUri = contactUri;
     }
@@ -73,7 +70,6 @@ public class PresTupleInfo implements Parcelable {
      * Sets the timestamp.
      * @hide
      */
-    @UnsupportedAppUsage
     public void setTimestamp(String timestamp) {
         this.mTimestamp = timestamp;
     }
@@ -82,7 +78,6 @@ public class PresTupleInfo implements Parcelable {
      * Constructor for the PresTupleInfo class.
      * @hide
      */
-    @UnsupportedAppUsage
     public PresTupleInfo(){};
 
     /** @hide */

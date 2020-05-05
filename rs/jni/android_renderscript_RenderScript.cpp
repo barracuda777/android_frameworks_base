@@ -24,23 +24,19 @@
 #include <utils/misc.h>
 #include <inttypes.h>
 
-#include <android-base/macros.h>
 #include <androidfw/Asset.h>
-#include <androidfw/AssetManager2.h>
+#include <androidfw/AssetManager.h>
 #include <androidfw/ResourceTypes.h>
-#include <android-base/macros.h>
 
 #include "jni.h"
-#include <nativehelper/JNIHelp.h>
+#include "JNIHelp.h"
 #include "android_runtime/AndroidRuntime.h"
 #include "android_runtime/android_view_Surface.h"
 #include "android_runtime/android_util_AssetManager.h"
 #include "android/graphics/GraphicsJNI.h"
-#include "android/native_window.h"
-#include "android/native_window_jni.h"
 
+#include <rs.h>
 #include <rsEnv.h>
-#include <rsApiStubs.h>
 #include <gui/Surface.h>
 #include <gui/GLConsumer.h>
 #include <android_runtime/android_graphics_SurfaceTexture.h>
@@ -49,6 +45,9 @@
 static constexpr bool kLogApi = false;
 
 using namespace android;
+
+template <typename... T>
+void UNUSED(T... t) {}
 
 #define PER_ARRAY_TYPE(flag, fnc, readonly, ...) {                                      \
     jint len = 0;                                                                       \
@@ -422,43 +421,31 @@ nClosureCreate(JNIEnv *_env, jobject _this, jlong con, jlong kernelID,
       goto exit;
   }
 
-  if (numValues > 0) {
-      fieldIDs = (RsScriptFieldID*)alloca(sizeof(RsScriptFieldID) * numValues);
-      if (fieldIDs == nullptr) {
-          goto exit;
-      }
-  } else {
-      // numValues == 0
-      // alloca(0) implementation is platform-dependent.
-      fieldIDs = nullptr;
+  fieldIDs = (RsScriptFieldID*)alloca(sizeof(RsScriptFieldID) * numValues);
+  if (fieldIDs == nullptr) {
+      goto exit;
   }
 
   for (size_t i = 0; i < numValues; i++) {
     fieldIDs[i] = (RsScriptFieldID)jFieldIDs[i];
   }
 
-  if (numDependencies > 0) {
-      depClosures = (RsClosure*)alloca(sizeof(RsClosure) * numDependencies);
-      if (depClosures == nullptr) {
-          goto exit;
-      }
+  depClosures = (RsClosure*)alloca(sizeof(RsClosure) * numDependencies);
+  if (depClosures == nullptr) {
+      goto exit;
+  }
 
-      for (size_t i = 0; i < numDependencies; i++) {
-          depClosures[i] = (RsClosure)jDepClosures[i];
-      }
+  for (size_t i = 0; i < numDependencies; i++) {
+    depClosures[i] = (RsClosure)jDepClosures[i];
+  }
 
-      depFieldIDs = (RsScriptFieldID*)alloca(sizeof(RsScriptFieldID) * numDependencies);
-      if (depFieldIDs == nullptr) {
-          goto exit;
-      }
+  depFieldIDs = (RsScriptFieldID*)alloca(sizeof(RsScriptFieldID) * numDependencies);
+  if (depFieldIDs == nullptr) {
+      goto exit;
+  }
 
-      for (size_t i = 0; i < numDependencies; i++) {
-          depFieldIDs[i] = (RsClosure)jDepFieldIDs[i];
-      }
-  } else {
-      // alloca(0) implementation is platform-dependent.
-      depClosures = nullptr;
-      depFieldIDs = nullptr;
+  for (size_t i = 0; i < numDependencies; i++) {
+    depFieldIDs[i] = (RsClosure)jDepFieldIDs[i];
   }
 
   ret = (jlong)(uintptr_t)rsClosureCreate(
@@ -866,7 +853,7 @@ nContextCreateGL(JNIEnv *_env, jobject _this, jlong dev, jint ver, jint sdkVer,
                  jint samplesMin, jint samplesPref, jfloat samplesQ,
                  jint dpi)
 {
-    RsSurfaceConfig sc = {};
+    RsSurfaceConfig sc;
     sc.alphaMin = alphaMin;
     sc.alphaPref = alphaPref;
     sc.colorMin = colorMin;
@@ -1135,7 +1122,7 @@ nElementGetNativeData(JNIEnv *_env, jobject _this, jlong con, jlong id, jintArra
     // we will pack mType; mKind; mNormalized; mVectorSize; NumSubElements
     assert(dataSize == 5);
 
-    uint32_t elementData[5];
+    uintptr_t elementData[5];
     rsaElementGetNativeData((RsContext)con, (RsElement)id, elementData, dataSize);
 
     for(jint i = 0; i < dataSize; i ++) {
@@ -1158,7 +1145,7 @@ nElementGetSubElements(JNIEnv *_env, jobject _this, jlong con, jlong id,
 
     uintptr_t *ids = (uintptr_t*)malloc(dataSize * sizeof(uintptr_t));
     const char **names = (const char **)malloc(dataSize * sizeof(const char *));
-    size_t *arraySizes = (size_t *)malloc(dataSize * sizeof(size_t));
+    uint32_t *arraySizes = (uint32_t *)malloc(dataSize * sizeof(uint32_t));
 
     rsaElementGetSubElements((RsContext)con, (RsElement)id, ids, names, arraySizes,
                              (uint32_t)dataSize);
@@ -1265,10 +1252,10 @@ nAllocationGetSurface(JNIEnv *_env, jobject _this, jlong con, jlong a)
         ALOGD("nAllocationGetSurface, con(%p), a(%p)", (RsContext)con, (RsAllocation)a);
     }
 
-    ANativeWindow *anw = (ANativeWindow *)rsAllocationGetSurface((RsContext)con, (RsAllocation)a);
-
-    sp<Surface> surface(static_cast<Surface*>(anw));
-    sp<IGraphicBufferProducer> bp = surface->getIGraphicBufferProducer();
+    IGraphicBufferProducer *v = (IGraphicBufferProducer *)rsAllocationGetSurface((RsContext)con,
+                                                                                 (RsAllocation)a);
+    sp<IGraphicBufferProducer> bp = v;
+    v->decStrong(nullptr);
 
     jobject o = android_view_Surface_createFromIGraphicBufferProducer(_env, bp);
     return o;
@@ -1282,14 +1269,13 @@ nAllocationSetSurface(JNIEnv *_env, jobject _this, jlong con, jlong alloc, jobje
               (RsAllocation)alloc, (Surface *)sur);
     }
 
-    ANativeWindow *anw = nullptr;
+    sp<Surface> s;
     if (sur != 0) {
-        // Connect the native window handle to buffer queue.
-        anw = ANativeWindow_fromSurface(_env, sur);
-        native_window_api_connect(anw, NATIVE_WINDOW_API_CPU);
+        s = android_view_Surface_getSurface(_env, sur);
     }
 
-    rsAllocationSetSurface((RsContext)con, (RsAllocation)alloc, anw);
+    rsAllocationSetSurface((RsContext)con, (RsAllocation)alloc,
+                           static_cast<ANativeWindow *>(s.get()));
 }
 
 static void
@@ -1321,68 +1307,78 @@ nAllocationGenerateMipmaps(JNIEnv *_env, jobject _this, jlong con, jlong alloc)
 
 static jlong
 nAllocationCreateFromBitmap(JNIEnv *_env, jobject _this, jlong con, jlong type, jint mip,
-                            jlong bitmapPtr, jint usage)
+                            jobject jbitmap, jint usage)
 {
     SkBitmap bitmap;
-    bitmap::toBitmap(bitmapPtr).getSkBitmap(&bitmap);
+    GraphicsJNI::getSkBitmap(_env, jbitmap, &bitmap);
 
+    bitmap.lockPixels();
     const void* ptr = bitmap.getPixels();
     jlong id = (jlong)(uintptr_t)rsAllocationCreateFromBitmap((RsContext)con,
                                                   (RsType)type, (RsAllocationMipmapControl)mip,
-                                                  ptr, bitmap.computeByteSize(), usage);
+                                                  ptr, bitmap.getSize(), usage);
+    bitmap.unlockPixels();
     return id;
 }
 
 static jlong
 nAllocationCreateBitmapBackedAllocation(JNIEnv *_env, jobject _this, jlong con, jlong type,
-                                        jint mip, jlong bitmapPtr, jint usage)
+                                        jint mip, jobject jbitmap, jint usage)
 {
     SkBitmap bitmap;
-    bitmap::toBitmap(bitmapPtr).getSkBitmap(&bitmap);
+    GraphicsJNI::getSkBitmap(_env, jbitmap, &bitmap);
 
+    bitmap.lockPixels();
     const void* ptr = bitmap.getPixels();
     jlong id = (jlong)(uintptr_t)rsAllocationCreateTyped((RsContext)con,
                                             (RsType)type, (RsAllocationMipmapControl)mip,
                                             (uint32_t)usage, (uintptr_t)ptr);
+    bitmap.unlockPixels();
     return id;
 }
 
 static jlong
 nAllocationCubeCreateFromBitmap(JNIEnv *_env, jobject _this, jlong con, jlong type, jint mip,
-                                jlong bitmapPtr, jint usage)
+                                jobject jbitmap, jint usage)
 {
     SkBitmap bitmap;
-    bitmap::toBitmap(bitmapPtr).getSkBitmap(&bitmap);
+    GraphicsJNI::getSkBitmap(_env, jbitmap, &bitmap);
 
+    bitmap.lockPixels();
     const void* ptr = bitmap.getPixels();
     jlong id = (jlong)(uintptr_t)rsAllocationCubeCreateFromBitmap((RsContext)con,
                                                       (RsType)type, (RsAllocationMipmapControl)mip,
-                                                      ptr, bitmap.computeByteSize(), usage);
+                                                      ptr, bitmap.getSize(), usage);
+    bitmap.unlockPixels();
     return id;
 }
 
 static void
-nAllocationCopyFromBitmap(JNIEnv *_env, jobject _this, jlong con, jlong alloc, jlong bitmapPtr)
+nAllocationCopyFromBitmap(JNIEnv *_env, jobject _this, jlong con, jlong alloc, jobject jbitmap)
 {
     SkBitmap bitmap;
-    bitmap::toBitmap(bitmapPtr).getSkBitmap(&bitmap);
+    GraphicsJNI::getSkBitmap(_env, jbitmap, &bitmap);
     int w = bitmap.width();
     int h = bitmap.height();
 
+    bitmap.lockPixels();
     const void* ptr = bitmap.getPixels();
     rsAllocation2DData((RsContext)con, (RsAllocation)alloc, 0, 0,
                        0, RS_ALLOCATION_CUBEMAP_FACE_POSITIVE_X,
-                       w, h, ptr, bitmap.computeByteSize(), 0);
+                       w, h, ptr, bitmap.getSize(), 0);
+    bitmap.unlockPixels();
 }
 
 static void
-nAllocationCopyToBitmap(JNIEnv *_env, jobject _this, jlong con, jlong alloc, jlong bitmapPtr)
+nAllocationCopyToBitmap(JNIEnv *_env, jobject _this, jlong con, jlong alloc, jobject jbitmap)
 {
     SkBitmap bitmap;
-    bitmap::toBitmap(bitmapPtr).getSkBitmap(&bitmap);
+    GraphicsJNI::getSkBitmap(_env, jbitmap, &bitmap);
 
+    bitmap.lockPixels();
     void* ptr = bitmap.getPixels();
-    rsAllocationCopyToBitmap((RsContext)con, (RsAllocation)alloc, ptr, bitmap.computeByteSize());
+    rsAllocationCopyToBitmap((RsContext)con, (RsAllocation)alloc, ptr, bitmap.getSize());
+    bitmap.unlockPixels();
     bitmap.notifyPixelsChanged();
 }
 
@@ -1407,8 +1403,8 @@ nAllocationElementData(JNIEnv *_env, jobject _this, jlong con, jlong alloc,
                        jint xoff, jint yoff, jint zoff,
                        jint lod, jint compIdx, jbyteArray data, jint sizeBytes)
 {
+    jint len = _env->GetArrayLength(data);
     if (kLogApi) {
-        jint len = _env->GetArrayLength(data);
         ALOGD("nAllocationElementData, con(%p), alloc(%p), xoff(%i), yoff(%i), zoff(%i), comp(%i), len(%i), "
               "sizeBytes(%i)", (RsContext)con, (RsAllocation)alloc, xoff, yoff, zoff, compIdx, len,
               sizeBytes);
@@ -1549,8 +1545,8 @@ nAllocationElementRead(JNIEnv *_env, jobject _this, jlong con, jlong alloc,
                        jint xoff, jint yoff, jint zoff,
                        jint lod, jint compIdx, jbyteArray data, jint sizeBytes)
 {
+    jint len = _env->GetArrayLength(data);
     if (kLogApi) {
-        jint len = _env->GetArrayLength(data);
         ALOGD("nAllocationElementRead, con(%p), alloc(%p), xoff(%i), yoff(%i), zoff(%i), comp(%i), len(%i), "
               "sizeBytes(%i)", (RsContext)con, (RsAllocation)alloc, xoff, yoff, zoff, compIdx, len,
               sizeBytes);
@@ -1665,22 +1661,18 @@ nFileA3DCreateFromAssetStream(JNIEnv *_env, jobject _this, jlong con, jlong nati
 static jlong
 nFileA3DCreateFromAsset(JNIEnv *_env, jobject _this, jlong con, jobject _assetMgr, jstring _path)
 {
-    Guarded<AssetManager2>* mgr = AssetManagerForJavaObject(_env, _assetMgr);
+    AssetManager* mgr = assetManagerForJavaObject(_env, _assetMgr);
     if (mgr == nullptr) {
         return 0;
     }
 
     AutoJavaStringToUTF8 str(_env, _path);
-    std::unique_ptr<Asset> asset;
-    {
-        ScopedLock<AssetManager2> locked_mgr(*mgr);
-        asset = locked_mgr->Open(str.c_str(), Asset::ACCESS_BUFFER);
-        if (asset == nullptr) {
-            return 0;
-        }
+    Asset* asset = mgr->open(str.c_str(), Asset::ACCESS_BUFFER);
+    if (asset == nullptr) {
+        return 0;
     }
 
-    jlong id = (jlong)(uintptr_t)rsaFileA3DCreateFromAsset((RsContext)con, asset.release());
+    jlong id = (jlong)(uintptr_t)rsaFileA3DCreateFromAsset((RsContext)con, asset);
     return id;
 }
 
@@ -1757,25 +1749,22 @@ static jlong
 nFontCreateFromAsset(JNIEnv *_env, jobject _this, jlong con, jobject _assetMgr, jstring _path,
                      jfloat fontSize, jint dpi)
 {
-    Guarded<AssetManager2>* mgr = AssetManagerForJavaObject(_env, _assetMgr);
+    AssetManager* mgr = assetManagerForJavaObject(_env, _assetMgr);
     if (mgr == nullptr) {
         return 0;
     }
 
     AutoJavaStringToUTF8 str(_env, _path);
-    std::unique_ptr<Asset> asset;
-    {
-        ScopedLock<AssetManager2> locked_mgr(*mgr);
-        asset = locked_mgr->Open(str.c_str(), Asset::ACCESS_BUFFER);
-        if (asset == nullptr) {
-            return 0;
-        }
+    Asset* asset = mgr->open(str.c_str(), Asset::ACCESS_BUFFER);
+    if (asset == nullptr) {
+        return 0;
     }
 
     jlong id = (jlong)(uintptr_t)rsFontCreateFromMemory((RsContext)con,
                                            str.c_str(), str.length(),
                                            fontSize, dpi,
                                            asset->getBuffer(false), asset->getLength());
+    delete asset;
     return id;
 }
 
@@ -2866,13 +2855,13 @@ static const JNINativeMethod methods[] = {
 {"rsnTypeCreate",                    "(JJIIIZZI)J",                           (void*)nTypeCreate },
 {"rsnTypeGetNativeData",             "(JJ[J)V",                               (void*)nTypeGetNativeData },
 
-{"rsnAllocationCreateTyped",         "(JJIIJ)J",                              (void*)nAllocationCreateTyped },
-{"rsnAllocationCreateFromBitmap",    "(JJIJI)J",                              (void*)nAllocationCreateFromBitmap },
-{"rsnAllocationCreateBitmapBackedAllocation",    "(JJIJI)J",                  (void*)nAllocationCreateBitmapBackedAllocation },
-{"rsnAllocationCubeCreateFromBitmap","(JJIJI)J",                              (void*)nAllocationCubeCreateFromBitmap },
+{"rsnAllocationCreateTyped",         "(JJIIJ)J",                               (void*)nAllocationCreateTyped },
+{"rsnAllocationCreateFromBitmap",    "(JJILandroid/graphics/Bitmap;I)J",      (void*)nAllocationCreateFromBitmap },
+{"rsnAllocationCreateBitmapBackedAllocation",    "(JJILandroid/graphics/Bitmap;I)J",      (void*)nAllocationCreateBitmapBackedAllocation },
+{"rsnAllocationCubeCreateFromBitmap","(JJILandroid/graphics/Bitmap;I)J",      (void*)nAllocationCubeCreateFromBitmap },
 
-{"rsnAllocationCopyFromBitmap",      "(JJJ)V",                                (void*)nAllocationCopyFromBitmap },
-{"rsnAllocationCopyToBitmap",        "(JJJ)V",                                (void*)nAllocationCopyToBitmap },
+{"rsnAllocationCopyFromBitmap",      "(JJLandroid/graphics/Bitmap;)V",        (void*)nAllocationCopyFromBitmap },
+{"rsnAllocationCopyToBitmap",        "(JJLandroid/graphics/Bitmap;)V",        (void*)nAllocationCopyToBitmap },
 
 {"rsnAllocationSyncAll",             "(JJI)V",                                (void*)nAllocationSyncAll },
 {"rsnAllocationSetupBufferQueue",    "(JJI)V",                                (void*)nAllocationSetupBufferQueue },

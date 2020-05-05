@@ -19,7 +19,6 @@ package android.os;
 
 import android.os.Bundle;
 import android.os.PersistableBundle;
-import android.os.UserManager;
 import android.content.pm.UserInfo;
 import android.content.IntentSender;
 import android.content.RestrictionEntry;
@@ -35,32 +34,22 @@ interface IUserManager {
      * DO NOT MOVE - UserManager.h depends on the ordering of this function.
      */
     int getCredentialOwnerProfile(int userHandle);
-    int getProfileParentId(int userHandle);
-    /*
-     * END OF DO NOT MOVE
-     */
 
     UserInfo createUser(in String name, int flags);
-    UserInfo preCreateUser(int flags);
-    UserInfo createProfileForUser(in String name, int flags, int userHandle,
-            in String[] disallowedPackages);
+    UserInfo createProfileForUser(in String name, int flags, int userHandle);
     UserInfo createRestrictedProfile(String name, int parentUserHandle);
     void setUserEnabled(int userHandle);
-    void setUserAdmin(int userId);
-    void evictCredentialEncryptionKey(int userHandle);
     boolean removeUser(int userHandle);
-    boolean removeUserEvenWhenDisallowed(int userHandle);
     void setUserName(int userHandle, String name);
     void setUserIcon(int userHandle, in Bitmap icon);
     ParcelFileDescriptor getUserIcon(int userHandle);
     UserInfo getPrimaryUser();
-    List<UserInfo> getUsers(boolean excludePartial, boolean excludeDying, boolean excludePreCreated);
+    List<UserInfo> getUsers(boolean excludeDying);
     List<UserInfo> getProfiles(int userHandle, boolean enabledOnly);
     int[] getProfileIds(int userId, boolean enabledOnly);
     boolean canAddMoreManagedProfiles(int userHandle, boolean allowedToRemoveOne);
     UserInfo getProfileParent(int userHandle);
     boolean isSameProfileGroup(int userHandle, int otherUserHandle);
-    @UnsupportedAppUsage
     UserInfo getUserInfo(int userHandle);
     String getUserAccount(int userHandle);
     void setUserAccount(int userHandle, String accountName);
@@ -70,11 +59,9 @@ interface IUserManager {
     int getUserSerialNumber(int userHandle);
     int getUserHandle(int userSerialNumber);
     int getUserRestrictionSource(String restrictionKey, int userHandle);
-    List<UserManager.EnforcingUser> getUserRestrictionSources(String restrictionKey, int userHandle);
     Bundle getUserRestrictions(int userHandle);
     boolean hasBaseUserRestriction(String restrictionKey, int userHandle);
     boolean hasUserRestriction(in String restrictionKey, int userHandle);
-    boolean hasUserRestrictionOnAnyUser(in String restrictionKey);
     void setUserRestriction(String key, boolean value, int userHandle);
     void setApplicationRestrictions(in String packageName, in Bundle restrictions,
             int userHandle);
@@ -83,7 +70,9 @@ interface IUserManager {
     void setDefaultGuestRestrictions(in Bundle restrictions);
     Bundle getDefaultGuestRestrictions();
     boolean markGuestForDeletion(int userHandle);
+    void setQuietModeEnabled(int userHandle, boolean enableQuietMode);
     boolean isQuietModeEnabled(int userHandle);
+    boolean trySetQuietModeDisabled(int userHandle, in IntentSender target);
     void setSeedAccountData(int userHandle, in String accountName,
             in String accountType, in PersistableBundle accountOptions, boolean persist);
     String getSeedAccountName();
@@ -93,17 +82,7 @@ interface IUserManager {
     boolean someUserHasSeedAccount(in String accountName, in String accountType);
     boolean isManagedProfile(int userId);
     boolean isDemoUser(int userId);
-    boolean isPreCreated(int userId);
-    UserInfo createProfileForUserEvenWhenDisallowed(in String name, int flags, int userHandle,
-            in String[] disallowedPackages);
-    boolean isUserUnlockingOrUnlocked(int userId);
-    int getManagedProfileBadge(int userId);
     boolean isUserUnlocked(int userId);
+    boolean isUserUnlockingOrUnlocked(int userId);
     boolean isUserRunning(int userId);
-    boolean isUserNameSet(int userHandle);
-    boolean hasRestrictedProfiles();
-    boolean requestQuietModeEnabled(String callingPackage, boolean enableQuietMode, int userHandle, in IntentSender target);
-    String getUserName();
-    long getUserStartRealtime();
-    long getUserUnlockRealtime();
 }

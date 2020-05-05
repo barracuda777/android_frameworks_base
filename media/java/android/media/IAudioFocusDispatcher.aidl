@@ -23,9 +23,6 @@ package android.media;
  */
 oneway interface IAudioFocusDispatcher {
 
-    @UnsupportedAppUsage
     void dispatchAudioFocusChange(int focusChange, String clientId);
-
-    void dispatchFocusResultFromExtPolicy(int requestResult, String clientId);
 
 }

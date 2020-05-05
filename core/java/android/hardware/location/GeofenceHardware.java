@@ -16,7 +16,6 @@
 package android.hardware.location;
 
 import android.annotation.SystemApi;
-import android.annotation.UnsupportedAppUsage;
 import android.location.Location;
 import android.os.Build;
 import android.os.RemoteException;
@@ -168,8 +167,6 @@ public final class GeofenceHardware {
             mMonitorCallbacks = new HashMap<GeofenceHardwareMonitorCallback,
                     GeofenceHardwareMonitorCallbackWrapper>();
 
-    /** @hide */
-    @UnsupportedAppUsage
     public GeofenceHardware(IGeofenceHardware service) {
         mService = service;
     }

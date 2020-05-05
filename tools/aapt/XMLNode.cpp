@@ -16,10 +16,13 @@
 #define O_BINARY 0
 #endif
 
+// SSIZE: mingw does not have signed size_t == ssize_t.
 // STATUST: mingw does seem to redefine UNKNOWN_ERROR from our enum value, so a cast is necessary.
 #if !defined(_WIN32)
+#  define SSIZE(x) x
 #  define STATUST(x) x
 #else
+#  define SSIZE(x) (signed size_t)x
 #  define STATUST(x) (status_t)x
 #endif
 
@@ -64,7 +67,7 @@ static const String16 RESOURCES_PREFIX_AUTO_PACKAGE(RESOURCES_AUTO_PACKAGE_NAMES
 static const String16 RESOURCES_PRV_PREFIX(RESOURCES_ROOT_PRV_NAMESPACE);
 static const String16 RESOURCES_TOOLS_NAMESPACE("http://schemas.android.com/tools");
 
-String16 getNamespaceResourcePackage(const String16& appPackage, const String16& namespaceUri, bool* outIsPublic)
+String16 getNamespaceResourcePackage(String16 appPackage, String16 namespaceUri, bool* outIsPublic)
 {
     //printf("%s starts with %s?\n", String8(namespaceUri).string(),
     //       String8(RESOURCES_PREFIX).string());
@@ -95,7 +98,7 @@ String16 getNamespaceResourcePackage(const String16& appPackage, const String16&
 
 status_t hasSubstitutionErrors(const char* fileName,
                                ResXMLTree* inXml,
-                               const String16& str16)
+                               String16 str16)
 {
     const char16_t* str = str16.string();
     const char16_t* p = str;
@@ -474,9 +477,9 @@ void printXMLBlock(ResXMLTree* block)
                 if (value.dataType == Res_value::TYPE_NULL) {
                     printf("=(null)");
                 } else if (value.dataType == Res_value::TYPE_REFERENCE) {
-                    printf("=@0x%08x", (int)value.data);
+                    printf("=@0x%x", (int)value.data);
                 } else if (value.dataType == Res_value::TYPE_ATTRIBUTE) {
-                    printf("=?0x%08x", (int)value.data);
+                    printf("=?0x%x", (int)value.data);
                 } else if (value.dataType == Res_value::TYPE_STRING) {
                     printf("=\"%s\"",
                             ResTable::normalizeForOutput(String8(block->getAttributeStringValue(i,
@@ -1423,7 +1426,7 @@ status_t XMLNode::collect_attr_strings(StringPool* outPool,
                 idx = outPool->add(attr.name);
                 if (kIsDebug) {
                     printf("Adding attr %s (resid 0x%08x) to pool: idx=%zd\n",
-                            String8(attr.name).string(), id, idx);
+                            String8(attr.name).string(), id, SSIZE(idx));
                 }
                 if (id != 0) {
                     while ((ssize_t)outResIds->size() <= idx) {
@@ -1434,7 +1437,7 @@ status_t XMLNode::collect_attr_strings(StringPool* outPool,
             }
             attr.namePoolIdx = idx;
             if (kIsDebug) {
-                printf("String %s offset=0x%08zd\n", String8(attr.name).string(), idx);
+                printf("String %s offset=0x%08zd\n", String8(attr.name).string(), SSIZE(idx));
             }
         }
     }

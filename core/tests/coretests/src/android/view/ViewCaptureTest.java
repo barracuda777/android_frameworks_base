@@ -16,28 +16,23 @@
 
 package android.view;
 
-import static org.junit.Assert.assertTrue;
-
 import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.support.test.filters.SmallTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.SparseIntArray;
-import android.view.ViewDebug.CanvasProvider;
-import android.view.ViewDebug.HardwareCanvasProvider;
-import android.view.ViewDebug.SoftwareCanvasProvider;
-
-import androidx.test.filters.SmallTest;
-import androidx.test.rule.ActivityTestRule;
-import androidx.test.runner.AndroidJUnit4;
 
 import com.android.frameworks.coretests.R;
 
 import org.junit.Assert;
-import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import static org.junit.Assert.assertTrue;
 
 @RunWith(AndroidJUnit4.class)
 public class ViewCaptureTest {
@@ -60,42 +55,22 @@ public class ViewCaptureTest {
     @Before
     public void setUp() throws Exception {
         mActivity = mActivityRule.getActivity();
-        mViewToCapture = mActivity.findViewById(R.id.capture);
+        mViewToCapture = (ViewGroup) mActivity.findViewById(R.id.capture);
     }
 
     @Test
     @SmallTest
-    public void testCreateSnapshot_software() {
+    public void testCreateSnapshot() {
         assertChildrenVisibility();
-        testCreateSnapshot(new SoftwareCanvasProvider(), true,
-                R.drawable.view_capture_test_no_children_golden);
+        testCreateSnapshot(true, R.drawable.view_capture_test_no_children_golden);
         assertChildrenVisibility();
-        testCreateSnapshot(new SoftwareCanvasProvider(), false,
-                R.drawable.view_capture_test_with_children_golden);
+        testCreateSnapshot(false, R.drawable.view_capture_test_with_children_golden);
         assertChildrenVisibility();
     }
 
-    @Test
-    @SmallTest
-    public void testCreateSnapshot_hardware() {
-        Assume.assumeTrue(mViewToCapture.isHardwareAccelerated());
-        assertChildrenVisibility();
-        testCreateSnapshot(new HardwareCanvasProvider(), true,
-                R.drawable.view_capture_test_no_children_golden);
-        assertChildrenVisibility();
-        testCreateSnapshot(new HardwareCanvasProvider(), false,
-                R.drawable.view_capture_test_with_children_golden);
-        assertChildrenVisibility();
-    }
-
-    private void testCreateSnapshot(
-            CanvasProvider canvasProvider, boolean skipChildren, int goldenResId) {
-        Bitmap result = mViewToCapture.createSnapshot(canvasProvider, skipChildren);
-        result.setHasAlpha(false); // resource will have no alpha, since content is opaque
+    private void testCreateSnapshot(boolean skipChildren, int goldenResId) {
+        Bitmap result = mViewToCapture.createSnapshot(Bitmap.Config.ARGB_8888, 0, skipChildren);
         Bitmap golden = BitmapFactory.decodeResource(mActivity.getResources(), goldenResId);
-
-        // We dont care about the config of the bitmap, so convert to same config before comparing
-        result = result.copy(golden.getConfig(), false);
         assertTrue(golden.sameAs(result));
     }
 

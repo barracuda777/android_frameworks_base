@@ -16,7 +16,6 @@
 
 package com.android.ims.internal.uce.presence;
 
-import android.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 import android.os.Parcelable;
 
@@ -33,7 +32,6 @@ public class PresSipResponse implements Parcelable {
      * Gets the Presence command ID.
      * @hide
      */
-    @UnsupportedAppUsage
     public PresCmdId getCmdId() {
         return mCmdId;
     }
@@ -42,7 +40,6 @@ public class PresSipResponse implements Parcelable {
      * Sets the Presence command ID.
      * @hide
      */
-    @UnsupportedAppUsage
     public void setCmdId(PresCmdId cmdId) {
         this.mCmdId = cmdId;
     }
@@ -51,7 +48,6 @@ public class PresSipResponse implements Parcelable {
      * Gets the request ID.
      * @hide
      */
-    @UnsupportedAppUsage
     public int getRequestId() {
         return mRequestId;
     }
@@ -60,7 +56,6 @@ public class PresSipResponse implements Parcelable {
      * Sets the request ID.
      * @hide
      */
-    @UnsupportedAppUsage
     public void setRequestId(int requestId) {
         this.mRequestId = requestId;
     }
@@ -69,7 +64,6 @@ public class PresSipResponse implements Parcelable {
      * Gets the SIP response code.
      * @hide
      */
-    @UnsupportedAppUsage
     public int getSipResponseCode() {
         return mSipResponseCode;
     }
@@ -78,7 +72,6 @@ public class PresSipResponse implements Parcelable {
      * Sets the SIP response code.
      * @hide
      */
-    @UnsupportedAppUsage
     public void setSipResponseCode(int sipResponseCode) {
         this.mSipResponseCode = sipResponseCode;
     }
@@ -89,7 +82,6 @@ public class PresSipResponse implements Parcelable {
      * code.
      * @hide
      */
-    @UnsupportedAppUsage
     public String getReasonPhrase() {
         return mReasonPhrase;
     }
@@ -98,7 +90,6 @@ public class PresSipResponse implements Parcelable {
      * Sets the SIP response code reason phrase.
      * @hide
      */
-    @UnsupportedAppUsage
     public void setReasonPhrase(String reasonPhrase) {
         this.mReasonPhrase = reasonPhrase;
     }
@@ -107,7 +98,6 @@ public class PresSipResponse implements Parcelable {
      * Gets the SIP retryAfter sec value.
      * @hide
      */
-    @UnsupportedAppUsage
     public int getRetryAfter() {
         return mRetryAfter;
     }
@@ -116,7 +106,6 @@ public class PresSipResponse implements Parcelable {
      * Sets the SIP retryAfter sec value
      * @hide
      */
-    @UnsupportedAppUsage
     public void setRetryAfter(int retryAfter) {
         this.mRetryAfter = retryAfter;
     }
@@ -125,7 +114,6 @@ public class PresSipResponse implements Parcelable {
      * Constructor for the PresSipResponse class.
      * @hide
      */
-    @UnsupportedAppUsage
     public PresSipResponse(){};
 
     /** @hide */

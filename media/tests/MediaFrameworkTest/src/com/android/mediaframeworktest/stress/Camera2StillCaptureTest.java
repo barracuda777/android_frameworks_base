@@ -16,15 +16,12 @@
 
 package com.android.mediaframeworktest.stress;
 
-import static com.android.mediaframeworktest.helpers.CameraTestUtils.CAPTURE_IMAGE_TIMEOUT_MS;
-import static com.android.mediaframeworktest.helpers.CameraTestUtils.MAX_READER_IMAGES;
-import static com.android.mediaframeworktest.helpers.CameraTestUtils.SimpleImageReaderListener;
-import static com.android.mediaframeworktest.helpers.CameraTestUtils.basicValidateJpegImage;
-import static com.android.mediaframeworktest.helpers.CameraTestUtils.configureCameraSession;
-import static com.android.mediaframeworktest.helpers.CameraTestUtils.dumpFile;
-import static com.android.mediaframeworktest.helpers.CameraTestUtils.getDataFromImage;
-import static com.android.mediaframeworktest.helpers.CameraTestUtils.getValueNotNull;
-import static com.android.mediaframeworktest.helpers.CameraTestUtils.makeImageReader;
+import com.android.ex.camera2.blocking.BlockingSessionCallback;
+import com.android.ex.camera2.exceptions.TimeoutRuntimeException;
+import com.android.mediaframeworktest.Camera2SurfaceViewTestCase;
+import com.android.mediaframeworktest.helpers.Camera2Focuser;
+import com.android.mediaframeworktest.helpers.CameraTestUtils;
+import com.android.mediaframeworktest.helpers.CameraTestUtils.SimpleCaptureCallback;
 
 import android.graphics.ImageFormat;
 import android.graphics.Point;
@@ -43,16 +40,19 @@ import android.util.Rational;
 import android.util.Size;
 import android.view.Surface;
 
-import com.android.ex.camera2.blocking.BlockingSessionCallback;
-import com.android.ex.camera2.exceptions.TimeoutRuntimeException;
-import com.android.mediaframeworktest.Camera2SurfaceViewTestCase;
-import com.android.mediaframeworktest.helpers.Camera2Focuser;
-import com.android.mediaframeworktest.helpers.CameraTestUtils;
-import com.android.mediaframeworktest.helpers.CameraTestUtils.SimpleCaptureCallback;
-
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.android.mediaframeworktest.helpers.CameraTestUtils.CAPTURE_IMAGE_TIMEOUT_MS;
+import static com.android.mediaframeworktest.helpers.CameraTestUtils.MAX_READER_IMAGES;
+import static com.android.mediaframeworktest.helpers.CameraTestUtils.SimpleImageReaderListener;
+import static com.android.mediaframeworktest.helpers.CameraTestUtils.basicValidateJpegImage;
+import static com.android.mediaframeworktest.helpers.CameraTestUtils.configureCameraSession;
+import static com.android.mediaframeworktest.helpers.CameraTestUtils.dumpFile;
+import static com.android.mediaframeworktest.helpers.CameraTestUtils.getDataFromImage;
+import static com.android.mediaframeworktest.helpers.CameraTestUtils.getValueNotNull;
+import static com.android.mediaframeworktest.helpers.CameraTestUtils.makeImageReader;
 
 /**
  * <p>Tests for still capture API.</p>
@@ -62,7 +62,7 @@ import java.util.List;
  *    -e iterations 200 \
  *    -e waitIntervalMs 1000 \
  *    -e resultToFile false \
- *    -r -w com.android.mediaframeworktest/androidx.test.runner.AndroidJUnitRunner
+ *    -r -w com.android.mediaframeworktest/.Camera2InstrumentationTestRunner
  */
 public class Camera2StillCaptureTest extends Camera2SurfaceViewTestCase {
     private static final String TAG = "StillCaptureTest";

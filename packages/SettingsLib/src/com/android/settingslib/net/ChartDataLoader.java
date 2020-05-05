@@ -34,11 +34,8 @@ import android.os.RemoteException;
 import com.android.settingslib.AppItem;
 
 /**
- * Framework loader is deprecated, use the compat version instead.
- *
- * @deprecated
+ * Loader for historical chart data for both network and UID details.
  */
-@Deprecated
 public class ChartDataLoader extends AsyncTaskLoader<ChartData> {
     private static final String KEY_TEMPLATE = "template";
     private static final String KEY_APP = "app";

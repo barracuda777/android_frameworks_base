@@ -18,18 +18,17 @@
 
 #include <android/storage_manager.h>
 #include <storage/IMountService.h>
-#include <storage/ObbInfo.h>
 
-#include <androidfw/ObbFile.h>
 #include <binder/Binder.h>
 #include <binder/IServiceManager.h>
-#include <cutils/atomic.h>
+#include <utils/Atomic.h>
 #include <utils/Log.h>
 #include <utils/RefBase.h>
 #include <utils/String8.h>
 #include <utils/String16.h>
 #include <utils/Vector.h>
 #include <utils/threads.h>
+
 
 using namespace android;
 
@@ -38,7 +37,7 @@ private:
     sp<AStorageManager> mStorageManager;
 
 public:
-    explicit ObbActionListener(AStorageManager* mgr) :
+    ObbActionListener(AStorageManager* mgr) :
             mStorageManager(mgr)
     {}
 
@@ -78,20 +77,6 @@ protected:
             mCallbacks.push(cb);
         }
         return cb;
-    }
-
-    ObbInfo* getObbInfo(char* canonicalPath) {
-        sp<ObbFile> obbFile = new ObbFile();
-        if (!obbFile->readFrom(canonicalPath)) {
-            return nullptr;
-        }
-
-        String16 fileName(obbFile->getFileName());
-        String16 packageName(obbFile->getPackageName());
-        size_t length;
-        const unsigned char* salt = obbFile->getSalt(&length);
-        return new ObbInfo(fileName, packageName,
-                obbFile->getVersion(), obbFile->getFlags(), length, salt);
     }
 
 public:
@@ -149,18 +134,11 @@ public:
             return;
         }
 
-        sp<ObbInfo> obbInfo = getObbInfo(canonicalPath);
-        if (obbInfo == nullptr) {
-            ALOGE("Couldn't get obb info for %s: %s", canonicalPath, strerror(errno));
-            return;
-        }
-
         ObbCallback* cb = registerObbCallback(func, data);
         String16 rawPath16(rawPath);
         String16 canonicalPath16(canonicalPath);
         String16 key16(key);
-        mMountService->mountObb(rawPath16, canonicalPath16, key16, mObbActionListener,
-                cb->nonce, obbInfo);
+        mMountService->mountObb(rawPath16, canonicalPath16, key16, mObbActionListener, cb->nonce);
     }
 
     void unmountObb(const char* filename, const bool force, AStorageManager_obbCallbackFunc func, void* data) {

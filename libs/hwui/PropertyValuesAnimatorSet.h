@@ -17,8 +17,8 @@
 #pragma once
 
 #include "Animator.h"
-#include "Interpolator.h"
 #include "PropertyValuesHolder.h"
+#include "Interpolator.h"
 
 namespace android {
 namespace uirenderer {
@@ -26,9 +26,11 @@ namespace uirenderer {
 class PropertyAnimator {
 public:
     PropertyAnimator(PropertyValuesHolder* holder, Interpolator* interpolator, nsecs_t startDelay,
-                     nsecs_t duration, int repeatCount, RepeatMode repeatMode);
+            nsecs_t duration, int repeatCount, RepeatMode repeatMode);
     void setCurrentPlayTime(nsecs_t playTime);
-    nsecs_t getTotalDuration() { return mTotalDuration; }
+    nsecs_t getTotalDuration() {
+        return mTotalDuration;
+    }
     // fraction range: [0, 1], iteration range [0, repeatCount]
     void setFraction(float fraction, long iteration);
 
@@ -55,8 +57,8 @@ public:
     virtual void end() override;
 
     void addPropertyAnimator(PropertyValuesHolder* propertyValuesHolder,
-                             Interpolator* interpolators, int64_t startDelays, nsecs_t durations,
-                             int repeatCount, RepeatMode repeatMode);
+            Interpolator* interpolators, int64_t startDelays,
+            nsecs_t durations, int repeatCount, RepeatMode repeatMode);
     virtual uint32_t dirtyMask();
     bool isInfinite() { return mIsInfinite; }
     void setVectorDrawable(VectorDrawableRoot* vd) { mVectorDrawable = vd; }
@@ -75,7 +77,7 @@ private:
     void onFinished(BaseRenderNodeAnimator* animator);
     // Listener set from outside
     sp<AnimationListener> mOneShotListener;
-    std::vector<std::unique_ptr<PropertyAnimator> > mAnimators;
+    std::vector< std::unique_ptr<PropertyAnimator> > mAnimators;
     float mLastFraction = 0.0f;
     bool mInitialized = false;
     sp<VectorDrawableRoot> mVectorDrawable;
@@ -87,12 +89,12 @@ private:
 
 class PropertyAnimatorSetListener : public AnimationListener {
 public:
-    explicit PropertyAnimatorSetListener(PropertyValuesAnimatorSet* set) : mSet(set) {}
+    PropertyAnimatorSetListener(PropertyValuesAnimatorSet* set) : mSet(set) {}
     virtual void onAnimationFinished(BaseRenderNodeAnimator* animator) override;
 
 private:
     PropertyValuesAnimatorSet* mSet;
 };
 
-}  // namespace uirenderer
-}  // namespace android
+} // namespace uirenderer
+} // namespace android

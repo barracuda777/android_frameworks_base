@@ -20,16 +20,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import androidx.test.runner.AndroidJUnit4;
-
 import org.junit.Test;
-import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-@RunWith(AndroidJUnit4.class)
 public class SQLiteTokenizerTest {
     private List<String> getTokens(String sql) {
         return SQLiteTokenizer.tokenize(sql, SQLiteTokenizer.OPTION_NONE);

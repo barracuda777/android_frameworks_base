@@ -17,17 +17,14 @@
 #ifndef AAPT_JAVA_CLASSDEFINITION_H
 #define AAPT_JAVA_CLASSDEFINITION_H
 
-#include <string>
-#include <unordered_map>
-#include <vector>
-
-#include "android-base/macros.h"
-#include "androidfw/StringPiece.h"
-
 #include "Resource.h"
 #include "java/AnnotationProcessor.h"
-#include "text/Printer.h"
+#include "util/StringPiece.h"
 #include "util/Util.h"
+
+#include <android-base/macros.h>
+#include <sstream>
+#include <string>
 
 namespace aapt {
 
@@ -36,89 +33,74 @@ constexpr static size_t kAttribsPerLine = 4;
 constexpr static const char* kIndent = "  ";
 
 class ClassMember {
- public:
-  virtual ~ClassMember() = default;
+public:
+    virtual ~ClassMember() = default;
 
-  AnnotationProcessor* GetCommentBuilder() {
-    return &processor_;
-  }
+    AnnotationProcessor* getCommentBuilder() {
+        return &mProcessor;
+    }
 
-  virtual bool empty() const = 0;
+    virtual bool empty() const = 0;
 
-  virtual const std::string& GetName() const = 0;
+    virtual void writeToStream(const StringPiece& prefix, bool final, std::ostream* out) const {
+        mProcessor.writeToStream(out, prefix);
+    }
 
-  // Writes the class member to the Printer. Subclasses should derive this method
-  // to write their own data. Call this base method from the subclass to write out
-  // this member's comments/annotations.
-  virtual void Print(bool final, text::Printer* printer) const;
-
- private:
-  AnnotationProcessor processor_;
+private:
+    AnnotationProcessor mProcessor;
 };
 
 template <typename T>
 class PrimitiveMember : public ClassMember {
- public:
-  PrimitiveMember(const android::StringPiece& name, const T& val)
-      : name_(name.to_string()), val_(val) {}
-
-  bool empty() const override {
-    return false;
-  }
-
-  const std::string& GetName() const override {
-    return name_;
-  }
-
-  void Print(bool final, text::Printer* printer) const override {
-    using std::to_string;
-
-    ClassMember::Print(final, printer);
-
-    printer->Print("public static ");
-    if (final) {
-      printer->Print("final ");
+public:
+    PrimitiveMember(const StringPiece& name, const T& val) :
+            mName(name.toString()), mVal(val) {
     }
-    printer->Print("int ").Print(name_).Print("=").Print(to_string(val_)).Print(";");
-  }
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(PrimitiveMember);
+    bool empty() const override {
+        return false;
+    }
 
-  std::string name_;
-  T val_;
+    void writeToStream(const StringPiece& prefix, bool final, std::ostream* out) const override {
+        ClassMember::writeToStream(prefix, final, out);
+
+        *out << prefix << "public static " << (final ? "final " : "")
+             << "int " << mName << "=" << mVal << ";";
+    }
+
+private:
+    std::string mName;
+    T mVal;
+
+    DISALLOW_COPY_AND_ASSIGN(PrimitiveMember);
 };
 
-// Specialization for strings so they get the right type and are quoted with "".
+/**
+ * Specialization for strings so they get the right type and are quoted with "".
+ */
 template <>
 class PrimitiveMember<std::string> : public ClassMember {
- public:
-  PrimitiveMember(const android::StringPiece& name, const std::string& val)
-      : name_(name.to_string()), val_(val) {}
-
-  bool empty() const override {
-    return false;
-  }
-
-  const std::string& GetName() const override {
-    return name_;
-  }
-
-  void Print(bool final, text::Printer* printer) const override {
-    ClassMember::Print(final, printer);
-
-    printer->Print("public static ");
-    if (final) {
-      printer->Print("final ");
+public:
+    PrimitiveMember(const StringPiece& name, const std::string& val) :
+            mName(name.toString()), mVal(val) {
     }
-    printer->Print("String ").Print(name_).Print("=\"").Print(val_).Print("\";");
-  }
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(PrimitiveMember);
+    bool empty() const override {
+        return false;
+    }
 
-  std::string name_;
-  std::string val_;
+    void writeToStream(const StringPiece& prefix, bool final, std::ostream* out) const override {
+        ClassMember::writeToStream(prefix, final, out);
+
+        *out << prefix << "public static " << (final ? "final " : "")
+             << "String " << mName << "=\"" << mVal << "\";";
+    }
+
+private:
+    std::string mName;
+    std::string mVal;
+
+    DISALLOW_COPY_AND_ASSIGN(PrimitiveMember);
 };
 
 using IntMember = PrimitiveMember<uint32_t>;
@@ -127,118 +109,80 @@ using StringMember = PrimitiveMember<std::string>;
 
 template <typename T>
 class PrimitiveArrayMember : public ClassMember {
- public:
-  explicit PrimitiveArrayMember(const android::StringPiece& name) : name_(name.to_string()) {}
-
-  void AddElement(const T& val) {
-    elements_.push_back(val);
-  }
-
-  bool empty() const override {
-    return false;
-  }
-
-  const std::string& GetName() const override {
-    return name_;
-  }
-
-  void Print(bool final, text::Printer* printer) const override {
-    ClassMember::Print(final, printer);
-
-    printer->Print("public static final int[] ").Print(name_).Print("={");
-    printer->Indent();
-
-    const auto begin = elements_.begin();
-    const auto end = elements_.end();
-    for (auto current = begin; current != end; ++current) {
-      if (std::distance(begin, current) % kAttribsPerLine == 0) {
-        printer->Println();
-      }
-
-      printer->Print(to_string(*current));
-      if (std::distance(current, end) > 1) {
-        printer->Print(", ");
-      }
+public:
+    PrimitiveArrayMember(const StringPiece& name) :
+            mName(name.toString()) {
     }
-    printer->Println();
-    printer->Undent();
-    printer->Print("};");
-  }
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(PrimitiveArrayMember);
+    void addElement(const T& val) {
+        mElements.push_back(val);
+    }
 
-  std::string name_;
-  std::vector<T> elements_;
+    bool empty() const override {
+        return false;
+    }
+
+    void writeToStream(const StringPiece& prefix, bool final, std::ostream* out) const override {
+        ClassMember::writeToStream(prefix, final, out);
+
+        *out << prefix << "public static final int[] " << mName << "={";
+
+        const auto begin = mElements.begin();
+        const auto end = mElements.end();
+        for (auto current = begin; current != end; ++current) {
+            if (std::distance(begin, current) % kAttribsPerLine == 0) {
+                *out << "\n" << prefix << kIndent << kIndent;
+            }
+
+            *out << *current;
+            if (std::distance(current, end) > 1) {
+                *out << ", ";
+            }
+        }
+        *out << "\n" << prefix << kIndent <<"};";
+    }
+
+private:
+    std::string mName;
+    std::vector<T> mElements;
+
+    DISALLOW_COPY_AND_ASSIGN(PrimitiveArrayMember);
 };
 
 using ResourceArrayMember = PrimitiveArrayMember<ResourceId>;
 
-// Represents a method in a class.
-class MethodDefinition : public ClassMember {
- public:
-  // Expected method signature example: 'public static void onResourcesLoaded(int p)'.
-  explicit MethodDefinition(const android::StringPiece& signature)
-      : signature_(signature.to_string()) {}
-
-  // Appends a single statement to the method. It should include no newlines or else
-  // formatting may be broken.
-  void AppendStatement(const android::StringPiece& statement);
-
-  // Not quite the same as a name, but good enough.
-  const std::string& GetName() const override {
-    return signature_;
-  }
-
-  // Even if the method is empty, we always want to write the method signature.
-  bool empty() const override {
-    return false;
-  }
-
-  void Print(bool final, text::Printer* printer) const override;
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(MethodDefinition);
-
-  std::string signature_;
-  std::vector<std::string> statements_;
+enum class ClassQualifier {
+    None,
+    Static
 };
-
-enum class ClassQualifier { kNone, kStatic };
 
 class ClassDefinition : public ClassMember {
- public:
-  static void WriteJavaFile(const ClassDefinition* def, const android::StringPiece& package,
-                            bool final, io::OutputStream* out);
+public:
+    static bool writeJavaFile(const ClassDefinition* def,
+                              const StringPiece& package,
+                              bool final,
+                              std::ostream* out);
 
-  ClassDefinition(const android::StringPiece& name, ClassQualifier qualifier, bool createIfEmpty)
-      : name_(name.to_string()), qualifier_(qualifier), create_if_empty_(createIfEmpty) {}
+    ClassDefinition(const StringPiece& name, ClassQualifier qualifier, bool createIfEmpty) :
+            mName(name.toString()), mQualifier(qualifier), mCreateIfEmpty(createIfEmpty) {
+    }
 
-  enum class Result {
-    kAdded,
-    kOverridden,
-  };
+    void addMember(std::unique_ptr<ClassMember> member) {
+        mMembers.push_back(std::move(member));
+    }
 
-  Result AddMember(std::unique_ptr<ClassMember> member);
+    bool empty() const override;
+    void writeToStream(const StringPiece& prefix, bool final, std::ostream* out) const override;
 
-  bool empty() const override;
+private:
+    std::string mName;
+    ClassQualifier mQualifier;
+    bool mCreateIfEmpty;
+    std::vector<std::unique_ptr<ClassMember>> mMembers;
 
-  const std::string& GetName() const override {
-    return name_;
-  }
-
-  void Print(bool final, text::Printer* printer) const override;
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(ClassDefinition);
-
-  std::string name_;
-  ClassQualifier qualifier_;
-  bool create_if_empty_;
-  std::vector<std::unique_ptr<ClassMember>> ordered_members_;
-  std::unordered_map<android::StringPiece, size_t> indexed_members_;
+    DISALLOW_COPY_AND_ASSIGN(ClassDefinition);
 };
 
-}  // namespace aapt
+} // namespace aapt
 
 #endif /* AAPT_JAVA_CLASSDEFINITION_H */

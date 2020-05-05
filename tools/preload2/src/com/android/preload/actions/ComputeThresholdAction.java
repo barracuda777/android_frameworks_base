@@ -32,13 +32,14 @@ import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 import javax.swing.AbstractAction;
+import javax.swing.JFileChooser;
 
 /**
  * Compute an intersection of classes from the given data. A class is in the intersection if it
  * appears in at least the number of threshold given packages. An optional blacklist can be
  * used to filter classes from the intersection.
  */
-public class ComputeThresholdAction extends AbstractThreadedAction {
+public class ComputeThresholdAction extends AbstractAction implements Runnable {
     protected int threshold;
     private Pattern blacklist;
     private DumpTableModel dataTableModel;
@@ -71,7 +72,7 @@ public class ComputeThresholdAction extends AbstractThreadedAction {
             return;
         }
 
-        super.actionPerformed(e);
+        new Thread(this).start();
     }
 
     @Override
@@ -91,8 +92,10 @@ public class ComputeThresholdAction extends AbstractThreadedAction {
         boolean ret = Main.getUI().showConfirmDialog("Computed a set with " + result.size()
                 + " classes, would you like to save to disk?", "Save?");
         if (ret) {
-            File f = Main.getUI().showSaveDialog();
-            if (f != null) {
+            JFileChooser jfc = new JFileChooser();
+            int ret2 = jfc.showSaveDialog(Main.getUI());
+            if (ret2 == JFileChooser.APPROVE_OPTION) {
+                File f = jfc.getSelectedFile();
                 saveSet(result, f);
             }
         }

@@ -16,27 +16,22 @@
 
 package android.view.textservice;
 
-import android.annotation.NonNull;
-import android.annotation.SystemService;
-import android.annotation.UnsupportedAppUsage;
-import android.annotation.UserIdInt;
+import com.android.internal.textservice.ITextServicesManager;
+
 import android.content.Context;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.ServiceManager;
-import android.os.ServiceManager.ServiceNotFoundException;
-import android.os.UserHandle;
 import android.util.Log;
 import android.view.textservice.SpellCheckerSession.SpellCheckerSessionListener;
-
-import com.android.internal.textservice.ISpellCheckerSessionListener;
-import com.android.internal.textservice.ITextServicesManager;
 
 import java.util.Locale;
 
 /**
  * System API to the overall text services, which arbitrates interaction between applications
- * and text services.
+ * and text services. You can retrieve an instance of this interface with
+ * {@link Context#getSystemService(String) Context.getSystemService()}.
  *
  * The user can change the current text services in Settings. And also applications can specify
  * the target text services.
@@ -66,60 +61,32 @@ import java.util.Locale;
  * </ul>
  *
  */
-@SystemService(Context.TEXT_SERVICES_MANAGER_SERVICE)
 public final class TextServicesManager {
     private static final String TAG = TextServicesManager.class.getSimpleName();
     private static final boolean DBG = false;
 
-    /**
-     * @deprecated Do not use. Just kept because of {@link UnsupportedAppUsage} in
-     * {@link #getInstance()}.
-     */
-    @Deprecated
     private static TextServicesManager sInstance;
+    private static ITextServicesManager sService;
 
-    private final ITextServicesManager mService;
-
-    @UserIdInt
-    private final int mUserId;
-
-    private TextServicesManager(@UserIdInt int userId) throws ServiceNotFoundException {
-        mService = ITextServicesManager.Stub.asInterface(
-                ServiceManager.getServiceOrThrow(Context.TEXT_SERVICES_MANAGER_SERVICE));
-        mUserId = userId;
+    private TextServicesManager() {
+        if (sService == null) {
+            IBinder b = ServiceManager.getService(Context.TEXT_SERVICES_MANAGER_SERVICE);
+            sService = ITextServicesManager.Stub.asInterface(b);
+        }
     }
 
     /**
-     * The factory method of {@link TextServicesManager}.
-     *
-     * @param context {@link Context} from which {@link TextServicesManager} should be instantiated.
-     * @return {@link TextServicesManager} that is associated with {@link Context#getUserId()}.
-     * @throws ServiceNotFoundException When {@link TextServicesManager} is not available.
+     * Retrieve the global TextServicesManager instance, creating it if it doesn't already exist.
      * @hide
      */
-    @NonNull
-    public static TextServicesManager createInstance(@NonNull Context context)
-            throws ServiceNotFoundException {
-        return new TextServicesManager(context.getUserId());
-    }
-
-    /**
-     * @deprecated Do not use. Just kept because of {@link UnsupportedAppUsage} in
-     * {@link #getInstance()}.
-     * @hide
-     */
-    @UnsupportedAppUsage
     public static TextServicesManager getInstance() {
         synchronized (TextServicesManager.class) {
-            if (sInstance == null) {
-                try {
-                    sInstance = new TextServicesManager(UserHandle.myUserId());
-                } catch (ServiceNotFoundException e) {
-                    throw new IllegalStateException(e);
-                }
+            if (sInstance != null) {
+                return sInstance;
             }
-            return sInstance;
+            sInstance = new TextServicesManager();
         }
+        return sInstance;
     }
 
     /**
@@ -164,7 +131,7 @@ public final class TextServicesManager {
 
         final SpellCheckerInfo sci;
         try {
-            sci = mService.getCurrentSpellChecker(mUserId, null);
+            sci = sService.getCurrentSpellChecker(null);
         } catch (RemoteException e) {
             return null;
         }
@@ -202,13 +169,14 @@ public final class TextServicesManager {
         if (subtypeInUse == null) {
             return null;
         }
-        final SpellCheckerSession session = new SpellCheckerSession(sci, this, listener);
+        final SpellCheckerSession session = new SpellCheckerSession(
+                sci, sService, listener, subtypeInUse);
         try {
-            mService.getSpellCheckerService(mUserId, sci.getId(), subtypeInUse.getLocale(),
+            sService.getSpellCheckerService(sci.getId(), subtypeInUse.getLocale(),
                     session.getTextServicesSessionListener(),
                     session.getSpellCheckerSessionListener(), bundle);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return null;
         }
         return session;
     }
@@ -216,62 +184,102 @@ public final class TextServicesManager {
     /**
      * @hide
      */
-    @UnsupportedAppUsage
     public SpellCheckerInfo[] getEnabledSpellCheckers() {
         try {
-            final SpellCheckerInfo[] retval = mService.getEnabledSpellCheckers(mUserId);
+            final SpellCheckerInfo[] retval = sService.getEnabledSpellCheckers();
             if (DBG) {
                 Log.d(TAG, "getEnabledSpellCheckers: " + (retval != null ? retval.length : "null"));
             }
             return retval;
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            Log.e(TAG, "Error in getEnabledSpellCheckers: " + e);
+            return null;
         }
     }
 
     /**
      * @hide
      */
-    @UnsupportedAppUsage
     public SpellCheckerInfo getCurrentSpellChecker() {
         try {
             // Passing null as a locale for ICS
-            return mService.getCurrentSpellChecker(mUserId, null);
+            return sService.getCurrentSpellChecker(null);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            return null;
         }
     }
 
     /**
      * @hide
      */
-    @UnsupportedAppUsage
+    public void setCurrentSpellChecker(SpellCheckerInfo sci) {
+        try {
+            if (sci == null) {
+                throw new NullPointerException("SpellCheckerInfo is null.");
+            }
+            sService.setCurrentSpellChecker(null, sci.getId());
+        } catch (RemoteException e) {
+            Log.e(TAG, "Error in setCurrentSpellChecker: " + e);
+        }
+    }
+
+    /**
+     * @hide
+     */
     public SpellCheckerSubtype getCurrentSpellCheckerSubtype(
             boolean allowImplicitlySelectedSubtype) {
         try {
-            return mService.getCurrentSpellCheckerSubtype(mUserId, allowImplicitlySelectedSubtype);
+            if (sService == null) {
+                // TODO: This is a workaround. Needs to investigate why sService could be null
+                // here.
+                Log.e(TAG, "sService is null.");
+                return null;
+            }
+            // Passing null as a locale until we support multiple enabled spell checker subtypes.
+            return sService.getCurrentSpellCheckerSubtype(null, allowImplicitlySelectedSubtype);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            Log.e(TAG, "Error in getCurrentSpellCheckerSubtype: " + e);
+            return null;
         }
     }
 
     /**
      * @hide
      */
-    @UnsupportedAppUsage
-    public boolean isSpellCheckerEnabled() {
+    public void setSpellCheckerSubtype(SpellCheckerSubtype subtype) {
         try {
-            return mService.isSpellCheckerEnabled(mUserId);
+            final int hashCode;
+            if (subtype == null) {
+                hashCode = 0;
+            } else {
+                hashCode = subtype.hashCode();
+            }
+            sService.setCurrentSpellCheckerSubtype(null, hashCode);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            Log.e(TAG, "Error in setSpellCheckerSubtype:" + e);
         }
     }
 
-    void finishSpellCheckerService(ISpellCheckerSessionListener listener) {
+    /**
+     * @hide
+     */
+    public void setSpellCheckerEnabled(boolean enabled) {
         try {
-            mService.finishSpellCheckerService(mUserId, listener);
+            sService.setSpellCheckerEnabled(enabled);
         } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
+            Log.e(TAG, "Error in setSpellCheckerEnabled:" + e);
+        }
+    }
+
+    /**
+     * @hide
+     */
+    public boolean isSpellCheckerEnabled() {
+        try {
+            return sService.isSpellCheckerEnabled();
+        } catch (RemoteException e) {
+            Log.e(TAG, "Error in isSpellCheckerEnabled:" + e);
+            return false;
         }
     }
 }

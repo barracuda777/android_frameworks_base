@@ -16,59 +16,118 @@
 #ifndef RENDERSTATE_H
 #define RENDERSTATE_H
 
+#include "AssetAtlas.h"
+#include "Caches.h"
+#include "Glop.h"
+#include "renderstate/Blend.h"
+#include "renderstate/MeshState.h"
+#include "renderstate/OffscreenBufferPool.h"
+#include "renderstate/PixelBufferState.h"
+#include "renderstate/Scissor.h"
+#include "renderstate/Stencil.h"
 #include "utils/Macros.h"
 
-#include <utils/RefBase.h>
 #include <set>
+#include <GLES2/gl2.h>
+#include <GLES2/gl2ext.h>
+#include <ui/Region.h>
+#include <utils/Mutex.h>
+#include <utils/Functor.h>
+#include <utils/RefBase.h>
+#include <private/hwui/DrawGlInfo.h>
 
 namespace android {
 namespace uirenderer {
 
+class Caches;
 class Layer;
 
 namespace renderthread {
-class CacheManager;
+class CanvasContext;
 class RenderThread;
 }
 
-class IGpuContextCallback {
-public:
-    virtual void onContextDestroyed() = 0;
-protected:
-    virtual ~IGpuContextCallback() {}
-};
-
+// TODO: Replace Cache's GL state tracking with this. For now it's more a thin
 // wrapper of Caches for users to migrate to.
 class RenderState {
     PREVENT_COPY_AND_ASSIGN(RenderState);
     friend class renderthread::RenderThread;
-    friend class renderthread::CacheManager;
-
+    friend class Caches;
 public:
-    void registerContextCallback(IGpuContextCallback* cb) { mContextCallbacks.insert(cb); }
-    void removeContextCallback(IGpuContextCallback* cb) { mContextCallbacks.erase(cb); }
+    void onGLContextCreated();
+    void onGLContextDestroyed();
 
-    void registerLayer(Layer* layer) { mActiveLayers.insert(layer); }
-    void unregisterLayer(Layer* layer) { mActiveLayers.erase(layer); }
+    void flush(Caches::FlushMode flushMode);
+
+    void setViewport(GLsizei width, GLsizei height);
+    void getViewport(GLsizei* outWidth, GLsizei* outHeight);
+
+    void bindFramebuffer(GLuint fbo);
+    GLuint getFramebuffer() { return mFramebuffer; }
+    GLuint createFramebuffer();
+    void deleteFramebuffer(GLuint fbo);
+
+    void invokeFunctor(Functor* functor, DrawGlInfo::Mode mode, DrawGlInfo* info);
+
+    void debugOverdraw(bool enable, bool clear);
+
+    void registerLayer(Layer* layer) {
+        mActiveLayers.insert(layer);
+    }
+    void unregisterLayer(Layer* layer) {
+        mActiveLayers.erase(layer);
+    }
+
+    void registerCanvasContext(renderthread::CanvasContext* context) {
+        mRegisteredContexts.insert(context);
+    }
+
+    void unregisterCanvasContext(renderthread::CanvasContext* context) {
+        mRegisteredContexts.erase(context);
+    }
 
     // TODO: This system is a little clunky feeling, this could use some
     // more thinking...
     void postDecStrong(VirtualLightRefBase* object);
 
-    renderthread::RenderThread& getRenderThread() const { return mRenderThread; }
+    void render(const Glop& glop, const Matrix4& orthoMatrix);
+
+    AssetAtlas& assetAtlas() { return mAssetAtlas; }
+    Blend& blend() { return *mBlend; }
+    MeshState& meshState() { return *mMeshState; }
+    Scissor& scissor() { return *mScissor; }
+    Stencil& stencil() { return *mStencil; }
+
+    OffscreenBufferPool& layerPool() { return mLayerPool; }
+
+    void dump();
 
 private:
-    explicit RenderState(renderthread::RenderThread& thread);
-    ~RenderState() {}
+    void interruptForFunctorInvoke();
+    void resumeFromFunctorInvoke();
 
-    // Context notifications are only to be triggered by renderthread::RenderThread
-    void onContextCreated();
-    void onContextDestroyed();
+    RenderState(renderthread::RenderThread& thread);
+    ~RenderState();
 
-    std::set<IGpuContextCallback*> mContextCallbacks;
-    std::set<Layer*> mActiveLayers;
 
     renderthread::RenderThread& mRenderThread;
+    Caches* mCaches = nullptr;
+
+    Blend* mBlend = nullptr;
+    MeshState* mMeshState = nullptr;
+    Scissor* mScissor = nullptr;
+    Stencil* mStencil = nullptr;
+
+    OffscreenBufferPool mLayerPool;
+
+    AssetAtlas mAssetAtlas;
+    std::set<Layer*> mActiveLayers;
+    std::set<renderthread::CanvasContext*> mRegisteredContexts;
+
+    GLsizei mViewportWidth;
+    GLsizei mViewportHeight;
+    GLuint mFramebuffer;
+
     pthread_t mThreadId;
 };
 

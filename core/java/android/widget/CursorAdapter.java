@@ -16,7 +16,6 @@
 
 package android.widget;
 
-import android.annotation.UnsupportedAppUsage;
 import android.annotation.WorkerThread;
 import android.content.Context;
 import android.content.res.Resources;
@@ -44,7 +43,6 @@ public abstract class CursorAdapter extends BaseAdapter implements Filterable,
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
-    @UnsupportedAppUsage
     protected boolean mDataValid;
     /**
      * This field should be made private, so it is hidden from the SDK.
@@ -55,13 +53,11 @@ public abstract class CursorAdapter extends BaseAdapter implements Filterable,
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
-    @UnsupportedAppUsage
     protected Cursor mCursor;
     /**
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
-    @UnsupportedAppUsage
     protected Context mContext;
     /**
      * Context used for {@link #getDropDownView(int, View, ViewGroup)}.
@@ -72,19 +68,16 @@ public abstract class CursorAdapter extends BaseAdapter implements Filterable,
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
-    @UnsupportedAppUsage
     protected int mRowIDColumn;
     /**
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
-    @UnsupportedAppUsage
     protected ChangeObserver mChangeObserver;
     /**
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
-    @UnsupportedAppUsage
     protected DataSetObserver mDataSetObserver;
     /**
      * This field should be made private, so it is hidden from the SDK.
@@ -365,7 +358,7 @@ public abstract class CursorAdapter extends BaseAdapter implements Filterable,
      * closed.
      *
      * @param newCursor The new cursor to be used.
-     * @return Returns the previously set Cursor, or null if there was not one.
+     * @return Returns the previously set Cursor, or null if there wasa not one.
      * If the given new Cursor is the same instance is the previously set
      * Cursor, null is also returned.
      */

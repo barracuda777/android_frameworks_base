@@ -17,8 +17,6 @@
 #define JANKTRACKER_H_
 
 #include "FrameInfo.h"
-#include "ProfileData.h"
-#include "ProfileDataContainer.h"
 #include "renderthread/TimeLord.h"
 #include "utils/RingBuffer.h"
 
@@ -31,51 +29,57 @@
 namespace android {
 namespace uirenderer {
 
-enum class JankTrackerType {
-    // The default, means there's no description set
-    Generic,
-    // The profile data represents a package
-    Package,
-    // The profile data is for a specific window
-    Window,
+enum JankType {
+    kMissedVsync = 0,
+    kHighInputLatency,
+    kSlowUI,
+    kSlowSync,
+    kSlowRT,
+
+    // must be last
+    NUM_BUCKETS,
 };
 
-// Metadata about the ProfileData being collected
-struct ProfileDataDescription {
-    JankTrackerType type;
-    std::string name;
+// Try to keep as small as possible, should match ASHMEM_SIZE in
+// GraphicsStatsService.java
+struct ProfileData {
+    std::array<uint32_t, NUM_BUCKETS> jankTypeCounts;
+    // See comments on kBucket* constants for what this holds
+    std::array<uint32_t, 57> frameCounts;
+    // Holds a histogram of frame times in 50ms increments from 150ms to 5s
+    std::array<uint16_t, 97> slowFrameCounts;
+
+    uint32_t totalFrameCount;
+    uint32_t jankFrameCount;
+    nsecs_t statStartTime;
 };
 
 // TODO: Replace DrawProfiler with this
 class JankTracker {
 public:
-    explicit JankTracker(ProfileDataContainer* globalData, const DisplayInfo& displayInfo);
+    JankTracker(const DisplayInfo& displayInfo);
+    ~JankTracker();
 
-    void setDescription(JankTrackerType type, const std::string&& name) {
-        mDescription.type = type;
-        mDescription.name = name;
-    }
+    void addFrame(const FrameInfo& frame);
 
-    FrameInfo* startFrame() { return &mFrames.next(); }
-    void finishFrame(const FrameInfo& frame);
-
-    void dumpStats(int fd) { dumpData(fd, &mDescription, mData.get()); }
-    void dumpFrames(int fd);
+    void dump(int fd) { dumpData(mData, fd); }
     void reset();
 
-    // Exposed for FrameInfoVisualizer
-    // TODO: Figure out a better way to handle this
-    RingBuffer<FrameInfo, 120>& frames() { return mFrames; }
+    void switchStorageToAshmem(int ashmemfd);
+
+    uint32_t findPercentile(int p) { return findPercentile(mData, p); }
+
+    ANDROID_API static void dumpBuffer(const void* buffer, size_t bufsize, int fd);
 
 private:
+    void freeData();
     void setFrameInterval(nsecs_t frameIntervalNanos);
 
-    static void dumpData(int fd, const ProfileDataDescription* description,
-                         const ProfileData* data);
+    static uint32_t findPercentile(const ProfileData* data, int p);
+    static void dumpData(const ProfileData* data, int fd);
 
     std::array<int64_t, NUM_BUCKETS> mThresholds;
     int64_t mFrameInterval;
-    nsecs_t mSwapDeadline;
     // The amount of time we will erase from the total duration to account
     // for SF vsync offsets with HWC2 blocking dequeueBuffers.
     // (Vsync + mDequeueBlockTolerance) is the point at which we expect
@@ -84,12 +88,8 @@ private:
     // This is only used if we are in pipelined mode and are using HWC2,
     // otherwise it's 0.
     nsecs_t mDequeueTimeForgiveness = 0;
-    ProfileDataContainer mData;
-    ProfileDataContainer* mGlobalData;
-    ProfileDataDescription mDescription;
-
-    // Ring buffer large enough for 2 seconds worth of frames
-    RingBuffer<FrameInfo, 120> mFrames;
+    ProfileData* mData;
+    bool mIsMapped = false;
 };
 
 } /* namespace uirenderer */

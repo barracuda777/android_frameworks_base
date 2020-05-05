@@ -31,8 +31,7 @@ import android.test.suitebuilder.annotation.SmallTest;
 import java.util.List;
 
 /**
- * Tests for {@link ShortcutService#hasShortcutHostPermissionInner}, which includes
- * {@link ShortcutService#getDefaultLauncher}.
+ * Tests for {@link ShortcutService#hasShortcutHostPermissionInner}.
  */
 @SmallTest
 public class ShortcutManagerTest6 extends BaseShortcutManagerTest {

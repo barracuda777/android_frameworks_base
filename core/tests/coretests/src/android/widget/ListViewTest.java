@@ -16,19 +16,20 @@
 
 package android.widget;
 
+import android.test.suitebuilder.annotation.Suppress;
+import com.google.android.collect.Lists;
+
+import junit.framework.Assert;
+
 import android.content.Context;
 import android.content.res.Resources;
 import android.test.InstrumentationTestCase;
 import android.test.mock.MockContext;
+import android.test.suitebuilder.annotation.MediumTest;
 import android.view.View;
 import android.view.ViewGroup;
-
-import androidx.test.filters.MediumTest;
-import androidx.test.filters.Suppress;
-
-import com.google.android.collect.Lists;
-
-import junit.framework.Assert;
+import android.widget.ArrayAdapter;
+import android.widget.ListView;
 
 import java.util.List;
 

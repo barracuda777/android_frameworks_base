@@ -23,10 +23,9 @@
 #include "ZipEntry.h"
 #include <utils/Log.h>
 
-#include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
+#include <assert.h>
 
 using namespace android;
 

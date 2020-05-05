@@ -18,7 +18,6 @@ package com.android.internal.view;
 
 import com.android.internal.R;
 
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.Resources;
@@ -30,15 +29,12 @@ import android.os.Build;
  * about how the action bar should lay out and behave on the current device.
  */
 public class ActionBarPolicy {
-    @UnsupportedAppUsage
     private Context mContext;
 
-    @UnsupportedAppUsage
     public static ActionBarPolicy get(Context context) {
         return new ActionBarPolicy(context);
     }
 
-    @UnsupportedAppUsage
     private ActionBarPolicy(Context context) {
         mContext = context;
     }
@@ -48,7 +44,6 @@ public class ActionBarPolicy {
      * bar/action mode. This will be used to determine how many showAsAction="ifRoom" items can fit.
      * "always" items can override this.
      */
-    @UnsupportedAppUsage
     public int getMaxActionButtons() {
         final Configuration config = mContext.getResources().getConfiguration();
         final int width = config.screenWidthDp;
@@ -67,17 +62,14 @@ public class ActionBarPolicy {
             return 2;
         }
     }
-    @UnsupportedAppUsage
     public boolean showsOverflowMenuButton() {
         return true;
     }
 
-    @UnsupportedAppUsage
     public int getEmbeddedMenuWidthLimit() {
         return mContext.getResources().getDisplayMetrics().widthPixels / 2;
     }
 
-    @UnsupportedAppUsage
     public boolean hasEmbeddedTabs() {
         final int targetSdk = mContext.getApplicationInfo().targetSdkVersion;
         if (targetSdk >= Build.VERSION_CODES.JELLY_BEAN) {
@@ -93,7 +85,6 @@ public class ActionBarPolicy {
                 width >= 480 || (width >= 640 && height >= 480);
     }
 
-    @UnsupportedAppUsage
     public int getTabContainerHeight() {
         TypedArray a = mContext.obtainStyledAttributes(null, R.styleable.ActionBar,
                 com.android.internal.R.attr.actionBarStyle, 0);
@@ -115,7 +106,6 @@ public class ActionBarPolicy {
                 Build.VERSION_CODES.ICE_CREAM_SANDWICH;
     }
 
-    @UnsupportedAppUsage
     public int getStackedTabMaxWidth() {
         return mContext.getResources().getDimensionPixelSize(
                 R.dimen.action_bar_stacked_tab_max_width);

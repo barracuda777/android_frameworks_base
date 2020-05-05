@@ -20,19 +20,19 @@ import android.annotation.Nullable;
 import android.annotation.UserIdInt;
 import android.content.ComponentName;
 import android.content.pm.ShortcutManager;
-import android.metrics.LogMaker;
 import android.text.TextUtils;
 import android.text.format.Formatter;
 import android.util.ArrayMap;
 import android.util.Log;
 import android.util.Slog;
+import android.util.SparseArray;
 
+import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.logging.MetricsLogger;
-import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.internal.util.Preconditions;
-import com.android.server.pm.ShortcutService.DumpFilter;
 import com.android.server.pm.ShortcutService.InvalidFileFormatException;
+
+import libcore.util.Objects;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -44,7 +44,6 @@ import org.xmlpull.v1.XmlSerializer;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.Objects;
 import java.util.function.Consumer;
 
 /**
@@ -64,7 +63,6 @@ class ShortcutUser {
     // Suffix "2" was added to force rescan all packages after the next OTA.
     private static final String ATTR_LAST_APP_SCAN_TIME = "last-app-scan-time2";
     private static final String ATTR_LAST_APP_SCAN_OS_FINGERPRINT = "last-app-scan-fp";
-    private static final String ATTR_RESTORE_SOURCE_FINGERPRINT = "restore-from-fp";
     private static final String KEY_USER_ID = "userId";
     private static final String KEY_LAUNCHERS = "launchers";
     private static final String KEY_PACKAGES = "packages";
@@ -131,7 +129,6 @@ class ShortcutUser {
     private long mLastAppScanTime;
 
     private String mLastAppScanOsFingerprint;
-    private String mRestoreFromOsFingerprint;
 
     public ShortcutUser(ShortcutService service, int userId) {
         mService = service;
@@ -297,14 +294,13 @@ class ShortcutUser {
      */
     public void detectLocaleChange() {
         final String currentLocales = mService.injectGetLocaleTagsForUser(mUserId);
-        if (!TextUtils.isEmpty(mKnownLocales) && mKnownLocales.equals(currentLocales)) {
+        if (getKnownLocales().equals(currentLocales)) {
             return;
         }
         if (ShortcutService.DEBUG) {
-            Slog.d(TAG, "Locale changed from " + mKnownLocales + " to " + currentLocales
+            Slog.d(TAG, "Locale changed from " + currentLocales + " to " + mKnownLocales
                     + " for user " + mUserId);
         }
-
         mKnownLocales = currentLocales;
 
         forAllPackages(pkg -> {
@@ -345,13 +341,8 @@ class ShortcutUser {
                     mLastAppScanTime);
             ShortcutService.writeAttr(out, ATTR_LAST_APP_SCAN_OS_FINGERPRINT,
                     mLastAppScanOsFingerprint);
-            ShortcutService.writeAttr(out, ATTR_RESTORE_SOURCE_FINGERPRINT,
-                    mRestoreFromOsFingerprint);
 
             ShortcutService.writeTagValue(out, TAG_LAUNCHER, mLastKnownLauncher);
-        } else {
-            ShortcutService.writeAttr(out, ATTR_RESTORE_SOURCE_FINGERPRINT,
-                    mService.injectBuildFingerprint());
         }
 
         // Can't use forEachPackageItem due to the checked exceptions.
@@ -374,6 +365,9 @@ class ShortcutUser {
     private void saveShortcutPackageItem(XmlSerializer out,
             ShortcutPackageItem spi, boolean forBackup) throws IOException, XmlPullParserException {
         if (forBackup) {
+            if (!mService.shouldBackupApp(spi.getPackageName(), spi.getPackageUserId())) {
+                return; // Don't save.
+            }
             if (spi.getPackageUserId() != spi.getOwnerUserId()) {
                 return; // Don't save cross-user information.
             }
@@ -397,8 +391,6 @@ class ShortcutUser {
             ret.mLastAppScanTime = lastAppScanTime < currentTime ? lastAppScanTime : 0;
             ret.mLastAppScanOsFingerprint = ShortcutService.parseStringAttribute(parser,
                     ATTR_LAST_APP_SCAN_OS_FINGERPRINT);
-            ret.mRestoreFromOsFingerprint = ShortcutService.parseStringAttribute(parser,
-                    ATTR_RESTORE_SOURCE_FINGERPRINT);
             final int outerDepth = parser.getDepth();
             int type;
             while ((type = parser.next()) != XmlPullParser.END_DOCUMENT
@@ -465,7 +457,7 @@ class ShortcutUser {
     private void setLauncher(ComponentName launcherComponent, boolean allowPurgeLastKnown) {
         mCachedLauncher = launcherComponent; // Always update the in-memory cache.
 
-        if (Objects.equals(mLastKnownLauncher, launcherComponent)) {
+        if (Objects.equal(mLastKnownLauncher, launcherComponent)) {
             return;
         }
         if (!allowPurgeLastKnown && launcherComponent == null) {
@@ -500,10 +492,6 @@ class ShortcutUser {
         // without users interaction it's really not a big deal, so we just clear existing
         // ShortcutLauncher instances in mLaunchers and add all the restored ones here.
 
-        int[] restoredLaunchers = new int[1];
-        int[] restoredPackages = new int[1];
-        int[] restoredShortcuts = new int[1];
-
         mLaunchers.clear();
         restored.forAllLaunchers(sl -> {
             // If the app is already installed and allowbackup = false, then ignore the restored
@@ -513,7 +501,6 @@ class ShortcutUser {
                 return;
             }
             addLauncher(sl);
-            restoredLaunchers[0]++;
         });
         restored.forAllPackages(sp -> {
             // If the app is already installed and allowbackup = false, then ignore the restored
@@ -529,75 +516,50 @@ class ShortcutUser {
                         + " Existing non-manifeset shortcuts will be overwritten.");
             }
             addPackage(sp);
-            restoredPackages[0]++;
-            restoredShortcuts[0] += sp.getShortcutCount();
         });
         // Empty the launchers and packages in restored to avoid accidentally using them.
         restored.mLaunchers.clear();
         restored.mPackages.clear();
-
-        mRestoreFromOsFingerprint = restored.mRestoreFromOsFingerprint;
-
-        Slog.i(TAG, "Restored: L=" + restoredLaunchers[0]
-                + " P=" + restoredPackages[0]
-                + " S=" + restoredShortcuts[0]);
     }
 
-    public void dump(@NonNull PrintWriter pw, @NonNull String prefix, DumpFilter filter) {
-        if (filter.shouldDumpDetails()) {
-            pw.print(prefix);
-            pw.print("User: ");
-            pw.print(mUserId);
-            pw.print("  Known locales: ");
-            pw.print(mKnownLocales);
-            pw.print("  Last app scan: [");
-            pw.print(mLastAppScanTime);
-            pw.print("] ");
-            pw.println(ShortcutService.formatTime(mLastAppScanTime));
+    public void dump(@NonNull PrintWriter pw, @NonNull String prefix) {
+        pw.print(prefix);
+        pw.print("User: ");
+        pw.print(mUserId);
+        pw.print("  Known locales: ");
+        pw.print(mKnownLocales);
+        pw.print("  Last app scan: [");
+        pw.print(mLastAppScanTime);
+        pw.print("] ");
+        pw.print(ShortcutService.formatTime(mLastAppScanTime));
+        pw.print("  Last app scan FP: ");
+        pw.print(mLastAppScanOsFingerprint);
+        pw.println();
 
-            prefix += prefix + "  ";
+        prefix += prefix + "  ";
 
-            pw.print(prefix);
-            pw.print("Last app scan FP: ");
-            pw.println(mLastAppScanOsFingerprint);
+        pw.print(prefix);
+        pw.print("Cached launcher: ");
+        pw.print(mCachedLauncher);
+        pw.println();
 
-            pw.print(prefix);
-            pw.print("Restore from FP: ");
-            pw.print(mRestoreFromOsFingerprint);
-            pw.println();
-
-
-            pw.print(prefix);
-            pw.print("Cached launcher: ");
-            pw.print(mCachedLauncher);
-            pw.println();
-
-            pw.print(prefix);
-            pw.print("Last known launcher: ");
-            pw.print(mLastKnownLauncher);
-            pw.println();
-        }
+        pw.print(prefix);
+        pw.print("Last known launcher: ");
+        pw.print(mLastKnownLauncher);
+        pw.println();
 
         for (int i = 0; i < mLaunchers.size(); i++) {
-            ShortcutLauncher launcher = mLaunchers.valueAt(i);
-            if (filter.isPackageMatch(launcher.getPackageName())) {
-                launcher.dump(pw, prefix, filter);
-            }
+            mLaunchers.valueAt(i).dump(pw, prefix);
         }
 
         for (int i = 0; i < mPackages.size(); i++) {
-            ShortcutPackage pkg = mPackages.valueAt(i);
-            if (filter.isPackageMatch(pkg.getPackageName())) {
-                pkg.dump(pw, prefix, filter);
-            }
+            mPackages.valueAt(i).dump(pw, prefix);
         }
 
-        if (filter.shouldDumpDetails()) {
-            pw.println();
-            pw.print(prefix);
-            pw.println("Bitmap directories: ");
-            dumpDirectorySize(pw, prefix + "  ", mService.getUserBitmapFilePath(mUserId));
-        }
+        pw.println();
+        pw.print(prefix);
+        pw.println("Bitmap directories: ");
+        dumpDirectorySize(pw, prefix + "  ", mService.getUserBitmapFilePath(mUserId));
     }
 
     private void dumpDirectorySize(@NonNull PrintWriter pw,
@@ -649,24 +611,5 @@ class ShortcutUser {
         }
 
         return result;
-    }
-
-    void logSharingShortcutStats(MetricsLogger logger) {
-        int packageWithShareTargetsCount = 0;
-        int totalSharingShortcutCount = 0;
-        for (int i = 0; i < mPackages.size(); i++) {
-            if (mPackages.valueAt(i).hasShareTargets()) {
-                packageWithShareTargetsCount++;
-                totalSharingShortcutCount += mPackages.valueAt(i).getSharingShortcutCount();
-            }
-        }
-
-        final LogMaker logMaker = new LogMaker(MetricsEvent.ACTION_SHORTCUTS_CHANGED);
-        logger.write(logMaker.setType(MetricsEvent.SHORTCUTS_CHANGED_USER_ID)
-                .setSubtype(mUserId));
-        logger.write(logMaker.setType(MetricsEvent.SHORTCUTS_CHANGED_PACKAGE_COUNT)
-                .setSubtype(packageWithShareTargetsCount));
-        logger.write(logMaker.setType(MetricsEvent.SHORTCUTS_CHANGED_SHORTCUT_COUNT)
-                .setSubtype(totalSharingShortcutCount));
     }
 }

@@ -21,7 +21,6 @@ import android.content.res.TypedArray;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.inspector.InspectableProperty;
 import android.widget.RemoteViews.RemoteView;
 
 
@@ -160,12 +159,10 @@ public class AbsoluteLayout extends ViewGroup {
         /**
          * The horizontal, or X, location of the child within the view group.
          */
-        @InspectableProperty(name = "layout_x")
         public int x;
         /**
          * The vertical, or Y, location of the child within the view group.
          */
-        @InspectableProperty(name = "layout_y")
         public int y;
 
         /**

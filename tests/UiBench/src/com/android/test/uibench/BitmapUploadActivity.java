@@ -23,7 +23,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.os.Bundle;
-import androidx.appcompat.app.AppCompatActivity;
+import android.support.v7.app.AppCompatActivity;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.view.View;
@@ -80,7 +80,7 @@ public class BitmapUploadActivity extends AppCompatActivity {
         setContentView(R.layout.activity_bitmap_upload);
 
         // animate color to force bitmap uploads
-        UploadView uploadView = findViewById(R.id.upload_view);
+        UploadView uploadView = (UploadView) findViewById(R.id.upload_view);
         ObjectAnimator colorValueAnimator = ObjectAnimator.ofInt(uploadView, "colorValue", 0, 255);
         colorValueAnimator.setRepeatMode(ValueAnimator.REVERSE);
         colorValueAnimator.setRepeatCount(ValueAnimator.INFINITE);

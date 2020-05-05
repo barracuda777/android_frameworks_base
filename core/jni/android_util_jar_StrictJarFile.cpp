@@ -20,28 +20,25 @@
 #include <memory>
 #include <string>
 
-#include <log/log.h>
-
-#include <nativehelper/jni_macros.h>
-#include <nativehelper/JNIHelp.h>
-#include <nativehelper/ScopedLocalRef.h>
-#include <nativehelper/ScopedUtfChars.h>
-
-#include "core_jni_helpers.h"
+#include "JNIHelp.h"
+#include "JniConstants.h"
+#include "ScopedLocalRef.h"
+#include "ScopedUtfChars.h"
+#include "jni.h"
 #include "ziparchive/zip_archive.h"
+#include "cutils/log.h"
 
-namespace {
+namespace android {
 
-jclass zipEntryClass;
 // The method ID for ZipEntry.<init>(String,String,JJJIII[BJJ)
-jmethodID zipEntryCtor;
+static jmethodID zipEntryCtor;
 
-void throwIoException(JNIEnv* env, const int32_t errorCode) {
+static void throwIoException(JNIEnv* env, const int32_t errorCode) {
   jniThrowException(env, "java/io/IOException", ErrorCodeString(errorCode));
 }
 
-jobject newZipEntry(JNIEnv* env, const ZipEntry& entry, jstring entryName) {
-  return env->NewObject(zipEntryClass,
+static jobject newZipEntry(JNIEnv* env, const ZipEntry& entry, jstring entryName) {
+  return env->NewObject(JniConstants::zipEntryClass,
                         zipEntryCtor,
                         entryName,
                         NULL,  // comment
@@ -54,16 +51,14 @@ jobject newZipEntry(JNIEnv* env, const ZipEntry& entry, jstring entryName) {
                         static_cast<jlong>(entry.offset));
 }
 
-jlong StrictJarFile_nativeOpenJarFile(JNIEnv* env, jobject, jstring name, jint fd) {
-  // Name argument is used for logging, and can be any string.
-  ScopedUtfChars nameChars(env, name);
-  if (nameChars.c_str() == NULL) {
+static jlong StrictJarFile_nativeOpenJarFile(JNIEnv* env, jobject, jstring fileName) {
+  ScopedUtfChars fileChars(env, fileName);
+  if (fileChars.c_str() == NULL) {
     return static_cast<jlong>(-1);
   }
 
   ZipArchiveHandle handle;
-  int32_t error = OpenArchiveFd(fd, nameChars.c_str(), &handle,
-      false /* owned by Java side */);
+  int32_t error = OpenArchive(fileChars.c_str(), &handle);
   if (error) {
     CloseArchive(handle);
     throwIoException(env, error);
@@ -92,7 +87,7 @@ class IterationHandle {
 };
 
 
-jlong StrictJarFile_nativeStartIteration(JNIEnv* env, jobject, jlong nativeHandle,
+static jlong StrictJarFile_nativeStartIteration(JNIEnv* env, jobject, jlong nativeHandle,
                                                 jstring prefix) {
   ScopedUtfChars prefixChars(env, prefix);
   if (prefixChars.c_str() == NULL) {
@@ -118,7 +113,7 @@ jlong StrictJarFile_nativeStartIteration(JNIEnv* env, jobject, jlong nativeHandl
   return reinterpret_cast<jlong>(handle);
 }
 
-jobject StrictJarFile_nativeNextEntry(JNIEnv* env, jobject, jlong iterationHandle) {
+static jobject StrictJarFile_nativeNextEntry(JNIEnv* env, jobject, jlong iterationHandle) {
   ZipEntry data;
   ZipString entryName;
 
@@ -137,7 +132,7 @@ jobject StrictJarFile_nativeNextEntry(JNIEnv* env, jobject, jlong iterationHandl
   return newZipEntry(env, data, entryNameString.get());
 }
 
-jobject StrictJarFile_nativeFindEntry(JNIEnv* env, jobject, jlong nativeHandle,
+static jobject StrictJarFile_nativeFindEntry(JNIEnv* env, jobject, jlong nativeHandle,
                                              jstring entryName) {
   ScopedUtfChars entryNameChars(env, entryName);
   if (entryNameChars.c_str() == NULL) {
@@ -154,27 +149,26 @@ jobject StrictJarFile_nativeFindEntry(JNIEnv* env, jobject, jlong nativeHandle,
   return newZipEntry(env, data, entryName);
 }
 
-void StrictJarFile_nativeClose(JNIEnv*, jobject, jlong nativeHandle) {
+static void StrictJarFile_nativeClose(JNIEnv*, jobject, jlong nativeHandle) {
   CloseArchive(reinterpret_cast<ZipArchiveHandle>(nativeHandle));
 }
 
-JNINativeMethod gMethods[] = {
-  NATIVE_METHOD(StrictJarFile, nativeOpenJarFile, "(Ljava/lang/String;I)J"),
+static JNINativeMethod gMethods[] = {
+  NATIVE_METHOD(StrictJarFile, nativeOpenJarFile, "(Ljava/lang/String;)J"),
   NATIVE_METHOD(StrictJarFile, nativeStartIteration, "(JLjava/lang/String;)J"),
   NATIVE_METHOD(StrictJarFile, nativeNextEntry, "(J)Ljava/util/zip/ZipEntry;"),
   NATIVE_METHOD(StrictJarFile, nativeFindEntry, "(JLjava/lang/String;)Ljava/util/zip/ZipEntry;"),
   NATIVE_METHOD(StrictJarFile, nativeClose, "(J)V"),
 };
 
-}  // namespace
-
-namespace android {
-
 int register_android_util_jar_StrictJarFile(JNIEnv* env) {
-  zipEntryClass = MakeGlobalRefOrDie(env, FindClassOrDie(env, "java/util/zip/ZipEntry"));
-  zipEntryCtor = GetMethodIDOrDie(env, zipEntryClass, "<init>",
-                                  "(Ljava/lang/String;Ljava/lang/String;JJJII[BJ)V");
-  return jniRegisterNativeMethods(env, "android/util/jar/StrictJarFile", gMethods, NELEM(gMethods));
+  jniRegisterNativeMethods(env, "android/util/jar/StrictJarFile", gMethods, NELEM(gMethods));
+
+  zipEntryCtor = env->GetMethodID(JniConstants::zipEntryClass, "<init>",
+      "(Ljava/lang/String;Ljava/lang/String;JJJII[BJ)V");
+  LOG_ALWAYS_FATAL_IF(zipEntryCtor == NULL, "Unable to find ZipEntry.<init>");
+
+  return 0;
 }
 
 }; // namespace android

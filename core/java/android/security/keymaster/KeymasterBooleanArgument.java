@@ -16,7 +16,6 @@
 
 package android.security.keymaster;
 
-import android.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 
 /**
@@ -37,7 +36,6 @@ class KeymasterBooleanArgument extends KeymasterArgument {
         }
     }
 
-    @UnsupportedAppUsage
     public KeymasterBooleanArgument(int tag, Parcel in) {
         super(tag);
     }

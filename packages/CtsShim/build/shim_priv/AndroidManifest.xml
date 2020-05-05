@@ -20,14 +20,13 @@
     package="com.android.cts.priv.ctsshim" >
 
     <uses-sdk android:minSdkVersion="24"
-        android:targetSdkVersion="28" />
+        android:targetSdkVersion="24" />
 
     <restrict-update
         android:hash="__HASH__" />
 
     <application
         android:hasCode="false"
-        android:multiArch="true"
         tools:ignore="AllowBackup,MissingApplicationIcon" >
 
         <!-- These activities don't actually exist; define them just to test the filters !-->

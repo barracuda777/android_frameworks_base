@@ -29,14 +29,12 @@ import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
+import android.os.UserHandle;
 import android.os.ParcelFileDescriptor.AutoCloseInputStream;
 import android.os.SystemClock;
-import android.os.UserHandle;
 import android.provider.Settings;
 import android.test.InstrumentationTestCase;
 import android.util.Log;
-
-import libcore.io.Streams;
 
 import com.google.mockwebserver.MockResponse;
 import com.google.mockwebserver.MockWebServer;
@@ -55,6 +53,8 @@ import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
+
+import libcore.io.Streams;
 
 /**
  * Base class for Instrumented tests for the Download Manager.
@@ -82,6 +82,9 @@ public class DownloadManagerBaseTest extends InstrumentationTestCase {
 
     protected static final int WAIT_FOR_DOWNLOAD_POLL_TIME = 1 * 1000;  // 1 second
     protected static final int MAX_WAIT_FOR_DOWNLOAD_TIME = 30 * 1000; // 30 seconds
+
+    protected static final int DOWNLOAD_TO_SYSTEM_CACHE = 1;
+    protected static final int DOWNLOAD_TO_DOWNLOAD_CACHE_DIR = 2;
 
     // Just a few popular file types used to return from a download
     protected enum DownloadFileType {
@@ -239,12 +242,6 @@ public class DownloadManagerBaseTest extends InstrumentationTestCase {
         mServer.play();
         mReceiver = registerNewMultipleDownloadsReceiver();
         // Note: callers overriding this should call mServer.play() with the desired port #
-    }
-
-    @Override
-    public void tearDown() throws Exception {
-        mServer.shutdown();
-        super.tearDown();
     }
 
     /**
@@ -920,13 +917,13 @@ public class DownloadManagerBaseTest extends InstrumentationTestCase {
      * @param body The body to return in the response from the server
      */
     protected long doStandardEnqueue(byte[] body) throws Exception {
-        return enqueueDownloadRequest(body);
+        return enqueueDownloadRequest(body, DOWNLOAD_TO_DOWNLOAD_CACHE_DIR);
     }
 
-    protected long enqueueDownloadRequest(byte[] body) throws Exception {
+    protected long enqueueDownloadRequest(byte[] body, int location) throws Exception {
         // Prepare the mock server with a standard response
         mServer.enqueue(buildResponse(HTTP_OK, body));
-        return doEnqueue();
+        return doEnqueue(location);
     }
 
     /**
@@ -935,13 +932,13 @@ public class DownloadManagerBaseTest extends InstrumentationTestCase {
      * @param body The body to return in the response from the server, contained in the file
      */
     protected long doStandardEnqueue(File body) throws Exception {
-        return enqueueDownloadRequest(body);
+        return enqueueDownloadRequest(body, DOWNLOAD_TO_DOWNLOAD_CACHE_DIR);
     }
 
-    protected long enqueueDownloadRequest(File body) throws Exception {
+    protected long enqueueDownloadRequest(File body, int location) throws Exception {
         // Prepare the mock server with a standard response
         mServer.enqueue(buildResponse(HTTP_OK, body));
-        return doEnqueue();
+        return doEnqueue(location);
     }
 
     /**
@@ -949,12 +946,16 @@ public class DownloadManagerBaseTest extends InstrumentationTestCase {
      * doing a standard enqueue request to the server.
      */
     protected long doCommonStandardEnqueue() throws Exception {
-        return doEnqueue();
+        return doEnqueue(DOWNLOAD_TO_DOWNLOAD_CACHE_DIR);
     }
 
-    private long doEnqueue() throws Exception {
+    private long doEnqueue(int location) throws Exception {
         Uri uri = getServerUri(DEFAULT_FILENAME);
         Request request = new Request(uri).setTitle(DEFAULT_FILENAME);
+        if (location == DOWNLOAD_TO_SYSTEM_CACHE) {
+            request.setDestinationToSystemCache();
+        }
+
         return mDownloadManager.enqueue(request);
     }
 
@@ -1019,8 +1020,8 @@ public class DownloadManagerBaseTest extends InstrumentationTestCase {
     /**
      * Helper that does the actual basic download verification.
      */
-    protected long doBasicDownload(byte[] blobData) throws Exception {
-        long dlRequest = enqueueDownloadRequest(blobData);
+    protected long doBasicDownload(byte[] blobData, int location) throws Exception {
+        long dlRequest = enqueueDownloadRequest(blobData, location);
 
         // wait for the download to complete
         waitForDownloadOrTimeout(dlRequest);

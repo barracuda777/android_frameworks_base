@@ -17,57 +17,48 @@
 #ifndef AAPT_PROCESS_IRESOURCETABLECONSUMER_H
 #define AAPT_PROCESS_IRESOURCETABLECONSUMER_H
 
-#include <iostream>
-#include <list>
-#include <sstream>
-
 #include "Diagnostics.h"
 #include "NameMangler.h"
 #include "Resource.h"
 #include "ResourceValues.h"
 #include "Source.h"
 
+#include <iostream>
+#include <list>
+#include <sstream>
+
 namespace aapt {
 
 class ResourceTable;
 class SymbolTable;
 
-// The type of package to build.
-enum class PackageType {
-  kApp,
-  kSharedLib,
-  kStaticLib,
-};
-
 struct IAaptContext {
-  virtual ~IAaptContext() = default;
+    virtual ~IAaptContext() = default;
 
-  virtual PackageType GetPackageType() = 0;
-  virtual SymbolTable* GetExternalSymbols() = 0;
-  virtual IDiagnostics* GetDiagnostics() = 0;
-  virtual const std::string& GetCompilationPackage() = 0;
-  virtual uint8_t GetPackageId() = 0;
-  virtual NameMangler* GetNameMangler() = 0;
-  virtual bool IsVerbose() = 0;
-  virtual int GetMinSdkVersion() = 0;
+    virtual SymbolTable* getExternalSymbols() = 0;
+    virtual IDiagnostics* getDiagnostics() = 0;
+    virtual const std::u16string& getCompilationPackage() = 0;
+    virtual uint8_t getPackageId() = 0;
+    virtual NameMangler* getNameMangler() = 0;
+    virtual bool verbose() = 0;
 };
 
 struct IResourceTableConsumer {
-  virtual ~IResourceTableConsumer() = default;
+    virtual ~IResourceTableConsumer() = default;
 
-  virtual bool Consume(IAaptContext* context, ResourceTable* table) = 0;
+    virtual bool consume(IAaptContext* context, ResourceTable* table) = 0;
 };
 
 namespace xml {
-class XmlResource;
+struct XmlResource;
 }
 
 struct IXmlResourceConsumer {
-  virtual ~IXmlResourceConsumer() = default;
+    virtual ~IXmlResourceConsumer() = default;
 
-  virtual bool Consume(IAaptContext* context, xml::XmlResource* resource) = 0;
+    virtual bool consume(IAaptContext* context, xml::XmlResource* resource) = 0;
 };
 
-}  // namespace aapt
+} // namespace aapt
 
 #endif /* AAPT_PROCESS_IRESOURCETABLECONSUMER_H */

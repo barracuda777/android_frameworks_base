@@ -16,25 +16,15 @@
 
 package android.text;
 
-import static org.junit.Assert.fail;
-
-import android.platform.test.annotations.Presubmit;
 import android.text.Layout.Directions;
 import android.text.StaticLayoutTest.LayoutBuilder;
-
-import androidx.test.filters.SmallTest;
-import androidx.test.runner.AndroidJUnit4;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
 
 import java.util.Arrays;
 import java.util.Formatter;
 
-@Presubmit
-@SmallTest
-@RunWith(AndroidJUnit4.class)
-public class StaticLayoutDirectionsTest {
+import junit.framework.TestCase;
+
+public class StaticLayoutDirectionsTest extends TestCase {
     private static final char ALEF = '\u05d0';
 
     private static Directions dirs(int ... dirs) {
@@ -116,7 +106,7 @@ public class StaticLayoutDirectionsTest {
         return new String(chars, 0, chars.length);
     }
 
-    @Test
+    // @SmallTest
     public void testDirections() {
         StringBuilder buf = new StringBuilder("\n");
         Formatter f = new Formatter(buf);
@@ -131,7 +121,7 @@ public class StaticLayoutDirectionsTest {
         }
     }
 
-    @Test
+    // @SmallTest
     public void testTrailingWhitespace() {
         LayoutBuilder b = StaticLayoutTest.builder();
         b.setText(pseudoBidiToReal("Ab   c"));
@@ -146,7 +136,6 @@ public class StaticLayoutDirectionsTest {
         expectDirections("split line", expected, result);
     }
 
-    @Test
     public void testNextToRightOf() {
         LayoutBuilder b = StaticLayoutTest.builder();
         b.setText(pseudoBidiToReal("aA1B2"));
@@ -170,7 +159,6 @@ public class StaticLayoutDirectionsTest {
         }
     }
 
-    @Test
     public void testNextToLeftOf() {
         LayoutBuilder b = StaticLayoutTest.builder();
         b.setText(pseudoBidiToReal("aA1B2"));
@@ -186,6 +174,40 @@ public class StaticLayoutDirectionsTest {
             n = t;
         }
     }
+
+    // utility, not really a test
+    /*
+    public void testMeasureText1() {
+        LayoutBuilder b = StaticLayoutTest.builder();
+        String text = "ABC"; // "abAB"
+        b.setText(pseudoBidiToReal(text));
+        Layout l = b.build();
+        Directions directions = l.getLineDirections(0);
+
+        TextPaint workPaint = new TextPaint();
+
+        int dir = -1; // LEFT_TO_RIGHT
+        boolean trailing = true;
+        boolean alt = true;
+        do {
+            dir = -dir;
+            do {
+                trailing = !trailing;
+                for (int offset = 0, end = b.text.length(); offset <= end; ++offset) {
+                    float width = Layout.measureText(b.paint,
+                            workPaint,
+                            b.text,
+                            0, offset, end,
+                            dir, directions,
+                            trailing, false,
+                            null);
+                    Log.i("BIDI", "dir: " + dir + " trail: " + trailing +
+                            " offset: " + offset + " width: " + width);
+                }
+            } while (!trailing);
+        } while (dir > 0);
+    }
+    */
 
     // utility for displaying arrays in hex
     private static String hexArray(int[] array) {

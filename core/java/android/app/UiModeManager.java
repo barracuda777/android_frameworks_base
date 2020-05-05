@@ -17,14 +17,12 @@
 package android.app;
 
 import android.annotation.IntDef;
-import android.annotation.SystemService;
 import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.os.RemoteException;
 import android.os.ServiceManager;
-import android.os.ServiceManager.ServiceNotFoundException;
+import android.util.Log;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -50,8 +48,11 @@ import java.lang.annotation.RetentionPolicy;
  * displayed allowing the user to exit dock mode.  Thus the dock mode
  * represented here may be different than the current state of the underlying
  * dock event broadcast.
+ *
+ * <p>You do not instantiate this class directly; instead, retrieve it through
+ * {@link android.content.Context#getSystemService
+ * Context.getSystemService(Context.UI_MODE_SERVICE)}.
  */
-@SystemService(Context.UI_MODE_SERVICE)
 public class UiModeManager {
     private static final String TAG = "UiModeManager";
 
@@ -98,11 +99,7 @@ public class UiModeManager {
     public static String ACTION_EXIT_DESK_MODE = "android.app.action.EXIT_DESK_MODE";
 
     /** @hide */
-    @IntDef(prefix = { "MODE_" }, value = {
-            MODE_NIGHT_AUTO,
-            MODE_NIGHT_NO,
-            MODE_NIGHT_YES
-    })
+    @IntDef({MODE_NIGHT_AUTO, MODE_NIGHT_NO, MODE_NIGHT_YES})
     @Retention(RetentionPolicy.SOURCE)
     public @interface NightMode {}
 
@@ -126,10 +123,9 @@ public class UiModeManager {
 
     private IUiModeManager mService;
 
-    @UnsupportedAppUsage
-    /*package*/ UiModeManager() throws ServiceNotFoundException {
+    /*package*/ UiModeManager() {
         mService = IUiModeManager.Stub.asInterface(
-                ServiceManager.getServiceOrThrow(Context.UI_MODE_SERVICE));
+                ServiceManager.getService(Context.UI_MODE_SERVICE));
     }
 
     /**
@@ -197,9 +193,8 @@ public class UiModeManager {
      * {@link Configuration#UI_MODE_TYPE_DESK Configuration.UI_MODE_TYPE_DESK},
      * {@link Configuration#UI_MODE_TYPE_CAR Configuration.UI_MODE_TYPE_CAR},
      * {@link Configuration#UI_MODE_TYPE_TELEVISION Configuration.UI_MODE_TYPE_TELEVISION},
-     * {@link Configuration#UI_MODE_TYPE_APPLIANCE Configuration.UI_MODE_TYPE_APPLIANCE},
-     * {@link Configuration#UI_MODE_TYPE_WATCH Configuration.UI_MODE_TYPE_WATCH}, or
-     * {@link Configuration#UI_MODE_TYPE_VR_HEADSET Configuration.UI_MODE_TYPE_VR_HEADSET}.
+     * {@link Configuration#UI_MODE_TYPE_APPLIANCE Configuration.UI_MODE_TYPE_APPLIANCE}, or
+     * {@link Configuration#UI_MODE_TYPE_WATCH Configuration.UI_MODE_TYPE_WATCH}.
      */
     public int getCurrentModeType() {
         if (mService != null) {
@@ -213,7 +208,7 @@ public class UiModeManager {
     }
 
     /**
-     * Sets the system-wide night mode.
+     * Sets the night mode.
      * <p>
      * The mode can be one of:
      * <ul>
@@ -229,17 +224,7 @@ public class UiModeManager {
      * <strong>Note:</strong> On API 22 and below, changes to the night mode
      * are only effective when the {@link Configuration#UI_MODE_TYPE_CAR car}
      * or {@link Configuration#UI_MODE_TYPE_DESK desk} mode is enabled on a
-     * device. On API 23 through API 28, changes to night mode are always effective.
-     * <p>
-     * Starting in API 29, when the device is in car mode and this method is called, night mode
-     * will change, but the new setting is not persisted and the previously persisted setting
-     * will be restored when the device exits car mode.
-     * <p>
-     * Changes to night mode take effect globally and will result in a configuration change
-     * (and potentially an Activity lifecycle event) being applied to all running apps.
-     * Developers interested in an app-local implementation of night mode should consider using
-     * {@link android.support.v7.app.AppCompatDelegate#setDefaultNightMode(int)} to manage the
-     * -night qualifier locally.
+     * device. Starting in API 23, changes to night mode are always effective.
      *
      * @param mode the night mode to set
      * @see #getNightMode()
@@ -316,19 +301,5 @@ public class UiModeManager {
             }
         }
         return true;
-    }
-
-    /**
-     * @hide*
-     */
-    public boolean setNightModeActivated(boolean active) {
-        if (mService != null) {
-            try {
-                return mService.setNightModeActivated(active);
-            } catch (RemoteException e) {
-                throw e.rethrowFromSystemServer();
-            }
-        }
-        return false;
     }
 }

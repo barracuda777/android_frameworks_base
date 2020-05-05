@@ -16,11 +16,8 @@
 
 package android.net;
 
-import android.annotation.UnsupportedAppUsage;
-import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.util.Slog;
 
 /**
  * Snapshot of network state.
@@ -28,14 +25,11 @@ import android.util.Slog;
  * @hide
  */
 public class NetworkState implements Parcelable {
-    private static final boolean SANITY_CHECK_ROAMING = false;
-
     public static final NetworkState EMPTY = new NetworkState(null, null, null, null, null, null);
 
     public final NetworkInfo networkInfo;
     public final LinkProperties linkProperties;
     public final NetworkCapabilities networkCapabilities;
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     public final Network network;
     public final String subscriberId;
     public final String networkId;
@@ -49,19 +43,8 @@ public class NetworkState implements Parcelable {
         this.network = network;
         this.subscriberId = subscriberId;
         this.networkId = networkId;
-
-        // This object is an atomic view of a network, so the various components
-        // should always agree on roaming state.
-        if (SANITY_CHECK_ROAMING && networkInfo != null && networkCapabilities != null) {
-            if (networkInfo.isRoaming() == networkCapabilities
-                    .hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING)) {
-                Slog.wtf("NetworkState", "Roaming state disagreement between " + networkInfo
-                        + " and " + networkCapabilities);
-            }
-        }
     }
 
-    @UnsupportedAppUsage
     public NetworkState(Parcel in) {
         networkInfo = in.readParcelable(null);
         linkProperties = in.readParcelable(null);
@@ -86,8 +69,7 @@ public class NetworkState implements Parcelable {
         out.writeString(networkId);
     }
 
-    @UnsupportedAppUsage
-    public static final @android.annotation.NonNull Creator<NetworkState> CREATOR = new Creator<NetworkState>() {
+    public static final Creator<NetworkState> CREATOR = new Creator<NetworkState>() {
         @Override
         public NetworkState createFromParcel(Parcel in) {
             return new NetworkState(in);

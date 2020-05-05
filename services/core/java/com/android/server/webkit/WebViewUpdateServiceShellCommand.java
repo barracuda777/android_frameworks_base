@@ -37,12 +37,12 @@ class WebViewUpdateServiceShellCommand extends ShellCommand {
         final PrintWriter pw = getOutPrintWriter();
         try {
             switch(cmd) {
+                case "enable-redundant-packages":
+                    return enableFallbackLogic(false);
+                case "disable-redundant-packages":
+                    return enableFallbackLogic(true);
                 case "set-webview-implementation":
                     return setWebViewImplementation();
-                case "enable-multiprocess":
-                    return enableMultiProcess(true);
-                case "disable-multiprocess":
-                    return enableMultiProcess(false);
                 default:
                     return handleDefaultCommands(cmd);
             }
@@ -52,15 +52,16 @@ class WebViewUpdateServiceShellCommand extends ShellCommand {
         return -1;
     }
 
+    private int enableFallbackLogic(boolean enable) throws RemoteException {
+        final PrintWriter pw = getOutPrintWriter();
+        mInterface.enableFallbackLogic(enable);
+        pw.println("Success");
+        return 0;
+    }
+
     private int setWebViewImplementation() throws RemoteException {
         final PrintWriter pw = getOutPrintWriter();
         String shellChosenPackage = getNextArg();
-        if (shellChosenPackage == null) {
-            pw.println("Failed to switch, no PACKAGE provided.");
-            pw.println("");
-            helpSetWebViewImplementation();
-            return 1;
-        }
         String newPackage = mInterface.changeProviderAndSetting(shellChosenPackage);
         if (shellChosenPackage.equals(newPackage)) {
             pw.println("Success");
@@ -73,19 +74,6 @@ class WebViewUpdateServiceShellCommand extends ShellCommand {
         }
     }
 
-    private int enableMultiProcess(boolean enable) throws RemoteException {
-        final PrintWriter pw = getOutPrintWriter();
-        mInterface.enableMultiProcess(enable);
-        pw.println("Success");
-        return 0;
-    }
-
-    public void helpSetWebViewImplementation() {
-        PrintWriter pw = getOutPrintWriter();
-        pw.println("  set-webview-implementation PACKAGE");
-        pw.println("    Set the WebView implementation to the specified package.");
-    }
-
     @Override
     public void onHelp() {
         PrintWriter pw = getOutPrintWriter();
@@ -93,11 +81,15 @@ class WebViewUpdateServiceShellCommand extends ShellCommand {
         pw.println("  help");
         pw.println("    Print this help text.");
         pw.println("");
-        helpSetWebViewImplementation();
-        pw.println("  enable-multiprocess");
-        pw.println("    Enable multi-process mode for WebView");
-        pw.println("  disable-multiprocess");
-        pw.println("    Disable multi-process mode for WebView");
+        pw.println("  enable-redundant-packages");
+        pw.println("    Allow a fallback package to be installed and enabled even when a");
+        pw.println("    more-preferred package is available. This command is useful when testing");
+        pw.println("    fallback packages.");
+        pw.println("  disable-redundant-packages");
+        pw.println("    Disallow installing and enabling fallback packages when a more-preferred");
+        pw.println("    package is available.");
+        pw.println("  set-webview-implementation PACKAGE");
+        pw.println("    Set the WebView implementation to the specified package.");
         pw.println();
     }
 }

@@ -106,7 +106,7 @@ public class ColorFiltersMutateActivity extends Activity {
             mPorterDuffColor = porterDuffColor;
             final PorterDuffColorFilter filter =
                     (PorterDuffColorFilter) mBlendPaint.getColorFilter();
-            mBlendPaint.setColorFilter(new PorterDuffColorFilter(porterDuffColor, filter.getMode()));
+            filter.setColor(mPorterDuffColor);
             invalidate();
         }
 
@@ -138,7 +138,7 @@ public class ColorFiltersMutateActivity extends Activity {
             mSaturation = saturation;
             final ColorMatrixColorFilter filter =
                     (ColorMatrixColorFilter) mColorMatrixPaint.getColorFilter();
-            final ColorMatrix m = new ColorMatrix();
+            final ColorMatrix m = filter.getColorMatrix();
             m.setSaturation(saturation);
             filter.setColorMatrix(m);
             invalidate();

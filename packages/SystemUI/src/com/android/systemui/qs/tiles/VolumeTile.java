@@ -20,42 +20,41 @@ package com.android.systemui.qs.tiles;
 import android.content.Context;
 import android.content.Intent;
 import android.media.AudioManager;
-import android.service.quicksettings.Tile;
+import android.provider.Settings;
 
-import com.android.systemui.plugins.qs.QSTile.BooleanState;
-import com.android.systemui.qs.QSHost;
-import com.android.systemui.qs.tileimpl.QSTileImpl;
 import com.android.systemui.R;
+import com.android.systemui.qs.QSTile;
 
-import org.lineageos.internal.logging.LineageMetricsLogger;
+import org.cyanogenmod.internal.logging.CMMetricsLogger;
 
-import javax.inject.Inject;
-
-public class VolumeTile extends QSTileImpl<BooleanState> {
+public class VolumeTile extends QSTile<QSTile.BooleanState> {
 
     private static final Intent SOUND_SETTINGS = new Intent("android.settings.SOUND_SETTINGS");
 
-    @Inject
-    public VolumeTile(QSHost host) {
+    public VolumeTile(Host host) {
         super(host);
     }
 
     @Override
     protected void handleClick() {
-        AudioManager am = mContext.getSystemService(AudioManager.class);
+        AudioManager am = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
         am.adjustVolume(AudioManager.ADJUST_SAME, AudioManager.FLAG_SHOW_UI);
     }
 
     @Override
+    protected void handleLongClick() {
+        mHost.startActivityDismissingKeyguard(SOUND_SETTINGS);
+    }
+
+    @Override
     public Intent getLongClickIntent() {
-        return SOUND_SETTINGS;
+        return null;
     }
 
     @Override
     protected void handleUpdateState(BooleanState state, Object arg) {
         state.label = mContext.getString(R.string.quick_settings_volume_panel_label);
         state.icon = ResourceIcon.get(R.drawable.ic_qs_volume_panel); // TODO needs own icon
-        state.state = Tile.STATE_ACTIVE;
     }
 
     @Override
@@ -65,7 +64,7 @@ public class VolumeTile extends QSTileImpl<BooleanState> {
 
     @Override
     public int getMetricsCategory() {
-        return LineageMetricsLogger.TILE_VOLUME;
+        return CMMetricsLogger.TILE_VOLUME;
     }
 
     @Override
@@ -74,7 +73,7 @@ public class VolumeTile extends QSTileImpl<BooleanState> {
     }
 
     @Override
-    public void handleSetListening(boolean listening) {
+    public void setListening(boolean listening) {
         // Do nothing
     }
 }

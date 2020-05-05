@@ -18,7 +18,6 @@ package com.android.internal.util;
 
 import android.annotation.IntRange;
 import android.annotation.NonNull;
-import android.annotation.UnsupportedAppUsage;
 import android.text.TextUtils;
 
 import java.util.Collection;
@@ -29,7 +28,6 @@ import java.util.Collection;
  */
 public class Preconditions {
 
-    @UnsupportedAppUsage
     public static void checkArgument(boolean expression) {
         if (!expression) {
             throw new IllegalArgumentException();
@@ -44,27 +42,9 @@ public class Preconditions {
      *     be converted to a string using {@link String#valueOf(Object)}
      * @throws IllegalArgumentException if {@code expression} is false
      */
-    @UnsupportedAppUsage
     public static void checkArgument(boolean expression, final Object errorMessage) {
         if (!expression) {
             throw new IllegalArgumentException(String.valueOf(errorMessage));
-        }
-    }
-
-    /**
-     * Ensures that an expression checking an argument is true.
-     *
-     * @param expression the expression to check
-     * @param messageTemplate a printf-style message template to use if the check fails; will
-     *     be converted to a string using {@link String#format(String, Object...)}
-     * @param messageArgs arguments for {@code messageTemplate}
-     * @throws IllegalArgumentException if {@code expression} is false
-     */
-    public static void checkArgument(boolean expression,
-            final String messageTemplate,
-            final Object... messageArgs) {
-        if (!expression) {
-            throw new IllegalArgumentException(String.format(messageTemplate, messageArgs));
         }
     }
 
@@ -109,7 +89,6 @@ public class Preconditions {
      * @return the non-null reference that was validated
      * @throws NullPointerException if {@code reference} is null
      */
-    @UnsupportedAppUsage
     public static @NonNull <T> T checkNotNull(final T reference) {
         if (reference == null) {
             throw new NullPointerException();
@@ -127,30 +106,9 @@ public class Preconditions {
      * @return the non-null reference that was validated
      * @throws NullPointerException if {@code reference} is null
      */
-    @UnsupportedAppUsage
     public static @NonNull <T> T checkNotNull(final T reference, final Object errorMessage) {
         if (reference == null) {
             throw new NullPointerException(String.valueOf(errorMessage));
-        }
-        return reference;
-    }
-
-    /**
-     * Ensures that an object reference passed as a parameter to the calling
-     * method is not null.
-     *
-     * @param reference an object reference
-     * @param messageTemplate a printf-style message template to use if the check fails; will
-     *     be converted to a string using {@link String#format(String, Object...)}
-     * @param messageArgs arguments for {@code messageTemplate}
-     * @return the non-null reference that was validated
-     * @throws NullPointerException if {@code reference} is null
-     */
-    public static @NonNull <T> T checkNotNull(final T reference,
-            final String messageTemplate,
-            final Object... messageArgs) {
-        if (reference == null) {
-            throw new NullPointerException(String.format(messageTemplate, messageArgs));
         }
         return reference;
     }
@@ -163,7 +121,6 @@ public class Preconditions {
      * @param message exception message
      * @throws IllegalStateException if {@code expression} is false
      */
-    @UnsupportedAppUsage
     public static void checkState(final boolean expression, String message) {
         if (!expression) {
             throw new IllegalStateException(message);
@@ -177,7 +134,6 @@ public class Preconditions {
      * @param expression a boolean expression
      * @throws IllegalStateException if {@code expression} is false
      */
-    @UnsupportedAppUsage
     public static void checkState(final boolean expression) {
         checkState(expression, null);
     }
@@ -199,7 +155,7 @@ public class Preconditions {
     }
 
     /**
-     * Ensures that that the argument numeric value is non-negative (greater than or equal to 0).
+     * Ensures that that the argument numeric value is non-negative.
      *
      * @param value a numeric int value
      * @param errorMessage the exception message to use if the check fails
@@ -216,7 +172,7 @@ public class Preconditions {
     }
 
     /**
-     * Ensures that that the argument numeric value is non-negative (greater than or equal to 0).
+     * Ensures that that the argument numeric value is non-negative.
      *
      * @param value a numeric int value
      *
@@ -232,7 +188,7 @@ public class Preconditions {
     }
 
     /**
-     * Ensures that that the argument numeric value is non-negative (greater than or equal to 0).
+     * Ensures that that the argument numeric value is non-negative.
      *
      * @param value a numeric long value
      * @return the validated numeric value
@@ -247,7 +203,7 @@ public class Preconditions {
     }
 
     /**
-     * Ensures that that the argument numeric value is non-negative (greater than or equal to 0).
+     * Ensures that that the argument numeric value is non-negative.
      *
      * @param value a numeric long value
      * @param errorMessage the exception message to use if the check fails
@@ -263,7 +219,7 @@ public class Preconditions {
     }
 
     /**
-     * Ensures that that the argument numeric value is positive (greater than 0).
+     * Ensures that that the argument numeric value is positive.
      *
      * @param value a numeric int value
      * @param errorMessage the exception message to use if the check fails
@@ -271,36 +227,6 @@ public class Preconditions {
      * @throws IllegalArgumentException if {@code value} was not positive
      */
     public static int checkArgumentPositive(final int value, final String errorMessage) {
-        if (value <= 0) {
-            throw new IllegalArgumentException(errorMessage);
-        }
-
-        return value;
-    }
-
-    /**
-     * Ensures that the argument floating point value is non-negative (greater than or equal to 0).
-     * @param value a floating point value
-     * @param errorMessage the exteption message to use if the check fails
-     * @return the validated numeric value
-     * @throws IllegalArgumentException if {@code value} was negative
-     */
-    public static float checkArgumentNonNegative(final float value, final String errorMessage) {
-        if (value < 0) {
-            throw new IllegalArgumentException(errorMessage);
-        }
-
-        return value;
-    }
-
-    /**
-     * Ensures that the argument floating point value is positive (greater than 0).
-     * @param value a floating point value
-     * @param errorMessage the exteption message to use if the check fails
-     * @return the validated numeric value
-     * @throws IllegalArgumentException if {@code value} was not positive
-     */
-    public static float checkArgumentPositive(final float value, final String errorMessage) {
         if (value <= 0) {
             throw new IllegalArgumentException(errorMessage);
         }
@@ -375,7 +301,6 @@ public class Preconditions {
      *
      * @throws IllegalArgumentException if {@code value} was not within the range
      */
-    @UnsupportedAppUsage
     public static int checkArgumentInRange(int value, int lower, int upper,
             String valueName) {
         if (value < lower) {
@@ -526,40 +451,6 @@ public class Preconditions {
             } else if (v > upper) {
                 throw new IllegalArgumentException(
                         String.format("%s[%d] is out of range of [%f, %f] (too high)",
-                                valueName, i, lower, upper));
-            }
-        }
-
-        return value;
-    }
-
-    /**
-     * Ensures that all elements in the argument integer array are within the inclusive range
-     *
-     * @param value an integer array of values
-     * @param lower the lower endpoint of the inclusive range
-     * @param upper the upper endpoint of the inclusive range
-     * @param valueName the name of the argument to use if the check fails
-     *
-     * @return the validated integer array
-     *
-     * @throws IllegalArgumentException if any of the elements in {@code value} were out of range
-     * @throws NullPointerException if the {@code value} was {@code null}
-     */
-    public static int[] checkArrayElementsInRange(int[] value, int lower, int upper,
-            String valueName) {
-        checkNotNull(value, valueName + " must not be null");
-
-        for (int i = 0; i < value.length; ++i) {
-            int v = value[i];
-
-            if (v < lower) {
-                throw new IllegalArgumentException(
-                        String.format("%s[%d] is out of range of [%d, %d] (too low)",
-                                valueName, i, lower, upper));
-            } else if (v > upper) {
-                throw new IllegalArgumentException(
-                        String.format("%s[%d] is out of range of [%d, %d] (too high)",
                                 valueName, i, lower, upper));
             }
         }

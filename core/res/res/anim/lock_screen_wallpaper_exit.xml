@@ -16,12 +16,12 @@
   -->
 
 <set xmlns:android="http://schemas.android.com/apk/res/android"
-        android:shareInterpolator="false">
+        android:shareInterpolator="false" android:startOffset="100">
     <alpha
         android:fromAlpha="1.0" android:toAlpha="0.0"
         android:fillEnabled="true" android:fillBefore="true" android:fillAfter="true"
         android:interpolator="@interpolator/fast_out_linear_in"
-        android:duration="200"/>
+        android:duration="150"/>
 
     <!-- Empty animation so the animation has same duration as lock_screen_behind_enter animation
          -->

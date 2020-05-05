@@ -21,6 +21,7 @@
 
     <uses-permission android:name="android.permission.BACKUP" />
     <uses-permission android:name="android.permission.CRYPT_KEEPER" />
+    <uses-permission android:name="android.permission.STORAGE_INTERNAL"/>
 
     <application android:allowClearUserData="false"
                  android:allowBackup="false"
@@ -30,7 +31,6 @@
                   android:title=""
                   android:windowSoftInputMode="stateAlwaysHidden"
                   android:excludeFromRecents="true"
-                  android:launchMode="singleTop"
                   android:exported="true" >
         </activity>
     </application>

@@ -15,9 +15,6 @@
  */
 package android.os;
 
-import android.annotation.Nullable;
-import android.annotation.SystemApi;
-
 /**
  * An exception specific to a service.
  *
@@ -31,21 +28,15 @@ import android.annotation.SystemApi;
  *
  * @hide
  */
-@SystemApi
 public class ServiceSpecificException extends RuntimeException {
     public final int errorCode;
 
-    public ServiceSpecificException(int errorCode, @Nullable String message) {
+    public ServiceSpecificException(int errorCode, String message) {
         super(message);
         this.errorCode = errorCode;
     }
 
     public ServiceSpecificException(int errorCode) {
         this.errorCode = errorCode;
-    }
-
-    @Override
-    public String toString() {
-        return super.toString() + " (code " + errorCode + ")";
     }
 }

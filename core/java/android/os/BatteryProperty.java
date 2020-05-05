@@ -43,13 +43,6 @@ public class BatteryProperty implements Parcelable {
         return mValueLong;
     }
 
-    /**
-     * @hide
-     */
-    public void setLong(long val) {
-        mValueLong = val;
-    }
-
     /*
      * Parcel read/write code must be kept in sync with
      * frameworks/native/services/batteryservice/BatteryProperty.cpp
@@ -67,7 +60,7 @@ public class BatteryProperty implements Parcelable {
         p.writeLong(mValueLong);
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<BatteryProperty> CREATOR
+    public static final Parcelable.Creator<BatteryProperty> CREATOR
         = new Parcelable.Creator<BatteryProperty>() {
         public BatteryProperty createFromParcel(Parcel p) {
             return new BatteryProperty(p);

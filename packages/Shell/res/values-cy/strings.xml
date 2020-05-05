@@ -5,9 +5,9 @@
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
      You may obtain a copy of the License at
-
+  
           http://www.apache.org/licenses/LICENSE-2.0
-
+  
      Unless required by applicable law or agreed to in writing, software
      distributed under the License is distributed on an "AS IS" BASIS,
      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,15 +16,12 @@
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label">Cragen</string>
-    <string name="bugreport_notification_channel">Adroddiadau am wallau</string>
     <string name="bugreport_in_progress_title">Mae adroddiad <xliff:g id="id">#%d</xliff:g> yn cael ei greu.</string>
     <string name="bugreport_finished_title">Cafodd adroddiad <xliff:g id="id">#%d</xliff:g> ei gymryd.</string>
     <string name="bugreport_updating_title">Yn ychwanegu manylion i\'r adroddiad gwall</string>
     <string name="bugreport_updating_wait">Arhosa\u2026</string>
     <string name="bugreport_finished_text" product="watch">Bydd yr adroddiad am wall yn ymddangos ar y ffôn cyn bo hir.</string>
-    <string name="bugreport_finished_text" product="tv">Tapia i rannu dy adroddiad am wall</string>
     <string name="bugreport_finished_text" product="default">Tapia i rannu dy adroddiad am wall.</string>
-    <string name="bugreport_finished_pending_screenshot_text" product="tv">Tapia i rannu dy adroddiad am wall heb sgrinlun neu aros i gwblhau\'r sgrinlun</string>
     <string name="bugreport_finished_pending_screenshot_text" product="watch">Tapia i rannu dy adroddiad am wall heb sgrinlun nawr neu arhosa i gwblhau\'r sgrinlun.</string>
     <string name="bugreport_finished_pending_screenshot_text" product="default">Tapia i rannu dy adroddiad am wall heb sgrinlun neu aros i gwblhau\'r sgrinlun.</string>
     <string name="bugreport_confirm">Mae adroddiadau am wallau yn cynnwys data o wahanol ffeiliau log y system a gall y rhain cynnwys data rwyt yn ei ystyried yn sensitif, e.e. defnydd apiau a data lleoliad. Rhanna adroddiadau am wallau dim ond gyda phobol ac apiau wyt ti\'n ymddiried ynddyn nhw.</string>
@@ -42,5 +39,4 @@
     <string name="bugreport_info_title">Teitl y gwall</string>
     <string name="bugreport_info_description">Crynodeb o\'r gwall</string>
     <string name="save">Cadw</string>
-    <string name="bugreport_intent_chooser_title">Rhannu adroddiad am wall</string>
 </resources>

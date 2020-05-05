@@ -18,12 +18,9 @@ package android.media.projection;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.SystemService;
 import android.app.Activity;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.media.projection.IMediaProjection;
 import android.os.Handler;
 import android.os.IBinder;
@@ -36,8 +33,14 @@ import java.util.Map;
 
 /**
  * Manages the retrieval of certain types of {@link MediaProjection} tokens.
+ *
+ * <p>
+ * Get an instance of this class by calling {@link
+ * android.content.Context#getSystemService(java.lang.String)
+ * Context.getSystemService()} with the argument {@link
+ * android.content.Context#MEDIA_PROJECTION_SERVICE}.
+ * </p>
  */
-@SystemService(Context.MEDIA_PROJECTION_SERVICE)
 public final class MediaProjectionManager {
     private static final String TAG = "MediaProjectionManager";
     /** @hide */
@@ -66,18 +69,15 @@ public final class MediaProjectionManager {
     }
 
     /**
-     * Returns an Intent that <b>must</b> be passed to startActivityForResult()
+     * Returns an Intent that <b>must</b> passed to startActivityForResult()
      * in order to start screen capture. The activity will prompt
      * the user whether to allow screen capture.  The result of this
      * activity should be passed to getMediaProjection.
      */
     public Intent createScreenCaptureIntent() {
         Intent i = new Intent();
-        final ComponentName mediaProjectionPermissionDialogComponent =
-                ComponentName.unflattenFromString(mContext.getResources().getString(
-                        com.android.internal.R.string
-                        .config_mediaProjectionPermissionDialogComponent));
-        i.setComponent(mediaProjectionPermissionDialogComponent);
+        i.setClassName("com.android.systemui",
+                "com.android.systemui.media.MediaProjectionPermissionActivity");
         return i;
     }
 
@@ -90,8 +90,6 @@ public final class MediaProjectionManager {
      * int, android.content.Intent)}
      * @param resultData The resulting data from {@link android.app.Activity#onActivityResult(int,
      * int, android.content.Intent)}
-     * @throws IllegalStateException on pre-Q devices if a previously gotten MediaProjection
-     * from the same {@code resultData} has not yet been stopped
      */
     public MediaProjection getMediaProjection(int resultCode, @NonNull Intent resultData) {
         if (resultCode != Activity.RESULT_OK || resultData == null) {

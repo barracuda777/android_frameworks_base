@@ -16,15 +16,16 @@
 
 package android.view;
 
-import android.app.Activity;
 import android.content.Context;
-import android.os.Bundle;
 import android.util.AttributeSet;
 import android.util.Log;
-import android.widget.Button;
 import android.widget.TextView;
-
 import com.android.frameworks.coretests.R;
+
+import android.os.Bundle;
+import android.widget.Button;
+import android.view.View;
+import android.app.Activity;
 
 /**
  * Exercise View's ability to change their visibility: GONE, INVISIBLE and
@@ -44,9 +45,9 @@ public class VisibilityCallback extends Activity {
         mVictim = (MonitoredTextView)findViewById(R.id.victim);
 
         // Find our buttons
-        Button visibleButton = findViewById(R.id.vis);
-        Button invisibleButton = findViewById(R.id.invis);
-        Button goneButton = findViewById(R.id.gone);
+        Button visibleButton = (Button) findViewById(R.id.vis);
+        Button invisibleButton = (Button) findViewById(R.id.invis);
+        Button goneButton = (Button) findViewById(R.id.gone);
 
         // Wire each button to a click listener
         visibleButton.setOnClickListener(mVisibleListener);

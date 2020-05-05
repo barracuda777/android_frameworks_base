@@ -2,7 +2,6 @@ package android.view;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
@@ -91,7 +90,6 @@ public class ViewHierarchyEncoder {
         endPropertyMap();
     }
 
-    @UnsupportedAppUsage
     public void addProperty(@NonNull String name, boolean v) {
         writeShort(createPropertyIndex(name));
         writeBoolean(v);
@@ -102,19 +100,16 @@ public class ViewHierarchyEncoder {
         writeShort(s);
     }
 
-    @UnsupportedAppUsage
     public void addProperty(@NonNull String name, int v) {
         writeShort(createPropertyIndex(name));
         writeInt(v);
     }
 
-    @UnsupportedAppUsage
     public void addProperty(@NonNull String name, float v) {
         writeShort(createPropertyIndex(name));
         writeFloat(v);
     }
 
-    @UnsupportedAppUsage
     public void addProperty(@NonNull String name, @Nullable String s) {
         writeShort(createPropertyIndex(name));
         writeString(s);

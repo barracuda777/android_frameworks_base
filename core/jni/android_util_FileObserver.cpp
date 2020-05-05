@@ -15,9 +15,7 @@
 ** limitations under the License.
 */
 
-#include <nativehelper/JNIHelp.h>
-#include <nativehelper/ScopedPrimitiveArray.h>
-#include <nativehelper/ScopedUtfChars.h>
+#include "JNIHelp.h"
 #include "jni.h"
 #include "utils/Log.h"
 #include "utils/misc.h"
@@ -42,7 +40,7 @@ static jmethodID method_onEvent;
 static jint android_os_fileobserver_init(JNIEnv* env, jobject object)
 {
 #if defined(__linux__)
-    return (jint)inotify_init1(IN_CLOEXEC);
+    return (jint)inotify_init();
 #else
     return -1;
 #endif
@@ -100,45 +98,31 @@ static void android_os_fileobserver_observe(JNIEnv* env, jobject object, jint fd
 #endif
 }
 
-static void android_os_fileobserver_startWatching(JNIEnv* env, jobject object, jint fd,
-                                                       jobjectArray pathStrings, jint mask,
-                                                       jintArray wfdArray)
+static jint android_os_fileobserver_startWatching(JNIEnv* env, jobject object, jint fd, jstring pathString, jint mask)
 {
-    ScopedIntArrayRW wfds(env, wfdArray);
-    if (wfds.get() == nullptr) {
-        jniThrowException(env, "java/lang/IllegalStateException", "Failed to get ScopedIntArrayRW");
-    }
+    int res = -1;
 
 #if defined(__linux__)
 
     if (fd >= 0)
     {
-        size_t count = wfds.size();
-        for (jsize i = 0; i < count; ++i) {
-            jstring pathString = (jstring) env->GetObjectArrayElement(pathStrings, i);
+        const char* path = env->GetStringUTFChars(pathString, NULL);
 
-            ScopedUtfChars path(env, pathString);
+        res = inotify_add_watch(fd, path, mask);
 
-            wfds[i] = inotify_add_watch(fd, path.c_str(), mask);
-        }
+        env->ReleaseStringUTFChars(pathString, path);
     }
 
 #endif
+
+    return res;
 }
 
-static void android_os_fileobserver_stopWatching(JNIEnv* env, jobject object,
-                                                 jint fd, jintArray wfdArray)
+static void android_os_fileobserver_stopWatching(JNIEnv* env, jobject object, jint fd, jint wfd)
 {
 #if defined(__linux__)
 
-    ScopedIntArrayRO wfds(env, wfdArray);
-    if (wfds.get() == nullptr) {
-        jniThrowException(env, "java/lang/IllegalStateException", "Failed to get ScopedIntArrayRO");
-    }
-    size_t count = wfds.size();
-    for (size_t i = 0; i < count; ++i) {
-        inotify_rm_watch((int)fd, (uint32_t)wfds[i]);
-    }
+    inotify_rm_watch((int)fd, (uint32_t)wfd);
 
 #endif
 }
@@ -147,8 +131,8 @@ static const JNINativeMethod sMethods[] = {
      /* name, signature, funcPtr */
     { "init", "()I", (void*)android_os_fileobserver_init },
     { "observe", "(I)V", (void*)android_os_fileobserver_observe },
-    { "startWatching", "(I[Ljava/lang/String;I[I)V", (void*)android_os_fileobserver_startWatching },
-    { "stopWatching", "(I[I)V", (void*)android_os_fileobserver_stopWatching }
+    { "startWatching", "(ILjava/lang/String;I)I", (void*)android_os_fileobserver_startWatching },
+    { "stopWatching", "(II)V", (void*)android_os_fileobserver_stopWatching }
 
 };
 

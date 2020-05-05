@@ -1,5 +1,5 @@
 <!--
-Copyright (C) 2017 The Android Open Source Project
+Copyright (C) 2014 The Android Open Source Project
 
    Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -14,16 +14,14 @@ Copyright (C) 2017 The Android Open Source Project
     limitations under the License.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-        android:width="24dp"
-        android:height="24dp"
+        android:width="28.0dp"
+        android:height="28.0dp"
         android:viewportWidth="24.0"
         android:viewportHeight="24.0">
-
     <path
-        android:pathData="M18,14.48V18h-3.52L12,20.48L9.52,18H6v-3.52L3.52,12L6,9.52V6h3.52L12,3.52L14.48,6H18v3.52L20.48,12L18,14.48z"
-        android:fillColor="?android:attr/colorBackgroundFloating" />
-
+        android:pathData="m18.250000,12.000000a6.250000,6.250000 0.000000,1.000000 1.000000,-12.500000 0.000000,6.250000 6.250000,0.000000 1.000000,1.000000 12.500000,0.000000z"
+        android:fillColor="?android:attr/colorPrimary" />
     <path
-        android:pathData=" M20,8.69 V4h-4.69L12,0.69L8.69,4H4v4.69L0.69,12L4,15.31V20h4.69L12,23.31L15.31,20H20v-4.69L23.31,12L20,8.69z M18,14.48V18h-3.52L12,20.48L9.52,18H6v-3.52L3.52,12L6,9.52V6h3.52L12,3.52L14.48,6H18v3.52L20.48,12L18,14.48z M12,7c-2.76,0 -5,2.24 -5,5s2.24,5 5,5s5,-2.24 5,-5S14.76,7 12,7z"
-        android:fillColor="?android:attr/colorControlActivated" />
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M20.000000,8.700000L20.000000,4.000000L15.300000,4.000000L12.000000,0.700000 8.700000,4.000000L4.000000,4.000000L4.000000,8.700000L0.700000,12.000000 4.000000,15.300000L4.000000,20.000000L8.700000,20.000000L12.000000,23.299999 15.300000,20.000000L20.000000,20.000000L20.000000,15.300000L23.299999,12.000000 20.000000,8.700000zM12.000000,18.000000C8.700000,18.000000 6.000000,15.300000 6.000000,12.000000 6.000000,8.700000 8.700000,6.000000 12.000000,6.000000c3.300000,0.000000 6.000000,2.700000 6.000000,6.000000 0.000000,3.300000 -2.700000,6.000000 -6.000000,6.000000zM12.000000,8.000000c-2.200000,0.000000 -4.000000,1.800000 -4.000000,4.000000 0.000000,2.200000 1.800000,4.000000 4.000000,4.000000 2.200000,0.000000 4.000000,-1.800000 4.000000,-4.000000 0.000000,-2.200000 -1.800000,-4.000000 -4.000000,-4.000000z"/>
 </vector>

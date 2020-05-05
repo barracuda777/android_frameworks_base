@@ -15,9 +15,9 @@
  */
 
 #include <android_runtime/AndroidRuntime.h>
-#include <nativehelper/JNIHelp.h>
+#include <JNIHelp.h>
 #include <jni.h>
-#include <nativehelper/ScopedUtfChars.h>
+#include <ScopedUtfChars.h>
 
 #include <utils/misc.h>
 #include <sys/ioctl.h>

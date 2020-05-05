@@ -16,17 +16,13 @@
 
 package android.os;
 
-import android.annotation.UnsupportedAppUsage;
 import android.util.TimeUtils;
-import android.util.proto.ProtoOutputStream;
-
-import com.android.internal.annotations.VisibleForTesting;
 
 /**
- *
+ * 
  * Defines a message containing a description and arbitrary data object that can be
  * sent to a {@link Handler}.  This object contains two extra int fields and an
- * extra object field that allow you to not do allocations in many cases.
+ * extra object field that allow you to not do allocations in many cases.  
  *
  * <p class="note">While the constructor of Message is public, the best way to get
  * one of these is to call {@link #obtain Message.obtain()} or one of the
@@ -35,7 +31,7 @@ import com.android.internal.annotations.VisibleForTesting;
  */
 public final class Message implements Parcelable {
     /**
-     * User-defined message code so that the recipient can identify
+     * User-defined message code so that the recipient can identify 
      * what this message is about. Each {@link Handler} has its own name-space
      * for message codes, so you do not need to worry about yours conflicting
      * with other handlers.
@@ -47,7 +43,7 @@ public final class Message implements Parcelable {
      * {@link #setData(Bundle) setData()} if you only need to store a
      * few integer values.
      */
-    public int arg1;
+    public int arg1; 
 
     /**
      * arg1 and arg2 are lower-cost alternatives to using
@@ -62,7 +58,7 @@ public final class Message implements Parcelable {
      * be non-null if it contains a Parcelable of a framework class (not one
      * implemented by the application).   For other data transfer use
      * {@link #setData}.
-     *
+     * 
      * <p>Note that Parcelable objects here are not supported prior to
      * the {@link android.os.Build.VERSION_CODES#FROYO} release.
      */
@@ -76,25 +72,11 @@ public final class Message implements Parcelable {
     public Messenger replyTo;
 
     /**
-     * Indicates that the uid is not set;
-     *
-     * @hide Only for use within the system server.
-     */
-    public static final int UID_NONE = -1;
-
-    /**
      * Optional field indicating the uid that sent the message.  This is
      * only valid for messages posted by a {@link Messenger}; otherwise,
      * it will be -1.
      */
-    public int sendingUid = UID_NONE;
-
-    /**
-     * Optional field indicating the uid that caused this message to be enqueued.
-     *
-     * @hide Only for use within the system server.
-     */
-    public int workSourceUid = UID_NONE;
+    public int sendingUid = -1;
 
     /** If set message is in use.
      * This flag is set when the message is enqueued and remains set while it
@@ -112,33 +94,20 @@ public final class Message implements Parcelable {
     /** Flags to clear in the copyFrom method */
     /*package*/ static final int FLAGS_TO_CLEAR_ON_COPY_FROM = FLAG_IN_USE;
 
-    @UnsupportedAppUsage
     /*package*/ int flags;
 
-    /**
-     * The targeted delivery time of this message. The time-base is
-     * {@link SystemClock#uptimeMillis}.
-     * @hide Only for use within the tests.
-     */
-    @UnsupportedAppUsage
-    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
-    public long when;
-
+    /*package*/ long when;
+    
     /*package*/ Bundle data;
-
-    @UnsupportedAppUsage
+    
     /*package*/ Handler target;
-
-    @UnsupportedAppUsage
+    
     /*package*/ Runnable callback;
-
+    
     // sometimes we store linked lists of these things
-    @UnsupportedAppUsage
     /*package*/ Message next;
 
-
-    /** @hide */
-    public static final Object sPoolSync = new Object();
+    private static final Object sPoolSync = new Object();
     private static Message sPool;
     private static int sPoolSize = 0;
 
@@ -178,7 +147,6 @@ public final class Message implements Parcelable {
         m.obj = orig.obj;
         m.replyTo = orig.replyTo;
         m.sendingUid = orig.sendingUid;
-        m.workSourceUid = orig.workSourceUid;
         if (orig.data != null) {
             m.data = new Bundle(orig.data);
         }
@@ -248,9 +216,9 @@ public final class Message implements Parcelable {
     }
 
     /**
-     * Same as {@link #obtain()}, but sets the values of the <em>target</em>, <em>what</em>,
+     * Same as {@link #obtain()}, but sets the values of the <em>target</em>, <em>what</em>, 
      * <em>arg1</em>, and <em>arg2</em> members.
-     *
+     * 
      * @param h  The <em>target</em> value to set.
      * @param what  The <em>what</em> value to set.
      * @param arg1  The <em>arg1</em> value to set.
@@ -268,9 +236,9 @@ public final class Message implements Parcelable {
     }
 
     /**
-     * Same as {@link #obtain()}, but sets the values of the <em>target</em>, <em>what</em>,
+     * Same as {@link #obtain()}, but sets the values of the <em>target</em>, <em>what</em>, 
      * <em>arg1</em>, <em>arg2</em>, and <em>obj</em> members.
-     *
+     * 
      * @param h  The <em>target</em> value to set.
      * @param what  The <em>what</em> value to set.
      * @param arg1  The <em>arg1</em> value to set.
@@ -278,7 +246,7 @@ public final class Message implements Parcelable {
      * @param obj  The <em>obj</em> value to set.
      * @return  A Message object from the global pool.
      */
-    public static Message obtain(Handler h, int what,
+    public static Message obtain(Handler h, int what, 
             int arg1, int arg2, Object obj) {
         Message m = obtain();
         m.target = h;
@@ -320,7 +288,6 @@ public final class Message implements Parcelable {
      * Recycles a Message that may be in-use.
      * Used internally by the MessageQueue and Looper when disposing of queued Messages.
      */
-    @UnsupportedAppUsage
     void recycleUnchecked() {
         // Mark the message as in use while it remains in the recycled object pool.
         // Clear out all other details.
@@ -330,8 +297,7 @@ public final class Message implements Parcelable {
         arg2 = 0;
         obj = null;
         replyTo = null;
-        sendingUid = UID_NONE;
-        workSourceUid = UID_NONE;
+        sendingUid = -1;
         when = 0;
         target = null;
         callback = null;
@@ -359,7 +325,6 @@ public final class Message implements Parcelable {
         this.obj = o.obj;
         this.replyTo = o.replyTo;
         this.sendingUid = o.sendingUid;
-        this.workSourceUid = o.workSourceUid;
 
         if (o.data != null) {
             this.data = (Bundle) o.data.clone();
@@ -374,13 +339,13 @@ public final class Message implements Parcelable {
     public long getWhen() {
         return when;
     }
-
+    
     public void setTarget(Handler target) {
         this.target = target;
     }
 
     /**
-     * Retrieve the {@link android.os.Handler Handler} implementation that
+     * Retrieve the a {@link android.os.Handler Handler} implementation that
      * will receive this message. The object must implement
      * {@link android.os.Handler#handleMessage(android.os.Message)
      * Handler.handleMessage()}. Each Handler has its own name-space for
@@ -397,20 +362,13 @@ public final class Message implements Parcelable {
      * the <em>target</em> {@link Handler} that is receiving this Message to
      * dispatch it.  If
      * not set, the message will be dispatched to the receiving Handler's
-     * {@link Handler#handleMessage(Message)}.
+     * {@link Handler#handleMessage(Message Handler.handleMessage())}.
      */
     public Runnable getCallback() {
         return callback;
     }
-
-    /** @hide */
-    @UnsupportedAppUsage
-    public Message setCallback(Runnable r) {
-        callback = r;
-        return this;
-    }
-
-    /**
+    
+    /** 
      * Obtains a Bundle of arbitrary data associated with this
      * event, lazily creating it if necessary. Set this value by calling
      * {@link #setData(Bundle)}.  Note that when transferring data across
@@ -425,11 +383,11 @@ public final class Message implements Parcelable {
         if (data == null) {
             data = new Bundle();
         }
-
+        
         return data;
     }
 
-    /**
+    /** 
      * Like getData(), but does not lazily create the Bundle.  A null
      * is returned if the Bundle does not already exist.  See
      * {@link #getData} for further information on this.
@@ -443,21 +401,11 @@ public final class Message implements Parcelable {
     /**
      * Sets a Bundle of arbitrary data values. Use arg1 and arg2 members
      * as a lower cost way to send a few simple integer values, if you can.
-     * @see #getData()
+     * @see #getData() 
      * @see #peekData()
      */
     public void setData(Bundle data) {
         this.data = data;
-    }
-
-    /**
-     * Chainable setter for {@link #what}
-     *
-     * @hide
-     */
-    public Message setWhat(int what) {
-        this.what = what;
-        return this;
     }
 
     /**
@@ -518,7 +466,6 @@ public final class Message implements Parcelable {
         return ((flags & FLAG_IN_USE) == FLAG_IN_USE);
     }
 
-    @UnsupportedAppUsage
     /*package*/ void markInUse() {
         flags |= FLAG_IN_USE;
     }
@@ -533,7 +480,6 @@ public final class Message implements Parcelable {
         return toString(SystemClock.uptimeMillis());
     }
 
-    @UnsupportedAppUsage
     String toString(long now) {
         StringBuilder b = new StringBuilder();
         b.append("{ when=");
@@ -574,50 +520,19 @@ public final class Message implements Parcelable {
         return b.toString();
     }
 
-    void writeToProto(ProtoOutputStream proto, long fieldId) {
-        final long messageToken = proto.start(fieldId);
-        proto.write(MessageProto.WHEN, when);
-
-        if (target != null) {
-            if (callback != null) {
-                proto.write(MessageProto.CALLBACK, callback.getClass().getName());
-            } else {
-                proto.write(MessageProto.WHAT, what);
-            }
-
-            if (arg1 != 0) {
-                proto.write(MessageProto.ARG1, arg1);
-            }
-
-            if (arg2 != 0) {
-                proto.write(MessageProto.ARG2, arg2);
-            }
-
-            if (obj != null) {
-                proto.write(MessageProto.OBJ, obj.toString());
-            }
-
-            proto.write(MessageProto.TARGET, target.getClass().getName());
-        } else {
-            proto.write(MessageProto.BARRIER, arg1);
-        }
-
-        proto.end(messageToken);
-    }
-
-    public static final @android.annotation.NonNull Parcelable.Creator<Message> CREATOR
+    public static final Parcelable.Creator<Message> CREATOR
             = new Parcelable.Creator<Message>() {
         public Message createFromParcel(Parcel source) {
             Message msg = Message.obtain();
             msg.readFromParcel(source);
             return msg;
         }
-
+        
         public Message[] newArray(int size) {
             return new Message[size];
         }
     };
-
+        
     public int describeContents() {
         return 0;
     }
@@ -646,7 +561,6 @@ public final class Message implements Parcelable {
         dest.writeBundle(data);
         Messenger.writeMessengerOrNullToParcel(replyTo, dest);
         dest.writeInt(sendingUid);
-        dest.writeInt(workSourceUid);
     }
 
     private void readFromParcel(Parcel source) {
@@ -660,6 +574,5 @@ public final class Message implements Parcelable {
         data = source.readBundle();
         replyTo = Messenger.readMessengerOrNullFromParcel(source);
         sendingUid = source.readInt();
-        workSourceUid = source.readInt();
     }
 }

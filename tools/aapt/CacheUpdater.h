@@ -51,7 +51,7 @@ private:
 class SystemCacheUpdater : public CacheUpdater {
 public:
     // Constructor to set bundle to pass to preProcessImage
-    explicit SystemCacheUpdater (Bundle* b)
+    SystemCacheUpdater (Bundle* b)
         : bundle(b) { };
 
     // Make sure all the directories along this path exist

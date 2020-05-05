@@ -2,23 +2,21 @@
 **
 ** Copyright 2007, The Android Open Source Project
 **
-** Licensed under the Apache License, Version 2.0 (the "License");
-** you may not use this file except in compliance with the License.
-** You may obtain a copy of the License at
+** Licensed under the Apache License, Version 2.0 (the "License"); 
+** you may not use this file except in compliance with the License. 
+** You may obtain a copy of the License at 
 **
-**     http://www.apache.org/licenses/LICENSE-2.0
+**     http://www.apache.org/licenses/LICENSE-2.0 
 **
-** Unless required by applicable law or agreed to in writing, software
-** distributed under the License is distributed on an "AS IS" BASIS,
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-** See the License for the specific language governing permissions and
+** Unless required by applicable law or agreed to in writing, software 
+** distributed under the License is distributed on an "AS IS" BASIS, 
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
+** See the License for the specific language governing permissions and 
 ** limitations under the License.
 */
 
 package android.os;
 
-import android.os.BatterySaverPolicyConfig;
-import android.os.PowerSaveState;
 import android.os.WorkSource;
 
 /** @hide */
@@ -34,7 +32,6 @@ interface IPowerManager
             String historyTag);
     void acquireWakeLockWithUid(IBinder lock, int flags, String tag, String packageName,
             int uidtoblame);
-    @UnsupportedAppUsage
     void releaseWakeLock(IBinder lock, int flags);
     void updateWakeLockUids(IBinder lock, in int[] uids);
     oneway void powerHint(int hintId, int data);
@@ -42,46 +39,40 @@ interface IPowerManager
     void updateWakeLockWorkSource(IBinder lock, in WorkSource ws, String historyTag);
     boolean isWakeLockLevelSupported(int level);
 
-    @UnsupportedAppUsage
     void userActivity(long time, int event, int flags);
-    void wakeUp(long time, int reason, String details, String opPackageName);
-    void wakeUpWithProximityCheck(long time, int reason, String details, String opPackageName);
-    @UnsupportedAppUsage
+    void wakeUp(long time, String reason, String opPackageName);
     void goToSleep(long time, int reason, int flags);
     void nap(long time);
-    @UnsupportedAppUsage
     boolean isInteractive();
     boolean isPowerSaveMode();
-    PowerSaveState getPowerSaveState(int serviceType);
-    boolean setPowerSaveModeEnabled(boolean mode);
-    boolean setDynamicPowerSaveHint(boolean powerSaveHint, int disableThreshold);
-    boolean setAdaptivePowerSavePolicy(in BatterySaverPolicyConfig config);
-    boolean setAdaptivePowerSaveEnabled(boolean enabled);
-    int getPowerSaveModeTrigger();
+    boolean setPowerSaveMode(boolean mode);
     boolean isDeviceIdleMode();
     boolean isLightDeviceIdleMode();
 
-    @UnsupportedAppUsage
     void reboot(boolean confirm, String reason, boolean wait);
-    void rebootCustom(boolean confirm, String reason, boolean wait);
     void rebootSafeMode(boolean confirm, boolean wait);
     void shutdown(boolean confirm, String reason, boolean wait);
     void crash(String message);
-    int getLastShutdownReason();
-    int getLastSleepReason();
 
     void setStayOnSetting(int val);
     void boostScreenBrightness(long time);
-
-    // --- deprecated ---
     boolean isScreenBrightnessBoosted();
+
+    // temporarily overrides the screen brightness settings to allow the user to
+    // see the effect of a settings change without applying it immediately
+    void setTemporaryScreenBrightnessSettingOverride(int brightness);
+    void setTemporaryScreenAutoBrightnessAdjustmentSettingOverride(float adj);
 
     // sets the attention light (used by phone app only)
     void setAttentionLight(boolean on, int color);
+    // update the uids being synchronized by network socket request manager
+    void updateBlockedUids(int uid, boolean isBlocked);
 
-    // controls whether PowerManager should doze after the screen turns off or not
-    void setDozeAfterScreenOff(boolean on);
+    oneway void cpuBoost(int duration);
 
-    // Forces the system to suspend even if there are held wakelocks.
-    boolean forceSuspend();
+    void setKeyboardVisibility(boolean visible);
+
+    void setKeyboardLight(boolean on, int key);
+
+    void wakeUpWithProximityCheck(long time, String reason, String opPackageName);
 }

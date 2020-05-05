@@ -28,26 +28,24 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.hardware.TriggerEvent;
-import android.hardware.TriggerEventListener;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
 import android.os.SystemClock;
 import android.os.SystemProperties;
-import android.os.Trace;
 import android.os.UserHandle;
 import android.provider.Settings;
+import android.text.TextUtils;
 import android.util.MutableBoolean;
 import android.util.Slog;
 import android.view.KeyEvent;
 
-import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.logging.MetricsLogger;
-import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
-import com.android.server.LocalServices;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.server.statusbar.StatusBarManagerInternal;
-import com.android.server.wm.WindowManagerInternal;
+
+import java.util.Arrays;
 
 /**
  * The service that listens for gestures detected in sensor firmware and starts the intent
@@ -58,39 +56,23 @@ import com.android.server.wm.WindowManagerInternal;
  */
 public class GestureLauncherService extends SystemService {
     private static final boolean DBG = false;
-    private static final boolean DBG_CAMERA_LIFT = false;
     private static final String TAG = "GestureLauncherService";
 
     /**
      * Time in milliseconds in which the power button must be pressed twice so it will be considered
      * as a camera launch.
      */
-    @VisibleForTesting static final long CAMERA_POWER_DOUBLE_TAP_MAX_TIME_MS = 300;
-
-    /**
-     * Interval in milliseconds in which the power button must be depressed in succession to be
-     * considered part of an extended sequence of taps. Note that this is a looser threshold than
-     * the camera launch gesture, because the purpose of this threshold is to measure the
-     * frequency of consecutive taps, for evaluation for future gestures.
-     */
-    @VisibleForTesting static final long POWER_SHORT_TAP_SEQUENCE_MAX_INTERVAL_MS = 500;
+    private static final long CAMERA_POWER_DOUBLE_TAP_MAX_TIME_MS = 300;
 
     /** The listener that receives the gesture event. */
     private final GestureEventListener mGestureListener = new GestureEventListener();
-    private final CameraLiftTriggerEventListener mCameraLiftTriggerListener =
-            new CameraLiftTriggerEventListener();
 
     private Sensor mCameraLaunchSensor;
-    private Sensor mCameraLiftTriggerSensor;
     private Context mContext;
-    private final MetricsLogger mMetricsLogger;
-    private PowerManager mPowerManager;
-    private WindowManagerInternal mWindowManagerInternal;
 
     /** The wake lock held when a gesture is detected. */
     private WakeLock mWakeLock;
-    private boolean mCameraLaunchRegistered;
-    private boolean mCameraLiftRegistered;
+    private boolean mRegistered;
     private int mUserId;
 
     // Below are fields used for event logging only.
@@ -128,17 +110,24 @@ public class GestureLauncherService extends SystemService {
      */
     private boolean mCameraDoubleTapPowerEnabled;
     private long mLastPowerDown;
-    private int mPowerButtonConsecutiveTaps;
+
+     /**
+     * Whether EmergencyCall on power button tap gesture is currently enabled;
+     */
+    private boolean mIsEmergencyOnPowerKeyTapEnabled;
+    private long[] mHits;
+    private long mDuration;
+    private String mEmergencyNumber;
+
+    /**
+    * Time in milliseconds in which interval power tap must be pressed to make
+    * an emergency call.
+    */
+    private static final long EMERGENCY_CALL_POWER_KEY_TAP_INTERVAL = 400;
 
     public GestureLauncherService(Context context) {
-        this(context, new MetricsLogger());
-    }
-
-    @VisibleForTesting
-    GestureLauncherService(Context context, MetricsLogger metricsLogger) {
         super(context);
         mContext = context;
-        mMetricsLogger = metricsLogger;
     }
 
     public void onStart() {
@@ -153,14 +142,13 @@ public class GestureLauncherService extends SystemService {
                 return;
             }
 
-            mWindowManagerInternal = LocalServices.getService(WindowManagerInternal.class);
-            mPowerManager = (PowerManager) mContext.getSystemService(
+            PowerManager powerManager = (PowerManager) mContext.getSystemService(
                     Context.POWER_SERVICE);
-            mWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
+            mWakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
                     "GestureLauncherService");
             updateCameraRegistered();
             updateCameraDoubleTapPowerEnabled();
-
+            updateEmergencyCallTapPowerEnabled();
             mUserId = ActivityManager.getCurrentUser();
             mContext.registerReceiver(mUserReceiver, new IntentFilter(Intent.ACTION_USER_SWITCHED));
             registerContentObservers();
@@ -174,9 +162,6 @@ public class GestureLauncherService extends SystemService {
         mContext.getContentResolver().registerContentObserver(
                 Settings.Secure.getUriFor(Settings.Secure.CAMERA_DOUBLE_TAP_POWER_GESTURE_DISABLED),
                 false, mSettingObserver, mUserId);
-        mContext.getContentResolver().registerContentObserver(
-                Settings.Secure.getUriFor(Settings.Secure.CAMERA_LIFT_TRIGGER_ENABLED),
-                false, mSettingObserver, mUserId);
     }
 
     private void updateCameraRegistered() {
@@ -186,16 +171,9 @@ public class GestureLauncherService extends SystemService {
         } else {
             unregisterCameraLaunchGesture();
         }
-
-        if (isCameraLiftTriggerSettingEnabled(mContext, mUserId)) {
-            registerCameraLiftTrigger(resources);
-        } else {
-            unregisterCameraLiftTrigger();
-        }
     }
 
-    @VisibleForTesting
-    void updateCameraDoubleTapPowerEnabled() {
+    private void updateCameraDoubleTapPowerEnabled() {
         boolean enabled = isCameraDoubleTapPowerSettingEnabled(mContext, mUserId);
         synchronized (this) {
             mCameraDoubleTapPowerEnabled = enabled;
@@ -203,8 +181,8 @@ public class GestureLauncherService extends SystemService {
     }
 
     private void unregisterCameraLaunchGesture() {
-        if (mCameraLaunchRegistered) {
-            mCameraLaunchRegistered = false;
+        if (mRegistered) {
+            mRegistered = false;
             mCameraGestureOnTimeMs = 0L;
             mCameraGestureLastEventTime = 0L;
             mCameraGestureSensor1LastOnTimeMs = 0;
@@ -221,7 +199,7 @@ public class GestureLauncherService extends SystemService {
      * Registers for the camera launch gesture.
      */
     private void registerCameraLaunchGesture(Resources resources) {
-        if (mCameraLaunchRegistered) {
+        if (mRegistered) {
             return;
         }
         mCameraGestureOnTimeMs = SystemClock.elapsedRealtime();
@@ -231,7 +209,7 @@ public class GestureLauncherService extends SystemService {
         int cameraLaunchGestureId = resources.getInteger(
                 com.android.internal.R.integer.config_cameraLaunchGestureSensorType);
         if (cameraLaunchGestureId != -1) {
-            mCameraLaunchRegistered = false;
+            mRegistered = false;
             String sensorName = resources.getString(
                 com.android.internal.R.string.config_cameraLaunchGestureSensorStringType);
             mCameraLaunchSensor = sensorManager.getDefaultSensor(
@@ -243,7 +221,7 @@ public class GestureLauncherService extends SystemService {
             // makes the code more robust.
             if (mCameraLaunchSensor != null) {
                 if (sensorName.equals(mCameraLaunchSensor.getStringType())) {
-                    mCameraLaunchRegistered = sensorManager.registerListener(mGestureListener,
+                    mRegistered = sensorManager.registerListener(mGestureListener,
                             mCameraLaunchSensor, 0);
                 } else {
                     String message = String.format("Wrong configuration. Sensor type and sensor "
@@ -252,58 +230,9 @@ public class GestureLauncherService extends SystemService {
                     throw new RuntimeException(message);
                 }
             }
-            if (DBG) Slog.d(TAG, "Camera launch sensor registered: " + mCameraLaunchRegistered);
+            if (DBG) Slog.d(TAG, "Camera launch sensor registered: " + mRegistered);
         } else {
             if (DBG) Slog.d(TAG, "Camera launch sensor is not specified.");
-        }
-    }
-
-    private void unregisterCameraLiftTrigger() {
-        if (mCameraLiftRegistered) {
-            mCameraLiftRegistered = false;
-
-            SensorManager sensorManager = (SensorManager) mContext.getSystemService(
-                    Context.SENSOR_SERVICE);
-            sensorManager.cancelTriggerSensor(mCameraLiftTriggerListener, mCameraLiftTriggerSensor);
-        }
-    }
-
-    /**
-     * Registers for the camera lift trigger.
-     */
-    private void registerCameraLiftTrigger(Resources resources) {
-        if (mCameraLiftRegistered) {
-            return;
-        }
-        SensorManager sensorManager = (SensorManager) mContext.getSystemService(
-                Context.SENSOR_SERVICE);
-        int cameraLiftTriggerId = resources.getInteger(
-                com.android.internal.R.integer.config_cameraLiftTriggerSensorType);
-        if (cameraLiftTriggerId != -1) {
-            mCameraLiftRegistered = false;
-            String sensorName = resources.getString(
-                com.android.internal.R.string.config_cameraLiftTriggerSensorStringType);
-            mCameraLiftTriggerSensor = sensorManager.getDefaultSensor(
-                    cameraLiftTriggerId,
-                    true /*wakeUp*/);
-
-            // Compare the camera lift trigger string type to that in the resource file to make
-            // sure we are registering the correct sensor. This is redundant check, it
-            // makes the code more robust.
-            if (mCameraLiftTriggerSensor != null) {
-                if (sensorName.equals(mCameraLiftTriggerSensor.getStringType())) {
-                    mCameraLiftRegistered = sensorManager.requestTriggerSensor(mCameraLiftTriggerListener,
-                            mCameraLiftTriggerSensor);
-                } else {
-                    String message = String.format("Wrong configuration. Sensor type and sensor "
-                            + "string type don't match: %s in resources, %s in the sensor.",
-                            sensorName, mCameraLiftTriggerSensor.getStringType());
-                    throw new RuntimeException(message);
-                }
-            }
-            if (DBG) Slog.d(TAG, "Camera lift trigger sensor registered: " + mCameraLiftRegistered);
-        } else {
-            if (DBG) Slog.d(TAG, "Camera lift trigger sensor is not specified.");
         }
     }
 
@@ -317,13 +246,6 @@ public class GestureLauncherService extends SystemService {
         return isCameraDoubleTapPowerEnabled(context.getResources())
                 && (Settings.Secure.getIntForUser(context.getContentResolver(),
                         Settings.Secure.CAMERA_DOUBLE_TAP_POWER_GESTURE_DISABLED, 0, userId) == 0);
-    }
-
-    public static boolean isCameraLiftTriggerSettingEnabled(Context context, int userId) {
-        return isCameraLiftTriggerEnabled(context.getResources())
-                && (Settings.Secure.getIntForUser(context.getContentResolver(),
-                        Settings.Secure.CAMERA_LIFT_TRIGGER_ENABLED,
-                        Settings.Secure.CAMERA_LIFT_TRIGGER_ENABLED_DEFAULT, userId) != 0);
     }
 
     /**
@@ -341,10 +263,11 @@ public class GestureLauncherService extends SystemService {
                 com.android.internal.R.bool.config_cameraDoubleTapPowerGestureEnabled);
     }
 
-    public static boolean isCameraLiftTriggerEnabled(Resources resources) {
-        boolean configSet = resources.getInteger(
-                com.android.internal.R.integer.config_cameraLiftTriggerSensorType) != -1;
-        return configSet;
+    public static boolean isEmergencyOnpowerButtonTapEnabled(Resources resources) {
+        return SystemProperties.getBoolean(
+                "persist.sys.ecall_pwr_key_press", false) ||
+                resources.getBoolean(
+                com.android.internal.R.bool.config_emergencyCallOnPowerkeyTapGestureEnabled);
     }
 
     /**
@@ -352,50 +275,69 @@ public class GestureLauncherService extends SystemService {
      */
     public static boolean isGestureLauncherEnabled(Resources resources) {
         return isCameraLaunchEnabled(resources) || isCameraDoubleTapPowerEnabled(resources) ||
-                isCameraLiftTriggerEnabled(resources);
+                isEmergencyOnpowerButtonTapEnabled(resources);
+    }
+
+    private void updateEmergencyCallTapPowerEnabled() {
+        Resources resources = mContext.getResources();
+        mIsEmergencyOnPowerKeyTapEnabled =
+                isEmergencyOnpowerButtonTapEnabled(resources);
+        mEmergencyNumber = resources.getString(
+                com.android.internal.R.string.power_key_emergency_number);
+        int hits = resources.getInteger(
+                com.android.internal.R.integer.power_key_hits_emergency);
+        mDuration = hits * EMERGENCY_CALL_POWER_KEY_TAP_INTERVAL;
+        mHits = new long[hits];
+        Slog.d(TAG, "Gesture launcher mEmergencyNumber = " +
+                mEmergencyNumber + " hits = " + hits);
     }
 
     public boolean interceptPowerKeyDown(KeyEvent event, boolean interactive,
             MutableBoolean outLaunched) {
-        if (event.isLongPress()) {
-            // Long presses are sent as a second key down. If the long press threshold is set lower
-            // than the double tap of sequence interval thresholds, this could cause false double
-            // taps or consecutive taps, so we want to ignore the long press event.
-            return false;
-        }
         boolean launched = false;
         boolean intercept = false;
-        long powerTapInterval;
+        long doubleTapInterval;
         synchronized (this) {
-            powerTapInterval = event.getEventTime() - mLastPowerDown;
-            if (mCameraDoubleTapPowerEnabled
-                    && powerTapInterval < CAMERA_POWER_DOUBLE_TAP_MAX_TIME_MS) {
+            doubleTapInterval = event.getEventTime() - mLastPowerDown;
+            if (mIsEmergencyOnPowerKeyTapEnabled) {
+                System.arraycopy(mHits, 1, mHits, 0, mHits.length-1);
+                mHits[mHits.length-1] = SystemClock.uptimeMillis();
+                for (int i = 0 ; i < mHits.length ; i++) {
+                    Slog.i(TAG, "mHits[" + i + "] = " + mHits[i] + "ms");
+                }
+                if (mHits[0] >=
+                        (SystemClock.uptimeMillis()-mDuration)) {
+                     launched = true;
+                     intercept = interactive;
+                     Arrays.fill(mHits,0);
+                }
+            } else if (mCameraDoubleTapPowerEnabled
+                    && doubleTapInterval < CAMERA_POWER_DOUBLE_TAP_MAX_TIME_MS) {
                 launched = true;
                 intercept = interactive;
-                mPowerButtonConsecutiveTaps++;
-            } else if (powerTapInterval < POWER_SHORT_TAP_SEQUENCE_MAX_INTERVAL_MS) {
-                mPowerButtonConsecutiveTaps++;
-            } else {
-                mPowerButtonConsecutiveTaps = 1;
             }
             mLastPowerDown = event.getEventTime();
         }
-        if (DBG && mPowerButtonConsecutiveTaps > 1) {
-            Slog.i(TAG, Long.valueOf(mPowerButtonConsecutiveTaps) +
-                    " consecutive power button taps detected");
-        }
         if (launched) {
-            Slog.i(TAG, "Power button double tap gesture detected, launching camera. Interval="
-                    + powerTapInterval + "ms");
-            launched = handleCameraGesture(false /* useWakelock */,
-                    StatusBarManager.CAMERA_LAUNCH_SOURCE_POWER_DOUBLE_TAP);
-            if (launched) {
-                mMetricsLogger.action(MetricsEvent.ACTION_DOUBLE_TAP_POWER_CAMERA_GESTURE,
-                        (int) powerTapInterval);
+            if (mIsEmergencyOnPowerKeyTapEnabled &&
+                    !TextUtils.isEmpty(mEmergencyNumber)) {
+                Slog.i(TAG, "Power button Triple tap gesture detected, launching Emergency Call");
+                Intent intent = new Intent(Intent.ACTION_CALL_PRIVILEGED,
+                        Uri.fromParts("tel", mEmergencyNumber, null));
+                getContext().startActivity(intent);
+            } else {
+                Slog.i(TAG, "Power button double tap gesture detected, launching camera. Interval="
+                        + doubleTapInterval + "ms");
+                launched = handleCameraLaunchGesture(false /* useWakelock */,
+                        StatusBarManager.CAMERA_LAUNCH_SOURCE_POWER_DOUBLE_TAP);
+                if (launched) {
+                    MetricsLogger.action(mContext,
+                            MetricsEvent.ACTION_DOUBLE_TAP_POWER_CAMERA_GESTURE,
+                            (int) doubleTapInterval);
+                }
             }
         }
-        mMetricsLogger.histogram("power_consecutive_short_tap_count", mPowerButtonConsecutiveTaps);
-        mMetricsLogger.histogram("power_double_tap_interval", (int) powerTapInterval);
+        MetricsLogger.histogram(mContext, "power_double_tap_interval", (int) doubleTapInterval);
         outLaunched.value = launched;
         return intercept && launched;
     }
@@ -403,37 +345,27 @@ public class GestureLauncherService extends SystemService {
     /**
      * @return true if camera was launched, false otherwise.
      */
-    @VisibleForTesting
-    boolean handleCameraGesture(boolean useWakelock, int source) {
-        Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, "GestureLauncher:handleCameraGesture");
-        try {
-            boolean userSetupComplete = Settings.Secure.getIntForUser(mContext.getContentResolver(),
-                    Settings.Secure.USER_SETUP_COMPLETE, 0, UserHandle.USER_CURRENT) != 0;
-            if (!userSetupComplete) {
-                if (DBG) {
-                    Slog.d(TAG, String.format(
-                            "userSetupComplete = %s, ignoring camera gesture.",
-                            userSetupComplete));
-                }
-                return false;
-            }
-            if (DBG) {
-                Slog.d(TAG, String.format(
-                        "userSetupComplete = %s, performing camera gesture.",
-                        userSetupComplete));
-            }
-
-            if (useWakelock) {
-                // Make sure we don't sleep too early
-                mWakeLock.acquire(500L);
-            }
-            StatusBarManagerInternal service = LocalServices.getService(
-                    StatusBarManagerInternal.class);
-            service.onCameraLaunchGestureDetected(source);
-            return true;
-        } finally {
-            Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);
+    private boolean handleCameraLaunchGesture(boolean useWakelock, int source) {
+        boolean userSetupComplete = Settings.Secure.getIntForUser(mContext.getContentResolver(),
+                Settings.Secure.USER_SETUP_COMPLETE, 0, UserHandle.USER_CURRENT) != 0;
+        if (!userSetupComplete) {
+            if (DBG) Slog.d(TAG, String.format(
+                    "userSetupComplete = %s, ignoring camera launch gesture.",
+                    userSetupComplete));
+            return false;
         }
+        if (DBG) Slog.d(TAG, String.format(
+                "userSetupComplete = %s, performing camera launch gesture.",
+                userSetupComplete));
+
+        if (useWakelock) {
+            // Make sure we don't sleep too early
+            mWakeLock.acquire(500L);
+        }
+        StatusBarManagerInternal service = LocalServices.getService(
+                StatusBarManagerInternal.class);
+        service.onCameraLaunchGestureDetected(source);
+        return true;
     }
 
     private final BroadcastReceiver mUserReceiver = new BroadcastReceiver() {
@@ -461,7 +393,7 @@ public class GestureLauncherService extends SystemService {
     private final class GestureEventListener implements SensorEventListener {
         @Override
         public void onSensorChanged(SensorEvent event) {
-            if (!mCameraLaunchRegistered) {
+            if (!mRegistered) {
               if (DBG) Slog.d(TAG, "Ignoring gesture event because it's unregistered.");
               return;
             }
@@ -471,9 +403,9 @@ public class GestureLauncherService extends SystemService {
                     Slog.d(TAG, String.format("Received a camera launch event: " +
                             "values=[%.4f, %.4f, %.4f].", values[0], values[1], values[2]));
                 }
-                if (handleCameraGesture(true /* useWakelock */,
+                if (handleCameraLaunchGesture(true /* useWakelock */,
                         StatusBarManager.CAMERA_LAUNCH_SOURCE_WIGGLE)) {
-                    mMetricsLogger.action(MetricsEvent.ACTION_WIGGLE_CAMERA_GESTURE);
+                    MetricsLogger.action(mContext, MetricsEvent.ACTION_WIGGLE_CAMERA_GESTURE);
                     trackCameraLaunchEvent(event);
                 }
                 return;
@@ -528,48 +460,6 @@ public class GestureLauncherService extends SystemService {
             mCameraGestureSensor1LastOnTimeMs = sensor1OnTime;
             mCameraGestureSensor2LastOnTimeMs = sensor2OnTime;
             mCameraLaunchLastEventExtra = extra;
-        }
-    }
-
-    private final class CameraLiftTriggerEventListener extends TriggerEventListener {
-        @Override
-        public void onTrigger(TriggerEvent event) {
-            if (DBG_CAMERA_LIFT) Slog.d(TAG, String.format("onTrigger event - time: %d, name: %s",
-                    event.timestamp, event.sensor.getName()));
-            if (!mCameraLiftRegistered) {
-              if (DBG_CAMERA_LIFT) Slog.d(TAG, "Ignoring camera lift event because it's " +
-                      "unregistered.");
-              return;
-            }
-            if (event.sensor == mCameraLiftTriggerSensor) {
-                Resources resources = mContext.getResources();
-                SensorManager sensorManager = (SensorManager) mContext.getSystemService(
-                        Context.SENSOR_SERVICE);
-                boolean keyguardShowingAndNotOccluded =
-                        mWindowManagerInternal.isKeyguardShowingAndNotOccluded();
-                boolean interactive = mPowerManager.isInteractive();
-                if (DBG_CAMERA_LIFT) {
-                    float[] values = event.values;
-                    Slog.d(TAG, String.format("Received a camera lift trigger " +
-                            "event: values=[%.4f], keyguard showing: %b, interactive: %b", values[0],
-                            keyguardShowingAndNotOccluded, interactive));
-                }
-                if (keyguardShowingAndNotOccluded || !interactive) {
-                    if (handleCameraGesture(true /* useWakelock */,
-                            StatusBarManager.CAMERA_LAUNCH_SOURCE_LIFT_TRIGGER)) {
-                        MetricsLogger.action(mContext, MetricsEvent.ACTION_CAMERA_LIFT_TRIGGER);
-                    }
-                } else {
-                    if (DBG_CAMERA_LIFT) Slog.d(TAG, "Ignoring lift event");
-                }
-
-                mCameraLiftRegistered = sensorManager.requestTriggerSensor(
-                        mCameraLiftTriggerListener, mCameraLiftTriggerSensor);
-
-                if (DBG_CAMERA_LIFT) Slog.d(TAG, "Camera lift trigger sensor re-registered: " +
-                        mCameraLiftRegistered);
-                return;
-            }
         }
     }
 }

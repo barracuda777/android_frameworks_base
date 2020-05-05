@@ -16,9 +16,7 @@
 
 package com.android.server.wm;
 
-import android.app.ActivityManager;
-import android.app.ActivityTaskManager;
-import android.app.UriGrantsManager;
+import android.app.ActivityManagerNative;
 import android.content.ClipData;
 import android.net.Uri;
 import android.os.Binder;
@@ -26,8 +24,6 @@ import android.os.IBinder;
 import android.os.RemoteException;
 
 import com.android.internal.view.IDragAndDropPermissions;
-import com.android.server.LocalServices;
-import com.android.server.uri.UriGrantsManagerInternal;
 
 import java.util.ArrayList;
 
@@ -44,7 +40,6 @@ class DragAndDropPermissionsHandler extends IDragAndDropPermissions.Stub
 
     private IBinder mActivityToken = null;
     private IBinder mPermissionOwnerToken = null;
-    private IBinder mTransientToken = null;
 
     DragAndDropPermissionsHandler(ClipData clipData, int sourceUid, String targetPackage, int mode,
                                   int sourceUserId, int targetUserId) {
@@ -65,7 +60,7 @@ class DragAndDropPermissionsHandler extends IDragAndDropPermissions.Stub
         mActivityToken = activityToken;
 
         // Will throw if Activity is not found.
-        IBinder permissionOwner = ActivityTaskManager.getService().
+        IBinder permissionOwner = ActivityManagerNative.getDefault().
                 getUriPermissionOwnerForActivity(mActivityToken);
 
         doTake(permissionOwner);
@@ -75,7 +70,7 @@ class DragAndDropPermissionsHandler extends IDragAndDropPermissions.Stub
         long origId = Binder.clearCallingIdentity();
         try {
             for (int i = 0; i < mUris.size(); i++) {
-                UriGrantsManager.getService().grantUriPermissionFromOwner(
+                ActivityManagerNative.getDefault().grantUriPermissionFromOwner(
                         permissionOwner, mSourceUid, mTargetPackage, mUris.get(i), mMode,
                         mSourceUserId, mTargetUserId);
             }
@@ -85,14 +80,12 @@ class DragAndDropPermissionsHandler extends IDragAndDropPermissions.Stub
     }
 
     @Override
-    public void takeTransient(IBinder transientToken) throws RemoteException {
+    public void takeTransient(IBinder permissionOwnerToken) throws RemoteException {
         if (mActivityToken != null || mPermissionOwnerToken != null) {
             return;
         }
-        mPermissionOwnerToken = LocalServices.getService(UriGrantsManagerInternal.class)
-                .newUriPermissionOwner("drop");
-        mTransientToken = transientToken;
-        mTransientToken.linkToDeath(this, 0);
+        mPermissionOwnerToken = permissionOwnerToken;
+        mPermissionOwnerToken.linkToDeath(this, 0);
 
         doTake(mPermissionOwnerToken);
     }
@@ -106,7 +99,7 @@ class DragAndDropPermissionsHandler extends IDragAndDropPermissions.Stub
         IBinder permissionOwner = null;
         if (mActivityToken != null) {
             try {
-                permissionOwner = ActivityTaskManager.getService().
+                permissionOwner = ActivityManagerNative.getDefault().
                         getUriPermissionOwnerForActivity(mActivityToken);
             } catch (Exception e) {
                 // Activity is destroyed, permissions already revoked.
@@ -116,14 +109,13 @@ class DragAndDropPermissionsHandler extends IDragAndDropPermissions.Stub
             }
         } else {
             permissionOwner = mPermissionOwnerToken;
+            mPermissionOwnerToken.unlinkToDeath(this, 0);
             mPermissionOwnerToken = null;
-            mTransientToken.unlinkToDeath(this, 0);
-            mTransientToken = null;
         }
 
-        UriGrantsManagerInternal ugm = LocalServices.getService(UriGrantsManagerInternal.class);
         for (int i = 0; i < mUris.size(); ++i) {
-            ugm.revokeUriPermissionFromOwner(permissionOwner, mUris.get(i), mMode, mSourceUserId);
+            ActivityManagerNative.getDefault().revokeUriPermissionFromOwner(
+                    permissionOwner, mUris.get(i), mMode, mSourceUserId);
         }
     }
 

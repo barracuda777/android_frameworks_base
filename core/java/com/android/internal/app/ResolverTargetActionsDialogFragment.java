@@ -36,8 +36,8 @@ import com.android.internal.R;
 public class ResolverTargetActionsDialogFragment extends DialogFragment
         implements DialogInterface.OnClickListener {
     private static final String NAME_KEY = "componentName";
-    private static final String TITLE_KEY = "title";
     private static final String PINNED_KEY = "pinned";
+    private static final String TITLE_KEY = "title";
 
     // Sync with R.array.resolver_target_actions_* resources
     private static final int TOGGLE_PIN_INDEX = 0;
@@ -84,7 +84,7 @@ public class ResolverTargetActionsDialogFragment extends DialogFragment
                 }
 
                 // Force the chooser to requery and resort things
-                ((ChooserActivity) getActivity()).handlePackagesChanged();
+                getActivity().recreate();
                 break;
             case APP_INFO_INDEX:
                 Intent in = new Intent().setAction(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)

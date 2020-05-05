@@ -17,8 +17,7 @@
 package android.content;
 
 import android.test.AndroidTestCase;
-
-import androidx.test.filters.SmallTest;
+import android.test.suitebuilder.annotation.SmallTest;
 
 /** Test to make sure brick intents <b>don't</b> work without permission. */
 public class BrickDeniedTest extends AndroidTestCase {

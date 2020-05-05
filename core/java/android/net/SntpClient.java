@@ -16,11 +16,8 @@
 
 package android.net;
 
-import android.annotation.UnsupportedAppUsage;
 import android.os.SystemClock;
 import android.util.Log;
-
-import com.android.internal.util.TrafficStatsConstants;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -39,7 +36,8 @@ import java.util.Arrays;
  * }
  * </pre>
  */
-public class SntpClient {
+public class SntpClient
+{
     private static final String TAG = "SntpClient";
     private static final boolean DBG = true;
 
@@ -83,29 +81,23 @@ public class SntpClient {
      *
      * @param host host name of the server.
      * @param timeout network timeout in milliseconds.
-     * @param network network over which to send the request.
      * @return true if the transaction was successful.
      */
-    public boolean requestTime(String host, int timeout, Network network) {
-        final Network networkForResolv = network.getPrivateDnsBypassingCopy();
+    public boolean requestTime(String host, int timeout) {
         InetAddress address = null;
         try {
-            address = networkForResolv.getByName(host);
+            address = InetAddress.getByName(host);
         } catch (Exception e) {
-            EventLogTags.writeNtpFailure(host, e.toString());
             if (DBG) Log.d(TAG, "request time failed: " + e);
             return false;
         }
-        return requestTime(address, NTP_PORT, timeout, networkForResolv);
+        return requestTime(address, NTP_PORT, timeout);
     }
 
-    public boolean requestTime(InetAddress address, int port, int timeout, Network network) {
+    public boolean requestTime(InetAddress address, int port, int timeout) {
         DatagramSocket socket = null;
-        final int oldTag = TrafficStats.getAndSetThreadStatsTag(
-                TrafficStatsConstants.TAG_SYSTEM_NTP);
         try {
             socket = new DatagramSocket();
-            network.bindSocket(socket);
             socket.setSoTimeout(timeout);
             byte[] buffer = new byte[NTP_PACKET_SIZE];
             DatagramPacket request = new DatagramPacket(buffer, buffer.length, address, port);
@@ -150,7 +142,6 @@ public class SntpClient {
             //             = (transit + skew - transit + skew)/2
             //             = (2 * skew)/2 = skew
             long clockOffset = ((receiveTime - originateTime) + (transmitTime - responseTime))/2;
-            EventLogTags.writeNtpSuccess(address.toString(), roundTripTime, clockOffset);
             if (DBG) {
                 Log.d(TAG, "round trip: " + roundTripTime + "ms, " +
                         "clock offset: " + clockOffset + "ms");
@@ -162,24 +153,15 @@ public class SntpClient {
             mNtpTimeReference = responseTicks;
             mRoundTripTime = roundTripTime;
         } catch (Exception e) {
-            EventLogTags.writeNtpFailure(address.toString(), e.toString());
             if (DBG) Log.d(TAG, "request time failed: " + e);
             return false;
         } finally {
             if (socket != null) {
                 socket.close();
             }
-            TrafficStats.setThreadStatsTag(oldTag);
         }
 
         return true;
-    }
-
-    @Deprecated
-    @UnsupportedAppUsage
-    public boolean requestTime(String host, int timeout) {
-        Log.w(TAG, "Shame on you for calling the hidden API requestTime()!");
-        return false;
     }
 
     /**
@@ -187,7 +169,6 @@ public class SntpClient {
      *
      * @return time value computed from NTP server response.
      */
-    @UnsupportedAppUsage
     public long getNtpTime() {
         return mNtpTime;
     }
@@ -198,7 +179,6 @@ public class SntpClient {
      *
      * @return reference clock corresponding to the NTP time.
      */
-    @UnsupportedAppUsage
     public long getNtpTimeReference() {
         return mNtpTimeReference;
     }
@@ -208,7 +188,6 @@ public class SntpClient {
      *
      * @return round trip time in milliseconds.
      */
-    @UnsupportedAppUsage
     public long getRoundTripTime() {
         return mRoundTripTime;
     }

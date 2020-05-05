@@ -30,11 +30,11 @@ interface IIpConnectivityMetrics {
     int logEvent(in ConnectivityMetricsEvent event);
 
     /**
-     * Callback can be registered by DevicePolicyManager or NetworkWatchlistService only.
+     * At most one callback can be registered (by DevicePolicyManager).
      * @return status {@code true} if registering/unregistering of the callback was successful,
      *         {@code false} otherwise (might happen if IIpConnectivityMetrics is not available,
      *         if it happens make sure you call it when the service is up in the caller)
      */
-    boolean addNetdEventCallback(in int callerType, in INetdEventCallback callback);
-    boolean removeNetdEventCallback(in int callerType);
+    boolean registerNetdEventCallback(in INetdEventCallback callback);
+    boolean unregisterNetdEventCallback();
 }

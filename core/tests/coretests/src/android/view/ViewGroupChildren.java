@@ -16,10 +16,12 @@
 
 package android.view;
 
-import android.app.Activity;
-import android.os.Bundle;
-
 import com.android.frameworks.coretests.R;
+
+import android.os.Bundle;
+import android.widget.Button;
+import android.view.View;
+import android.app.Activity;
 
 /**
  * Exercise ViewGroup's ability to add and remove children.

@@ -16,7 +16,6 @@
 
 package android.media;
 
-import android.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.text.TextUtils;
@@ -41,10 +40,8 @@ public final class RemoteDisplayState implements Parcelable {
     /**
      * A list of all remote displays.
      */
-    @UnsupportedAppUsage
     public final ArrayList<RemoteDisplayInfo> displays;
 
-    @UnsupportedAppUsage
     public RemoteDisplayState() {
         displays = new ArrayList<RemoteDisplayInfo>();
     }
@@ -76,7 +73,7 @@ public final class RemoteDisplayState implements Parcelable {
         dest.writeTypedList(displays);
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<RemoteDisplayState> CREATOR =
+    public static final Parcelable.Creator<RemoteDisplayState> CREATOR =
             new Parcelable.Creator<RemoteDisplayState>() {
         @Override
         public RemoteDisplayState createFromParcel(Parcel in) {
@@ -176,7 +173,7 @@ public final class RemoteDisplayState implements Parcelable {
         }
 
         @SuppressWarnings("hiding")
-        public static final @android.annotation.NonNull Parcelable.Creator<RemoteDisplayInfo> CREATOR =
+        public static final Parcelable.Creator<RemoteDisplayInfo> CREATOR =
                 new Parcelable.Creator<RemoteDisplayInfo>() {
             @Override
             public RemoteDisplayInfo createFromParcel(Parcel in) {

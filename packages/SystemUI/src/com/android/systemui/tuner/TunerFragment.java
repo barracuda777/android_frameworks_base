@@ -19,38 +19,33 @@ import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.DialogFragment;
 import android.content.DialogInterface;
-import android.hardware.display.AmbientDisplayConfiguration;
-import android.os.Build;
+import android.database.ContentObserver;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.provider.Settings;
+import android.provider.Settings.System;
+import android.support.v14.preference.PreferenceFragment;
+import android.support.v14.preference.SwitchPreference;
+import android.support.v7.preference.Preference;
+import android.support.v7.preference.Preference.OnPreferenceChangeListener;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 
-import androidx.preference.Preference;
-import androidx.preference.PreferenceFragment;
-
 import com.android.internal.logging.MetricsLogger;
-import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
+import com.android.internal.logging.MetricsProto.MetricsEvent;
 import com.android.systemui.R;
-import com.android.systemui.shared.plugins.PluginPrefs;
 
 public class TunerFragment extends PreferenceFragment {
 
     private static final String TAG = "TunerFragment";
 
     private static final String KEY_BATTERY_PCT = "battery_pct";
-    private static final String KEY_PLUGINS = "plugins";
-    private static final CharSequence KEY_DOZE = "doze";
 
     public static final String SETTING_SEEN_TUNER_WARNING = "seen_tuner_warning";
 
     private static final String WARNING_TAG = "tuner_warning";
-    private static final String[] DEBUG_ONLY = new String[] {
-            "nav_bar",
-            "lockscreen",
-            "picture_in_picture",
-    };
 
     private static final int MENU_REMOVE = Menu.FIRST + 1;
 
@@ -70,22 +65,17 @@ public class TunerFragment extends PreferenceFragment {
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         addPreferencesFromResource(R.xml.tuner_prefs);
-        if (!PluginPrefs.hasPlugins(getContext())) {
-            getPreferenceScreen().removePreference(findPreference(KEY_PLUGINS));
-        }
-        if (!alwaysOnAvailable()) {
-            getPreferenceScreen().removePreference(findPreference(KEY_DOZE));
-        }
-        if (!Build.IS_DEBUGGABLE) {
-            for (int i = 0; i < DEBUG_ONLY.length; i++) {
-                Preference preference = findPreference(DEBUG_ONLY[i]);
-                if (preference != null) getPreferenceScreen().removePreference(preference);
+
+        /**
+         * OHAI
+        if (Settings.Secure.getInt(getContext().getContentResolver(), SETTING_SEEN_TUNER_WARNING,
+                0) == 0) {
+            if (getFragmentManager().findFragmentByTag(WARNING_TAG) == null) {
+                new TunerWarningFragment().show(getFragmentManager(), WARNING_TAG);
             }
         }
-    }
+         */
 
-    private boolean alwaysOnAvailable() {
-        return new AmbientDisplayConfiguration(getContext()).alwaysOnAvailable();
     }
 
     @Override
@@ -101,11 +91,6 @@ public class TunerFragment extends PreferenceFragment {
         super.onPause();
 
         MetricsLogger.visibility(getContext(), MetricsEvent.TUNER, false);
-    }
-
-    @Override
-    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
-        menu.add(Menu.NONE, MENU_REMOVE, Menu.NONE, R.string.remove_from_settings);
     }
 
     @Override

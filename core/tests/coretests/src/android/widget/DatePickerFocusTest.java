@@ -23,14 +23,11 @@ import android.test.ActivityInstrumentationTestCase2;
 import android.view.KeyEvent;
 import android.view.View;
 
-import androidx.test.filters.LargeTest;
-
 import com.android.frameworks.coretests.R;
 
 /**
  * Test {@link DatePicker} focus changes.
  */
-@LargeTest
 public class DatePickerFocusTest extends ActivityInstrumentationTestCase2<DatePickerActivity> {
 
     private Activity mActivity;

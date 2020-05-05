@@ -16,31 +16,25 @@
 
 package android.view;
 
-import static android.view.WindowManagerPolicyConstants.APPLICATION_MEDIA_OVERLAY_SUBLAYER;
-import static android.view.WindowManagerPolicyConstants.APPLICATION_MEDIA_SUBLAYER;
-import static android.view.WindowManagerPolicyConstants.APPLICATION_PANEL_SUBLAYER;
+import com.android.internal.view.BaseIWindow;
 
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
+import android.content.res.Configuration;
 import android.content.res.CompatibilityInfo.Translator;
-import android.graphics.BlendMode;
 import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.Region;
-import android.graphics.RenderNode;
-import android.os.Build;
 import android.os.Handler;
-import android.os.Looper;
+import android.os.Message;
+import android.os.RemoteException;
 import android.os.SystemClock;
+import android.os.ParcelFileDescriptor;
 import android.util.AttributeSet;
 import android.util.Log;
 
-import com.android.internal.view.SurfaceCallbackHelper;
-
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -96,103 +90,108 @@ import java.util.concurrent.locks.ReentrantLock;
  * artifacts may occur on previous versions of the platform when its window is
  * positioned asynchronously.</p>
  */
-public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallback {
-    private static final String TAG = "SurfaceView";
-    private static final boolean DEBUG = false;
-    private static final boolean DEBUG_POSITION = false;
+public class SurfaceView extends View {
+    static private final String TAG = "SurfaceView";
+    static private final boolean DEBUG = false;
 
-    @UnsupportedAppUsage
-    final ArrayList<SurfaceHolder.Callback> mCallbacks = new ArrayList<>();
+    final ArrayList<SurfaceHolder.Callback> mCallbacks
+            = new ArrayList<SurfaceHolder.Callback>();
 
     final int[] mLocation = new int[2];
 
-    @UnsupportedAppUsage
     final ReentrantLock mSurfaceLock = new ReentrantLock();
-    @UnsupportedAppUsage
     final Surface mSurface = new Surface();       // Current surface in use
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
+    final Surface mNewSurface = new Surface();    // New surface we are switching to
     boolean mDrawingStopped = true;
-    // We use this to track if the application has produced a frame
-    // in to the Surface. Up until that point, we should be careful not to punch
-    // holes.
-    boolean mDrawFinished = false;
 
-    final Rect mScreenRect = new Rect();
-    SurfaceSession mSurfaceSession;
-
-    SurfaceControl mSurfaceControl;
-    // In the case of format changes we switch out the surface in-place
-    // we need to preserve the old one until the new one has drawn.
-    SurfaceControl mDeferredDestroySurfaceControl;
-    SurfaceControl mBackgroundControl;
-    final Object mSurfaceControlLock = new Object();
+    final WindowManager.LayoutParams mLayout
+            = new WindowManager.LayoutParams();
+    IWindowSession mSession;
+    MyWindow mWindow;
+    final Rect mVisibleInsets = new Rect();
+    final Rect mWinFrame = new Rect();
+    final Rect mOverscanInsets = new Rect();
+    final Rect mContentInsets = new Rect();
+    final Rect mStableInsets = new Rect();
+    final Rect mOutsets = new Rect();
+    final Rect mBackdropFrame = new Rect();
     final Rect mTmpRect = new Rect();
+    final Configuration mConfiguration = new Configuration();
 
-    Paint mRoundedViewportPaint;
+    static final int KEEP_SCREEN_ON_MSG = 1;
+    static final int GET_NEW_SURFACE_MSG = 2;
+    static final int UPDATE_WINDOW_MSG = 3;
 
-    int mSubLayer = APPLICATION_MEDIA_SUBLAYER;
+    int mWindowType = WindowManager.LayoutParams.TYPE_APPLICATION_MEDIA;
 
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     boolean mIsCreating = false;
     private volatile boolean mRtHandlingPositionUpdates = false;
 
-    private final ViewTreeObserver.OnScrollChangedListener mScrollChangedListener =
-            this::updateSurface;
-
-    @UnsupportedAppUsage
-    private final ViewTreeObserver.OnPreDrawListener mDrawListener = () -> {
-        // reposition ourselves where the surface is
-        mHaveFrame = getWidth() > 0 && getHeight() > 0;
-        updateSurface();
-        return true;
+    final Handler mHandler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case KEEP_SCREEN_ON_MSG: {
+                    setKeepScreenOn(msg.arg1 != 0);
+                } break;
+                case GET_NEW_SURFACE_MSG: {
+                    handleGetNewSurface();
+                } break;
+                case UPDATE_WINDOW_MSG: {
+                    updateWindow(false, false);
+                } break;
+            }
+        }
     };
+
+    private final ViewTreeObserver.OnScrollChangedListener mScrollChangedListener
+            = new ViewTreeObserver.OnScrollChangedListener() {
+                    @Override
+                    public void onScrollChanged() {
+                        updateWindow(false, false);
+                    }
+            };
+
+    private final ViewTreeObserver.OnPreDrawListener mDrawListener =
+            new ViewTreeObserver.OnPreDrawListener() {
+                @Override
+                public boolean onPreDraw() {
+                    // reposition ourselves where the surface is
+                    mHaveFrame = getWidth() > 0 && getHeight() > 0;
+                    updateWindow(false, false);
+                    return true;
+                }
+            };
 
     boolean mRequestedVisible = false;
     boolean mWindowVisibility = false;
-    boolean mLastWindowVisibility = false;
     boolean mViewVisibility = false;
-    boolean mWindowStopped = false;
-
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     int mRequestedWidth = -1;
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     int mRequestedHeight = -1;
     /* Set SurfaceView's format to 565 by default to maintain backward
      * compatibility with applications assuming this format.
      */
-    @UnsupportedAppUsage
     int mRequestedFormat = PixelFormat.RGB_565;
 
-    boolean mUseAlpha = false;
-    float mSurfaceAlpha = 1f;
-
-    @UnsupportedAppUsage
     boolean mHaveFrame = false;
     boolean mSurfaceCreated = false;
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     long mLastLockTime = 0;
 
     boolean mVisible = false;
     int mWindowSpaceLeft = -1;
     int mWindowSpaceTop = -1;
-    int mSurfaceWidth = -1;
-    int mSurfaceHeight = -1;
-    float mCornerRadius;
-    @UnsupportedAppUsage
+    int mWindowSpaceWidth = -1;
+    int mWindowSpaceHeight = -1;
     int mFormat = -1;
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     final Rect mSurfaceFrame = new Rect();
     int mLastSurfaceWidth = -1, mLastSurfaceHeight = -1;
+    boolean mUpdateWindowNeeded;
+    boolean mReportDrawNeeded;
+    private Translator mTranslator;
+    private int mWindowInsetLeft;
+    private int mWindowInsetTop;
 
     private boolean mGlobalListenersAdded;
-    private boolean mAttachedToWindow;
-
-    private int mSurfaceFlags = SurfaceControl.HIDDEN;
-
-    private int mPendingReportDraws;
-
-    private SurfaceControl.Transaction mRtTransaction = new SurfaceControl.Transaction();
-    private SurfaceControl.Transaction mTmpTransaction = new SurfaceControl.Transaction();
 
     public SurfaceView(Context context) {
         this(context, null);
@@ -208,7 +207,6 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
 
     public SurfaceView(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
-        mRenderNode.addPositionUpdateListener(mPositionListener);
 
         setWillNotDraw(true);
     }
@@ -223,30 +221,16 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
         return mSurfaceHolder;
     }
 
-    private void updateRequestedVisibility() {
-        mRequestedVisible = mViewVisibility && mWindowVisibility && !mWindowStopped;
-    }
-
-    /** @hide */
-    @Override
-    public void windowStopped(boolean stopped) {
-        mWindowStopped = stopped;
-        updateRequestedVisibility();
-        updateSurface();
-    }
-
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-
-        getViewRootImpl().addWindowStoppedCallback(this);
-        mWindowStopped = false;
-
+        mParent.requestTransparentRegion(this);
+        mSession = getWindowSession();
+        mLayout.token = getWindowToken();
+        mLayout.setTitle("SurfaceView - " + getViewRootImpl().getTitle());
+        mLayout.packageName = mContext.getOpPackageName();
         mViewVisibility = getVisibility() == VISIBLE;
-        updateRequestedVisibility();
 
-        mAttachedToWindow = true;
-        mParent.requestTransparentRegion(SurfaceView.this);
         if (!mGlobalListenersAdded) {
             ViewTreeObserver observer = getViewTreeObserver();
             observer.addOnScrollChangedListener(mScrollChangedListener);
@@ -259,15 +243,15 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
     protected void onWindowVisibilityChanged(int visibility) {
         super.onWindowVisibilityChanged(visibility);
         mWindowVisibility = visibility == VISIBLE;
-        updateRequestedVisibility();
-        updateSurface();
+        mRequestedVisible = mWindowVisibility && mViewVisibility;
+        updateWindow(false, false);
     }
 
     @Override
     public void setVisibility(int visibility) {
         super.setVisibility(visibility);
         mViewVisibility = visibility == VISIBLE;
-        boolean newRequestedVisible = mWindowVisibility && mViewVisibility && !mWindowStopped;
+        boolean newRequestedVisible = mWindowVisibility && mViewVisibility;
         if (newRequestedVisible != mRequestedVisible) {
             // our base class (View) invalidates the layout only when
             // we go from/to the GONE state. However, SurfaceView needs
@@ -278,190 +262,11 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
             requestLayout();
         }
         mRequestedVisible = newRequestedVisible;
-        updateSurface();
-    }
-
-    /**
-     * Make alpha value of this view reflect onto the surface. This can only be called from at most
-     * one SurfaceView within a view tree.
-     *
-     * <p class="note"><strong>Note:</strong> Alpha value of the view is ignored and the underlying
-     * surface is rendered opaque by default.</p>
-     *
-     * @hide
-     */
-    public void setUseAlpha() {
-        if (!mUseAlpha) {
-            mUseAlpha = true;
-            updateSurfaceAlpha();
-        }
-    }
-
-    @Override
-    public void setAlpha(float alpha) {
-        // Sets the opacity of the view to a value, where 0 means the view is completely transparent
-        // and 1 means the view is completely opaque.
-        //
-        // Note: Alpha value of this view is ignored by default. To enable alpha blending, you need
-        // to call setUseAlpha() as well.
-        // This view doesn't support translucent opacity if the view is located z-below, since the
-        // logic to punch a hole in the view hierarchy cannot handle such case. See also
-        // #clearSurfaceViewPort(Canvas)
-        if (DEBUG) {
-            Log.d(TAG, System.identityHashCode(this)
-                    + " setAlpha: mUseAlpha = " + mUseAlpha + " alpha=" + alpha);
-        }
-        super.setAlpha(alpha);
-        updateSurfaceAlpha();
-    }
-
-    private float getFixedAlpha() {
-        // Compute alpha value to be set on the underlying surface.
-        final float alpha = getAlpha();
-        return mUseAlpha && (mSubLayer > 0 || alpha == 0f) ? alpha : 1f;
-    }
-
-    private void updateSurfaceAlpha() {
-        if (!mUseAlpha) {
-            if (DEBUG) {
-                Log.d(TAG, System.identityHashCode(this)
-                        + " updateSurfaceAlpha: setUseAlpha() is not called, ignored.");
-            }
-            return;
-        }
-        final float viewAlpha = getAlpha();
-        if (mSubLayer < 0 && 0f < viewAlpha && viewAlpha < 1f) {
-            Log.w(TAG, System.identityHashCode(this)
-                    + " updateSurfaceAlpha:"
-                    + " translucent color is not supported for a surface placed z-below.");
-        }
-        if (!mHaveFrame) {
-            if (DEBUG) {
-                Log.d(TAG, System.identityHashCode(this)
-                        + " updateSurfaceAlpha: has no surface.");
-            }
-            return;
-        }
-        final ViewRootImpl viewRoot = getViewRootImpl();
-        if (viewRoot == null) {
-            if (DEBUG) {
-                Log.d(TAG, System.identityHashCode(this)
-                        + " updateSurfaceAlpha: ViewRootImpl not available.");
-            }
-            return;
-        }
-        if (mSurfaceControl == null) {
-            if (DEBUG) {
-                Log.d(TAG, System.identityHashCode(this)
-                        + "updateSurfaceAlpha:"
-                        + " surface is not yet created, or already released.");
-            }
-            return;
-        }
-        final Surface parent = viewRoot.mSurface;
-        if (parent == null || !parent.isValid()) {
-            if (DEBUG) {
-                Log.d(TAG, System.identityHashCode(this)
-                        + " updateSurfaceAlpha: ViewRootImpl has no valid surface");
-            }
-            return;
-        }
-        final float alpha = getFixedAlpha();
-        if (alpha != mSurfaceAlpha) {
-            if (isHardwareAccelerated()) {
-                /*
-                 * Schedule a callback that reflects an alpha value onto the underlying surfaces.
-                 * This gets called on a RenderThread worker thread, so members accessed here must
-                 * be protected by a lock.
-                 */
-                viewRoot.registerRtFrameCallback(frame -> {
-                    try {
-                        final SurfaceControl.Transaction t = new SurfaceControl.Transaction();
-                        synchronized (mSurfaceControlLock) {
-                            if (!parent.isValid()) {
-                                if (DEBUG) {
-                                    Log.d(TAG, System.identityHashCode(this)
-                                            + " updateSurfaceAlpha RT:"
-                                            + " ViewRootImpl has no valid surface");
-                                }
-                                return;
-                            }
-                            if (mSurfaceControl == null) {
-                                if (DEBUG) {
-                                    Log.d(TAG, System.identityHashCode(this)
-                                            + "updateSurfaceAlpha RT:"
-                                            + " mSurfaceControl has already released");
-                                }
-                                return;
-                            }
-                            if (DEBUG) {
-                                Log.d(TAG, System.identityHashCode(this)
-                                        + " updateSurfaceAlpha RT: set alpha=" + alpha);
-                            }
-                            t.setAlpha(mSurfaceControl, alpha);
-                            t.deferTransactionUntilSurface(mSurfaceControl, parent, frame);
-                        }
-                        // It's possible that mSurfaceControl is released in the UI thread before
-                        // the transaction completes. If that happens, an exception is thrown, which
-                        // must be caught immediately.
-                        t.apply();
-                    } catch (Exception e) {
-                        Log.e(TAG, System.identityHashCode(this)
-                                + "updateSurfaceAlpha RT: Exception during surface transaction", e);
-                    }
-                });
-                damageInParent();
-            } else {
-                if (DEBUG) {
-                    Log.d(TAG, System.identityHashCode(this)
-                            + " updateSurfaceAlpha: set alpha=" + alpha);
-                }
-                SurfaceControl.openTransaction();
-                try {
-                    mSurfaceControl.setAlpha(alpha);
-                } finally {
-                    SurfaceControl.closeTransaction();
-                }
-            }
-            mSurfaceAlpha = alpha;
-        }
-    }
-
-    private void performDrawFinished() {
-        if (mPendingReportDraws > 0) {
-            mDrawFinished = true;
-            if (mAttachedToWindow) {
-                notifyDrawFinished();
-                invalidate();
-            }
-        } else {
-            Log.e(TAG, System.identityHashCode(this) + "finished drawing"
-                    + " but no pending report draw (extra call"
-                    + " to draw completion runnable?)");
-        }
-    }
-
-    void notifyDrawFinished() {
-        ViewRootImpl viewRoot = getViewRootImpl();
-        if (viewRoot != null) {
-            viewRoot.pendingDrawFinished();
-        }
-        mPendingReportDraws--;
+        updateWindow(false, false);
     }
 
     @Override
     protected void onDetachedFromWindow() {
-        ViewRootImpl viewRoot = getViewRootImpl();
-        // It's possible to create a SurfaceView using the default constructor and never
-        // attach it to a view hierarchy, this is a common use case when dealing with
-        // OpenGL. A developer will probably create a new GLSurfaceView, and let it manage
-        // the lifecycle. Instead of attaching it to a view, he/she can just pass
-        // the SurfaceHolder forward, most live wallpapers do it.
-        if (viewRoot != null) {
-            viewRoot.removeWindowStoppedCallback(this);
-        }
-
-        mAttachedToWindow = false;
         if (mGlobalListenersAdded) {
             ViewTreeObserver observer = getViewTreeObserver();
             observer.removeOnScrollChangedListener(mScrollChangedListener);
@@ -469,15 +274,19 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
             mGlobalListenersAdded = false;
         }
 
-        while (mPendingReportDraws > 0) {
-            notifyDrawFinished();
-        }
-
         mRequestedVisible = false;
-
-        updateSurface();
-        releaseSurfaces();
+        updateWindow(false, false);
         mHaveFrame = false;
+        if (mWindow != null) {
+            try {
+                mSession.remove(mWindow);
+            } catch (RemoteException ex) {
+                // Not much we can do here...
+            }
+            mWindow = null;
+        }
+        mSession = null;
+        mLayout.token = null;
 
         super.onDetachedFromWindow();
     }
@@ -495,16 +304,15 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
 
     /** @hide */
     @Override
-    @UnsupportedAppUsage
     protected boolean setFrame(int left, int top, int right, int bottom) {
         boolean result = super.setFrame(left, top, right, bottom);
-        updateSurface();
+        updateWindow(false, false);
         return result;
     }
 
     @Override
     public boolean gatherTransparentRegion(Region region) {
-        if (isAboveParent() || !mDrawFinished) {
+        if (mWindowType == WindowManager.LayoutParams.TYPE_APPLICATION_PANEL) {
             return super.gatherTransparentRegion(region);
         }
 
@@ -531,11 +339,11 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
 
     @Override
     public void draw(Canvas canvas) {
-        if (mDrawFinished && !isAboveParent()) {
+        if (mWindowType != WindowManager.LayoutParams.TYPE_APPLICATION_PANEL) {
             // draw() is not called when SKIP_DRAW is set
             if ((mPrivateFlags & PFLAG_SKIP_DRAW) == 0) {
                 // punch a whole in the view-hierarchy below us
-                clearSurfaceViewPort(canvas);
+                canvas.drawColor(0, PorterDuff.Mode.CLEAR);
             }
         }
         super.draw(canvas);
@@ -543,41 +351,14 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
 
     @Override
     protected void dispatchDraw(Canvas canvas) {
-        if (mDrawFinished && !isAboveParent()) {
-            // draw() is not called when SKIP_DRAW is set
+        if (mWindowType != WindowManager.LayoutParams.TYPE_APPLICATION_PANEL) {
+            // if SKIP_DRAW is cleared, draw() has already punched a hole
             if ((mPrivateFlags & PFLAG_SKIP_DRAW) == PFLAG_SKIP_DRAW) {
                 // punch a whole in the view-hierarchy below us
-                clearSurfaceViewPort(canvas);
+                canvas.drawColor(0, PorterDuff.Mode.CLEAR);
             }
         }
         super.dispatchDraw(canvas);
-    }
-
-    private void clearSurfaceViewPort(Canvas canvas) {
-        if (mCornerRadius > 0f) {
-            canvas.getClipBounds(mTmpRect);
-            canvas.drawRoundRect(mTmpRect.left, mTmpRect.top, mTmpRect.right, mTmpRect.bottom,
-                    mCornerRadius, mCornerRadius, mRoundedViewportPaint);
-        } else {
-            canvas.drawColor(0, PorterDuff.Mode.CLEAR);
-        }
-    }
-
-    /**
-     * Sets the corner radius for the SurfaceView. This will round both the corners of the
-     * underlying surface, as well as the corners of the hole created to expose the surface.
-     *
-     * @param cornerRadius the new radius of the corners in pixels
-     * @hide
-     */
-    public void setCornerRadius(float cornerRadius) {
-        mCornerRadius = cornerRadius;
-        if (mCornerRadius > 0f && mRoundedViewportPaint == null) {
-            mRoundedViewportPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-            mRoundedViewportPaint.setBlendMode(BlendMode.CLEAR);
-            mRoundedViewportPaint.setColor(0);
-        }
-        invalidate();
     }
 
     /**
@@ -592,8 +373,9 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
      * <p>Calling this overrides any previous call to {@link #setZOrderOnTop}.
      */
     public void setZOrderMediaOverlay(boolean isMediaOverlay) {
-        mSubLayer = isMediaOverlay
-            ? APPLICATION_MEDIA_OVERLAY_SUBLAYER : APPLICATION_MEDIA_SUBLAYER;
+        mWindowType = isMediaOverlay
+                ? WindowManager.LayoutParams.TYPE_APPLICATION_MEDIA_OVERLAY
+                : WindowManager.LayoutParams.TYPE_APPLICATION_MEDIA;
     }
 
     /**
@@ -611,9 +393,12 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
      */
     public void setZOrderOnTop(boolean onTop) {
         if (onTop) {
-            mSubLayer = APPLICATION_PANEL_SUBLAYER;
+            mWindowType = WindowManager.LayoutParams.TYPE_APPLICATION_PANEL;
+            // ensures the surface is placed below the IME
+            mLayout.flags |= WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM;
         } else {
-            mSubLayer = APPLICATION_MEDIA_SUBLAYER;
+            mWindowType = WindowManager.LayoutParams.TYPE_APPLICATION_MEDIA;
+            mLayout.flags &= ~WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM;
         }
     }
 
@@ -631,67 +416,33 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
      */
     public void setSecure(boolean isSecure) {
         if (isSecure) {
-            mSurfaceFlags |= SurfaceControl.SECURE;
+            mLayout.flags |= WindowManager.LayoutParams.FLAG_SECURE;
         } else {
-            mSurfaceFlags &= ~SurfaceControl.SECURE;
+            mLayout.flags &= ~WindowManager.LayoutParams.FLAG_SECURE;
         }
     }
 
-    private void updateOpaqueFlag() {
-        if (!PixelFormat.formatHasAlpha(mRequestedFormat)) {
-            mSurfaceFlags |= SurfaceControl.OPAQUE;
-        } else {
-            mSurfaceFlags &= ~SurfaceControl.OPAQUE;
-        }
-    }
-
-    private void updateBackgroundVisibilityInTransaction(SurfaceControl viewRoot) {
-        if (mBackgroundControl == null) {
-            return;
-        }
-        if ((mSubLayer < 0) && ((mSurfaceFlags & SurfaceControl.OPAQUE) != 0)) {
-            mBackgroundControl.show();
-            mBackgroundControl.setRelativeLayer(viewRoot, Integer.MIN_VALUE);
-        } else {
-            mBackgroundControl.hide();
-        }
-    }
-
-    private void releaseSurfaces() {
-        synchronized (mSurfaceControlLock) {
-            if (mSurfaceControl != null) {
-                mTmpTransaction.remove(mSurfaceControl);
-                mSurfaceControl = null;
-            }
-            if (mBackgroundControl != null) {
-                mTmpTransaction.remove(mBackgroundControl);
-                mBackgroundControl = null;
-            }
-            mTmpTransaction.apply();
-        }
-        mSurfaceAlpha = 1f;
+    /**
+     * Hack to allow special layering of windows.  The type is one of the
+     * types in WindowManager.LayoutParams.  This is a hack so:
+     * @hide
+     */
+    public void setWindowType(int type) {
+        mWindowType = type;
     }
 
     /** @hide */
-    protected void updateSurface() {
+    protected void updateWindow(boolean force, boolean redrawNeeded) {
         if (!mHaveFrame) {
-            if (DEBUG) {
-                Log.d(TAG, System.identityHashCode(this) + " updateSurface: has no frame");
-            }
             return;
         }
         ViewRootImpl viewRoot = getViewRootImpl();
-        if (viewRoot == null || viewRoot.mSurface == null || !viewRoot.mSurface.isValid()) {
-            if (DEBUG) {
-                Log.d(TAG, System.identityHashCode(this)
-                        + " updateSurface: no valid surface");
-            }
-            return;
+        if (viewRoot != null) {
+            mTranslator = viewRoot.mTranslator;
         }
 
-        final Translator translator = viewRoot.mTranslator;
-        if (translator != null) {
-            mSurface.setCompatibilityTranslator(translator);
+        if (mTranslator != null) {
+            mSurface.setCompatibilityTranslator(mTranslator);
         }
 
         int myWidth = mRequestedWidth;
@@ -699,25 +450,20 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
         int myHeight = mRequestedHeight;
         if (myHeight <= 0) myHeight = getHeight();
 
-        final float alpha = getFixedAlpha();
+        final boolean creating = mWindow == null;
         final boolean formatChanged = mFormat != mRequestedFormat;
+        final boolean sizeChanged = mWindowSpaceWidth != myWidth || mWindowSpaceHeight != myHeight;
         final boolean visibleChanged = mVisible != mRequestedVisible;
-        final boolean alphaChanged = mSurfaceAlpha != alpha;
-        final boolean creating = (mSurfaceControl == null || formatChanged || visibleChanged)
-                && mRequestedVisible;
-        final boolean sizeChanged = mSurfaceWidth != myWidth || mSurfaceHeight != myHeight;
-        final boolean windowVisibleChanged = mWindowVisibility != mLastWindowVisibility;
-        boolean redrawNeeded = false;
+        final boolean layoutSizeChanged = getWidth() != mLayout.width
+                || getHeight() != mLayout.height;
 
-        if (creating || formatChanged || sizeChanged || visibleChanged || (mUseAlpha
-                && alphaChanged) || windowVisibleChanged) {
+        if (force || creating || formatChanged || sizeChanged || visibleChanged
+            || mUpdateWindowNeeded || mReportDrawNeeded || redrawNeeded) {
             getLocationInWindow(mLocation);
 
             if (DEBUG) Log.i(TAG, System.identityHashCode(this) + " "
                     + "Changes: creating=" + creating
                     + " format=" + formatChanged + " size=" + sizeChanged
-                    + " visible=" + visibleChanged + " alpha=" + alphaChanged
-                    + " mUseAlpha=" + mUseAlpha
                     + " visible=" + visibleChanged
                     + " left=" + (mWindowSpaceLeft != mLocation[0])
                     + " top=" + (mWindowSpaceTop != mLocation[1]));
@@ -726,113 +472,93 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
                 final boolean visible = mVisible = mRequestedVisible;
                 mWindowSpaceLeft = mLocation[0];
                 mWindowSpaceTop = mLocation[1];
-                mSurfaceWidth = myWidth;
-                mSurfaceHeight = myHeight;
+                mWindowSpaceWidth = myWidth;
+                mWindowSpaceHeight = myHeight;
                 mFormat = mRequestedFormat;
-                mLastWindowVisibility = mWindowVisibility;
 
-                mScreenRect.left = mWindowSpaceLeft;
-                mScreenRect.top = mWindowSpaceTop;
-                mScreenRect.right = mWindowSpaceLeft + getWidth();
-                mScreenRect.bottom = mWindowSpaceTop + getHeight();
-                if (translator != null) {
-                    translator.translateRectInAppWindowToScreen(mScreenRect);
+                // Scaling/Translate window's layout here because mLayout is not used elsewhere.
+
+                // Places the window relative
+                mLayout.x = mWindowSpaceLeft;
+                mLayout.y = mWindowSpaceTop;
+                mLayout.width = getWidth();
+                mLayout.height = getHeight();
+                if (mTranslator != null) {
+                    mTranslator.translateLayoutParamsInAppWindowToScreen(mLayout);
                 }
 
-                final Rect surfaceInsets = viewRoot.mWindowAttributes.surfaceInsets;
-                mScreenRect.offset(surfaceInsets.left, surfaceInsets.top);
-
-                if (creating) {
-                    viewRoot.createBoundsSurface(mSubLayer);
-                    mSurfaceSession = new SurfaceSession();
-                    mDeferredDestroySurfaceControl = mSurfaceControl;
-
-                    updateOpaqueFlag();
-                    final String name = "SurfaceView - " + viewRoot.getTitle().toString();
-
-                    mSurfaceControl = new SurfaceControl.Builder(mSurfaceSession)
-                        .setName(name)
-                        .setOpaque((mSurfaceFlags & SurfaceControl.OPAQUE) != 0)
-                        .setBufferSize(mSurfaceWidth, mSurfaceHeight)
-                        .setFormat(mFormat)
-                        .setParent(viewRoot.getSurfaceControl())
-                        .setFlags(mSurfaceFlags)
-                        .build();
-                    mBackgroundControl = new SurfaceControl.Builder(mSurfaceSession)
-                        .setName("Background for -" + name)
-                        .setOpaque(true)
-                        .setColorLayer()
-                        .setParent(mSurfaceControl)
-                        .build();
-
-                } else if (mSurfaceControl == null) {
-                    return;
+                mLayout.format = mRequestedFormat;
+                mLayout.flags |=WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                              | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                              | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+                              | WindowManager.LayoutParams.FLAG_SCALED
+                              | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                              | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                              ;
+                if (!creating && !force && !sizeChanged) {
+                    mLayout.privateFlags |=
+                            WindowManager.LayoutParams.PRIVATE_FLAG_PRESERVE_GEOMETRY;
+                } else {
+                    mLayout.privateFlags &=
+                            ~WindowManager.LayoutParams.PRIVATE_FLAG_PRESERVE_GEOMETRY;
                 }
 
-                boolean realSizeChanged = false;
+                if (!getContext().getResources().getCompatibilityInfo().supportsScreen()) {
+                    mLayout.privateFlags |=
+                            WindowManager.LayoutParams.PRIVATE_FLAG_COMPATIBLE_WINDOW;
+                }
+                mLayout.privateFlags |= WindowManager.LayoutParams.PRIVATE_FLAG_NO_MOVE_ANIMATION
+                    | WindowManager.LayoutParams.PRIVATE_FLAG_LAYOUT_CHILD_WINDOW_IN_PARENT_FRAME;
+
+                if (mWindow == null) {
+                    Display display = getDisplay();
+                    mWindow = new MyWindow(this);
+                    mLayout.type = mWindowType;
+                    mLayout.gravity = Gravity.START|Gravity.TOP;
+                    mSession.addToDisplayWithoutInputChannel(mWindow, mWindow.mSeq, mLayout,
+                            mVisible ? VISIBLE : GONE, display.getDisplayId(), mContentInsets,
+                            mStableInsets);
+                }
+
+                boolean realSizeChanged;
+                boolean reportDrawNeeded;
+
+                int relayoutResult;
 
                 mSurfaceLock.lock();
                 try {
+                    mUpdateWindowNeeded = false;
+                    reportDrawNeeded = mReportDrawNeeded;
+                    mReportDrawNeeded = false;
                     mDrawingStopped = !visible;
 
                     if (DEBUG) Log.i(TAG, System.identityHashCode(this) + " "
                             + "Cur surface: " + mSurface);
 
-                    SurfaceControl.openTransaction();
-                    try {
-                        mSurfaceControl.setLayer(mSubLayer);
-
-                        if (mViewVisibility) {
-                            mSurfaceControl.show();
-                        } else {
-                            mSurfaceControl.hide();
-                        }
-                        updateBackgroundVisibilityInTransaction(viewRoot.getSurfaceControl());
-                        if (mUseAlpha) {
-                            mSurfaceControl.setAlpha(alpha);
-                            mSurfaceAlpha = alpha;
-                        }
-
-                        // While creating the surface, we will set it's initial
-                        // geometry. Outside of that though, we should generally
-                        // leave it to the RenderThread.
-                        //
-                        // There is one more case when the buffer size changes we aren't yet
-                        // prepared to sync (as even following the transaction applying
-                        // we still need to latch a buffer).
-                        // b/28866173
-                        if (sizeChanged || creating || !mRtHandlingPositionUpdates) {
-                            mSurfaceControl.setPosition(mScreenRect.left, mScreenRect.top);
-                            mSurfaceControl.setMatrix(mScreenRect.width() / (float) mSurfaceWidth,
-                                    0.0f, 0.0f,
-                                    mScreenRect.height() / (float) mSurfaceHeight);
-                            // Set a window crop when creating the surface or changing its size to
-                            // crop the buffer to the surface size since the buffer producer may
-                            // use SCALING_MODE_SCALE and submit a larger size than the surface
-                            // size.
-                            mSurfaceControl.setWindowCrop(mSurfaceWidth, mSurfaceHeight);
-                        }
-                        mSurfaceControl.setCornerRadius(mCornerRadius);
-                        if (sizeChanged && !creating) {
-                            mSurfaceControl.setBufferSize(mSurfaceWidth, mSurfaceHeight);
-                        }
-                    } finally {
-                        SurfaceControl.closeTransaction();
+                    relayoutResult = mSession.relayout(
+                        mWindow, mWindow.mSeq, mLayout, mWindowSpaceWidth, mWindowSpaceHeight,
+                            visible ? VISIBLE : GONE,
+                            WindowManagerGlobal.RELAYOUT_DEFER_SURFACE_DESTROY,
+                            mWinFrame, mOverscanInsets, mContentInsets,
+                            mVisibleInsets, mStableInsets, mOutsets, mBackdropFrame,
+                            mConfiguration, mNewSurface);
+                    if ((relayoutResult & WindowManagerGlobal.RELAYOUT_RES_FIRST_TIME) != 0) {
+                        reportDrawNeeded = true;
                     }
 
-                    if (sizeChanged || creating) {
-                        redrawNeeded = true;
-                    }
+                    if (DEBUG) Log.i(TAG, System.identityHashCode(this) + " "
+                            + "New surface: " + mNewSurface
+                            + ", vis=" + visible + ", frame=" + mWinFrame);
 
                     mSurfaceFrame.left = 0;
                     mSurfaceFrame.top = 0;
-                    if (translator == null) {
-                        mSurfaceFrame.right = mSurfaceWidth;
-                        mSurfaceFrame.bottom = mSurfaceHeight;
+                    if (mTranslator == null) {
+                        mSurfaceFrame.right = mWinFrame.width();
+                        mSurfaceFrame.bottom = mWinFrame.height();
                     } else {
-                        float appInvertedScale = translator.applicationInvertedScale;
-                        mSurfaceFrame.right = (int) (mSurfaceWidth * appInvertedScale + 0.5f);
-                        mSurfaceFrame.bottom = (int) (mSurfaceHeight * appInvertedScale + 0.5f);
+                        float appInvertedScale = mTranslator.applicationInvertedScale;
+                        mSurfaceFrame.right = (int) (mWinFrame.width() * appInvertedScale + 0.5f);
+                        mSurfaceFrame.bottom = (int) (mWinFrame.height() * appInvertedScale + 0.5f);
                     }
 
                     final int surfaceWidth = mSurfaceFrame.right;
@@ -846,11 +572,12 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
                 }
 
                 try {
-                    redrawNeeded |= visible && !mDrawFinished;
+                    redrawNeeded |= creating | reportDrawNeeded;
 
-                    SurfaceHolder.Callback[] callbacks = null;
+                    SurfaceHolder.Callback callbacks[] = null;
 
-                    final boolean surfaceChanged = creating;
+                    final boolean surfaceChanged = (relayoutResult
+                            & WindowManagerGlobal.RELAYOUT_RES_SURFACE_CHANGED) != 0;
                     if (mSurfaceCreated && (surfaceChanged || (!visible && visibleChanged))) {
                         mSurfaceCreated = false;
                         if (mSurface.isValid()) {
@@ -877,20 +604,7 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
                         }
                     }
 
-                    if (creating) {
-                        mSurface.copyFrom(mSurfaceControl);
-                    }
-
-                    if (sizeChanged && getContext().getApplicationInfo().targetSdkVersion
-                            < Build.VERSION_CODES.O) {
-                        // Some legacy applications use the underlying native {@link Surface} object
-                        // as a key to whether anything has changed. In these cases, updates to the
-                        // existing {@link Surface} will be ignored when the size changes.
-                        // Therefore, we must explicitly recreate the {@link Surface} in these
-                        // cases.
-                        mSurface.createFrom(mSurfaceControl);
-                    }
-
+                    mSurface.transferFrom(mNewSurface);
                     if (visible && mSurface.isValid()) {
                         if (!mSurfaceCreated && (surfaceChanged || visibleChanged)) {
                             mSurfaceCreated = true;
@@ -922,194 +636,159 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
                             if (callbacks == null) {
                                 callbacks = getSurfaceCallbacks();
                             }
-
-                            mPendingReportDraws++;
-                            viewRoot.drawPending();
-                            SurfaceCallbackHelper sch =
-                                    new SurfaceCallbackHelper(this::onDrawFinished);
-                            sch.dispatchSurfaceRedrawNeededAsync(mSurfaceHolder, callbacks);
+                            for (SurfaceHolder.Callback c : callbacks) {
+                                if (c instanceof SurfaceHolder.Callback2) {
+                                    ((SurfaceHolder.Callback2)c).surfaceRedrawNeeded(
+                                            mSurfaceHolder);
+                                }
+                            }
                         }
                     }
                 } finally {
                     mIsCreating = false;
-                    if (mSurfaceControl != null && !mSurfaceCreated) {
-                        mSurface.release();
-                        releaseSurfaces();
+                    if (redrawNeeded) {
+                        if (DEBUG) Log.i(TAG, System.identityHashCode(this) + " "
+                                + "finishedDrawing");
+                        mSession.finishDrawing(mWindow);
                     }
+                    mSession.performDeferredDestroy(mWindow);
                 }
-            } catch (Exception ex) {
-                Log.e(TAG, "Exception configuring surface", ex);
+            } catch (RemoteException ex) {
+                Log.e(TAG, "Exception from relayout", ex);
             }
             if (DEBUG) Log.v(
-                TAG, "Layout: x=" + mScreenRect.left + " y=" + mScreenRect.top
-                + " w=" + mScreenRect.width() + " h=" + mScreenRect.height()
-                + ", frame=" + mSurfaceFrame);
+                TAG, "Layout: x=" + mLayout.x + " y=" + mLayout.y +
+                " w=" + mLayout.width + " h=" + mLayout.height +
+                ", frame=" + mSurfaceFrame);
         } else {
             // Calculate the window position in case RT loses the window
             // and we need to fallback to a UI-thread driven position update
-            getLocationInSurface(mLocation);
+            getLocationInWindow(mLocation);
             final boolean positionChanged = mWindowSpaceLeft != mLocation[0]
                     || mWindowSpaceTop != mLocation[1];
-            final boolean layoutSizeChanged = getWidth() != mScreenRect.width()
-                    || getHeight() != mScreenRect.height();
             if (positionChanged || layoutSizeChanged) { // Only the position has changed
                 mWindowSpaceLeft = mLocation[0];
                 mWindowSpaceTop = mLocation[1];
-                // For our size changed check, we keep mScreenRect.width() and mScreenRect.height()
+                // For our size changed check, we keep mLayout.width and mLayout.height
                 // in view local space.
-                mLocation[0] = getWidth();
-                mLocation[1] = getHeight();
+                mLocation[0] = mLayout.width = getWidth();
+                mLocation[1] = mLayout.height = getHeight();
 
-                mScreenRect.set(mWindowSpaceLeft, mWindowSpaceTop,
-                        mWindowSpaceLeft + mLocation[0], mWindowSpaceTop + mLocation[1]);
+                transformFromViewToWindowSpace(mLocation);
 
-                if (translator != null) {
-                    translator.translateRectInAppWindowToScreen(mScreenRect);
-                }
+                mTmpRect.set(mWindowSpaceLeft, mWindowSpaceTop,
+                        mLocation[0], mLocation[1]);
 
-                if (mSurfaceControl == null) {
-                    return;
+                if (mTranslator != null) {
+                    mTranslator.translateRectInAppWindowToScreen(mTmpRect);
                 }
 
                 if (!isHardwareAccelerated() || !mRtHandlingPositionUpdates) {
                     try {
-                        if (DEBUG_POSITION) {
-                            Log.d(TAG, String.format("%d updateSurfacePosition UI, "
-                                            + "position = [%d, %d, %d, %d]",
-                                    System.identityHashCode(this),
-                                    mScreenRect.left, mScreenRect.top,
-                                    mScreenRect.right, mScreenRect.bottom));
-                        }
-                        setParentSpaceRectangle(mScreenRect, -1);
-                    } catch (Exception ex) {
-                        Log.e(TAG, "Exception configuring surface", ex);
+                        if (DEBUG) Log.d(TAG, String.format("%d updateWindowPosition UI, " +
+                                "postion = [%d, %d, %d, %d]", System.identityHashCode(this),
+                                mTmpRect.left, mTmpRect.top,
+                                mTmpRect.right, mTmpRect.bottom));
+                        mSession.repositionChild(mWindow, mTmpRect.left, mTmpRect.top,
+                                mTmpRect.right, mTmpRect.bottom, -1, mTmpRect);
+                    } catch (RemoteException ex) {
+                        Log.e(TAG, "Exception from relayout", ex);
                     }
                 }
             }
         }
     }
 
-    private void onDrawFinished() {
-        if (DEBUG) {
-            Log.i(TAG, System.identityHashCode(this) + " "
-                    + "finishedDrawing");
-        }
+    private Rect mRTLastReportedPosition = new Rect();
 
-        if (mDeferredDestroySurfaceControl != null) {
-            mTmpTransaction.remove(mDeferredDestroySurfaceControl).apply();
-            mDeferredDestroySurfaceControl = null;
+    /**
+     * Called by native by a Rendering Worker thread to update the window position
+     * @hide
+     */
+    public final void updateWindowPosition_renderWorker(long frameNumber,
+            int left, int top, int right, int bottom) {
+        IWindowSession session = mSession;
+        MyWindow window = mWindow;
+        if (session == null || window == null) {
+            // Guess we got detached, that sucks
+            return;
         }
-
-        runOnUiThread(this::performDrawFinished);
+        // TODO: This is teensy bit racey in that a brand new SurfaceView moving on
+        // its 2nd frame if RenderThread is running slowly could potentially see
+        // this as false, enter the branch, get pre-empted, then this comes along
+        // and reports a new position, then the UI thread resumes and reports
+        // its position. This could therefore be de-sync'd in that interval, but
+        // the synchronization would violate the rule that RT must never block
+        // on the UI thread which would open up potential deadlocks. The risk of
+        // a single-frame desync is therefore preferable for now.
+        mRtHandlingPositionUpdates = true;
+        if (mRTLastReportedPosition.left == left
+                && mRTLastReportedPosition.top == top
+                && mRTLastReportedPosition.right == right
+                && mRTLastReportedPosition.bottom == bottom) {
+            return;
+        }
+        try {
+            if (DEBUG) {
+                Log.d(TAG, String.format("%d updateWindowPosition RenderWorker, frameNr = %d, " +
+                        "postion = [%d, %d, %d, %d]", System.identityHashCode(this),
+                        frameNumber, left, top, right, bottom));
+            }
+            // Just using mRTLastReportedPosition as a dummy rect here
+            session.repositionChild(window, left, top, right, bottom,
+                    frameNumber,
+                    mRTLastReportedPosition);
+            // Now overwrite mRTLastReportedPosition with our values
+            mRTLastReportedPosition.set(left, top, right, bottom);
+        } catch (RemoteException ex) {
+            Log.e(TAG, "Exception from repositionChild", ex);
+        }
     }
 
     /**
-     * A place to over-ride for applying child-surface transactions.
-     * These can be synchronized with the viewroot surface using deferTransaction.
-     *
-     * Called from RenderWorker while UI thread is paused.
+     * Called by native on RenderThread to notify that the window is no longer in the
+     * draw tree. UI thread is blocked at this point.
      * @hide
      */
-    protected void applyChildSurfaceTransaction_renderWorker(SurfaceControl.Transaction t,
-            Surface viewRootSurface, long nextViewRootFrameNumber) {
-    }
-
-    private void applySurfaceTransforms(SurfaceControl surface, Rect position, long frameNumber) {
-        if (frameNumber > 0) {
-            final ViewRootImpl viewRoot = getViewRootImpl();
-
-            mRtTransaction.deferTransactionUntilSurface(surface, viewRoot.mSurface,
-                    frameNumber);
+    public final void windowPositionLost_uiRtSync(long frameNumber) {
+        if (DEBUG) {
+            Log.d(TAG, String.format("%d windowPositionLost, frameNr = %d",
+                    System.identityHashCode(this), frameNumber));
         }
-
-        mRtTransaction.setPosition(surface, position.left, position.top);
-        mRtTransaction.setMatrix(surface,
-                position.width() / (float) mSurfaceWidth,
-                0.0f, 0.0f,
-                position.height() / (float) mSurfaceHeight);
-        if (mViewVisibility) {
-            mRtTransaction.show(surface);
+        IWindowSession session = mSession;
+        MyWindow window = mWindow;
+        if (session == null || window == null) {
+            // We got detached prior to receiving this, abort
+            return;
         }
-    }
+        if (mRtHandlingPositionUpdates) {
+            mRtHandlingPositionUpdates = false;
+            // This callback will happen while the UI thread is blocked, so we can
+            // safely access other member variables at this time.
+            // So do what the UI thread would have done if RT wasn't handling position
+            // updates.
+            mTmpRect.set(mLayout.x, mLayout.y,
+                    mLayout.x + mLayout.width,
+                    mLayout.y + mLayout.height);
 
-    private void setParentSpaceRectangle(Rect position, long frameNumber) {
-        final ViewRootImpl viewRoot = getViewRootImpl();
-
-        applySurfaceTransforms(mSurfaceControl, position, frameNumber);
-
-        applyChildSurfaceTransaction_renderWorker(mRtTransaction, viewRoot.mSurface,
-                frameNumber);
-
-        mRtTransaction.apply();
-    }
-
-    private Rect mRTLastReportedPosition = new Rect();
-
-    private RenderNode.PositionUpdateListener mPositionListener =
-            new RenderNode.PositionUpdateListener() {
-
-        @Override
-        public void positionChanged(long frameNumber, int left, int top, int right, int bottom) {
-            if (mSurfaceControl == null) {
-                return;
-            }
-
-            // TODO: This is teensy bit racey in that a brand new SurfaceView moving on
-            // its 2nd frame if RenderThread is running slowly could potentially see
-            // this as false, enter the branch, get pre-empted, then this comes along
-            // and reports a new position, then the UI thread resumes and reports
-            // its position. This could therefore be de-sync'd in that interval, but
-            // the synchronization would violate the rule that RT must never block
-            // on the UI thread which would open up potential deadlocks. The risk of
-            // a single-frame desync is therefore preferable for now.
-            mRtHandlingPositionUpdates = true;
-            if (mRTLastReportedPosition.left == left
-                    && mRTLastReportedPosition.top == top
-                    && mRTLastReportedPosition.right == right
-                    && mRTLastReportedPosition.bottom == bottom) {
-                return;
-            }
-            try {
-                if (DEBUG_POSITION) {
-                    Log.d(TAG, String.format(
-                            "%d updateSurfacePosition RenderWorker, frameNr = %d, "
-                                    + "position = [%d, %d, %d, %d]",
-                            System.identityHashCode(this), frameNumber,
-                            left, top, right, bottom));
+            if (!mTmpRect.isEmpty() && !mTmpRect.equals(mRTLastReportedPosition)) {
+                try {
+                    if (DEBUG) Log.d(TAG, String.format("%d updateWindowPosition, " +
+                            "postion = [%d, %d, %d, %d]", System.identityHashCode(this),
+                            mTmpRect.left, mTmpRect.top,
+                            mTmpRect.right, mTmpRect.bottom));
+                    session.repositionChild(window, mTmpRect.left, mTmpRect.top,
+                            mTmpRect.right, mTmpRect.bottom, frameNumber, mWinFrame);
+                } catch (RemoteException ex) {
+                    Log.e(TAG, "Exception from relayout", ex);
                 }
-                mRTLastReportedPosition.set(left, top, right, bottom);
-                setParentSpaceRectangle(mRTLastReportedPosition, frameNumber);
-                // Now overwrite mRTLastReportedPosition with our values
-            } catch (Exception ex) {
-                Log.e(TAG, "Exception from repositionChild", ex);
-            }
-        }
-
-        @Override
-        public void positionLost(long frameNumber) {
-            if (DEBUG) {
-                Log.d(TAG, String.format("%d windowPositionLost, frameNr = %d",
-                        System.identityHashCode(this), frameNumber));
             }
             mRTLastReportedPosition.setEmpty();
-
-            if (mSurfaceControl == null) {
-                return;
-            }
-
-            if (frameNumber > 0) {
-                final ViewRootImpl viewRoot = getViewRootImpl();
-
-                mRtTransaction.deferTransactionUntilSurface(mSurfaceControl, viewRoot.mSurface,
-                        frameNumber);
-            }
-            mRtTransaction.hide(mSurfaceControl);
-            mRtTransaction.apply();
         }
-    };
+    }
 
     private SurfaceHolder.Callback[] getSurfaceCallbacks() {
-        SurfaceHolder.Callback[] callbacks;
+        SurfaceHolder.Callback callbacks[];
         synchronized (mCallbacks) {
             callbacks = new SurfaceHolder.Callback[mCallbacks.size()];
             mCallbacks.toArray(callbacks);
@@ -1117,13 +796,8 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
         return callbacks;
     }
 
-    private void runOnUiThread(Runnable runnable) {
-        Handler handler = getHandler();
-        if (handler != null && handler.getLooper() != Looper.myLooper()) {
-            handler.post(runnable);
-        } else {
-            runnable.run();
-        }
+    void handleGetNewSurface() {
+        updateWindow(false, false);
     }
 
     /**
@@ -1133,40 +807,73 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
      * @return true if the surface has dimensions that are fixed in size
      * @hide
      */
-    @UnsupportedAppUsage
     public boolean isFixedSize() {
         return (mRequestedWidth != -1 || mRequestedHeight != -1);
     }
 
-    private boolean isAboveParent() {
-        return mSubLayer >= 0;
-    }
+    private static class MyWindow extends BaseIWindow {
+        private final WeakReference<SurfaceView> mSurfaceView;
 
-    /**
-     * Set an opaque background color to use with this {@link SurfaceView} when it's being resized
-     * and size of the content hasn't updated yet. This color will fill the expanded area when the
-     * view becomes larger.
-     * @param bgColor An opaque color to fill the background. Alpha component will be ignored.
-     * @hide
-     */
-    public void setResizeBackgroundColor(int bgColor) {
-        if (mBackgroundControl == null) {
-            return;
+        public MyWindow(SurfaceView surfaceView) {
+            mSurfaceView = new WeakReference<SurfaceView>(surfaceView);
         }
 
-        final float[] colorComponents = new float[] { Color.red(bgColor) / 255.f,
-                Color.green(bgColor) / 255.f, Color.blue(bgColor) / 255.f };
-
-        SurfaceControl.openTransaction();
-        try {
-            mBackgroundControl.setColor(colorComponents);
-        } finally {
-            SurfaceControl.closeTransaction();
+        @Override
+        public void resized(Rect frame, Rect overscanInsets, Rect contentInsets,
+                Rect visibleInsets, Rect stableInsets, Rect outsets, boolean reportDraw,
+                Configuration newConfig, Rect backDropRect, boolean forceLayout,
+                boolean alwaysConsumeNavBar) {
+            SurfaceView surfaceView = mSurfaceView.get();
+            if (surfaceView != null) {
+                if (DEBUG) Log.v(TAG, surfaceView + " got resized: w=" + frame.width()
+                        + " h=" + frame.height() + ", cur w=" + mCurWidth + " h=" + mCurHeight);
+                surfaceView.mSurfaceLock.lock();
+                try {
+                    if (reportDraw) {
+                        surfaceView.mUpdateWindowNeeded = true;
+                        surfaceView.mReportDrawNeeded = true;
+                        surfaceView.mHandler.sendEmptyMessage(UPDATE_WINDOW_MSG);
+                    } else if (surfaceView.mWinFrame.width() != frame.width()
+                            || surfaceView.mWinFrame.height() != frame.height()
+                            || forceLayout) {
+                        surfaceView.mUpdateWindowNeeded = true;
+                        surfaceView.mHandler.sendEmptyMessage(UPDATE_WINDOW_MSG);
+                    }
+                } finally {
+                    surfaceView.mSurfaceLock.unlock();
+                }
+            }
         }
+
+        @Override
+        public void dispatchAppVisibility(boolean visible) {
+            // The point of SurfaceView is to let the app control the surface.
+        }
+
+        @Override
+        public void dispatchGetNewSurface() {
+            SurfaceView surfaceView = mSurfaceView.get();
+            if (surfaceView != null) {
+                Message msg = surfaceView.mHandler.obtainMessage(GET_NEW_SURFACE_MSG);
+                surfaceView.mHandler.sendMessage(msg);
+            }
+        }
+
+        @Override
+        public void windowFocusChanged(boolean hasFocus, boolean touchEnabled) {
+            Log.w("SurfaceView", "Unexpected focus in surface: focus=" + hasFocus + ", touchEnabled=" + touchEnabled);
+        }
+
+        @Override
+        public void executeCommand(String command, String parameters, ParcelFileDescriptor out) {
+        }
+
+        int mCurWidth = -1;
+        int mCurHeight = -1;
     }
 
-    @UnsupportedAppUsage
     private final SurfaceHolder mSurfaceHolder = new SurfaceHolder() {
+
         private static final String LOG_TAG = "SurfaceHolder";
 
         @Override
@@ -1179,7 +886,7 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
             synchronized (mCallbacks) {
                 // This is a linear search, but in practice we'll
                 // have only a couple callbacks, so it doesn't matter.
-                if (!mCallbacks.contains(callback)) {
+                if (mCallbacks.contains(callback) == false) {
                     mCallbacks.add(callback);
                 }
             }
@@ -1211,14 +918,15 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
 
         @Override
         public void setFormat(int format) {
+
             // for backward compatibility reason, OPAQUE always
             // means 565 for SurfaceView
             if (format == PixelFormat.OPAQUE)
                 format = PixelFormat.RGB_565;
 
             mRequestedFormat = format;
-            if (mSurfaceControl != null) {
-                updateSurface();
+            if (mWindow != null) {
+                updateWindow(false, false);
             }
         }
 
@@ -1231,7 +939,9 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
 
         @Override
         public void setKeepScreenOn(boolean screenOn) {
-            runOnUiThread(() -> SurfaceView.this.setKeepScreenOn(screenOn));
+            Message msg = mHandler.obtainMessage(KEEP_SCREEN_ON_MSG);
+            msg.arg1 = screenOn ? 1 : 0;
+            mHandler.sendMessage(msg);
         }
 
         /**
@@ -1245,7 +955,7 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
          */
         @Override
         public Canvas lockCanvas() {
-            return internalLockCanvas(null, false);
+            return internalLockCanvas(null);
         }
 
         /**
@@ -1265,28 +975,19 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
          */
         @Override
         public Canvas lockCanvas(Rect inOutDirty) {
-            return internalLockCanvas(inOutDirty, false);
+            return internalLockCanvas(inOutDirty);
         }
 
-        @Override
-        public Canvas lockHardwareCanvas() {
-            return internalLockCanvas(null, true);
-        }
-
-        private Canvas internalLockCanvas(Rect dirty, boolean hardware) {
+        private final Canvas internalLockCanvas(Rect dirty) {
             mSurfaceLock.lock();
 
             if (DEBUG) Log.i(TAG, System.identityHashCode(this) + " " + "Locking canvas... stopped="
-                    + mDrawingStopped + ", surfaceControl=" + mSurfaceControl);
+                    + mDrawingStopped + ", win=" + mWindow);
 
             Canvas c = null;
-            if (!mDrawingStopped && mSurfaceControl != null) {
+            if (!mDrawingStopped && mWindow != null) {
                 try {
-                    if (hardware) {
-                        c = mSurface.lockHardwareCanvas();
-                    } else {
-                        c = mSurface.lockCanvas(dirty);
-                    }
+                    c = mSurface.lockCanvas(dirty);
                 } catch (Exception e) {
                     Log.e(LOG_TAG, "Exception locking surface", e);
                 }
@@ -1338,14 +1039,4 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
             return mSurfaceFrame;
         }
     };
-
-    /**
-     * Return a SurfaceControl which can be used for parenting Surfaces to
-     * this SurfaceView.
-     *
-     * @return The SurfaceControl for this SurfaceView.
-     */
-    public SurfaceControl getSurfaceControl() {
-        return mSurfaceControl;
-    }
 }

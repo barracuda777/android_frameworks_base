@@ -27,7 +27,6 @@ import android.content.Context;
 import android.content.IIntentReceiver;
 import android.content.Intent;
 import android.content.pm.ResolveInfo;
-import android.os.Binder;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -36,8 +35,6 @@ import android.os.UserHandle;
 import android.util.Slog;
 
 import com.android.internal.R;
-import com.android.internal.messages.nano.SystemMessageProto.SystemMessage;
-import com.android.internal.notification.SystemNotificationChannels;
 import com.android.internal.util.ProgressReporter;
 import com.android.server.UiThread;
 
@@ -107,11 +104,9 @@ public abstract class PreBootBroadcaster extends IIntentReceiver.Stub {
         EventLogTags.writeAmPreBoot(mUserId, componentName.getPackageName());
 
         mIntent.setComponent(componentName);
-        synchronized (mService) {
-            mService.broadcastIntentLocked(null, null, mIntent, null, this, 0, null, null, null,
-                    AppOpsManager.OP_NONE, null, true, false, ActivityManagerService.MY_PID,
-                    Process.SYSTEM_UID, Binder.getCallingUid(), Binder.getCallingPid(), mUserId);
-        }
+        mService.broadcastIntentLocked(null, null, mIntent, null, this, 0, null, null, null,
+                AppOpsManager.OP_NONE, null, true, false, ActivityManagerService.MY_PID,
+                Process.SYSTEM_UID, mUserId);
     }
 
     @Override
@@ -149,13 +144,13 @@ public abstract class PreBootBroadcaster extends IIntentReceiver.Stub {
                         contentIntent = null;
                     }
 
-                    final Notification notif =
-                            new Notification.Builder(mService.mContext,
-                                    SystemNotificationChannels.UPDATES)
+                    final Notification notif = new Notification.Builder(mService.mContext)
                             .setSmallIcon(R.drawable.stat_sys_adb)
                             .setWhen(0)
                             .setOngoing(true)
                             .setTicker(title)
+                            .setDefaults(0)
+                            .setPriority(Notification.PRIORITY_MAX)
                             .setColor(context.getColor(
                                     com.android.internal.R.color.system_notification_accent_color))
                             .setContentTitle(title)
@@ -163,13 +158,11 @@ public abstract class PreBootBroadcaster extends IIntentReceiver.Stub {
                             .setVisibility(Notification.VISIBILITY_PUBLIC)
                             .setProgress(max, index, false)
                             .build();
-                    notifManager.notifyAsUser(TAG, SystemMessage.NOTE_SYSTEM_UPGRADING, notif,
-                            UserHandle.of(mUserId));
+                    notifManager.notifyAsUser(TAG, 0, notif, UserHandle.of(mUserId));
                     break;
 
                 case MSG_HIDE:
-                    notifManager.cancelAsUser(TAG, SystemMessage.NOTE_SYSTEM_UPGRADING,
-                            UserHandle.of(mUserId));
+                    notifManager.cancelAsUser(TAG, 0, UserHandle.of(mUserId));
                     break;
             }
         }

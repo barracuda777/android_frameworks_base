@@ -16,7 +16,6 @@
 
 package com.android.internal.telecom;
 
-import android.net.Uri;
 import android.os.Bundle;
 import android.telecom.PhoneAccountHandle;
 
@@ -30,8 +29,6 @@ import android.telecom.PhoneAccountHandle;
 oneway interface IInCallAdapter {
     void answerCall(String callId, int videoState);
 
-    void deflectCall(String callId, in Uri address);
-
     void rejectCall(String callId, boolean rejectWithMessage, String textMessage);
 
     void disconnectCall(String callId);
@@ -42,7 +39,7 @@ oneway interface IInCallAdapter {
 
     void mute(boolean shouldMute);
 
-    void setAudioRoute(int route, String bluetoothAddress);
+    void setAudioRoute(int route);
 
     void playDtmfTone(String callId, char digit);
 
@@ -67,20 +64,9 @@ oneway interface IInCallAdapter {
 
     void pullExternalCall(String callId);
 
-    void sendCallEvent(String callId, String event, int targetSdkVer, in Bundle extras);
+    void sendCallEvent(String callId, String event, in Bundle extras);
 
     void putExtras(String callId, in Bundle extras);
 
     void removeExtras(String callId, in List<String> keys);
-
-    void sendRttRequest(String callId);
-
-    void respondToRttRequest(String callId, int id, boolean accept);
-
-    void stopRtt(String callId);
-
-    void setRttMode(String callId, int mode);
-
-    void handoverTo(String callId, in PhoneAccountHandle destAcct, int videoState,
-            in Bundle extras);
 }

@@ -16,22 +16,6 @@
 
 package com.android.server;
 
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.net.Uri;
-import android.util.ArrayMap;
-import android.util.ArraySet;
-import android.util.FastImmutableArraySet;
-import android.util.Log;
-import android.util.LogPrinter;
-import android.util.MutableInt;
-import android.util.PrintWriterPrinter;
-import android.util.Printer;
-import android.util.Slog;
-import android.util.proto.ProtoOutputStream;
-
-import com.android.internal.util.FastPrintWriter;
-
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -40,6 +24,21 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+
+import android.net.Uri;
+import android.util.FastImmutableArraySet;
+import android.util.ArrayMap;
+import android.util.ArraySet;
+import android.util.Log;
+import android.util.MutableInt;
+import android.util.PrintWriterPrinter;
+import android.util.Slog;
+import android.util.LogPrinter;
+import android.util.Printer;
+
+import android.content.Intent;
+import android.content.IntentFilter;
+import com.android.internal.util.FastPrintWriter;
 
 /**
  * {@hide}
@@ -71,7 +70,7 @@ public abstract class IntentResolver<F extends IntentFilter, R extends Object> {
         }
     }
 
-    public static boolean filterEquals(IntentFilter f1, IntentFilter f2) {
+    private boolean filterEquals(IntentFilter f1, IntentFilter f2) {
         int s1 = f1.countActions();
         int s2 = f2.countActions();
         if (s1 != s2) {
@@ -280,31 +279,6 @@ public abstract class IntentResolver<F extends IntentFilter, R extends Object> {
         return printedSomething;
     }
 
-    void writeProtoMap(ProtoOutputStream proto, long fieldId, ArrayMap<String, F[]> map) {
-        int N = map.size();
-        for (int mapi = 0; mapi < N; mapi++) {
-            long token = proto.start(fieldId);
-            proto.write(IntentResolverProto.ArrayMapEntry.KEY, map.keyAt(mapi));
-            for (F f : map.valueAt(mapi)) {
-                if (f != null) {
-                    proto.write(IntentResolverProto.ArrayMapEntry.VALUES, f.toString());
-                }
-            }
-            proto.end(token);
-        }
-    }
-
-    public void writeToProto(ProtoOutputStream proto, long fieldId) {
-        long token = proto.start(fieldId);
-        writeProtoMap(proto, IntentResolverProto.FULL_MIME_TYPES, mTypeToFilter);
-        writeProtoMap(proto, IntentResolverProto.BASE_MIME_TYPES, mBaseTypeToFilter);
-        writeProtoMap(proto, IntentResolverProto.WILD_MIME_TYPES, mWildTypeToFilter);
-        writeProtoMap(proto, IntentResolverProto.SCHEMES, mSchemeToFilter);
-        writeProtoMap(proto, IntentResolverProto.NON_DATA_ACTIONS, mActionToFilter);
-        writeProtoMap(proto, IntentResolverProto.MIME_TYPED_ACTIONS, mTypedActionToFilter);
-        proto.end(token);
-    }
-
     public boolean dump(PrintWriter out, String title, String prefix, String packageName,
             boolean printFilter, boolean collapseDuplicates) {
         String innerPrefix = prefix + "  ";
@@ -376,8 +350,8 @@ public abstract class IntentResolver<F extends IntentFilter, R extends Object> {
         return Collections.unmodifiableSet(mFilters);
     }
 
-    public List<R> queryIntentFromList(Intent intent, String resolvedType, boolean defaultOnly,
-            ArrayList<F[]> listCut, int userId) {
+    public List<R> queryIntentFromList(Intent intent, String resolvedType, 
+            boolean defaultOnly, ArrayList<F[]> listCut, int userId) {
         ArrayList<R> resultList = new ArrayList<R>();
 
         final boolean debug = localLOGV ||
@@ -387,8 +361,8 @@ public abstract class IntentResolver<F extends IntentFilter, R extends Object> {
         final String scheme = intent.getScheme();
         int N = listCut.size();
         for (int i = 0; i < N; ++i) {
-            buildResolveList(intent, categories, debug, defaultOnly, resolvedType, scheme,
-                    listCut.get(i), resultList, userId);
+            buildResolveList(intent, categories, debug, defaultOnly,
+                    resolvedType, scheme, listCut.get(i), resultList, userId);
         }
         filterResults(resultList);
         sortResults(resultList);
@@ -469,20 +443,20 @@ public abstract class IntentResolver<F extends IntentFilter, R extends Object> {
 
         FastImmutableArraySet<String> categories = getFastIntentCategories(intent);
         if (firstTypeCut != null) {
-            buildResolveList(intent, categories, debug, defaultOnly, resolvedType,
-                    scheme, firstTypeCut, finalList, userId);
+            buildResolveList(intent, categories, debug, defaultOnly,
+                    resolvedType, scheme, firstTypeCut, finalList, userId);
         }
         if (secondTypeCut != null) {
-            buildResolveList(intent, categories, debug, defaultOnly, resolvedType,
-                    scheme, secondTypeCut, finalList, userId);
+            buildResolveList(intent, categories, debug, defaultOnly,
+                    resolvedType, scheme, secondTypeCut, finalList, userId);
         }
         if (thirdTypeCut != null) {
-            buildResolveList(intent, categories, debug, defaultOnly, resolvedType,
-                    scheme, thirdTypeCut, finalList, userId);
+            buildResolveList(intent, categories, debug, defaultOnly,
+                    resolvedType, scheme, thirdTypeCut, finalList, userId);
         }
         if (schemeCut != null) {
-            buildResolveList(intent, categories, debug, defaultOnly, resolvedType,
-                    scheme, schemeCut, finalList, userId);
+            buildResolveList(intent, categories, debug, defaultOnly,
+                    resolvedType, scheme, schemeCut, finalList, userId);
         }
         filterResults(finalList);
         sortResults(finalList);
@@ -720,8 +694,8 @@ public abstract class IntentResolver<F extends IntentFilter, R extends Object> {
     }
 
     private void buildResolveList(Intent intent, FastImmutableArraySet<String> categories,
-            boolean debug, boolean defaultOnly, String resolvedType, String scheme,
-            F[] src, List<R> dest, int userId) {
+            boolean debug, boolean defaultOnly,
+            String resolvedType, String scheme, F[] src, List<R> dest, int userId) {
         final String action = intent.getAction();
         final Uri data = intent.getData();
         final String packageName = intent.getPackage();
@@ -787,7 +761,6 @@ public abstract class IntentResolver<F extends IntentFilter, R extends Object> {
                         + filter.hasCategory(Intent.CATEGORY_DEFAULT));
                 if (!defaultOnly || filter.hasCategory(Intent.CATEGORY_DEFAULT)) {
                     final R oneResult = newResult(filter, match, userId);
-                    if (debug) Slog.v(TAG, "    Created result: " + oneResult);
                     if (oneResult != null) {
                         dest.add(oneResult);
                         if (debug) {

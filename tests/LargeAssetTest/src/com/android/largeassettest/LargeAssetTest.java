@@ -43,8 +43,8 @@ public class LargeAssetTest extends Activity {
         super.onCreate(icicle);
         setContentView(R.layout.lat);
 
-        mResultText = findViewById(R.id.result);
-        mValidateButton = findViewById(R.id.validate);
+        mResultText = (TextView) findViewById(R.id.result);
+        mValidateButton = (Button) findViewById(R.id.validate);
 
         mValidateButton.setOnClickListener(mClickListener);
     }

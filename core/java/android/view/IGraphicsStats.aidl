@@ -17,11 +17,10 @@
 package android.view;
 
 import android.os.ParcelFileDescriptor;
-import android.view.IGraphicsStatsCallback;
 
 /**
  * @hide
  */
 interface IGraphicsStats {
-    ParcelFileDescriptor requestBufferForProcess(String packageName, IGraphicsStatsCallback callback);
+    ParcelFileDescriptor requestBufferForProcess(String packageName, IBinder token);
 }

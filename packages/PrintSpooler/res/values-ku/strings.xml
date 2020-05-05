@@ -27,12 +27,16 @@
     <string name="label_pages">پەڕەکان</string>
     <string name="template_all_pages">هەموو <xliff:g id="page_count" example="100">%1$s</xliff:g></string>
     <string name="template_page_range">ڕێژەی <xliff:g id="page_count" example="100">%1$s</xliff:g></string>
+    <string name="pages_range_example">نموونە . 1—5,8,11—13</string>
     <string name="print_preview">بینینی پێش چاپ</string>
     <string name="install_for_print_preview">دامەزراندنی بینەری PDF بۆ پێشبینین</string>
     <string name="printing_app_crashed">بەرنامەی چاپکردن تێکشکا</string>
     <string name="generating_print_job">سازدانی ئەرکی چاپ</string>
     <string name="save_as_pdf">پاشەکەوت بە PDF</string>
+    <string name="all_printers">هەموو چاپکەرەکان…</string>
     <string name="print_dialog">دیالۆگی چاپ</string>
+    <string name="current_page_template"><xliff:g id="current_page">%1$d</xliff:g>
+        /<xliff:g id="page_count">%2$d</xliff:g></string>
     <string name="page_description_template">پەڕە <xliff:g id="current_page" example="1">%1$d</xliff:g>
         لە <xliff:g id="page_count" example="100">%2$d</xliff:g></string>
     <string name="summary_template">کورتە, لەبەرگرتنەوە <xliff:g id="copies" example="1">%1$s</xliff:g>,

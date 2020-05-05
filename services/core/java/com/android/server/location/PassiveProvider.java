@@ -16,17 +16,22 @@
 
 package com.android.server.location;
 
-import android.content.Context;
-import android.location.Criteria;
-import android.location.Location;
-import android.os.Bundle;
-import android.os.WorkSource;
+import java.io.FileDescriptor;
+import java.io.PrintWriter;
 
 import com.android.internal.location.ProviderProperties;
 import com.android.internal.location.ProviderRequest;
 
-import java.io.FileDescriptor;
-import java.io.PrintWriter;
+import android.location.Criteria;
+import android.location.ILocationManager;
+import android.location.Location;
+import android.location.LocationManager;
+import android.location.LocationProvider;
+import android.os.Bundle;
+import android.os.RemoteException;
+import android.os.WorkSource;
+import android.util.Log;
+
 
 /**
  * A passive location provider reports locations received from other providers
@@ -35,21 +40,55 @@ import java.io.PrintWriter;
  *
  * {@hide}
  */
-public class PassiveProvider extends AbstractLocationProvider {
+public class PassiveProvider implements LocationProviderInterface {
+    private static final String TAG = "PassiveProvider";
 
     private static final ProviderProperties PROPERTIES = new ProviderProperties(
             false, false, false, false, false, false, false,
             Criteria.POWER_LOW, Criteria.ACCURACY_COARSE);
 
+    private final ILocationManager mLocationManager;
     private boolean mReportLocation;
 
-    public PassiveProvider(Context context, LocationProviderManager locationProviderManager) {
-        super(context, locationProviderManager);
+    public PassiveProvider(ILocationManager locationManager) {
+        mLocationManager = locationManager;
+    }
 
-        mReportLocation = false;
+    @Override
+    public String getName() {
+        return LocationManager.PASSIVE_PROVIDER;
+    }
 
-        setProperties(PROPERTIES);
-        setEnabled(true);
+    @Override
+    public ProviderProperties getProperties() {
+        return PROPERTIES;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return true;
+    }
+
+    @Override
+    public void enable() {
+    }
+
+    @Override
+    public void disable() {
+    }
+
+    @Override
+    public int getStatus(Bundle extras) {
+        if (mReportLocation) {
+            return LocationProvider.AVAILABLE;
+        } else {
+            return LocationProvider.TEMPORARILY_UNAVAILABLE;
+        }
+    }
+
+    @Override
+    public long getStatusUpdateTime() {
+        return -1;
     }
 
     @Override
@@ -59,15 +98,22 @@ public class PassiveProvider extends AbstractLocationProvider {
 
     public void updateLocation(Location location) {
         if (mReportLocation) {
-            reportLocation(location);
+            try {
+                // pass the location back to the location manager
+                mLocationManager.reportLocation(location, true);
+            } catch (RemoteException e) {
+                Log.e(TAG, "RemoteException calling reportLocation");
+            }
         }
     }
 
     @Override
-    public void sendExtraCommand(String command, Bundle extras) {}
+    public boolean sendExtraCommand(String command, Bundle extras) {
+        return false;
+    }
 
     @Override
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
-        pw.println(" report location=" + mReportLocation);
+        pw.println("mReportLocation=" + mReportLocation);
     }
 }

@@ -43,7 +43,6 @@ class RenderNode;
  */
 class AnimationHandle {
     PREVENT_COPY_AND_ASSIGN(AnimationHandle);
-
 public:
     AnimationContext& context() { return mContext; }
 
@@ -58,7 +57,7 @@ public:
 
 private:
     friend class AnimationContext;
-    explicit AnimationHandle(AnimationContext& context);
+    AnimationHandle(AnimationContext& context);
     AnimationHandle(RenderNode& animatingNode, AnimationContext& context);
     ~AnimationHandle();
 
@@ -75,14 +74,14 @@ private:
 
 class AnimationContext {
     PREVENT_COPY_AND_ASSIGN(AnimationContext);
-
 public:
-    ANDROID_API explicit AnimationContext(renderthread::TimeLord& clock);
+    ANDROID_API AnimationContext(renderthread::TimeLord& clock);
     ANDROID_API virtual ~AnimationContext();
 
     nsecs_t frameTimeMs() { return mFrameTimeMs; }
     bool hasAnimations() {
-        return mCurrentFrameAnimations.mNextHandle || mNextFrameAnimations.mNextHandle;
+        return mCurrentFrameAnimations.mNextHandle
+                || mNextFrameAnimations.mNextHandle;
     }
 
     // Will always add to the next frame list, which is swapped when
@@ -97,8 +96,7 @@ public:
     // as part of the standard RenderNode:prepareTree pass.
     ANDROID_API virtual void runRemainingAnimations(TreeInfo& info);
 
-    ANDROID_API virtual void callOnFinished(BaseRenderNodeAnimator* animator,
-                                            AnimationListener* listener);
+    ANDROID_API virtual void callOnFinished(BaseRenderNodeAnimator* animator, AnimationListener* listener);
 
     ANDROID_API virtual void destroy();
 

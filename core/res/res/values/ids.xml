@@ -97,7 +97,6 @@
   <item type="id" name="redo" />
   <item type="id" name="replaceText" />
   <item type="id" name="shareText" />
-  <item type="id" name="textAssist" />
   <item type="id" name="selection_start_handle" />
   <item type="id" name="selection_end_handle" />
   <item type="id" name="insertion_handle" />
@@ -121,18 +120,6 @@
   <!-- Accessibility action identifier for {@link android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction#ACTION_SCROLL_RIGHT}. -->
   <item type="id" name="accessibilityActionScrollRight" />
 
-  <!-- Accessibility action identifier for {@link android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction#ACTION_PAGE_UP}. -->
-  <item type="id" name="accessibilityActionPageUp" />
-
-  <!-- Accessibility action identifier for {@link android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction#ACTION_PAGE_DOWN}. -->
-  <item type="id" name="accessibilityActionPageDown" />
-
-  <!-- Accessibility action identifier for {@link android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction#ACTION_PAGE_LEFT}. -->
-  <item type="id" name="accessibilityActionPageLeft" />
-
-  <!-- Accessibility action identifier for {@link android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction#ACTION_PAGE_RIGHT}. -->
-  <item type="id" name="accessibilityActionPageRight" />
-
   <!-- Accessibility action identifier for {@link android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction#ACTION_SET_PROGRESS}. -->
   <item type="id" name="accessibilityActionSetProgress" />
 
@@ -140,60 +127,6 @@
   <item type="id" name="accessibilityActionContextClick" />
 
   <item type="id" name="remote_input_tag" />
-  <item type="id" name="pending_intent_tag" />
 
   <item type="id" name="cross_task_transition" />
-
-  <item type="id" name="accessibilityActionClickOnClickableSpan" />
-
-  <!-- ItemTouchHelper uses this id to save a View's original elevation. -->
-  <item type="id" name="item_touch_helper_previous_elevation"/>
-
-  <!-- Accessibility action identifier for {@link android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction#ACTION_MOVE_WINDOW}. -->
-  <item type="id" name="accessibilityActionMoveWindow" />
-
-  <!-- A tag used to save an animator in top -->
-  <item type="id" name="tag_top_animator" />
-
-  <!-- A tag used to save the current top override -->
-  <item type="id" name="tag_top_override" />
-
-  <!-- A tag used to save the original top of a view -->
-  <item type="id" name="tag_layout_top" />
-
-  <!-- A tag used to save whether a view was laid out before -->
-  <item type="id" name="tag_is_first_layout" />
-
-  <!-- A tag used to save an animator in alpha -->
-  <item type="id" name="tag_alpha_animator" />
-
-  <!-- A tag used to save the clip children in a tag -->
-  <item type="id" name="clip_children_tag" />
-
-  <!-- A tag used to save the set of deactivated children that clip -->
-  <item type="id" name="clip_children_set_tag" />
-
-  <!-- A tag used to save the clip to padding in a tag -->
-  <item type="id" name="clip_to_padding_tag" />
-
-  <!-- Action used to manually trigger an autofill request -->
-  <item type="id" name="autofill" />
-
-    <!-- Accessibility action identifier for {@link android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction#ACTION_SHOW_TOOLTIP}. -->
-    <item type="id" name="accessibilityActionShowTooltip" />
-
-    <!-- Accessibility action identifier for {@link android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction#ACTION_HIDE_TOOLTIP}. -->
-    <item type="id" name="accessibilityActionHideTooltip" />
-
-  <!-- A tag used to save the view added to a transition overlay -->
-  <item type="id" name="transition_overlay_view_tag" />
-
-  <!-- A tag used to save the notification action object -->
-  <item type="id" name="notification_action_index_tag" />
-
-  <!-- A tag used to save the index where the custom view is stored -->
-  <item type="id" name="notification_custom_view_index_tag" />
-
-  <!-- Marks the "copy to clipboard" button in the ChooserActivity -->
-  <item type="id" name="chooser_copy_button" />
 </resources>

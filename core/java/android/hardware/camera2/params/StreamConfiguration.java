@@ -40,7 +40,7 @@ import android.util.Size;
  *
  * @hide
  */
-public class StreamConfiguration {
+public final class StreamConfiguration {
 
     /**
      * Create a new {@link StreamConfiguration}.
@@ -164,8 +164,8 @@ public class StreamConfiguration {
         return HashCodeHelpers.hashCode(mFormat, mWidth, mHeight, mInput ? 1 : 0);
     }
 
-    protected int mFormat;
-    protected int mWidth;
-    protected int mHeight;
-    protected boolean mInput;
+    private final int mFormat;
+    private final int mWidth;
+    private final int mHeight;
+    private final boolean mInput;
 }

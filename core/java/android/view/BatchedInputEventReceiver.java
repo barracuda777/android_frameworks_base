@@ -16,7 +16,6 @@
 
 package android.view;
 
-import android.annotation.UnsupportedAppUsage;
 import android.os.Looper;
 
 /**
@@ -27,7 +26,6 @@ public class BatchedInputEventReceiver extends InputEventReceiver {
     Choreographer mChoreographer;
     private boolean mBatchedInputScheduled;
 
-    @UnsupportedAppUsage
     public BatchedInputEventReceiver(
             InputChannel inputChannel, Looper looper, Choreographer choreographer) {
         super(inputChannel, looper);

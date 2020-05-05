@@ -22,8 +22,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 
-import com.android.internal.annotations.VisibleForTesting;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -34,12 +32,7 @@ public abstract class CurrentUserTracker {
     private Consumer<Integer> mCallback = this::onUserSwitched;
 
     public CurrentUserTracker(Context context) {
-        this(UserReceiver.getInstance(context));
-    }
-
-    @VisibleForTesting
-    CurrentUserTracker(UserReceiver receiver) {
-        mUserReceiver = receiver;
+        mUserReceiver = UserReceiver.getInstance(context);
     }
 
     public int getCurrentUserId() {
@@ -56,8 +49,7 @@ public abstract class CurrentUserTracker {
 
     public abstract void onUserSwitched(int newUserId);
 
-    @VisibleForTesting
-    static class UserReceiver extends BroadcastReceiver {
+    private static class UserReceiver extends BroadcastReceiver {
         private static UserReceiver sInstance;
 
         private Context mAppContext;
@@ -66,8 +58,7 @@ public abstract class CurrentUserTracker {
 
         private List<Consumer<Integer>> mCallbacks = new ArrayList<>();
 
-        @VisibleForTesting
-        UserReceiver(Context context) {
+        private UserReceiver(Context context) {
             mAppContext = context.getApplicationContext();
         }
 
@@ -114,12 +105,8 @@ public abstract class CurrentUserTracker {
         private void notifyUserSwitched(int newUserId) {
             if (mCurrentUserId != newUserId) {
                 mCurrentUserId = newUserId;
-                List<Consumer<Integer>> callbacks = new ArrayList<>(mCallbacks);
-                for (Consumer<Integer> consumer : callbacks) {
-                    // Accepting may modify this list
-                    if (mCallbacks.contains(consumer)) {
-                        consumer.accept(newUserId);
-                    }
+                for (Consumer<Integer> consumer : mCallbacks) {
+                    consumer.accept(newUserId);
                 }
             }
         }

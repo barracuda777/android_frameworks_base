@@ -26,24 +26,12 @@ interface IPackageInstallerSession {
     void addClientProgress(float progress);
 
     String[] getNames();
-
     ParcelFileDescriptor openWrite(String name, long offsetBytes, long lengthBytes);
     ParcelFileDescriptor openRead(String name);
-
-    void write(String name, long offsetBytes, long lengthBytes, in ParcelFileDescriptor fd);
 
     void removeSplit(String splitName);
 
     void close();
-    void commit(in IntentSender statusReceiver, boolean forTransferred);
-    void transfer(in String packageName);
+    void commit(in IntentSender statusReceiver);
     void abandon();
-
-    boolean isMultiPackage();
-    int[] getChildSessionIds();
-    void addChildSessionId(in int sessionId);
-    void removeChildSessionId(in int sessionId);
-    int getParentSessionId();
-
-    boolean isStaged();
 }

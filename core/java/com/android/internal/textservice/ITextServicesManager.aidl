@@ -29,13 +29,16 @@ import android.view.textservice.SpellCheckerSubtype;
  * @hide
  */
 interface ITextServicesManager {
-    SpellCheckerInfo getCurrentSpellChecker(int userId, String locale);
-    SpellCheckerSubtype getCurrentSpellCheckerSubtype(int userId,
-            boolean allowImplicitlySelectedSubtype);
-    oneway void getSpellCheckerService(int userId, String sciId, in String locale,
+    SpellCheckerInfo getCurrentSpellChecker(String locale);
+    SpellCheckerSubtype getCurrentSpellCheckerSubtype(
+            String locale, boolean allowImplicitlySelectedSubtype);
+    oneway void getSpellCheckerService(String sciId, in String locale,
             in ITextServicesSessionListener tsListener,
             in ISpellCheckerSessionListener scListener, in Bundle bundle);
-    oneway void finishSpellCheckerService(int userId, in ISpellCheckerSessionListener listener);
-    boolean isSpellCheckerEnabled(int userId);
-    SpellCheckerInfo[] getEnabledSpellCheckers(int userId);
+    oneway void finishSpellCheckerService(in ISpellCheckerSessionListener listener);
+    oneway void setCurrentSpellChecker(String locale, String sciId);
+    oneway void setCurrentSpellCheckerSubtype(String locale, int hashCode);
+    oneway void setSpellCheckerEnabled(boolean enabled);
+    boolean isSpellCheckerEnabled();
+    SpellCheckerInfo[] getEnabledSpellCheckers();
 }

@@ -16,10 +16,10 @@
 
 package android.media;
 
-import android.annotation.UnsupportedAppUsage;
 import android.app.ActivityManager;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.media.session.MediaController;
 import android.media.session.MediaSession;
@@ -35,6 +35,7 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.KeyEvent;
 
+import java.lang.ref.WeakReference;
 import java.util.List;
 
 /**
@@ -68,17 +69,18 @@ import java.util.List;
     private MediaSessionManager.OnActiveSessionsChangedListener mSessionListener;
     private MediaController.Callback mSessionCb = new MediaControllerCallback();
 
+    private final AudioManager mAudioManager;
     /**
      * Synchronized on mInfoLock
      */
     private boolean mIsRegistered = false;
     private OnClientUpdateListener mOnClientUpdateListener;
+    private OnClientAvrcpUpdateListener mOnClientAvrcpUpdateListener;
     private PlaybackInfo mLastPlaybackInfo;
     private int mArtworkWidth = -1;
     private int mArtworkHeight = -1;
     private boolean mEnabled = true;
     // synchronized on mInfoLock, for USE_SESSION apis.
-    @UnsupportedAppUsage
     private MediaController mCurrentSession;
 
     /**
@@ -124,6 +126,7 @@ import java.util.List;
         mContext = context;
         mSessionManager = (MediaSessionManager) context
                 .getSystemService(Context.MEDIA_SESSION_SERVICE);
+        mAudioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
         mSessionListener = new TopTransportSessionListener();
 
         if (ActivityManager.isLowRamDeviceStatic()) {
@@ -133,6 +136,25 @@ import java.util.List;
             mMaxBitmapDimension = Math.max(dm.widthPixels, dm.heightPixels);
         }
     }
+
+    /**
+     * @hide
+     */
+    public RemoteController(Context context, OnClientUpdateListener updateListener, Looper looper,
+                OnClientAvrcpUpdateListener avrcpUpdateListener) throws IllegalArgumentException {
+        this(context, updateListener, looper);
+        mOnClientAvrcpUpdateListener = avrcpUpdateListener;
+    }
+
+    /**
+     * @hide
+     */
+    public interface OnClientAvrcpUpdateListener {
+        public void onClientFolderInfoBrowsedPlayer(String stringUri);
+        public void onClientUpdateNowPlayingEntries(long[] playList);
+        public void onClientNowPlayingContentChange();
+        public void onClientPlayItemResponse(boolean success);
+    };
 
 
     /**
@@ -248,7 +270,7 @@ import java.util.List;
      * @throws IllegalArgumentException
      */
     public boolean sendMediaKeyEvent(KeyEvent keyEvent) throws IllegalArgumentException {
-        if (!KeyEvent.isMediaSessionKey(keyEvent.getKeyCode())) {
+        if (!KeyEvent.isMediaKey(keyEvent.getKeyCode())) {
             throw new IllegalArgumentException("not a media key event");
         }
         synchronized (mInfoLock) {
@@ -268,6 +290,7 @@ import java.util.List;
      * @throws IllegalArgumentException
      */
     public boolean seekTo(long timeMs) throws IllegalArgumentException {
+        Log.e(TAG, "seekTo() in RemoteController");
         if (!mEnabled) {
             Log.e(TAG, "Cannot use seekTo() from a disabled RemoteController");
             return false;
@@ -283,6 +306,69 @@ import java.util.List;
         return true;
     }
 
+    /**
+     * @hide
+     * Request the user of a RemoteControlClient to play the requested item.
+     * @param generationId the RemoteControlClient generation counter for which this request is
+     *     issued.
+     * @param uid uid of the song to be played.
+     * @scope scope of the file system to use
+     */
+    public void setRemoteControlClientPlayItem(long uid, int scope) {
+        Log.e(TAG, "setRemoteControlClientPlayItem()");
+        if (!mEnabled) {
+            Log.e(TAG, "Cannot use setRemoteControlClientPlayItem()" +
+                                            " from a disabled RemoteController");
+            return;
+        }
+        synchronized (mInfoLock) {
+            if (mCurrentSession != null) {
+                mCurrentSession.getTransportControls().setRemoteControlClientPlayItem(uid, scope);
+            }
+        }
+        return;
+    }
+
+    /**
+     * @hide
+     * Request the user of a RemoteControlClient to provide with the now playing list entries.
+     * @param generationId the RemoteControlClient generation counter for which this request is
+     *     issued.
+     */
+    public void getRemoteControlClientNowPlayingEntries() {
+        Log.e(TAG, "getRemoteControlClientNowPlayingEntries()");
+        if (!mEnabled) {
+            Log.e(TAG, "Cannot use getRemoteControlClientNowPlayingEntries()" +
+                                            " from a disabled RemoteController");
+            return;
+        }
+        synchronized (mInfoLock) {
+            if (mCurrentSession != null) {
+                mCurrentSession.getTransportControls().getRemoteControlClientNowPlayingEntries();
+            }
+        }
+        return;
+    }
+
+    /**
+     * @hide
+     * Request the user of a RemoteControlClient to set the music player as current browsed player.
+     * @param packageName package name of the targeted media player.
+     */
+    public void setRemoteControlClientBrowsedPlayer() {
+        Log.e(TAG, "setRemoteControlClientBrowsedPlayer()");
+        if (!mEnabled) {
+            Log.e(TAG, "Cannot use setRemoteControlClientBrowsedPlayer()" +
+                                            " from a disabled RemoteController");
+            return;
+        }
+        synchronized (mInfoLock) {
+            if (mCurrentSession != null) {
+                mCurrentSession.getTransportControls().setRemoteControlClientBrowsedPlayer();
+            }
+        }
+        return;
+    }
 
     /**
      * @hide
@@ -292,7 +378,6 @@ import java.util.List;
      * @return true if successful
      * @throws IllegalArgumentException
      */
-    @UnsupportedAppUsage
     public boolean setArtworkConfiguration(boolean wantBitmap, int width, int height)
             throws IllegalArgumentException {
         synchronized (mInfoLock) {
@@ -469,6 +554,30 @@ import java.util.List;
         public void onMetadataChanged(MediaMetadata metadata) {
             onNewMediaMetadata(metadata);
         }
+
+        @Override
+        public void onUpdateFolderInfoBrowsedPlayer(String stringUri) {
+            Log.d(TAG, "MediaControllerCallback: onUpdateFolderInfoBrowsedPlayer");
+            onFolderInfoBrowsedPlayer(stringUri);
+        }
+
+        @Override
+        public void onUpdateNowPlayingEntries(long[] playList) {
+            Log.d(TAG, "MediaControllerCallback: onUpdateNowPlayingEntries");
+            onNowPlayingEntriesUpdate(playList);
+        }
+
+        @Override
+        public void onUpdateNowPlayingContentChange() {
+            Log.d(TAG, "MediaControllerCallback: onUpdateNowPlayingContentChange");
+            onNowPlayingContentChange();
+        }
+
+        @Override
+        public void onPlayItemResponse(boolean success) {
+            Log.d(TAG, "MediaControllerCallback: onPlayItemResponse");
+            onSetPlayItemResponse(success);
+        }
     }
 
     /**
@@ -598,6 +707,8 @@ import java.util.List;
         synchronized (mInfoLock) {
             if (controller == null) {
                 if (mCurrentSession != null) {
+                    Log.v(TAG, "Updating current controller as null");
+                    mAudioManager.updateMediaPlayerList(mCurrentSession.getPackageName(), false);
                     mCurrentSession.unregisterCallback(mSessionCb);
                     mCurrentSession = null;
                     sendMsg(mEventHandler, MSG_CLIENT_CHANGE, SENDMSG_REPLACE,
@@ -607,12 +718,20 @@ import java.util.List;
                     || !controller.getSessionToken()
                             .equals(mCurrentSession.getSessionToken())) {
                 if (mCurrentSession != null) {
+                    Log.v(TAG, "Updating current controller package as " +
+                     controller.getPackageName() + " from " + mCurrentSession.getPackageName());
                     mCurrentSession.unregisterCallback(mSessionCb);
+                } else {
+                    Log.v(TAG, "Updating current controller package as " +
+                      controller.getPackageName() + " from null");
                 }
+
                 sendMsg(mEventHandler, MSG_CLIENT_CHANGE, SENDMSG_REPLACE,
                         0 /* arg1 ignored */, 0 /* clearing */, null /* obj */, 0 /* delay */);
                 mCurrentSession = controller;
                 mCurrentSession.registerCallback(mSessionCb, mEventHandler);
+
+                mAudioManager.updateMediaPlayerList(mCurrentSession.getPackageName(), true);
 
                 PlaybackState state = controller.getPlaybackState();
                 sendMsg(mEventHandler, MSG_NEW_PLAYBACK_STATE, SENDMSG_REPLACE,
@@ -632,8 +751,8 @@ import java.util.List;
             l = this.mOnClientUpdateListener;
         }
         if (l != null) {
-            int playstate = state == null ? RemoteControlClient.PLAYSTATE_NONE
-                    : RemoteControlClient.getRccStateFromState(state.getState());
+            int playstate = state == null ? RemoteControlClient.PLAYSTATE_NONE : PlaybackState
+                    .getRccStateFromState(state.getState());
             if (state == null || state.getPosition() == PlaybackState.PLAYBACK_POSITION_UNKNOWN) {
                 l.onClientPlaybackStateUpdate(playstate);
             } else {
@@ -642,7 +761,7 @@ import java.util.List;
             }
             if (state != null) {
                 l.onClientTransportControlUpdate(
-                        RemoteControlClient.getRccControlFlagsFromActions(state.getActions()));
+                        PlaybackState.getRccControlFlagsFromActions(state.getActions()));
             }
         }
     }
@@ -670,6 +789,74 @@ import java.util.List;
         }
     }
 
+    private void onFolderInfoBrowsedPlayer(String stringUri) {
+        Log.d(TAG, "RemoteController: onFolderInfoBrowsedPlayer");
+        final OnClientAvrcpUpdateListener l;
+
+        synchronized(mInfoLock) {
+            l = mOnClientAvrcpUpdateListener;
+        }
+
+        try {
+            if (l != null) {
+                l.onClientFolderInfoBrowsedPlayer(stringUri);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error Updating AVRCP on receiving Browsed player response", e);
+        }
+    }
+
+    private void onNowPlayingEntriesUpdate(long[] playList) {
+        Log.d(TAG, "RemoteController: onUpdateNowPlayingEntries");
+        final OnClientAvrcpUpdateListener l;
+
+        synchronized(mInfoLock) {
+            l = mOnClientAvrcpUpdateListener;
+        }
+
+        try {
+            if (l != null) {
+                l.onClientUpdateNowPlayingEntries(playList);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error Updating AVRCP on receiving Now Playing Entries", e);
+        }
+    }
+
+    private void onNowPlayingContentChange() {
+        Log.d(TAG, "RemoteController: onNowPlayingContentChange");
+        final OnClientAvrcpUpdateListener l;
+
+        synchronized(mInfoLock) {
+            l = mOnClientAvrcpUpdateListener;
+        }
+
+        try {
+            if (l != null) {
+                l.onClientNowPlayingContentChange();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error Updating AVRCP on Now Playing Content Change", e);
+        }
+    }
+
+    private void onSetPlayItemResponse(boolean success) {
+        Log.d(TAG, "RemoteController: onPlayItemResponse");
+        final OnClientAvrcpUpdateListener l;
+
+        synchronized(mInfoLock) {
+            l = mOnClientAvrcpUpdateListener;
+        }
+
+        try {
+            if (l != null) {
+                l.onClientPlayItemResponse(success);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error Updating AVRCP on receiving Play Item response", e);
+        }
+    }
+
     //==================================================
     private static class PlaybackInfo {
         int mState;
@@ -690,7 +877,6 @@ import java.util.List;
      * Used by AudioManager to access user listener receiving the client update notifications
      * @return
      */
-    @UnsupportedAppUsage
     OnClientUpdateListener getUpdateListener() {
         return mOnClientUpdateListener;
     }

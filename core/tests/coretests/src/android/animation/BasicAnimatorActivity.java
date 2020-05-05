@@ -13,14 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package android.animation;
+
+import com.android.frameworks.coretests.R;
 
 import android.app.Activity;
 import android.os.Bundle;
 import android.widget.Button;
-
-import com.android.frameworks.coretests.R;
 
 public class BasicAnimatorActivity extends Activity {
     public Button mAnimatingButton;
@@ -28,6 +27,6 @@ public class BasicAnimatorActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.animator_basic);
-        mAnimatingButton = findViewById(R.id.animatingButton);
+        mAnimatingButton = (Button) findViewById(R.id.animatingButton);
     }
 }

@@ -17,9 +17,10 @@
 package android.widget.listview;
 
 import android.test.ActivityInstrumentationTestCase;
+import android.test.suitebuilder.annotation.MediumTest;
 import android.widget.ListView;
 
-import androidx.test.filters.MediumTest;
+import android.widget.listview.ListBottomGravityMany;
 
 public class ListBottomGravityManyTest extends ActivityInstrumentationTestCase<ListBottomGravityMany> {
     private ListBottomGravityMany mActivity;

@@ -23,10 +23,10 @@ import android.graphics.Point;
 import android.graphics.Rect;
 import android.os.ParcelFileDescriptor;
 import android.system.ErrnoException;
-import android.system.Os;
 import android.system.OsConstants;
 import dalvik.system.CloseGuard;
 import libcore.io.IoUtils;
+import libcore.io.Libcore;
 
 import java.io.IOException;
 
@@ -39,7 +39,7 @@ public final class PdfEditor {
 
     private final CloseGuard mCloseGuard = CloseGuard.get();
 
-    private long mNativeDocument;
+    private final long mNativeDocument;
 
     private int mPageCount;
 
@@ -72,22 +72,17 @@ public final class PdfEditor {
 
         final long size;
         try {
-            Os.lseek(input.getFileDescriptor(), 0, OsConstants.SEEK_SET);
-            size = Os.fstat(input.getFileDescriptor()).st_size;
+            Libcore.os.lseek(input.getFileDescriptor(), 0, OsConstants.SEEK_SET);
+            size = Libcore.os.fstat(input.getFileDescriptor()).st_size;
         } catch (ErrnoException ee) {
             throw new IllegalArgumentException("file descriptor not seekable");
         }
+
         mInput = input;
 
         synchronized (PdfRenderer.sPdfiumLock) {
             mNativeDocument = nativeOpen(mInput.getFd(), size);
-            try {
-                mPageCount = nativeGetPageCount(mNativeDocument);
-            } catch (Throwable t) {
-                nativeClose(mNativeDocument);
-                mNativeDocument = 0;
-                throw t;
-            }
+            mPageCount = nativeGetPageCount(mNativeDocument);
         }
 
         mCloseGuard.open("close");
@@ -275,28 +270,21 @@ public final class PdfEditor {
     @Override
     protected void finalize() throws Throwable {
         try {
-            if (mCloseGuard != null) {
-                mCloseGuard.warnIfOpen();
+            mCloseGuard.warnIfOpen();
+            if (mInput != null) {
+                doClose();
             }
-
-            doClose();
         } finally {
             super.finalize();
         }
     }
 
     private void doClose() {
-        if (mNativeDocument != 0) {
-            synchronized (PdfRenderer.sPdfiumLock) {
-                nativeClose(mNativeDocument);
-            }
-            mNativeDocument = 0;
+        synchronized (PdfRenderer.sPdfiumLock) {
+            nativeClose(mNativeDocument);
         }
-
-        if (mInput != null) {
-            IoUtils.closeQuietly(mInput);
-            mInput = null;
-        }
+        IoUtils.closeQuietly(mInput);
+        mInput = null;
         mCloseGuard.close();
     }
 

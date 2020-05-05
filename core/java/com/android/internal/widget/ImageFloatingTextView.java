@@ -22,11 +22,12 @@ import android.text.BoringLayout;
 import android.text.Layout;
 import android.text.StaticLayout;
 import android.text.TextUtils;
-import android.text.method.TransformationMethod;
 import android.util.AttributeSet;
 import android.view.RemotableViewMethod;
 import android.widget.RemoteViews;
 import android.widget.TextView;
+
+import com.android.internal.R;
 
 /**
  * A TextView that can float around an image on the end.
@@ -41,9 +42,6 @@ public class ImageFloatingTextView extends TextView {
 
     /** Resolved layout direction */
     private int mResolvedDirection = LAYOUT_DIRECTION_UNDEFINED;
-    private int mMaxLinesForHeight = -1;
-    private int mLayoutMaxLines = -1;
-    private int mImageEndMargin;
 
     public ImageFloatingTextView(Context context) {
         this(context, null);
@@ -66,40 +64,29 @@ public class ImageFloatingTextView extends TextView {
     protected Layout makeSingleLayout(int wantWidth, BoringLayout.Metrics boring, int ellipsisWidth,
             Layout.Alignment alignment, boolean shouldEllipsize,
             TextUtils.TruncateAt effectiveEllipsize, boolean useSaved) {
-        TransformationMethod transformationMethod = getTransformationMethod();
-        CharSequence text = getText();
-        if (transformationMethod != null) {
-            text = transformationMethod.getTransformation(text, this);
-        }
-        text = text == null ? "" : text;
+        CharSequence text = getText() == null ? "" : getText();
         StaticLayout.Builder builder = StaticLayout.Builder.obtain(text, 0, text.length(),
                 getPaint(), wantWidth)
                 .setAlignment(alignment)
                 .setTextDirection(getTextDirectionHeuristic())
                 .setLineSpacing(getLineSpacingExtra(), getLineSpacingMultiplier())
                 .setIncludePad(getIncludeFontPadding())
-                .setUseLineSpacingFromFallbacks(true)
                 .setBreakStrategy(Layout.BREAK_STRATEGY_HIGH_QUALITY)
-                .setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_FULL);
-        int maxLines;
-        if (mMaxLinesForHeight > 0) {
-            maxLines = mMaxLinesForHeight;
-        } else {
-            maxLines = getMaxLines() >= 0 ? getMaxLines() : Integer.MAX_VALUE;
-        }
-        builder.setMaxLines(maxLines);
-        mLayoutMaxLines = maxLines;
+                .setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_FULL)
+                .setMaxLines(getMaxLines() >= 0 ? getMaxLines() : Integer.MAX_VALUE);
         if (shouldEllipsize) {
             builder.setEllipsize(effectiveEllipsize)
                     .setEllipsizedWidth(ellipsisWidth);
         }
 
         // we set the endmargin on the requested number of lines.
+        int endMargin = getContext().getResources().getDimensionPixelSize(
+                R.dimen.notification_content_picture_margin);
         int[] margins = null;
         if (mIndentLines > 0) {
             margins = new int[mIndentLines + 1];
             for (int i = 0; i < mIndentLines; i++) {
-                margins[i] = mImageEndMargin;
+                margins[i] = endMargin;
             }
         }
         if (mResolvedDirection == LAYOUT_DIRECTION_RTL) {
@@ -111,41 +98,6 @@ public class ImageFloatingTextView extends TextView {
         return builder.build();
     }
 
-    @RemotableViewMethod
-    public void setImageEndMargin(int imageEndMargin) {
-        mImageEndMargin = imageEndMargin;
-    }
-
-    @Override
-    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        int availableHeight = MeasureSpec.getSize(heightMeasureSpec) - mPaddingTop - mPaddingBottom;
-        if (getLayout() != null && getLayout().getHeight() != availableHeight) {
-            // We've been measured before and the new size is different than before, lets make sure
-            // we reset the maximum lines, otherwise we may be cut short
-            mMaxLinesForHeight = -1;
-            nullLayouts();
-        }
-        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-        Layout layout = getLayout();
-        if (layout.getHeight() > availableHeight) {
-            // With the existing layout, not all of our lines fit on the screen, let's find the
-            // first one that fits and ellipsize at that one.
-            int maxLines = layout.getLineCount() - 1;
-            while (maxLines > 1 && layout.getLineBottom(maxLines - 1) > availableHeight) {
-                maxLines--;
-            }
-            if (getMaxLines() > 0) {
-                maxLines = Math.min(getMaxLines(), maxLines);
-            }
-            // Only if the number of lines is different from the current layout, we recreate it.
-            if (maxLines != mLayoutMaxLines) {
-                mMaxLinesForHeight = maxLines;
-                nullLayouts();
-                super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-            }
-        }
-    }
-
     @Override
     public void onRtlPropertiesChanged(int layoutDirection) {
         super.onRtlPropertiesChanged(layoutDirection);
@@ -154,8 +106,7 @@ public class ImageFloatingTextView extends TextView {
             mResolvedDirection = layoutDirection;
             if (mIndentLines > 0) {
                 // Invalidate layout.
-                nullLayouts();
-                requestLayout();
+                setHint(getHint());
             }
         }
     }
@@ -173,8 +124,7 @@ public class ImageFloatingTextView extends TextView {
         if (mIndentLines != lines) {
             mIndentLines = lines;
             // Invalidate layout.
-            nullLayouts();
-            requestLayout();
+            setHint(getHint());
             return true;
         }
         return false;

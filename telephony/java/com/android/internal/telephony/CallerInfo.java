@@ -16,8 +16,6 @@
 
 package com.android.internal.telephony;
 
-import android.annotation.UnsupportedAppUsage;
-import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.database.Cursor;
@@ -32,16 +30,16 @@ import android.provider.ContactsContract.Data;
 import android.provider.ContactsContract.PhoneLookup;
 import android.provider.ContactsContract.RawContacts;
 import android.telephony.PhoneNumberUtils;
-import android.telephony.Rlog;
-import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
+import android.telephony.Rlog;
 import android.util.Log;
 
+import com.android.i18n.phonenumbers.geocoding.PhoneNumberOfflineGeocoder;
 import com.android.i18n.phonenumbers.NumberParseException;
 import com.android.i18n.phonenumbers.PhoneNumberUtil;
 import com.android.i18n.phonenumbers.Phonenumber.PhoneNumber;
-import com.android.i18n.phonenumbers.geocoding.PhoneNumberOfflineGeocoder;
+import android.telephony.SubscriptionManager;
 
 import java.util.Locale;
 
@@ -85,9 +83,7 @@ public class CallerInfo {
      * field here, NOT name.  We're NOT always guaranteed to have a name
      * for a connection, but the number should be displayable.
      */
-    @UnsupportedAppUsage
     public String name;
-    @UnsupportedAppUsage
     public String phoneNumber;
     public String normalizedNumber;
     public String geoDescription;
@@ -99,22 +95,16 @@ public class CallerInfo {
 
     public String phoneLabel;
     /* Split up the phoneLabel into number type and label name */
-    @UnsupportedAppUsage
     public int    numberType;
-    @UnsupportedAppUsage
     public String numberLabel;
 
     public int photoResource;
 
     // Contact ID, which will be 0 if a contact comes from the corp CP2.
-    @UnsupportedAppUsage
     public long contactIdOrZero;
     public boolean needUpdate;
     public Uri contactRefUri;
     public String lookupKey;
-
-    public ComponentName preferredPhoneAccountComponent;
-    public String preferredPhoneAccountId;
 
     public long userType;
 
@@ -165,7 +155,6 @@ public class CallerInfo {
     private boolean mIsEmergency;
     private boolean mIsVoiceMail;
 
-    @UnsupportedAppUsage
     public CallerInfo() {
         // TODO: Move all the basic initialization here?
         mIsEmergency = false;
@@ -182,6 +171,7 @@ public class CallerInfo {
      * number. The returned CallerInfo is null if no number is supplied.
      */
     public static CallerInfo getCallerInfo(Context context, Uri contactRef, Cursor cursor) {
+        android.util.SeempLog.record_uri(12, contactRef);
         CallerInfo info = new CallerInfo();
         info.photoResource = 0;
         info.phoneLabel = null;
@@ -268,17 +258,6 @@ public class CallerInfo {
                     info.contactDisplayPhotoUri = null;
                 }
 
-                columnIndex = cursor.getColumnIndex(Data.PREFERRED_PHONE_ACCOUNT_COMPONENT_NAME);
-                if ((columnIndex != -1) && (cursor.getString(columnIndex) != null)) {
-                    info.preferredPhoneAccountComponent =
-                            ComponentName.unflattenFromString(cursor.getString(columnIndex));
-                }
-
-                columnIndex = cursor.getColumnIndex(Data.PREFERRED_PHONE_ACCOUNT_ID);
-                if ((columnIndex != -1) && (cursor.getString(columnIndex) != null)) {
-                    info.preferredPhoneAccountId = cursor.getString(columnIndex);
-                }
-
                 // look for the custom ringtone, create from the string stored
                 // in the database.
                 // An empty string ("") in the database indicates a silent ringtone,
@@ -322,7 +301,6 @@ public class CallerInfo {
      * @return the CallerInfo which contains the caller id for the given
      * number. The returned CallerInfo is null if no number is supplied.
      */
-    @UnsupportedAppUsage
     public static CallerInfo getCallerInfo(Context context, Uri contactRef) {
         CallerInfo info = null;
         ContentResolver cr = CallerInfoAsyncQuery.getCurrentProfileContentResolver(context);
@@ -347,7 +325,6 @@ public class CallerInfo {
      * a matching number is not found, then a generic caller info is returned,
      * with all relevant fields empty or null.
      */
-    @UnsupportedAppUsage
     public static CallerInfo getCallerInfo(Context context, String number) {
         if (VDBG) Rlog.v(TAG, "getCallerInfo() based on number...");
 
@@ -366,8 +343,8 @@ public class CallerInfo {
      * a matching number is not found, then a generic caller info is returned,
      * with all relevant fields empty or null.
      */
-    @UnsupportedAppUsage
     public static CallerInfo getCallerInfo(Context context, String number, int subId) {
+        android.util.SeempLog.record_str(12, "number="+number+",subId="+subId);
 
         if (TextUtils.isEmpty(number)) {
             return null;
@@ -620,8 +597,7 @@ public class CallerInfo {
             pn = util.parse(number, countryIso);
             if (VDBG) Rlog.v(TAG, "- parsed number: " + pn);
         } catch (NumberParseException e) {
-            Rlog.w(TAG, "getGeoDescription: NumberParseException for incoming number '"
-                    + Rlog.pii(TAG, number) + "'");
+            Rlog.w(TAG, "getGeoDescription: NumberParseException for incoming number '" + number + "'");
         }
 
         if (pn != null) {

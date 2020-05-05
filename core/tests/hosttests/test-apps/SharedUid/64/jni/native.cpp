@@ -15,14 +15,11 @@
  */
 
 #define LOG_TAG "pmtest64 native.cpp"
-#include <android/log.h>
+#include <utils/Log.h>
 
 #include <stdio.h>
 
 #include "jni.h"
-
-#define ALOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
-#define ALOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
 static jint
 add(JNIEnv */* env */, jobject /* thiz */, jint a, jint b) {

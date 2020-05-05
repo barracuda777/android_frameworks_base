@@ -16,8 +16,6 @@
 
 package com.android.server;
 
-import android.annotation.Nullable;
-
 import java.util.List;
 
 /**
@@ -39,8 +37,6 @@ public class AppWidgetBackupBridge {
                 : null;
     }
 
-    /** Returns a byte array of widget data for the specified package or {@code null}. */
-    @Nullable
     public static byte[] getWidgetState(String packageName, int userId) {
         return (sAppWidgetService != null)
                 ? sAppWidgetService.getWidgetState(packageName, userId)

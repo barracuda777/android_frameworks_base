@@ -19,8 +19,6 @@ package android.service.gatekeeper;
 import android.os.Parcel;
 import android.os.Parcelable;
 
-import com.android.internal.annotations.VisibleForTesting;
-
 /**
  * Response object for a GateKeeper verification request.
  * @hide
@@ -37,28 +35,12 @@ public final class GateKeeperResponse implements Parcelable {
     private byte[] mPayload;
     private boolean mShouldReEnroll;
 
-    /** Default constructor for response with generic response code **/
     private GateKeeperResponse(int responseCode) {
         mResponseCode = responseCode;
     }
 
-    @VisibleForTesting
-    public static GateKeeperResponse createGenericResponse(int responseCode) {
-        return new GateKeeperResponse(responseCode);
-    }
-
-    private static GateKeeperResponse createRetryResponse(int timeout) {
-        GateKeeperResponse response = new GateKeeperResponse(RESPONSE_RETRY);
-        response.mTimeout = timeout;
-        return response;
-    }
-
-    @VisibleForTesting
-    public static GateKeeperResponse createOkResponse(byte[] payload, boolean shouldReEnroll) {
-        GateKeeperResponse response = new GateKeeperResponse(RESPONSE_OK);
-        response.mPayload = payload;
-        response.mShouldReEnroll = shouldReEnroll;
-        return response;
+    private GateKeeperResponse(int responseCode, int timeout) {
+        mResponseCode = responseCode;
     }
 
     @Override
@@ -66,25 +48,22 @@ public final class GateKeeperResponse implements Parcelable {
         return 0;
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<GateKeeperResponse> CREATOR
+    public static final Parcelable.Creator<GateKeeperResponse> CREATOR
             = new Parcelable.Creator<GateKeeperResponse>() {
         @Override
         public GateKeeperResponse createFromParcel(Parcel source) {
             int responseCode = source.readInt();
-            final GateKeeperResponse response;
+            GateKeeperResponse response = new GateKeeperResponse(responseCode);
             if (responseCode == RESPONSE_RETRY) {
-                response = createRetryResponse(source.readInt());
+                response.setTimeout(source.readInt());
             } else if (responseCode == RESPONSE_OK) {
-                final boolean shouldReEnroll = source.readInt() == 1;
-                byte[] payload = null;
+                response.setShouldReEnroll(source.readInt() == 1);
                 int size = source.readInt();
                 if (size > 0) {
-                    payload = new byte[size];
+                    byte[] payload = new byte[size];
                     source.readByteArray(payload);
+                    response.setPayload(payload);
                 }
-                response = createOkResponse(payload, shouldReEnroll);
-            } else {
-                response = createGenericResponse(responseCode);
             }
             return response;
         }
@@ -127,4 +106,17 @@ public final class GateKeeperResponse implements Parcelable {
     public int getResponseCode() {
         return mResponseCode;
     }
+
+    private void setTimeout(int timeout) {
+        mTimeout = timeout;
+    }
+
+    private void setShouldReEnroll(boolean shouldReEnroll) {
+        mShouldReEnroll = shouldReEnroll;
+    }
+
+    private void setPayload(byte[] payload) {
+        mPayload = payload;
+    }
+
 }

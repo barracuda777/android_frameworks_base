@@ -16,22 +16,14 @@
 
 package android.net;
 
-import android.annotation.NonNull;
-
 /**
- * Thrown when parsing failed.
+ * Thrown when parsing a URL fails.
  */
 // See non-public class {@link WebAddress}.
 public class ParseException extends RuntimeException {
     public String response;
 
-    ParseException(@NonNull String response) {
-        super(response);
-        this.response = response;
-    }
-
-    ParseException(@NonNull String response, @NonNull Throwable cause) {
-        super(response, cause);
+    ParseException(String response) {
         this.response = response;
     }
 }

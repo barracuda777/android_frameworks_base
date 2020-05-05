@@ -16,12 +16,10 @@
 
 package com.android.internal.util;
 
-import android.annotation.UnsupportedAppUsage;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
@@ -107,7 +105,6 @@ public class AsyncChannel {
      * msg.obj  == the AsyncChannel
      * msg.replyTo == dstMessenger if successful
      */
-    @UnsupportedAppUsage
     public static final int CMD_CHANNEL_HALF_CONNECTED = BASE + 0;
 
     /**
@@ -117,7 +114,6 @@ public class AsyncChannel {
      *
      * msg.replyTo = srcMessenger.
      */
-    @UnsupportedAppUsage
     public static final int CMD_CHANNEL_FULL_CONNECTION = BASE + 1;
 
     /**
@@ -163,7 +159,6 @@ public class AsyncChannel {
         sCmdToString[CMD_CHANNEL_DISCONNECT - BASE] = "CMD_CHANNEL_DISCONNECT";
         sCmdToString[CMD_CHANNEL_DISCONNECTED - BASE] = "CMD_CHANNEL_DISCONNECTED";
     }
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     protected static String cmdToString(int cmd) {
         cmd -= BASE;
         if ((cmd >= 0) && (cmd < sCmdToString.length)) {
@@ -174,7 +169,6 @@ public class AsyncChannel {
     }
 
     /** Successful status always 0, !0 is an unsuccessful status */
-    @UnsupportedAppUsage
     public static final int STATUS_SUCCESSFUL = 0;
 
     /** Error attempting to bind on a connect */
@@ -210,7 +204,6 @@ public class AsyncChannel {
     /**
      * AsyncChannel constructor
      */
-    @UnsupportedAppUsage
     public AsyncChannel() {
     }
 
@@ -262,7 +255,6 @@ public class AsyncChannel {
      *
      * @return STATUS_SUCCESSFUL on success any other value is an error.
      */
-    @UnsupportedAppUsage
     public int connectSync(Context srcContext, Handler srcHandler, Messenger dstMessenger) {
         if (DBG) log("halfConnectSync srcHandler to the dstMessenger  E");
 
@@ -378,7 +370,6 @@ public class AsyncChannel {
      * @param srcHandler
      * @param dstMessenger
      */
-    @UnsupportedAppUsage
     public void connect(Context srcContext, Handler srcHandler, Messenger dstMessenger) {
         if (DBG) log("connect srcHandler to the dstMessenger  E");
 
@@ -401,7 +392,6 @@ public class AsyncChannel {
      * @param srcHandler
      * @param dstMessenger
      */
-    @UnsupportedAppUsage
     public void connected(Context srcContext, Handler srcHandler, Messenger dstMessenger) {
         if (DBG) log("connected srcHandler to the dstMessenger  E");
 
@@ -412,6 +402,7 @@ public class AsyncChannel {
 
         // Initialize destination fields
         mDstMessenger = dstMessenger;
+        linkToDeathMonitor();
         if (DBG) log("connected srcHandler to the dstMessenger X");
     }
 
@@ -456,7 +447,6 @@ public class AsyncChannel {
     /**
      * Disconnect
      */
-    @UnsupportedAppUsage
     public void disconnect() {
         if ((mConnection != null) && (mSrcContext != null)) {
             mSrcContext.unbindService(mConnection);
@@ -486,7 +476,6 @@ public class AsyncChannel {
      *
      * @param msg
      */
-    @UnsupportedAppUsage
     public void sendMessage(Message msg) {
         msg.replyTo = mSrcMessenger;
         try {
@@ -501,7 +490,6 @@ public class AsyncChannel {
      *
      * @param what
      */
-    @UnsupportedAppUsage
     public void sendMessage(int what) {
         Message msg = Message.obtain();
         msg.what = what;
@@ -514,7 +502,6 @@ public class AsyncChannel {
      * @param what
      * @param arg1
      */
-    @UnsupportedAppUsage
     public void sendMessage(int what, int arg1) {
         Message msg = Message.obtain();
         msg.what = what;
@@ -529,7 +516,6 @@ public class AsyncChannel {
      * @param arg1
      * @param arg2
      */
-    @UnsupportedAppUsage
     public void sendMessage(int what, int arg1, int arg2) {
         Message msg = Message.obtain();
         msg.what = what;
@@ -546,7 +532,6 @@ public class AsyncChannel {
      * @param arg2
      * @param obj
      */
-    @UnsupportedAppUsage
     public void sendMessage(int what, int arg1, int arg2, Object obj) {
         Message msg = Message.obtain();
         msg.what = what;
@@ -575,7 +560,6 @@ public class AsyncChannel {
      * @param srcMsg
      * @param dstMsg
      */
-    @UnsupportedAppUsage
     public void replyToMessage(Message srcMsg, Message dstMsg) {
         try {
             dstMsg.replyTo = mSrcMessenger;
@@ -592,7 +576,6 @@ public class AsyncChannel {
      * @param srcMsg
      * @param what
      */
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     public void replyToMessage(Message srcMsg, int what) {
         Message msg = Message.obtain();
         msg.what = what;
@@ -606,7 +589,6 @@ public class AsyncChannel {
      * @param what
      * @param arg1
      */
-    @UnsupportedAppUsage
     public void replyToMessage(Message srcMsg, int what, int arg1) {
         Message msg = Message.obtain();
         msg.what = what;
@@ -639,7 +621,6 @@ public class AsyncChannel {
      * @param arg2
      * @param obj
      */
-    @UnsupportedAppUsage
     public void replyToMessage(Message srcMsg, int what, int arg1, int arg2, Object obj) {
         Message msg = Message.obtain();
         msg.what = what;
@@ -656,7 +637,6 @@ public class AsyncChannel {
      * @param what
      * @param obj
      */
-    @UnsupportedAppUsage
     public void replyToMessage(Message srcMsg, int what, Object obj) {
         Message msg = Message.obtain();
         msg.what = what;
@@ -670,7 +650,6 @@ public class AsyncChannel {
      * @param msg to send
      * @return reply message or null if an error.
      */
-    @UnsupportedAppUsage
     public Message sendMessageSynchronously(Message msg) {
         Message resultMsg = SyncMessenger.sendMessageSynchronously(mDstMessenger, msg);
         return resultMsg;
@@ -712,7 +691,6 @@ public class AsyncChannel {
      * @param arg2
      * @return reply message or null if an error.
      */
-    @UnsupportedAppUsage
     public Message sendMessageSynchronously(int what, int arg1, int arg2) {
         Message msg = Message.obtain();
         msg.what = what;
@@ -790,10 +768,9 @@ public class AsyncChannel {
             /** Handle of the reply message */
             @Override
             public void handleMessage(Message msg) {
-                Message msgCopy = Message.obtain();
-                msgCopy.copyFrom(msg);
+                mResultMsg = Message.obtain();
+                mResultMsg.copyFrom(msg);
                 synchronized(mLockObject) {
-                    mResultMsg = msgCopy;
                     mLockObject.notify();
                 }
             }
@@ -835,26 +812,22 @@ public class AsyncChannel {
          */
         private static Message sendMessageSynchronously(Messenger dstMessenger, Message msg) {
             SyncMessenger sm = SyncMessenger.obtain();
-            Message resultMsg = null;
             try {
                 if (dstMessenger != null && msg != null) {
                     msg.replyTo = sm.mMessenger;
                     synchronized (sm.mHandler.mLockObject) {
-                        if (sm.mHandler.mResultMsg != null) {
-                            Slog.wtf(TAG, "mResultMsg should be null here");
-                            sm.mHandler.mResultMsg = null;
-                        }
                         dstMessenger.send(msg);
                         sm.mHandler.mLockObject.wait();
-                        resultMsg = sm.mHandler.mResultMsg;
-                        sm.mHandler.mResultMsg = null;
                     }
+                } else {
+                    sm.mHandler.mResultMsg = null;
                 }
             } catch (InterruptedException e) {
-                Slog.e(TAG, "error in sendMessageSynchronously", e);
+                sm.mHandler.mResultMsg = null;
             } catch (RemoteException e) {
-                Slog.e(TAG, "error in sendMessageSynchronously", e);
+                sm.mHandler.mResultMsg = null;
             }
+            Message resultMsg = sm.mHandler.mResultMsg;
             sm.recycle();
             return resultMsg;
         }

@@ -16,7 +16,6 @@
 
 package android.media;
 
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.text.TextUtils;
 import android.util.AttributeSet;
@@ -49,7 +48,6 @@ public class TtmlRenderer extends SubtitleController.Renderer {
 
     private TtmlRenderingWidget mRenderingWidget;
 
-    @UnsupportedAppUsage
     public TtmlRenderer(Context context) {
         mContext = context;
     }

@@ -22,12 +22,10 @@ import static junit.framework.Assert.assertNull;
 import static junit.framework.Assert.assertTrue;
 import static junit.framework.Assert.fail;
 
-import static org.junit.Assert.assertNotEquals;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyList;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
@@ -36,7 +34,6 @@ import static org.mockito.Mockito.verify;
 import android.app.Instrumentation;
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.LocusId;
 import android.content.pm.LauncherApps;
 import android.content.pm.LauncherApps.Callback;
 import android.content.pm.ShortcutInfo;
@@ -61,8 +58,7 @@ import org.hamcrest.Matcher;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.mockito.ArgumentCaptor;
-import org.mockito.ArgumentMatchers;
-import org.mockito.hamcrest.MockitoHamcrest;
+import org.mockito.Mockito;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -211,9 +207,6 @@ public class ShortcutManagerTestUtils {
         runCommand(instrumentation, "cmd package set-home-activity --user "
                 + instrumentation.getContext().getUserId() + " " + component,
                 result -> result.contains("Success"));
-        runCommand(instrumentation, "cmd shortcut clear-default-launcher --user "
-                        + instrumentation.getContext().getUserId(),
-                result -> result.contains("Success"));
     }
 
     public static void setDefaultLauncher(Instrumentation instrumentation, Context packageContext) {
@@ -342,10 +335,6 @@ public class ShortcutManagerTestUtils {
         return ret;
     }
 
-    public static <T> T[] array(T... array) {
-        return array;
-    }
-
     public static <T> List<T> list(T... array) {
         return Arrays.asList(array);
     }
@@ -368,10 +357,6 @@ public class ShortcutManagerTestUtils {
             ret.add(converter.apply(v));
         }
         return ret;
-    }
-
-    public static LocusId locusId(String id) {
-        return new LocusId(id);
     }
 
     public static void resetAll(Collection<?> mocks) {
@@ -680,7 +665,7 @@ public class ShortcutManagerTestUtils {
                 d.appendText(description);
             }
         };
-        return MockitoHamcrest.argThat(m);
+        return Mockito.argThat(m);
     }
 
     public static List<ShortcutInfo> checkShortcutIds(String... ids) {
@@ -740,20 +725,8 @@ public class ShortcutManagerTestUtils {
         fail("Timed out for: " + message);
     }
 
-    public static final <T> T anyOrNull(Class<T> clazz) {
-        return ArgumentMatchers.argThat(value -> true);
-    }
-
-    public static final String anyStringOrNull() {
-        return ArgumentMatchers.argThat(value -> true);
-    }
-
     public static ShortcutListAsserter assertWith(List<ShortcutInfo> list) {
         return new ShortcutListAsserter(list);
-    }
-
-    public static ShortcutListAsserter assertWith(ShortcutInfo... list) {
-        return assertWith(list(list));
     }
 
     /**
@@ -789,12 +762,6 @@ public class ShortcutManagerTestUtils {
         public ShortcutListAsserter selectPinned() {
             return new ShortcutListAsserter(this,
                     filter(mList, ShortcutInfo::isPinned));
-        }
-
-        public ShortcutListAsserter selectFloating() {
-            return new ShortcutListAsserter(this,
-                    filter(mList, (si -> si.isPinned()
-                            && !(si.isDynamic() || si.isDeclaredInManifest()))));
         }
 
         public ShortcutListAsserter selectByActivity(ComponentName activity) {
@@ -905,48 +872,11 @@ public class ShortcutManagerTestUtils {
 
         public ShortcutListAsserter areAllEnabled() {
             forAllShortcuts(s -> assertTrue("id=" + s.getId(), s.isEnabled()));
-            areAllWithDisabledReason(ShortcutInfo.DISABLED_REASON_NOT_DISABLED);
             return this;
         }
 
         public ShortcutListAsserter areAllDisabled() {
             forAllShortcuts(s -> assertFalse("id=" + s.getId(), s.isEnabled()));
-            forAllShortcuts(s -> assertNotEquals("id=" + s.getId(),
-                    ShortcutInfo.DISABLED_REASON_NOT_DISABLED, s.getDisabledReason()));
-            return this;
-        }
-
-        public ShortcutListAsserter areAllFloating() {
-            forAllShortcuts(s -> assertTrue("id=" + s.getId(),
-                    s.isPinned() && !s.isDeclaredInManifest() && !s.isDynamic()));
-            return this;
-        }
-
-        public ShortcutListAsserter areAllNotFloating() {
-            forAllShortcuts(s -> assertTrue("id=" + s.getId(),
-                    !(s.isPinned() && !s.isDeclaredInManifest() && !s.isDynamic())));
-            return this;
-        }
-
-        public ShortcutListAsserter areAllOrphan() {
-            forAllShortcuts(s -> assertTrue("id=" + s.getId(),
-                    !s.isPinned() && !s.isDeclaredInManifest() && !s.isDynamic()));
-            return this;
-        }
-
-        public ShortcutListAsserter areAllNotOrphan() {
-            forAllShortcuts(s -> assertTrue("id=" + s.getId(),
-                    s.isPinned() || s.isDeclaredInManifest() || s.isDynamic()));
-            return this;
-        }
-
-        public ShortcutListAsserter areAllVisibleToPublisher() {
-            forAllShortcuts(s -> assertTrue("id=" + s.getId(), s.isVisibleToPublisher()));
-            return this;
-        }
-
-        public ShortcutListAsserter areAllNotVisibleToPublisher() {
-            forAllShortcuts(s -> assertFalse("id=" + s.getId(), s.isVisibleToPublisher()));
             return this;
         }
 
@@ -961,33 +891,7 @@ public class ShortcutManagerTestUtils {
         }
 
         public ShortcutListAsserter areAllWithActivity(ComponentName activity) {
-            forAllShortcuts(s -> assertEquals("id=" + s.getId(), activity, s.getActivity()));
-            return this;
-        }
-
-        public ShortcutListAsserter areAllWithNoActivity() {
-            forAllShortcuts(s -> assertNull("id=" + s.getId(), s.getActivity()));
-            return this;
-        }
-
-        public ShortcutListAsserter areAllWithIntent() {
-            forAllShortcuts(s -> assertNotNull("id=" + s.getId(), s.getIntent()));
-            return this;
-        }
-
-        public ShortcutListAsserter areAllWithNoIntent() {
-            forAllShortcuts(s -> assertNull("id=" + s.getId(), s.getIntent()));
-            return this;
-        }
-
-        public ShortcutListAsserter areAllWithDisabledReason(int disabledReason) {
-            forAllShortcuts(s -> assertEquals("id=" + s.getId(),
-                    disabledReason, s.getDisabledReason()));
-            if (disabledReason >= ShortcutInfo.DISABLED_REASON_VERSION_LOWER) {
-                areAllNotVisibleToPublisher();
-            } else {
-                areAllVisibleToPublisher();
-            }
+            forAllShortcuts(s -> assertTrue("id=" + s.getId(), s.getActivity().equals(activity)));
             return this;
         }
 
@@ -1125,7 +1029,7 @@ public class ShortcutManagerTestUtils {
         public ShortcutListAsserter assertCallbackCalledForPackageAndUser(
                 String publisherPackageName, UserHandle publisherUserHandle) {
             final ArgumentCaptor<List> shortcuts = ArgumentCaptor.forClass(List.class);
-            verify(mCallback, atLeastOnce()).onShortcutsChanged(
+            verify(mCallback, times(1)).onShortcutsChanged(
                     eq(publisherPackageName),
                     shortcuts.capture(),
                     eq(publisherUserHandle));
@@ -1147,16 +1051,6 @@ public class ShortcutManagerTestUtils {
         // launcherApps.unregisterCallback(asserter.getMockCallback());
 
         return asserter;
-    }
-
-    public static LauncherCallbackAsserter assertForLauncherCallbackNoThrow(
-            LauncherApps launcherApps, Runnable body) {
-        try {
-            return assertForLauncherCallback(launcherApps, body);
-        } catch (InterruptedException e) {
-            fail("Caught InterruptedException");
-            return null; // Never happens.
-        }
     }
 
     public static void retryUntil(BooleanSupplier checker, String message) {

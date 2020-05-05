@@ -16,7 +16,6 @@
 
 package android.content;
 
-import android.annotation.UnsupportedAppUsage;
 import android.net.Uri;
 
 import java.util.ArrayList;
@@ -135,12 +134,12 @@ public class UriMatcher
         mText = null;
     }
 
-    private UriMatcher(int which, String text)
+    private UriMatcher()
     {
         mCode = NO_MATCH;
-        mWhich = which;
+        mWhich = -1;
         mChildren = new ArrayList<UriMatcher>();
-        mText = text;
+        mText = null;
     }
 
     /**
@@ -168,7 +167,7 @@ public class UriMatcher
         if (path != null) {
             String newPath = path;
             // Strip leading slash if present.
-            if (path.length() > 1 && path.charAt(0) == '/') {
+            if (path.length() > 0 && path.charAt(0) == '/') {
                 newPath = path.substring(1);
             }
             tokens = newPath.split("/");
@@ -191,7 +190,15 @@ public class UriMatcher
             }
             if (j == numChildren) {
                 // Child not found, create it
-                child = createChild(token);
+                child = new UriMatcher();
+                if (token.equals("#")) {
+                    child.mWhich = NUMBER;
+                } else if (token.equals("*")) {
+                    child.mWhich = TEXT;
+                } else {
+                    child.mWhich = EXACT;
+                }
+                child.mText = token;
                 node.mChildren.add(child);
                 node = child;
             }
@@ -199,23 +206,12 @@ public class UriMatcher
         node.mCode = code;
     }
 
-    private static UriMatcher createChild(String token) {
-        switch (token) {
-            case "#":
-                return new UriMatcher(NUMBER, "#");
-            case "*":
-                return new UriMatcher(TEXT, "*");
-            default:
-                return new UriMatcher(EXACT, token);
-        }
-    }
-
     /**
      * Try to match against the path in a url.
      *
      * @param uri       The url whose path we will match against.
      *
-     * @return  The code for the matched node (added using addURI),
+     * @return  The code for the matched node (added using addURI), 
      * or -1 if there is no matched node.
      */
     public int match(Uri uri)
@@ -277,9 +273,7 @@ public class UriMatcher
     private static final int TEXT = 2;
 
     private int mCode;
-    private final int mWhich;
-    @UnsupportedAppUsage
-    private final String mText;
-    @UnsupportedAppUsage
+    private int mWhich;
+    private String mText;
     private ArrayList<UriMatcher> mChildren;
 }

@@ -16,14 +16,8 @@
 
 package android.database.sqlite;
 
-import android.annotation.IntDef;
-import android.annotation.IntRange;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
-import android.app.ActivityManager;
-import android.app.ActivityThread;
-import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.DatabaseErrorHandler;
@@ -34,28 +28,17 @@ import android.database.sqlite.SQLiteDebug.DbStats;
 import android.os.CancellationSignal;
 import android.os.Looper;
 import android.os.OperationCanceledException;
-import android.os.SystemProperties;
 import android.text.TextUtils;
-import android.util.ArraySet;
 import android.util.EventLog;
 import android.util.Log;
 import android.util.Pair;
 import android.util.Printer;
 
-import com.android.internal.util.Preconditions;
-
 import dalvik.system.CloseGuard;
 
 import java.io.File;
 import java.io.FileFilter;
-import java.io.IOException;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -88,21 +71,21 @@ public final class SQLiteDatabase extends SQLiteClosable {
 
     private static final int EVENT_DB_CORRUPT = 75004;
 
-    // By default idle connections are not closed
-    private static final boolean DEBUG_CLOSE_IDLE_CONNECTIONS = SystemProperties
-            .getBoolean("persist.debug.sqlite.close_idle_connections", false);
-
     // Stores reference to all databases opened in the current process.
     // (The referent Object is not used at this time.)
     // INVARIANT: Guarded by sActiveDatabases.
-    private static WeakHashMap<SQLiteDatabase, Object> sActiveDatabases = new WeakHashMap<>();
+    private static WeakHashMap<SQLiteDatabase, Object> sActiveDatabases =
+            new WeakHashMap<SQLiteDatabase, Object>();
 
     // Thread-local for database sessions that belong to this database.
     // Each thread has its own database session.
     // INVARIANT: Immutable.
-    @UnsupportedAppUsage
-    private final ThreadLocal<SQLiteSession> mThreadSession = ThreadLocal
-            .withInitial(this::createSession);
+    private final ThreadLocal<SQLiteSession> mThreadSession = new ThreadLocal<SQLiteSession>() {
+        @Override
+        protected SQLiteSession initialValue() {
+            return createSession();
+        }
+    };
 
     // The optional factory to use when creating new Cursors.  May be null.
     // INVARIANT: Immutable.
@@ -134,14 +117,12 @@ public final class SQLiteDatabase extends SQLiteClosable {
 
     // The database configuration.
     // INVARIANT: Guarded by mLock.
-    @UnsupportedAppUsage
     private final SQLiteDatabaseConfiguration mConfigurationLocked;
 
     // The connection pool for the database, null when closed.
     // The pool itself is thread-safe, but the reference to it can only be acquired
     // when the lock is held.
     // INVARIANT: Guarded by mLock.
-    @UnsupportedAppUsage
     private SQLiteConnectionPool mConnectionPoolLocked;
 
     // True if the database has attached databases.
@@ -201,9 +182,7 @@ public final class SQLiteDatabase extends SQLiteClosable {
      */
     public static final int CONFLICT_NONE = 0;
 
-    /** {@hide} */
-    @UnsupportedAppUsage
-    public static final String[] CONFLICT_VALUES = new String[]
+    private static final String[] CONFLICT_VALUES = new String[]
             {"", " OR ROLLBACK ", " OR ABORT ", " OR FAIL ", " OR IGNORE ", " OR REPLACE "};
 
     /**
@@ -266,18 +245,6 @@ public final class SQLiteDatabase extends SQLiteClosable {
      */
     public static final int ENABLE_WRITE_AHEAD_LOGGING = 0x20000000;
 
-
-    // Note: The below value was only used on Android Pie.
-    // public static final int DISABLE_COMPATIBILITY_WAL = 0x40000000;
-
-    /**
-     * Open flag: Flag for {@link #openDatabase} to enable the legacy Compatibility WAL when opening
-     * database.
-     *
-     * @hide
-     */
-    public static final int ENABLE_LEGACY_COMPATIBILITY_WAL = 0x80000000;
-
     /**
      * Absolute max value that can be set by {@link #setMaxSqlCacheSize(int)}.
      *
@@ -286,37 +253,11 @@ public final class SQLiteDatabase extends SQLiteClosable {
      */
     public static final int MAX_SQL_CACHE_SIZE = 100;
 
-    private SQLiteDatabase(final String path, final int openFlags,
-            CursorFactory cursorFactory, DatabaseErrorHandler errorHandler,
-            int lookasideSlotSize, int lookasideSlotCount, long idleConnectionTimeoutMs,
-            String journalMode, String syncMode) {
+    private SQLiteDatabase(String path, int openFlags, CursorFactory cursorFactory,
+            DatabaseErrorHandler errorHandler) {
         mCursorFactory = cursorFactory;
         mErrorHandler = errorHandler != null ? errorHandler : new DefaultDatabaseErrorHandler();
         mConfigurationLocked = new SQLiteDatabaseConfiguration(path, openFlags);
-        mConfigurationLocked.lookasideSlotSize = lookasideSlotSize;
-        mConfigurationLocked.lookasideSlotCount = lookasideSlotCount;
-        // Disable lookaside allocator on low-RAM devices
-        if (ActivityManager.isLowRamDeviceStatic()) {
-            mConfigurationLocked.lookasideSlotCount = 0;
-            mConfigurationLocked.lookasideSlotSize = 0;
-        }
-        long effectiveTimeoutMs = Long.MAX_VALUE;
-        // Never close idle connections for in-memory databases
-        if (!mConfigurationLocked.isInMemoryDb()) {
-            // First, check app-specific value. Otherwise use defaults
-            // -1 in idleConnectionTimeoutMs indicates unset value
-            if (idleConnectionTimeoutMs >= 0) {
-                effectiveTimeoutMs = idleConnectionTimeoutMs;
-            } else if (DEBUG_CLOSE_IDLE_CONNECTIONS) {
-                effectiveTimeoutMs = SQLiteGlobal.getIdleConnectionTimeout();
-            }
-        }
-        mConfigurationLocked.idleConnectionTimeoutMs = effectiveTimeoutMs;
-        mConfigurationLocked.journalMode = journalMode;
-        mConfigurationLocked.syncMode = syncMode;
-        if (SQLiteCompatibilityWalFlags.isLegacyCompatibilityWalEnabled()) {
-            mConfigurationLocked.openFlags |= ENABLE_LEGACY_COMPATIBILITY_WAL;
-        }
     }
 
     @Override
@@ -416,7 +357,6 @@ public final class SQLiteDatabase extends SQLiteClosable {
      * @throws IllegalStateException if the thread does not yet have a session and
      * the database is not open.
      */
-    @UnsupportedAppUsage
     SQLiteSession getThreadSession() {
         return mThreadSession.get(); // initialValue() throws if database closed
     }
@@ -560,7 +500,6 @@ public final class SQLiteDatabase extends SQLiteClosable {
         beginTransaction(transactionListener, false);
     }
 
-    @UnsupportedAppUsage
     private void beginTransaction(SQLiteTransactionListener transactionListener,
             boolean exclusive) {
         acquireReference();
@@ -660,7 +599,7 @@ public final class SQLiteDatabase extends SQLiteClosable {
      * successful so far. Do not call setTransactionSuccessful before calling this. When this
      * returns a new transaction will have been created but not marked as successful.
      * @return true if the transaction was yielded
-     * @deprecated if the db is locked more than once (because of nested transactions) then the lock
+     * @deprecated if the db is locked more than once (becuase of nested transactions) then the lock
      *   will not be yielded. Use yieldIfContendedSafely instead.
      */
     @Deprecated
@@ -728,36 +667,8 @@ public final class SQLiteDatabase extends SQLiteClosable {
      * @return the newly opened database
      * @throws SQLiteException if the database cannot be opened
      */
-    public static SQLiteDatabase openDatabase(@NonNull String path, @Nullable CursorFactory factory,
-            @DatabaseOpenFlags int flags) {
+    public static SQLiteDatabase openDatabase(String path, CursorFactory factory, int flags) {
         return openDatabase(path, factory, flags, null);
-    }
-
-    /**
-     * Open the database according to the specified {@link OpenParams parameters}
-     *
-     * @param path path to database file to open and/or create.
-     * <p><strong>Important:</strong> The file should be constructed either from an absolute path or
-     * by using {@link android.content.Context#getDatabasePath(String)}.
-     * @param openParams configuration parameters that are used for opening {@link SQLiteDatabase}
-     * @return the newly opened database
-     * @throws SQLiteException if the database cannot be opened
-     */
-    public static SQLiteDatabase openDatabase(@NonNull File path,
-            @NonNull OpenParams openParams) {
-        return openDatabase(path.getPath(), openParams);
-    }
-
-    @UnsupportedAppUsage
-    private static SQLiteDatabase openDatabase(@NonNull String path,
-            @NonNull OpenParams openParams) {
-        Preconditions.checkArgument(openParams != null, "OpenParams cannot be null");
-        SQLiteDatabase db = new SQLiteDatabase(path, openParams.mOpenFlags,
-                openParams.mCursorFactory, openParams.mErrorHandler,
-                openParams.mLookasideSlotSize, openParams.mLookasideSlotCount,
-                openParams.mIdleConnectionTimeout, openParams.mJournalMode, openParams.mSyncMode);
-        db.open();
-        return db;
     }
 
     /**
@@ -779,10 +690,9 @@ public final class SQLiteDatabase extends SQLiteClosable {
      * @return the newly opened database
      * @throws SQLiteException if the database cannot be opened
      */
-    public static SQLiteDatabase openDatabase(@NonNull String path, @Nullable CursorFactory factory,
-            @DatabaseOpenFlags int flags, @Nullable DatabaseErrorHandler errorHandler) {
-        SQLiteDatabase db = new SQLiteDatabase(path, flags, factory, errorHandler, -1, -1, -1, null,
-                null);
+    public static SQLiteDatabase openDatabase(String path, CursorFactory factory, int flags,
+            DatabaseErrorHandler errorHandler) {
+        SQLiteDatabase db = new SQLiteDatabase(path, flags, factory, errorHandler);
         db.open();
         return db;
     }
@@ -790,24 +700,22 @@ public final class SQLiteDatabase extends SQLiteClosable {
     /**
      * Equivalent to openDatabase(file.getPath(), factory, CREATE_IF_NECESSARY).
      */
-    public static SQLiteDatabase openOrCreateDatabase(@NonNull File file,
-            @Nullable CursorFactory factory) {
+    public static SQLiteDatabase openOrCreateDatabase(File file, CursorFactory factory) {
         return openOrCreateDatabase(file.getPath(), factory);
     }
 
     /**
      * Equivalent to openDatabase(path, factory, CREATE_IF_NECESSARY).
      */
-    public static SQLiteDatabase openOrCreateDatabase(@NonNull String path,
-            @Nullable CursorFactory factory) {
+    public static SQLiteDatabase openOrCreateDatabase(String path, CursorFactory factory) {
         return openDatabase(path, factory, CREATE_IF_NECESSARY, null);
     }
 
     /**
      * Equivalent to openDatabase(path, factory, CREATE_IF_NECESSARY, errorHandler).
      */
-    public static SQLiteDatabase openOrCreateDatabase(@NonNull String path,
-            @Nullable CursorFactory factory, @Nullable DatabaseErrorHandler errorHandler) {
+    public static SQLiteDatabase openOrCreateDatabase(String path, CursorFactory factory,
+            DatabaseErrorHandler errorHandler) {
         return openDatabase(path, factory, CREATE_IF_NECESSARY, errorHandler);
     }
 
@@ -818,13 +726,7 @@ public final class SQLiteDatabase extends SQLiteClosable {
      * @param file The database file path.
      * @return True if the database was successfully deleted.
      */
-    public static boolean deleteDatabase(@NonNull File file) {
-        return deleteDatabase(file, /*removeCheckFile=*/ true);
-    }
-
-
-    /** @hide */
-    public static boolean deleteDatabase(@NonNull File file, boolean removeCheckFile) {
+    public static boolean deleteDatabase(File file) {
         if (file == null) {
             throw new IllegalArgumentException("file must not be null");
         }
@@ -834,9 +736,6 @@ public final class SQLiteDatabase extends SQLiteClosable {
         deleted |= new File(file.getPath() + "-journal").delete();
         deleted |= new File(file.getPath() + "-shm").delete();
         deleted |= new File(file.getPath() + "-wal").delete();
-
-        // This file is not a standard SQLite file, so don't update the deleted flag.
-        new File(file.getPath() + SQLiteGlobal.WIPE_CHECK_FILE_SUFFIX).delete();
 
         File dir = file.getParentFile();
         if (dir != null) {
@@ -867,7 +766,6 @@ public final class SQLiteDatabase extends SQLiteClosable {
      * @see #isReadOnly()
      * @hide
      */
-    @UnsupportedAppUsage
     public void reopenReadWrite() {
         synchronized (mLock) {
             throwIfNotOpenLocked();
@@ -893,14 +791,9 @@ public final class SQLiteDatabase extends SQLiteClosable {
         try {
             try {
                 openInner();
-            } catch (RuntimeException ex) {
-                if (SQLiteDatabaseCorruptException.isCorruptException(ex)) {
-                    Log.e(TAG, "Database corruption detected in open()", ex);
-                    onCorruption();
-                    openInner();
-                } else {
-                    throw ex;
-                }
+            } catch (SQLiteDatabaseCorruptException ex) {
+                onCorruption();
+                openInner();
             }
         } catch (SQLiteException ex) {
             Log.e(TAG, "Failed to open database '" + getLabel() + "'.", ex);
@@ -930,30 +823,12 @@ public final class SQLiteDatabase extends SQLiteClosable {
      *
      * @param factory an optional factory class that is called to instantiate a
      *            cursor when query is called
-     * @return a SQLiteDatabase instance
-     * @throws SQLiteException if the database cannot be created
+     * @return a SQLiteDatabase object, or null if the database can't be created
      */
-    @NonNull
-    public static SQLiteDatabase create(@Nullable CursorFactory factory) {
+    public static SQLiteDatabase create(CursorFactory factory) {
         // This is a magic string with special meaning for SQLite.
         return openDatabase(SQLiteDatabaseConfiguration.MEMORY_DB_PATH,
                 factory, CREATE_IF_NECESSARY);
-    }
-
-    /**
-     * Create a memory backed SQLite database.  Its contents will be destroyed
-     * when the database is closed.
-     *
-     * <p>Sets the locale of the database to the  the system's current locale.
-     * Call {@link #setLocale} if you would like something else.</p>
-     * @param openParams configuration parameters that are used for opening SQLiteDatabase
-     * @return a SQLiteDatabase instance
-     * @throws SQLException if the database cannot be created
-     */
-    @NonNull
-    public static SQLiteDatabase createInMemory(@NonNull OpenParams openParams) {
-        return openDatabase(SQLiteDatabaseConfiguration.MEMORY_DB_PATH,
-                openParams.toBuilder().addOpenFlags(CREATE_IF_NECESSARY).build());
     }
 
     /**
@@ -1574,7 +1449,7 @@ public final class SQLiteDatabase extends SQLiteClosable {
             sql.append('(');
 
             Object[] bindArgs = null;
-            int size = (initialValues != null && !initialValues.isEmpty())
+            int size = (initialValues != null && initialValues.size() > 0)
                     ? initialValues.size() : 0;
             if (size > 0) {
                 bindArgs = new Object[size];
@@ -1666,7 +1541,7 @@ public final class SQLiteDatabase extends SQLiteClosable {
      */
     public int updateWithOnConflict(String table, ContentValues values,
             String whereClause, String[] whereArgs, int conflictAlgorithm) {
-        if (values == null || values.isEmpty()) {
+        if (values == null || values.size() == 0) {
             throw new IllegalArgumentException("Empty values");
         }
 
@@ -1787,14 +1662,12 @@ public final class SQLiteDatabase extends SQLiteClosable {
     public int executeSql(String sql, Object[] bindArgs) throws SQLException {
         acquireReference();
         try {
-            final int statementType = DatabaseUtils.getSqlStatementType(sql);
-            if (statementType == DatabaseUtils.STATEMENT_ATTACH) {
+            if (DatabaseUtils.getSqlStatementType(sql) == DatabaseUtils.STATEMENT_ATTACH) {
                 boolean disableWal = false;
                 synchronized (mLock) {
                     if (!mHasAttachedDbsLocked) {
                         mHasAttachedDbsLocked = true;
                         disableWal = true;
-                        mConnectionPoolLocked.disableIdleConnectionHandler();
                     }
                 }
                 if (disableWal) {
@@ -1802,14 +1675,11 @@ public final class SQLiteDatabase extends SQLiteClosable {
                 }
             }
 
-            try (SQLiteStatement statement = new SQLiteStatement(this, sql, bindArgs)) {
+            SQLiteStatement statement = new SQLiteStatement(this, sql, bindArgs);
+            try {
                 return statement.executeUpdateDelete();
             } finally {
-                // If schema was updated, close non-primary connections, otherwise they might
-                // have outdated schema information
-                if (statementType == DatabaseUtils.STATEMENT_DDL) {
-                    mConnectionPoolLocked.closeAvailableNonPrimaryConnectionsAndLogExceptions();
-                }
+                statement.close();
             }
         } finally {
             releaseReference();
@@ -2049,6 +1919,7 @@ public final class SQLiteDatabase extends SQLiteClosable {
      *     SQLiteDatabase db = SQLiteDatabase.openDatabase("db_filename", cursorFactory,
      *             SQLiteDatabase.CREATE_IF_NECESSARY | SQLiteDatabase.ENABLE_WRITE_AHEAD_LOGGING,
      *             myDatabaseErrorHandler);
+     *     db.enableWriteAheadLogging();
      * </pre></code>
      * </p><p>
      * Another way to enable write-ahead logging is to call {@link #enableWriteAheadLogging}
@@ -2125,24 +1996,15 @@ public final class SQLiteDatabase extends SQLiteClosable {
         synchronized (mLock) {
             throwIfNotOpenLocked();
 
-            final int oldFlags = mConfigurationLocked.openFlags;
-            final boolean walEnabled = (oldFlags & ENABLE_WRITE_AHEAD_LOGGING) != 0;
-            final boolean compatibilityWalEnabled =
-                    (oldFlags & ENABLE_LEGACY_COMPATIBILITY_WAL) != 0;
-            // WAL was never enabled for this database, so there's nothing left to do.
-            if (!walEnabled && !compatibilityWalEnabled) {
+            if ((mConfigurationLocked.openFlags & ENABLE_WRITE_AHEAD_LOGGING) == 0) {
                 return;
             }
 
-            // If an app explicitly disables WAL, it takes priority over any directive
-            // to use the legacy "compatibility WAL" mode.
             mConfigurationLocked.openFlags &= ~ENABLE_WRITE_AHEAD_LOGGING;
-            mConfigurationLocked.openFlags &= ~ENABLE_LEGACY_COMPATIBILITY_WAL;
-
             try {
                 mConnectionPoolLocked.reconfigure(mConfigurationLocked);
             } catch (RuntimeException ex) {
-                mConfigurationLocked.openFlags = oldFlags;
+                mConfigurationLocked.openFlags |= ENABLE_WRITE_AHEAD_LOGGING;
                 throw ex;
             }
         }
@@ -2176,7 +2038,6 @@ public final class SQLiteDatabase extends SQLiteClosable {
         return dbStatsList;
     }
 
-    @UnsupportedAppUsage
     private void collectDbStats(ArrayList<DbStats> dbStatsList) {
         synchronized (mLock) {
             if (mConnectionPoolLocked != null) {
@@ -2185,7 +2046,6 @@ public final class SQLiteDatabase extends SQLiteClosable {
         }
     }
 
-    @UnsupportedAppUsage
     private static ArrayList<SQLiteDatabase> getActiveDatabases() {
         ArrayList<SQLiteDatabase> databases = new ArrayList<SQLiteDatabase>();
         synchronized (sActiveDatabases) {
@@ -2198,58 +2058,18 @@ public final class SQLiteDatabase extends SQLiteClosable {
      * Dump detailed information about all open databases in the current process.
      * Used by bug report.
      */
-    static void dumpAll(Printer printer, boolean verbose, boolean isSystem) {
-        // Use this ArraySet to collect file paths.
-        final ArraySet<String> directories = new ArraySet<>();
-
+    static void dumpAll(Printer printer, boolean verbose) {
         for (SQLiteDatabase db : getActiveDatabases()) {
-            db.dump(printer, verbose, isSystem, directories);
-        }
-
-        // Dump DB files in the directories.
-        if (directories.size() > 0) {
-            final String[] dirs = directories.toArray(new String[directories.size()]);
-            Arrays.sort(dirs);
-            for (String dir : dirs) {
-                dumpDatabaseDirectory(printer, new File(dir), isSystem);
-            }
+            db.dump(printer, verbose);
         }
     }
 
-    private void dump(Printer printer, boolean verbose, boolean isSystem, ArraySet directories) {
+    private void dump(Printer printer, boolean verbose) {
         synchronized (mLock) {
             if (mConnectionPoolLocked != null) {
                 printer.println("");
-                mConnectionPoolLocked.dump(printer, verbose, directories);
+                mConnectionPoolLocked.dump(printer, verbose);
             }
-        }
-    }
-
-    private static void dumpDatabaseDirectory(Printer pw, File dir, boolean isSystem) {
-        pw.println("");
-        pw.println("Database files in " + dir.getAbsolutePath() + ":");
-        final File[] files = dir.listFiles();
-        if (files == null || files.length == 0) {
-            pw.println("  [none]");
-            return;
-        }
-        Arrays.sort(files, (a, b) -> a.getName().compareTo(b.getName()));
-
-        for (File f : files) {
-            if (isSystem) {
-                // If called within the system server, the directory contains other files too, so
-                // filter by file extensions.
-                // (If it's an app, just print all files because they may not use *.db
-                // extension.)
-                final String name = f.getName();
-                if (!(name.endsWith(".db") || name.endsWith(".db-wal")
-                        || name.endsWith(".db-journal")
-                        || name.endsWith(SQLiteGlobal.WIPE_CHECK_FILE_SUFFIX))) {
-                    continue;
-                }
-            }
-            pw.println(String.format("  %-40s %7db %s", f.getName(), f.length(),
-                    SQLiteDatabase.getFileTimestamps(f.getAbsolutePath())));
         }
     }
 
@@ -2391,374 +2211,4 @@ public final class SQLiteDatabase extends SQLiteClosable {
     public interface CustomFunction {
         public void callback(String[] args);
     }
-
-    /**
-     * Wrapper for configuration parameters that are used for opening {@link SQLiteDatabase}
-     */
-    public static final class OpenParams {
-        private final int mOpenFlags;
-        private final CursorFactory mCursorFactory;
-        private final DatabaseErrorHandler mErrorHandler;
-        private final int mLookasideSlotSize;
-        private final int mLookasideSlotCount;
-        private final long mIdleConnectionTimeout;
-        private final String mJournalMode;
-        private final String mSyncMode;
-
-        private OpenParams(int openFlags, CursorFactory cursorFactory,
-                DatabaseErrorHandler errorHandler, int lookasideSlotSize, int lookasideSlotCount,
-                long idleConnectionTimeout, String journalMode, String syncMode) {
-            mOpenFlags = openFlags;
-            mCursorFactory = cursorFactory;
-            mErrorHandler = errorHandler;
-            mLookasideSlotSize = lookasideSlotSize;
-            mLookasideSlotCount = lookasideSlotCount;
-            mIdleConnectionTimeout = idleConnectionTimeout;
-            mJournalMode = journalMode;
-            mSyncMode = syncMode;
-        }
-
-        /**
-         * Returns size in bytes of each lookaside slot or -1 if not set.
-         *
-         * @see Builder#setLookasideConfig(int, int)
-         */
-        @IntRange(from = -1)
-        public int getLookasideSlotSize() {
-            return mLookasideSlotSize;
-        }
-
-        /**
-         * Returns total number of lookaside memory slots per database connection or -1 if not
-         * set.
-         *
-         * @see Builder#setLookasideConfig(int, int)
-         */
-        @IntRange(from = -1)
-        public int getLookasideSlotCount() {
-            return mLookasideSlotCount;
-        }
-
-        /**
-         * Returns flags to control database access mode. Default value is 0.
-         *
-         * @see Builder#setOpenFlags(int)
-         */
-        @DatabaseOpenFlags
-        public int getOpenFlags() {
-            return mOpenFlags;
-        }
-
-        /**
-         * Returns an optional factory class that is called to instantiate a cursor when query
-         * is called
-         *
-         * @see Builder#setCursorFactory(CursorFactory)
-         */
-        @Nullable
-        public CursorFactory getCursorFactory() {
-            return mCursorFactory;
-        }
-
-        /**
-         * Returns handler for database corruption errors
-         *
-         * @see Builder#setErrorHandler(DatabaseErrorHandler)
-         */
-        @Nullable
-        public DatabaseErrorHandler getErrorHandler() {
-            return mErrorHandler;
-        }
-
-        /**
-         * Returns maximum number of milliseconds that SQLite connection is allowed to be idle
-         * before it is closed and removed from the pool.
-         * <p>If the value isn't set, the timeout defaults to the system wide timeout
-         *
-         * @return timeout in milliseconds or -1 if the value wasn't set.
-         */
-        public long getIdleConnectionTimeout() {
-            return mIdleConnectionTimeout;
-        }
-
-        /**
-         * Returns <a href="https://sqlite.org/pragma.html#pragma_journal_mode">journal mode</a>.
-         * This journal mode will only be used if {@link SQLiteDatabase#ENABLE_WRITE_AHEAD_LOGGING}
-         * flag is not set, otherwise a platform will use "WAL" journal mode.
-         * @see Builder#setJournalMode(String)
-         */
-        @Nullable
-        public String getJournalMode() {
-            return mJournalMode;
-        }
-
-        /**
-         * Returns <a href="https://sqlite.org/pragma.html#pragma_synchronous">synchronous mode</a>.
-         * If not set, a system wide default will be used.
-         * @see Builder#setSynchronousMode(String)
-         */
-        @Nullable
-        public String getSynchronousMode() {
-            return mSyncMode;
-        }
-
-        /**
-         * Creates a new instance of builder {@link Builder#Builder(OpenParams) initialized} with
-         * {@code this} parameters.
-         * @hide
-         */
-        @NonNull
-        public Builder toBuilder() {
-            return new Builder(this);
-        }
-
-        /**
-         * Builder for {@link OpenParams}.
-         */
-        public static final class Builder {
-            private int mLookasideSlotSize = -1;
-            private int mLookasideSlotCount = -1;
-            private long mIdleConnectionTimeout = -1;
-            private int mOpenFlags;
-            private CursorFactory mCursorFactory;
-            private DatabaseErrorHandler mErrorHandler;
-            private String mJournalMode;
-            private String mSyncMode;
-
-            public Builder() {
-            }
-
-            public Builder(OpenParams params) {
-                mLookasideSlotSize = params.mLookasideSlotSize;
-                mLookasideSlotCount = params.mLookasideSlotCount;
-                mOpenFlags = params.mOpenFlags;
-                mCursorFactory = params.mCursorFactory;
-                mErrorHandler = params.mErrorHandler;
-                mJournalMode = params.mJournalMode;
-                mSyncMode = params.mSyncMode;
-            }
-
-            /**
-             * Configures
-             * <a href="https://sqlite.org/malloc.html#lookaside">lookaside memory allocator</a>
-             *
-             * <p>SQLite default settings will be used, if this method isn't called.
-             * Use {@code setLookasideConfig(0,0)} to disable lookaside
-             *
-             * <p><strong>Note:</strong> Provided slotSize/slotCount configuration is just a
-             * recommendation. The system may choose different values depending on a device, e.g.
-             * lookaside allocations can be disabled on low-RAM devices
-             *
-             * @param slotSize The size in bytes of each lookaside slot.
-             * @param slotCount The total number of lookaside memory slots per database connection.
-             */
-            public Builder setLookasideConfig(@IntRange(from = 0) final int slotSize,
-                    @IntRange(from = 0) final int slotCount) {
-                Preconditions.checkArgument(slotSize >= 0,
-                        "lookasideSlotCount cannot be negative");
-                Preconditions.checkArgument(slotCount >= 0,
-                        "lookasideSlotSize cannot be negative");
-                Preconditions.checkArgument(
-                        (slotSize > 0 && slotCount > 0) || (slotCount == 0 && slotSize == 0),
-                        "Invalid configuration: " + slotSize + ", " + slotCount);
-
-                mLookasideSlotSize = slotSize;
-                mLookasideSlotCount = slotCount;
-                return this;
-            }
-
-            /**
-             * Returns true if {@link #ENABLE_WRITE_AHEAD_LOGGING} flag is set
-             * @hide
-             */
-            public boolean isWriteAheadLoggingEnabled() {
-                return (mOpenFlags & ENABLE_WRITE_AHEAD_LOGGING) != 0;
-            }
-
-            /**
-             * Sets flags to control database access mode
-             * @param openFlags The new flags to set
-             * @see #OPEN_READWRITE
-             * @see #OPEN_READONLY
-             * @see #CREATE_IF_NECESSARY
-             * @see #NO_LOCALIZED_COLLATORS
-             * @see #ENABLE_WRITE_AHEAD_LOGGING
-             * @return same builder instance for chaining multiple calls into a single statement
-             */
-            @NonNull
-            public Builder setOpenFlags(@DatabaseOpenFlags int openFlags) {
-                mOpenFlags = openFlags;
-                return this;
-            }
-
-            /**
-             * Adds flags to control database access mode
-             *
-             * @param openFlags The new flags to add
-             * @return same builder instance for chaining multiple calls into a single statement
-             */
-            @NonNull
-            public Builder addOpenFlags(@DatabaseOpenFlags int openFlags) {
-                mOpenFlags |= openFlags;
-                return this;
-            }
-
-            /**
-             * Removes database access mode flags
-             *
-             * @param openFlags Flags to remove
-             * @return same builder instance for chaining multiple calls into a single statement
-             */
-            @NonNull
-            public Builder removeOpenFlags(@DatabaseOpenFlags int openFlags) {
-                mOpenFlags &= ~openFlags;
-                return this;
-            }
-
-            /**
-             * Sets {@link #ENABLE_WRITE_AHEAD_LOGGING} flag if {@code enabled} is {@code true},
-             * unsets otherwise
-             * @hide
-             */
-            public void setWriteAheadLoggingEnabled(boolean enabled) {
-                if (enabled) {
-                    addOpenFlags(ENABLE_WRITE_AHEAD_LOGGING);
-                } else {
-                    removeOpenFlags(ENABLE_WRITE_AHEAD_LOGGING);
-                }
-            }
-
-            /**
-             * Set an optional factory class that is called to instantiate a cursor when query
-             * is called.
-             *
-             * @param cursorFactory instance
-             * @return same builder instance for chaining multiple calls into a single statement
-             */
-            @NonNull
-            public Builder setCursorFactory(@Nullable CursorFactory cursorFactory) {
-                mCursorFactory = cursorFactory;
-                return this;
-            }
-
-
-            /**
-             * Sets {@link DatabaseErrorHandler} object to handle db corruption errors
-             */
-            @NonNull
-            public Builder setErrorHandler(@Nullable DatabaseErrorHandler errorHandler) {
-                mErrorHandler = errorHandler;
-                return this;
-            }
-
-            /**
-             * Sets the maximum number of milliseconds that SQLite connection is allowed to be idle
-             * before it is closed and removed from the pool.
-             *
-             * <p><b>DO NOT USE</b> this method.
-             * This feature has negative side effects that are very hard to foresee.
-             * <p>A connection timeout allows the system to internally close a connection to
-             * a SQLite database after a given timeout, which is good for reducing app's memory
-             * consumption.
-             * <b>However</b> the side effect is it <b>will reset all of SQLite's per-connection
-             * states</b>, which are typically modified with a {@code PRAGMA} statement, and
-             * these states <b>will not be restored</b> when a connection is re-established
-             * internally, and the system does not provide a callback for an app to reconfigure a
-             * connection.
-             * This feature may only be used if an app relies on none of such per-connection states.
-             *
-             * @param idleConnectionTimeoutMs timeout in milliseconds. Use {@link Long#MAX_VALUE}
-             * to allow unlimited idle connections.
-             *
-             * @see SQLiteOpenHelper#setIdleConnectionTimeout(long)
-             *
-             * @deprecated DO NOT USE this method. See the javadoc for the details.
-             */
-            @NonNull
-            @Deprecated
-            public Builder setIdleConnectionTimeout(
-                    @IntRange(from = 0) long idleConnectionTimeoutMs) {
-                Preconditions.checkArgument(idleConnectionTimeoutMs >= 0,
-                        "idle connection timeout cannot be negative");
-                mIdleConnectionTimeout = idleConnectionTimeoutMs;
-                return this;
-            }
-
-
-            /**
-             * Sets <a href="https://sqlite.org/pragma.html#pragma_journal_mode">journal mode</a>
-             * to use when {@link SQLiteDatabase#ENABLE_WRITE_AHEAD_LOGGING} flag is not set.
-             */
-            @NonNull
-            public Builder setJournalMode(@NonNull  String journalMode) {
-                Preconditions.checkNotNull(journalMode);
-                mJournalMode = journalMode;
-                return this;
-            }
-
-            /**w
-             * Sets <a href="https://sqlite.org/pragma.html#pragma_synchronous">synchronous mode</a>
-             * .
-             * @return
-             */
-            @NonNull
-            public Builder setSynchronousMode(@NonNull String syncMode) {
-                Preconditions.checkNotNull(syncMode);
-                mSyncMode = syncMode;
-                return this;
-            }
-
-            /**
-             * Creates an instance of {@link OpenParams} with the options that were previously set
-             * on this builder
-             */
-            @NonNull
-            public OpenParams build() {
-                return new OpenParams(mOpenFlags, mCursorFactory, mErrorHandler, mLookasideSlotSize,
-                        mLookasideSlotCount, mIdleConnectionTimeout, mJournalMode, mSyncMode);
-            }
-        }
-    }
-
-    /** @hide */
-    @IntDef(flag = true, prefix = {"OPEN_", "CREATE_", "NO_", "ENABLE_"}, value = {
-            OPEN_READWRITE,
-            OPEN_READONLY,
-            CREATE_IF_NECESSARY,
-            NO_LOCALIZED_COLLATORS,
-            ENABLE_WRITE_AHEAD_LOGGING
-    })
-    @Retention(RetentionPolicy.SOURCE)
-    public @interface DatabaseOpenFlags {}
-
-    /** @hide */
-    public static void wipeDetected(String filename, String reason) {
-        wtfAsSystemServer(TAG, "DB wipe detected:"
-                + " package=" + ActivityThread.currentPackageName()
-                + " reason=" + reason
-                + " file=" + filename
-                + " " + getFileTimestamps(filename)
-                + " checkfile " + getFileTimestamps(filename + SQLiteGlobal.WIPE_CHECK_FILE_SUFFIX),
-                new Throwable("STACKTRACE"));
-    }
-
-    /** @hide */
-    public static String getFileTimestamps(String path) {
-        try {
-            BasicFileAttributes attr = Files.readAttributes(
-                    FileSystems.getDefault().getPath(path), BasicFileAttributes.class);
-            return "ctime=" + attr.creationTime()
-                    + " mtime=" + attr.lastModifiedTime()
-                    + " atime=" + attr.lastAccessTime();
-        } catch (IOException e) {
-            return "[unable to obtain timestamp]";
-        }
-    }
-
-    /** @hide */
-    static void wtfAsSystemServer(String tag, String message, Throwable stacktrace) {
-        Log.e(tag, message, stacktrace);
-        ContentResolver.onDbCorruption(tag, message, stacktrace);
-    }
 }
-

@@ -16,18 +16,18 @@
 
 package android.widget.listview;
 
+import com.android.frameworks.coretests.R;
+
 import android.app.ListActivity;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.LayoutInflater;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.TextView;
-
-import com.android.frameworks.coretests.R;
 
 import java.util.Random;
 
@@ -112,7 +112,7 @@ public class ListThrasher extends ListActivity implements AdapterView.OnItemSele
 
         setContentView(R.layout.list_thrasher);
 
-        mText = findViewById(R.id.text);
+        mText = (TextView) findViewById(R.id.text);
         mAdapter = new ThrashListAdapter(this);
         setListAdapter(mAdapter);
 

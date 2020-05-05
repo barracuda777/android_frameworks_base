@@ -18,46 +18,38 @@
 #define LOG_TAG "MediaExtractor-JNI"
 #include <utils/Log.h>
 
-#include "android_media_AudioPresentation.h"
-#include "android_media_MediaDataSource.h"
 #include "android_media_MediaExtractor.h"
-#include "android_media_MediaMetricsJNI.h"
-#include "android_media_Streams.h"
-#include "android_os_HwRemoteBinder.h"
+
+#include "android_media_Utils.h"
 #include "android_runtime/AndroidRuntime.h"
 #include "android_runtime/Log.h"
-#include "android_util_Binder.h"
 #include "jni.h"
-#include <nativehelper/JNIHelp.h>
+#include "JNIHelp.h"
+#include "android_media_MediaDataSource.h"
 
-#include <android/hardware/cas/1.0/BpHwCas.h>
-#include <android/hardware/cas/1.0/BnHwCas.h>
-#include <hidl/HybridInterface.h>
 #include <media/IMediaHTTPService.h>
 #include <media/hardware/CryptoAPI.h>
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/foundation/AMessage.h>
-#include <media/DataSource.h>
-#include <media/stagefright/InterfaceUtils.h>
+#include <media/stagefright/DataSource.h>
 #include <media/stagefright/MediaErrors.h>
 #include <media/stagefright/MetaData.h>
 #include <media/stagefright/NuMediaExtractor.h>
+
 #include <nativehelper/ScopedLocalRef.h>
 
-namespace android {
+#include "android_util_Binder.h"
 
-using namespace hardware::cas::V1_0;
+namespace android {
 
 struct fields_t {
     jfieldID context;
 
     jmethodID cryptoInfoSetID;
-    jmethodID cryptoInfoSetPatternID;
 };
 
 static fields_t gFields;
-static JAudioPresentationInfo::fields_t gAudioPresentationFields;
 
 JMediaExtractor::JMediaExtractor(JNIEnv *env, jobject thiz)
     : mClass(NULL),
@@ -93,30 +85,6 @@ status_t JMediaExtractor::setDataSource(int fd, off64_t offset, off64_t size) {
 
 status_t JMediaExtractor::setDataSource(const sp<DataSource> &datasource) {
     return mImpl->setDataSource(datasource);
-}
-
-status_t JMediaExtractor::setMediaCas(JNIEnv *env, jobject casBinderObj) {
-    if (casBinderObj == NULL) {
-        return BAD_VALUE;
-    }
-
-    sp<hardware::IBinder> hwBinder =
-        JHwRemoteBinder::GetNativeContext(env, casBinderObj)->getBinder();
-    if (hwBinder == NULL) {
-        return BAD_VALUE;
-    }
-
-    sp<ICas> cas = hardware::fromBinder<ICas, BpHwCas, BnHwCas>(hwBinder);
-    if (cas == NULL) {
-        return BAD_VALUE;
-    }
-
-    HalToken halToken;
-    if (!createHalToken(cas, &halToken)) {
-        return BAD_VALUE;
-    }
-
-    return mImpl->setMediaCas(halToken);
 }
 
 size_t JMediaExtractor::countTracks() const {
@@ -247,10 +215,6 @@ status_t JMediaExtractor::getSampleTime(int64_t *sampleTimeUs) {
     return mImpl->getSampleTime(sampleTimeUs);
 }
 
-status_t JMediaExtractor::getSampleSize(size_t *sampleSize) {
-    return mImpl->getSampleSize(sampleSize);
-}
-
 status_t JMediaExtractor::getSampleFlags(uint32_t *sampleFlags) {
     *sampleFlags = 0;
 
@@ -276,13 +240,6 @@ status_t JMediaExtractor::getSampleFlags(uint32_t *sampleFlags) {
     return OK;
 }
 
-status_t JMediaExtractor::getMetrics(Parcel *reply) const {
-
-    status_t status = mImpl->getMetrics(reply);
-    return status;
-}
-
-
 status_t JMediaExtractor::getSampleMeta(sp<MetaData> *sampleMeta) {
     return mImpl->getSampleMeta(sampleMeta);
 }
@@ -291,10 +248,6 @@ bool JMediaExtractor::getCachedDuration(int64_t *durationUs, bool *eos) const {
     return mImpl->getCachedDuration(durationUs, eos);
 }
 
-status_t JMediaExtractor::getAudioPresentations(size_t trackIdx,
-        AudioPresentationCollection *presentations) const {
-    return mImpl->getAudioPresentations(trackIdx, presentations);
-}
 }  // namespace android
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -500,42 +453,20 @@ static jlong android_media_MediaExtractor_getSampleTime(
 
     if (extractor == NULL) {
         jniThrowException(env, "java/lang/IllegalStateException", NULL);
-        return -1LL;
+        return -1ll;
     }
 
     int64_t sampleTimeUs;
     status_t err = extractor->getSampleTime(&sampleTimeUs);
 
     if (err == ERROR_END_OF_STREAM) {
-        return -1LL;
+        return -1ll;
     } else if (err != OK) {
         jniThrowException(env, "java/lang/IllegalArgumentException", NULL);
-        return -1LL;
+        return -1ll;
     }
 
     return (jlong) sampleTimeUs;
-}
-
-static jlong android_media_MediaExtractor_getSampleSize(
-        JNIEnv *env, jobject thiz) {
-    sp<JMediaExtractor> extractor = getMediaExtractor(env, thiz);
-
-    if (extractor == NULL) {
-        jniThrowException(env, "java/lang/IllegalStateException", NULL);
-        return -1LL;
-    }
-
-    size_t sampleSize;
-    status_t err = extractor->getSampleSize(&sampleSize);
-
-    if (err == ERROR_END_OF_STREAM) {
-        return -1LL;
-    } else if (err != OK) {
-        jniThrowException(env, "java/lang/IllegalArgumentException", NULL);
-        return -1LL;
-    }
-
-    return (jlong) sampleSize;
 }
 
 static jint android_media_MediaExtractor_getSampleFlags(
@@ -661,39 +592,7 @@ static jboolean android_media_MediaExtractor_getSampleCryptoInfo(
             ivObj,
             mode);
 
-    int32_t encryptedByteBlock = 0, skipByteBlock = 0;
-    meta->findInt32(kKeyEncryptedByteBlock, &encryptedByteBlock);
-    meta->findInt32(kKeySkipByteBlock, &skipByteBlock);
-
-    env->CallVoidMethod(
-            cryptoInfoObj,
-            gFields.cryptoInfoSetPatternID,
-            encryptedByteBlock,
-            skipByteBlock);
-
     return JNI_TRUE;
-}
-
-static jobject android_media_MediaExtractor_getAudioPresentations(
-        JNIEnv *env, jobject thiz, jint trackIdx) {
-    sp<JMediaExtractor> extractor = getMediaExtractor(env, thiz);
-    jobject presentationsJObj = JAudioPresentationInfo::asJobject(env, gAudioPresentationFields);
-    if (extractor == NULL) {
-        jniThrowException(env, "java/lang/IllegalStateException", NULL);
-        return presentationsJObj;
-    }
-    AudioPresentationCollection presentations;
-    status_t err = extractor->getAudioPresentations(trackIdx, &presentations);
-    if (err == ERROR_END_OF_STREAM || err == ERROR_UNSUPPORTED) {
-        return presentationsJObj;
-    } else if (err != OK) {
-        jniThrowException(env, "java/lang/IllegalArgumentException", NULL);
-        return presentationsJObj;
-    }
-
-    JAudioPresentationInfo::addPresentations(
-            env, gAudioPresentationFields, presentations, presentationsJObj);
-    return presentationsJObj;
 }
 
 static void android_media_MediaExtractor_native_init(JNIEnv *env) {
@@ -709,10 +608,7 @@ static void android_media_MediaExtractor_native_init(JNIEnv *env) {
     gFields.cryptoInfoSetID =
         env->GetMethodID(clazz, "set", "(I[I[I[B[BI)V");
 
-    gFields.cryptoInfoSetPatternID =
-        env->GetMethodID(clazz, "setPattern", "(II)V");
-
-    gAudioPresentationFields.init(env);
+    DataSource::RegisterDefaultSniffers();
 }
 
 static void android_media_MediaExtractor_native_setup(
@@ -815,7 +711,7 @@ static void android_media_MediaExtractor_setDataSourceCallback(
     }
 
     sp<DataSource> bridge =
-        CreateDataSourceFromIDataSource(new JMediaDataSource(env, callbackObj));
+        DataSource::CreateFromIDataSource(new JMediaDataSource(env, callbackObj));
     status_t err = extractor->setDataSource(bridge);
 
     if (err != OK) {
@@ -832,39 +728,19 @@ static void android_media_MediaExtractor_setDataSourceCallback(
     }
 }
 
-static void android_media_MediaExtractor_setMediaCas(
-        JNIEnv *env, jobject thiz, jobject casBinderObj) {
-    sp<JMediaExtractor> extractor = getMediaExtractor(env, thiz);
-
-    if (extractor == NULL) {
-        jniThrowException(env, "java/lang/IllegalStateException", NULL);
-        return;
-    }
-
-    status_t err = extractor->setMediaCas(env, casBinderObj);
-
-    if (err != OK) {
-        extractor.clear();
-        jniThrowException(
-                env,
-                "java/lang/IllegalArgumentException",
-                "Failed to set MediaCas on extractor.");
-    }
-}
-
 static jlong android_media_MediaExtractor_getCachedDurationUs(
         JNIEnv *env, jobject thiz) {
     sp<JMediaExtractor> extractor = getMediaExtractor(env, thiz);
 
     if (extractor == NULL) {
         jniThrowException(env, "java/lang/IllegalStateException", NULL);
-        return -1LL;
+        return -1ll;
     }
 
     int64_t cachedDurationUs;
     bool eos;
     if (!extractor->getCachedDuration(&cachedDurationUs, &eos)) {
-        return -1LL;
+        return -1ll;
     }
 
     return (jlong) cachedDurationUs;
@@ -892,34 +768,6 @@ static void android_media_MediaExtractor_native_finalize(
         JNIEnv *env, jobject thiz) {
     android_media_MediaExtractor_release(env, thiz);
 }
-
-static jobject
-android_media_MediaExtractor_native_getMetrics(JNIEnv * env, jobject thiz)
-{
-    ALOGV("android_media_MediaExtractor_native_getMetrics");
-
-    sp<JMediaExtractor> extractor = getMediaExtractor(env, thiz);
-    if (extractor == NULL ) {
-        jniThrowException(env, "java/lang/IllegalStateException", NULL);
-        return NULL;
-    }
-
-    // get what we have for the metrics from the codec
-    Parcel reply;
-    status_t err = extractor->getMetrics(&reply);
-    if (err != OK) {
-        ALOGE("getMetrics failed");
-        return (jobject) NULL;
-    }
-
-    // build and return the Bundle
-    std::unique_ptr<MediaAnalyticsItem> item(MediaAnalyticsItem::create());
-    item->readFromParcel(reply);
-    jobject mybundle = MediaMetricsJNI::writeMetricsToBundle(env, item.get(), NULL);
-
-    return mybundle;
-}
-
 
 static const JNINativeMethod gMethods[] = {
     { "release", "()V", (void *)android_media_MediaExtractor_release },
@@ -950,9 +798,6 @@ static const JNINativeMethod gMethods[] = {
     { "getSampleTime", "()J",
         (void *)android_media_MediaExtractor_getSampleTime },
 
-    { "getSampleSize", "()J",
-        (void *)android_media_MediaExtractor_getSampleSize },
-
     { "getSampleFlags", "()I",
         (void *)android_media_MediaExtractor_getSampleFlags },
 
@@ -978,20 +823,11 @@ static const JNINativeMethod gMethods[] = {
     { "setDataSource", "(Landroid/media/MediaDataSource;)V",
       (void *)android_media_MediaExtractor_setDataSourceCallback },
 
-    { "nativeSetMediaCas", "(Landroid/os/IHwBinder;)V",
-      (void *)android_media_MediaExtractor_setMediaCas },
-
     { "getCachedDuration", "()J",
       (void *)android_media_MediaExtractor_getCachedDurationUs },
 
     { "hasCacheReachedEndOfStream", "()Z",
       (void *)android_media_MediaExtractor_hasCacheReachedEOS },
-
-    {"native_getMetrics",          "()Landroid/os/PersistableBundle;",
-      (void *)android_media_MediaExtractor_native_getMetrics},
-
-    { "native_getAudioPresentations", "(I)Ljava/util/List;",
-      (void *)android_media_MediaExtractor_getAudioPresentations },
 };
 
 int register_android_media_MediaExtractor(JNIEnv *env) {

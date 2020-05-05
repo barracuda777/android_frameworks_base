@@ -19,31 +19,19 @@
 
 #include <string>
 
-#include "util/Maybe.h"
-
 namespace aapt {
 
-// Information relevant to building an app, parsed from the app's AndroidManifest.xml.
+/**
+ * Holds basic information about the app being built. Most of this information
+ * will come from the app's AndroidManifest.
+ */
 struct AppInfo {
-  // The app's package name.
-  std::string package;
-
-  // The app's minimum SDK version, if it is defined.
-  Maybe<int> min_sdk_version;
-
-  // The app's version code (the lower 32 bits of the long version code), if it is defined.
-  Maybe<uint32_t> version_code;
-
-  // The app's version code major (the upper 32 bits of the long version code), if it is defined.
-  Maybe<uint32_t> version_code_major;
-
-  // The app's revision code, if it is defined.
-  Maybe<uint32_t> revision_code;
-
-  // The app's split name, if it is a split.
-  Maybe<std::string> split_name;
+    /**
+     * App's package name.
+     */
+    std::u16string package;
 };
 
-}  // namespace aapt
+} // namespace aapt
 
-#endif  // AAPT_APP_INFO_H
+#endif // AAPT_APP_INFO_H

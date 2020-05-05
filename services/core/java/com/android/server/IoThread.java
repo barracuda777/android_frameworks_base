@@ -17,10 +17,7 @@
 package com.android.server;
 
 import android.os.Handler;
-import android.os.HandlerExecutor;
 import android.os.Trace;
-
-import java.util.concurrent.Executor;
 
 /**
  * Shared singleton I/O thread for the system.  This is a thread for non-background
@@ -30,7 +27,6 @@ import java.util.concurrent.Executor;
 public final class IoThread extends ServiceThread {
     private static IoThread sInstance;
     private static Handler sHandler;
-    private static HandlerExecutor sHandlerExecutor;
 
     private IoThread() {
         super("android.io", android.os.Process.THREAD_PRIORITY_DEFAULT, true /*allowIo*/);
@@ -40,9 +36,8 @@ public final class IoThread extends ServiceThread {
         if (sInstance == null) {
             sInstance = new IoThread();
             sInstance.start();
-            sInstance.getLooper().setTraceTag(Trace.TRACE_TAG_SYSTEM_SERVER);
+            sInstance.getLooper().setTraceTag(Trace.TRACE_TAG_ACTIVITY_MANAGER);
             sHandler = new Handler(sInstance.getLooper());
-            sHandlerExecutor = new HandlerExecutor(sHandler);
         }
     }
 
@@ -57,13 +52,6 @@ public final class IoThread extends ServiceThread {
         synchronized (IoThread.class) {
             ensureThreadLocked();
             return sHandler;
-        }
-    }
-
-    public static Executor getExecutor() {
-        synchronized (IoThread.class) {
-            ensureThreadLocked();
-            return sHandlerExecutor;
         }
     }
 }

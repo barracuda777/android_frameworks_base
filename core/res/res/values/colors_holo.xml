@@ -50,29 +50,29 @@
     <!-- General purpose colors for Holo-themed elements -->
     <eat-comment />
 
-    <!-- A light Holo shade of blue. Equivalent to #ff33b5e5. -->
+    <!-- A light Holo shade of blue -->
     <color name="holo_blue_light">#ff33b5e5</color>
-    <!-- A light Holo shade of gray. Equivalent to #33999999. -->
+    <!-- A light Holo shade of gray -->
     <color name="holo_gray_light">#33999999</color>
-    <!-- A light Holo shade of green. Equivalent to #ff99cc00. -->
+    <!-- A light Holo shade of green -->
     <color name="holo_green_light">#ff99cc00</color>
-    <!-- A light Holo shade of red. Equivalent to #ffff4444. <-->
+    <!-- A light Holo shade of red -->
     <color name="holo_red_light">#ffff4444</color>
-    <!-- A dark Holo shade of blue. Equivalent to #ff0099cc -->
+    <!-- A dark Holo shade of blue -->
     <color name="holo_blue_dark">#ff0099cc</color>
-    <!-- A dark Holo shade of green. Equivalent to #ff669900 -->
+    <!-- A dark Holo shade of green -->
     <color name="holo_green_dark">#ff669900</color>
-    <!-- A dark Holo shade of red. Equivalent to #ffcc0000 -->
+    <!-- A dark Holo shade of red -->
     <color name="holo_red_dark">#ffcc0000</color>
-    <!-- A Holo shade of purple. Equivalent to #ffaa66cc -->
+    <!-- A Holo shade of purple -->
     <color name="holo_purple">#ffaa66cc</color>
-    <!-- A light Holo shade of orange. Equivalent to #ffffbb33. -->
+    <!-- A light Holo shade of orange -->
     <color name="holo_orange_light">#ffffbb33</color>
-    <!-- A dark Holo shade of orange. Equivalent to ffff8800. -->
+    <!-- A dark Holo shade of orange -->
     <color name="holo_orange_dark">#ffff8800</color>
-    <!-- A really bright Holo shade of blue. Equivalent to #ff00ddff. -->
+    <!-- A really bright Holo shade of blue -->
     <color name="holo_blue_bright">#ff00ddff</color>
-    <!-- A really bright Holo shade of gray. Equivalent to #33cccccc. -->
+    <!-- A really bright Holo shade of gray -->
     <color name="holo_gray_bright">#33CCCCCC</color>
 
     <!-- Forward compatibility for Material-style theme colors -->

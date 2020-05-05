@@ -41,7 +41,6 @@ public class ImageReaderTest extends AndroidTestCase {
     private Image mImage3;
 
     @Override
-    @SuppressWarnings("CheckReturnValue")
     protected void setUp() throws Exception {
         super.setUp();
 

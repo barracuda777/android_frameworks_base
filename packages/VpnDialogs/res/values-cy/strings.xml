@@ -22,6 +22,8 @@
         &lt;img src="vpn_icon" /&gt;
         ;    </string>
     <string name="legacy_title">VPN wedi cysylltu</string>
+    <string name="configure">Ffurfweddu</string>
+    <string name="disconnect">Datgysylltu</string>
     <string name="session">Sesiwn:</string>
     <string name="duration">Hyd:</string>
     <string name="data_transmitted">Anfonwyd:</string>
@@ -29,13 +31,4 @@
     <string name="data_value_format">        <xliff:g id="number">%1$s</xliff:g> beit /
         <xliff:g id="number">%2$s</xliff:g> pecyn
     </string>
-    <string name="always_on_disconnected_title">Methu â chysylltu â\'r VPN ymlaen-o-hyd</string>
-    <string name="always_on_disconnected_message">        Mae <xliff:g id="vpn_app" example="Foo VPN App">%1$s</xliff:g> wedi ei osod i aros wedi cysylltu o hyd, ond ni all gysylltu ar hyn o bryd. Bydd dy ffôn yn defnyddio rhwydwaith cyhoeddus nes ei fod yn gallu ailgysylltu â <xliff:g id="vpn_app" example="Foo VPN App">%1$s</xliff:g>.
-    </string>
-    <string name="always_on_disconnected_message_lockdown">        Mae <xliff:g id="vpn_app" example="Foo VPN App">%1$s</xliff:g> wedi ei osod i aros wedi cysylltu o hyd, ond ni all gysylltu ar hyn o bryd. Ni fydd gennyt gysylltiad nes bod y VPN yn llwyddo i ailgysylltu.    </string>
-    <string name="always_on_disconnected_message_settings_link">Newid gosodiadau VPN</string>
-    <string name="configure">Ffurfweddu</string>
-    <string name="disconnect">Datgysylltu</string>
-    <string name="open_app">Agor ap</string>
-    <string name="dismiss">Gwrthod</string>
 </resources>

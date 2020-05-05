@@ -154,18 +154,18 @@ public class CameraMetadataTest extends junit.framework.TestCase {
     @SmallTest
     public void testGetTypeFromTag() {
         assertEquals(TYPE_BYTE,
-                CameraMetadataNative.getNativeType(ANDROID_COLOR_CORRECTION_MODE, Long.MAX_VALUE));
+                CameraMetadataNative.getNativeType(ANDROID_COLOR_CORRECTION_MODE));
         assertEquals(TYPE_RATIONAL,
-                CameraMetadataNative.getNativeType(ANDROID_COLOR_CORRECTION_TRANSFORM, Long.MAX_VALUE));
+                CameraMetadataNative.getNativeType(ANDROID_COLOR_CORRECTION_TRANSFORM));
         assertEquals(TYPE_FLOAT,
-                CameraMetadataNative.getNativeType(ANDROID_COLOR_CORRECTION_GAINS, Long.MAX_VALUE));
+                CameraMetadataNative.getNativeType(ANDROID_COLOR_CORRECTION_GAINS));
         assertEquals(TYPE_BYTE,
-                CameraMetadataNative.getNativeType(ANDROID_CONTROL_AE_ANTIBANDING_MODE, Long.MAX_VALUE));
+                CameraMetadataNative.getNativeType(ANDROID_CONTROL_AE_ANTIBANDING_MODE));
         assertEquals(TYPE_INT32,
-                CameraMetadataNative.getNativeType(ANDROID_CONTROL_AE_EXPOSURE_COMPENSATION, Long.MAX_VALUE));
+                CameraMetadataNative.getNativeType(ANDROID_CONTROL_AE_EXPOSURE_COMPENSATION));
 
         try {
-            CameraMetadataNative.getNativeType(0xDEADF00D, Long.MAX_VALUE);
+            CameraMetadataNative.getNativeType(0xDEADF00D);
             fail("No type should exist for invalid tag 0xDEADF00D");
         } catch(IllegalArgumentException e) {
         }

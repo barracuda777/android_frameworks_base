@@ -44,13 +44,15 @@ struct Vertex {
         vertex->y = y;
     }
 
-    static inline void set(Vertex* vertex, Vector2 val) { set(vertex, val.x, val.y); }
+    static inline void set(Vertex* vertex, Vector2 val) {
+        set(vertex, val.x, val.y);
+    }
 
     static inline void copyWithOffset(Vertex* vertex, const Vertex& src, float x, float y) {
         set(vertex, src.x + x, src.y + y);
     }
 
-};  // struct Vertex
+}; // struct Vertex
 
 REQUIRE_COMPATIBLE_LAYOUT(Vertex);
 
@@ -62,18 +64,62 @@ struct TextureVertex {
     float u, v;
 
     static inline void set(TextureVertex* vertex, float x, float y, float u, float v) {
-        *vertex = {x, y, u, v};
+        *vertex = { x, y, u, v };
     }
 
     static inline void setUV(TextureVertex* vertex, float u, float v) {
         vertex[0].u = u;
         vertex[0].v = v;
     }
-};  // struct TextureVertex
+}; // struct TextureVertex
 
 REQUIRE_COMPATIBLE_LAYOUT(TextureVertex);
 
-}  // namespace uirenderer
-}  // namespace android
+/**
+ * Simple structure to describe a vertex with a position, texture UV and ARGB color.
+ */
+struct ColorTextureVertex {
+    float x, y;
+    float u, v;
+    float r, g, b, a;
 
-#endif  // ANDROID_HWUI_VERTEX_H
+    static inline void set(ColorTextureVertex* vertex, float x, float y,
+            float u, float v, int color) {
+
+        float a =     ((color >> 24) & 0xff) / 255.0f;
+        float r = a * ((color >> 16) & 0xff) / 255.0f;
+        float g = a * ((color >>  8) & 0xff) / 255.0f;
+        float b = a * ((color) & 0xff) / 255.0f;
+        *vertex = { x, y, u, v, r, g, b, a };
+    }
+}; // struct ColorTextureVertex
+
+REQUIRE_COMPATIBLE_LAYOUT(ColorTextureVertex);
+
+/**
+ * Simple structure to describe a vertex with a position and an alpha value.
+ */
+struct AlphaVertex {
+    float x, y;
+    float alpha;
+
+    static inline void set(AlphaVertex* vertex, float x, float y, float alpha) {
+        *vertex = { x, y, alpha };
+    }
+
+    static inline void copyWithOffset(AlphaVertex* vertex, const AlphaVertex& src,
+            float x, float y) {
+        AlphaVertex::set(vertex, src.x + x, src.y + y, src.alpha);
+    }
+
+    static inline void setColor(AlphaVertex* vertex, float alpha) {
+        vertex[0].alpha = alpha;
+    }
+}; // struct AlphaVertex
+
+REQUIRE_COMPATIBLE_LAYOUT(AlphaVertex);
+
+}; // namespace uirenderer
+}; // namespace android
+
+#endif // ANDROID_HWUI_VERTEX_H

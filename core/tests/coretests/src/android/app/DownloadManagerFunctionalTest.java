@@ -22,15 +22,13 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
-
-import androidx.test.filters.LargeTest;
-
+import android.test.suitebuilder.annotation.LargeTest;
 import com.google.mockwebserver.MockResponse;
 
 import java.io.File;
+import java.util.concurrent.TimeoutException;
 import java.util.Iterator;
 import java.util.Set;
-import java.util.concurrent.TimeoutException;
 
 /**
  * Integration tests of the DownloadManager API.
@@ -97,11 +95,11 @@ public class DownloadManagerFunctionalTest extends DownloadManagerBaseTest {
      * Test a basic download of a binary file 500k in size.
      */
     @LargeTest
-    public void testBinaryDownload() throws Exception {
+    public void testBinaryDownloadToSystemCache() throws Exception {
         int fileSize = 1024;
         byte[] blobData = generateData(fileSize, DataType.BINARY);
 
-        long dlRequest = doBasicDownload(blobData);
+        long dlRequest = doBasicDownload(blobData, DOWNLOAD_TO_SYSTEM_CACHE);
         verifyDownload(dlRequest, blobData);
         mDownloadManager.remove(dlRequest);
     }
@@ -110,11 +108,11 @@ public class DownloadManagerFunctionalTest extends DownloadManagerBaseTest {
      * Tests the basic downloading of a text file 300000 bytes in size.
      */
     @LargeTest
-    public void testTextDownload() throws Exception {
+    public void testTextDownloadToSystemCache() throws Exception {
         int fileSize = 1024;
         byte[] blobData = generateData(fileSize, DataType.TEXT);
 
-        long dlRequest = doBasicDownload(blobData);
+        long dlRequest = doBasicDownload(blobData, DOWNLOAD_TO_SYSTEM_CACHE);
         verifyDownload(dlRequest, blobData);
         mDownloadManager.remove(dlRequest);
     }
@@ -320,7 +318,7 @@ public class DownloadManagerFunctionalTest extends DownloadManagerBaseTest {
         int fileSize = 1024;
         byte[] blobData = generateData(fileSize, DataType.BINARY);
 
-        long dlRequest = doBasicDownload(blobData);
+        long dlRequest = doBasicDownload(blobData, DOWNLOAD_TO_DOWNLOAD_CACHE_DIR);
         Cursor cursor = mDownloadManager.query(new Query().setFilterById(dlRequest));
         try {
             assertEquals("The count of downloads with this ID is not 1!", 1, cursor.getCount());

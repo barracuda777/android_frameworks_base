@@ -16,14 +16,15 @@
 
 package android.widget.scroll;
 
+import com.android.frameworks.coretests.R;
+
 import android.app.Activity;
 import android.os.Bundle;
-import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Button;
 
-import com.android.frameworks.coretests.R;
 
 /**
  * Basic scroll view example
@@ -65,8 +66,8 @@ public class ScrollViewButtonsAndLabels extends Activity {
         int screenHeight = getWindowManager().getDefaultDisplay().getHeight();
         mNumGroups = screenHeight / 30;
 
-        mScrollView = findViewById(R.id.scrollView);
-        mLinearLayout = findViewById(R.id.layout);
+        mScrollView = (ScrollView) findViewById(R.id.scrollView);
+        mLinearLayout = (LinearLayout) findViewById(R.id.layout);
 
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,

@@ -18,11 +18,8 @@ package android.app;
 
 import android.os.IRemoteCallback;
 
-/** @hide @deprecated */
+/** @hide */
 oneway interface IEphemeralResolver {
     void getEphemeralResolveInfoList(IRemoteCallback callback, in int[] digestPrefix,
-            int sequence);
-
-    void getEphemeralIntentFilterList(IRemoteCallback callback, String hostName,
-            int sequence);
+            int prefixMask, int sequence);
 }

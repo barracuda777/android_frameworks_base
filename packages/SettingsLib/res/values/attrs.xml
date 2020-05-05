@@ -36,20 +36,14 @@
     <declare-styleable name="WifiEncryptionState">
         <attr name="state_encrypted" format="boolean" />
     </declare-styleable>
-    <declare-styleable name="WifiMeteredState">
-        <attr name="state_metered" format="boolean" />
-    </declare-styleable>
-    <declare-styleable name="WifiSavedState">
-        <attr name="state_saved" format="boolean" />
-    </declare-styleable>
-
     <attr name="wifi_signal" format="reference" />
-    <attr name="wifi_friction" format="reference" />
 
-    <attr name="footerPreferenceStyle" format="reference" />
-
-    <!-- Workaround for b/74248169. These are duplicates of attrs in AndroidX preferences. -->
-    <attr name="preferenceStyle" format="reference" />
-    <attr name="switchPreferenceStyle" format="reference" />
+    <declare-styleable name="UsageView">
+        <attr name="android:colorAccent" />
+        <attr name="sideLabels" format="reference" />
+        <attr name="bottomLabels" format="reference" />
+        <attr name="textColor" format="color" />
+        <attr name="android:gravity" />
+    </declare-styleable>
 
 </resources>

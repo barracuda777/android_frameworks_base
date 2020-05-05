@@ -34,7 +34,7 @@ import android.net.ScoredNetwork;
  * the current scores for each network for debugging purposes.
  * @hide
  */
-oneway interface INetworkScoreCache
+interface INetworkScoreCache
 {
     void updateScores(in List<ScoredNetwork> networks);
 

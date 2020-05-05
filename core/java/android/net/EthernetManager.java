@@ -16,9 +16,10 @@
 
 package android.net;
 
-import android.annotation.SystemService;
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
+import android.net.IEthernetManager;
+import android.net.IEthernetServiceListener;
+import android.net.IpConfiguration;
 import android.os.Handler;
 import android.os.Message;
 import android.os.RemoteException;
@@ -30,7 +31,6 @@ import java.util.ArrayList;
  *
  * @hide
  */
-@SystemService(Context.ETHERNET_SERVICE)
 public class EthernetManager {
     private static final String TAG = "EthernetManager";
     private static final int MSG_AVAILABILITY_CHANGED = 1000;
@@ -43,18 +43,18 @@ public class EthernetManager {
             if (msg.what == MSG_AVAILABILITY_CHANGED) {
                 boolean isAvailable = (msg.arg1 == 1);
                 for (Listener listener : mListeners) {
-                    listener.onAvailabilityChanged((String) msg.obj, isAvailable);
+                    listener.onAvailabilityChanged(isAvailable);
                 }
             }
         }
     };
-    private final ArrayList<Listener> mListeners = new ArrayList<>();
+    private final ArrayList<Listener> mListeners = new ArrayList<Listener>();
     private final IEthernetServiceListener.Stub mServiceListener =
             new IEthernetServiceListener.Stub() {
                 @Override
-                public void onAvailabilityChanged(String iface, boolean isAvailable) {
+                public void onAvailabilityChanged(boolean isAvailable) {
                     mHandler.obtainMessage(
-                            MSG_AVAILABILITY_CHANGED, isAvailable ? 1 : 0, 0, iface).sendToTarget();
+                            MSG_AVAILABILITY_CHANGED, isAvailable ? 1 : 0, 0, null).sendToTarget();
                 }
             };
 
@@ -64,11 +64,9 @@ public class EthernetManager {
     public interface Listener {
         /**
          * Called when Ethernet port's availability is changed.
-         * @param iface Ethernet interface name
-         * @param isAvailable {@code true} if Ethernet port exists.
+         * @param isAvailable {@code true} if one or more Ethernet port exists.
          */
-        @UnsupportedAppUsage
-        void onAvailabilityChanged(String iface, boolean isAvailable);
+        public void onAvailabilityChanged(boolean isAvailable);
     }
 
     /**
@@ -86,10 +84,9 @@ public class EthernetManager {
      * Get Ethernet configuration.
      * @return the Ethernet Configuration, contained in {@link IpConfiguration}.
      */
-    @UnsupportedAppUsage
-    public IpConfiguration getConfiguration(String iface) {
+    public IpConfiguration getConfiguration() {
         try {
-            return mService.getConfiguration(iface);
+            return mService.getConfiguration();
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
@@ -98,32 +95,21 @@ public class EthernetManager {
     /**
      * Set Ethernet configuration.
      */
-    @UnsupportedAppUsage
-    public void setConfiguration(String iface, IpConfiguration config) {
+    public void setConfiguration(IpConfiguration config) {
         try {
-            mService.setConfiguration(iface, config);
+            mService.setConfiguration(config);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
     }
 
     /**
-     * Indicates whether the system currently has one or more Ethernet interfaces.
+     * Indicates whether the system currently has one or more
+     * Ethernet interfaces.
      */
-    @UnsupportedAppUsage
     public boolean isAvailable() {
-        return getAvailableInterfaces().length > 0;
-    }
-
-    /**
-     * Indicates whether the system has given interface.
-     *
-     * @param iface Ethernet interface name
-     */
-    @UnsupportedAppUsage
-    public boolean isAvailable(String iface) {
         try {
-            return mService.isAvailable(iface);
+            return mService.isAvailable();
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
@@ -134,7 +120,6 @@ public class EthernetManager {
      * @param listener A {@link Listener} to add.
      * @throws IllegalArgumentException If the listener is null.
      */
-    @UnsupportedAppUsage
     public void addListener(Listener listener) {
         if (listener == null) {
             throw new IllegalArgumentException("listener must not be null");
@@ -150,23 +135,10 @@ public class EthernetManager {
     }
 
     /**
-     * Returns an array of available Ethernet interface names.
-     */
-    @UnsupportedAppUsage
-    public String[] getAvailableInterfaces() {
-        try {
-            return mService.getAvailableInterfaces();
-        } catch (RemoteException e) {
-            throw e.rethrowAsRuntimeException();
-        }
-    }
-
-    /**
      * Removes a listener.
      * @param listener A {@link Listener} to remove.
      * @throws IllegalArgumentException If the listener is null.
      */
-    @UnsupportedAppUsage
     public void removeListener(Listener listener) {
         if (listener == null) {
             throw new IllegalArgumentException("listener must not be null");

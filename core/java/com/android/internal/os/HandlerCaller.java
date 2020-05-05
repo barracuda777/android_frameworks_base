@@ -16,18 +16,11 @@
 
 package com.android.internal.os;
 
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 
-/**
- * @deprecated Use {@link com.android.internal.util.function.pooled.PooledLambda#obtainMessage}
- *      to achieve the same effect of storing multiple values in a message with the added typesafety
- *      and code continuity benefits.
- */
-@Deprecated
 public class HandlerCaller {
     final Looper mMainLooper;
     final Handler mH;
@@ -89,7 +82,6 @@ public class HandlerCaller {
         mH.removeMessages(what, obj);
     }
     
-    @UnsupportedAppUsage
     public void sendMessage(Message msg) {
         mH.sendMessage(msg);
     }
@@ -114,7 +106,6 @@ public class HandlerCaller {
         return args;
     }
 
-    @UnsupportedAppUsage
     public Message obtainMessage(int what) {
         return mH.obtainMessage(what);
     }
@@ -130,7 +121,6 @@ public class HandlerCaller {
         return mH.obtainMessage(what, arg1 ? 1 : 0, 0, args);
     }
     
-    @UnsupportedAppUsage
     public Message obtainMessageO(int what, Object arg1) {
         return mH.obtainMessage(what, 0, 0, arg1);
     }
@@ -143,7 +133,6 @@ public class HandlerCaller {
         return mH.obtainMessage(what, arg1, arg2);
     }
     
-    @UnsupportedAppUsage
     public Message obtainMessageIO(int what, int arg1, Object arg2) {
         return mH.obtainMessage(what, arg1, 0, arg2);
     }
@@ -160,7 +149,6 @@ public class HandlerCaller {
         return mH.obtainMessage(what, arg1, arg2, args);
     }
     
-    @UnsupportedAppUsage
     public Message obtainMessageIOO(int what, int arg1, Object arg2, Object arg3) {
         SomeArgs args = SomeArgs.obtain();
         args.arg1 = arg2;
@@ -185,17 +173,6 @@ public class HandlerCaller {
         return mH.obtainMessage(what, arg1, arg2, args);
     }
 
-    public Message obtainMessageIIOOOO(int what, int arg1, int arg2, Object arg3, Object arg4,
-            Object arg5, Object arg6) {
-        SomeArgs args = SomeArgs.obtain();
-        args.arg1 = arg3;
-        args.arg2 = arg4;
-        args.arg3 = arg5;
-        args.arg4 = arg6;
-        return mH.obtainMessage(what, arg1, arg2, args);
-    }
-
-    @UnsupportedAppUsage
     public Message obtainMessageOO(int what, Object arg1, Object arg2) {
         SomeArgs args = SomeArgs.obtain();
         args.arg1 = arg1;
@@ -203,7 +180,6 @@ public class HandlerCaller {
         return mH.obtainMessage(what, 0, 0, args);
     }
     
-    @UnsupportedAppUsage
     public Message obtainMessageOOO(int what, Object arg1, Object arg2, Object arg3) {
         SomeArgs args = SomeArgs.obtain();
         args.arg1 = arg1;

@@ -16,12 +16,12 @@
 
 package android.widget.focus;
 
+import com.android.frameworks.coretests.R;
+
 import android.app.Activity;
 import android.os.Bundle;
 import android.os.Handler;
 import android.widget.Button;
-
-import com.android.frameworks.coretests.R;
 
 /**
  * Exercises cases where elements of the UI are requestFocus()ed.
@@ -34,7 +34,7 @@ public class RequestFocus extends Activity {
         setContentView(R.layout.focus_after_removal);
 
         // bottom right button starts with the focus.
-        final Button bottomRightButton = findViewById(R.id.bottomRightButton);
+        final Button bottomRightButton = (Button) findViewById(R.id.bottomRightButton);
         bottomRightButton.requestFocus();
         bottomRightButton.setText("I should have focus");
     }

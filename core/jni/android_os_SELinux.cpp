@@ -17,44 +17,24 @@
 #define LOG_TAG "SELinuxJNI"
 #include <utils/Log.h>
 
-#include <nativehelper/JNIHelp.h>
+#include "JNIHelp.h"
 #include "jni.h"
 #include "core_jni_helpers.h"
 #include "selinux/selinux.h"
 #include "selinux/android.h"
 #include <errno.h>
-#include <memory>
-#include <atomic>
-#include <nativehelper/ScopedLocalRef.h>
-#include <nativehelper/ScopedUtfChars.h>
+#include <ScopedLocalRef.h>
+#include <ScopedUtfChars.h>
+#include <UniquePtr.h>
 
 namespace android {
-namespace {
-std::atomic<selabel_handle*> sehandle{nullptr};
-
-selabel_handle* GetSELabelHandle() {
-    selabel_handle* h = sehandle.load();
-    if (h != nullptr) {
-        return h;
-    }
-
-    h = selinux_android_file_context_handle();
-    selabel_handle* expected = nullptr;
-    if (!sehandle.compare_exchange_strong(expected, h)) {
-        selabel_close(h);
-        return sehandle.load();
-    }
-    return h;
-}
-
-}
 
 struct SecurityContext_Delete {
     void operator()(security_context_t p) const {
         freecon(p);
     }
 };
-typedef std::unique_ptr<char[], SecurityContext_Delete> Unique_SecurityContext;
+typedef UniquePtr<char[], SecurityContext_Delete> Unique_SecurityContext;
 
 static jboolean isSELinuxDisabled = true;
 
@@ -80,79 +60,6 @@ static jboolean isSELinuxEnforced(JNIEnv *env, jobject) {
     return (security_getenforce() == 1) ? true : false;
 }
 
-static jstring fileSelabelLookup(JNIEnv* env, jobject, jstring pathStr) {
-    if (isSELinuxDisabled) {
-        ALOGE("fileSelabelLookup => SELinux is disabled");
-        return NULL;
-    }
-
-    if (pathStr == NULL) {
-      ALOGE("fileSelabelLookup => got null path.");
-      jniThrowNullPointerException(
-          env, "Trying to get security context of a null path.");
-      return NULL;
-    }
-
-    ScopedUtfChars path(env, pathStr);
-    const char* path_c_str = path.c_str();
-    if (path_c_str == NULL) {
-        ALOGE("fileSelabelLookup => Got null path");
-        jniThrowNullPointerException(
-            env, "Trying to get security context of a null path.");
-        return NULL;
-    }
-
-    auto* selabel_handle = GetSELabelHandle();
-    if (selabel_handle == NULL) {
-        ALOGE("fileSelabelLookup => Failed to get SEHandle");
-        return NULL;
-    }
-
-    security_context_t tmp = NULL;
-    if (selabel_lookup(selabel_handle, &tmp, path_c_str, S_IFREG) != 0) {
-      ALOGE("fileSelabelLookup => selabel_lookup for %s failed: %d", path_c_str, errno);
-      return NULL;
-    }
-
-    Unique_SecurityContext context(tmp);
-    return env->NewStringUTF(context.get());
-}
-
-static jstring getFdConInner(JNIEnv *env, jobject fileDescriptor, bool isSocket) {
-    if (isSELinuxDisabled) {
-        return NULL;
-    }
-
-    if (fileDescriptor == NULL) {
-        jniThrowNullPointerException(env,
-                "Trying to check security context of a null FileDescriptor.");
-        return NULL;
-    }
-
-    int fd = jniGetFDFromFileDescriptor(env, fileDescriptor);
-    if (env->ExceptionCheck()) {
-        ALOGE("getFdCon => getFD for %p failed", fileDescriptor);
-        return NULL;
-    }
-
-    security_context_t tmp = NULL;
-    int ret;
-    if (isSocket) {
-        ret = getpeercon(fd, &tmp);
-    } else{
-        ret = fgetfilecon(fd, &tmp);
-    }
-    Unique_SecurityContext context(tmp);
-
-    ScopedLocalRef<jstring> contextStr(env, NULL);
-    if (ret != -1) {
-        contextStr.reset(env->NewStringUTF(context.get()));
-    }
-
-    ALOGV("getFdCon(%d) => %s", fd, context.get());
-    return contextStr.release();
-}
-
 /*
  * Function: getPeerCon
  * Purpose: retrieves security context of peer socket
@@ -162,19 +69,33 @@ static jstring getFdConInner(JNIEnv *env, jobject fileDescriptor, bool isSocket)
  * Exceptions: NullPointerException if fileDescriptor object is NULL
  */
 static jstring getPeerCon(JNIEnv *env, jobject, jobject fileDescriptor) {
-    return getFdConInner(env, fileDescriptor, true);
-}
+    if (isSELinuxDisabled) {
+        return NULL;
+    }
 
-/*
- * Function: getFdCon
- * Purpose: retrieves security context of a file descriptor.
- * Parameters:
- *        fileDescriptor: a FileDescriptor object
- * Returns: jstring representing the security_context of socket or NULL if error
- * Exceptions: NullPointerException if fileDescriptor object is NULL
- */
-static jstring getFdCon(JNIEnv *env, jobject, jobject fileDescriptor) {
-    return getFdConInner(env, fileDescriptor, false);
+    if (fileDescriptor == NULL) {
+        jniThrowNullPointerException(env,
+                "Trying to check security context of a null peer socket.");
+        return NULL;
+    }
+
+    int fd = jniGetFDFromFileDescriptor(env, fileDescriptor);
+    if (env->ExceptionCheck()) {
+        ALOGE("getPeerCon => getFD for %p failed", fileDescriptor);
+        return NULL;
+    }
+
+    security_context_t tmp = NULL;
+    int ret = getpeercon(fd, &tmp);
+    Unique_SecurityContext context(tmp);
+
+    ScopedLocalRef<jstring> contextStr(env, NULL);
+    if (ret != -1) {
+        contextStr.reset(env->NewStringUTF(context.get()));
+    }
+
+    ALOGV("getPeerCon(%d) => %s", fd, context.get());
+    return contextStr.release();
 }
 
 /*
@@ -191,7 +112,7 @@ static jboolean setFSCreateCon(JNIEnv *env, jobject, jstring contextStr) {
         return false;
     }
 
-    std::unique_ptr<ScopedUtfChars> context;
+    UniquePtr<ScopedUtfChars> context;
     const char* context_c_str = NULL;
     if (contextStr != NULL) {
         context.reset(new ScopedUtfChars(env, contextStr));
@@ -405,14 +326,12 @@ static const JNINativeMethod method_table[] = {
     { "getContext"               , "()Ljava/lang/String;"                         , (void*)getCon           },
     { "getFileContext"           , "(Ljava/lang/String;)Ljava/lang/String;"       , (void*)getFileCon       },
     { "getPeerContext"           , "(Ljava/io/FileDescriptor;)Ljava/lang/String;" , (void*)getPeerCon       },
-    { "getFileContext"           , "(Ljava/io/FileDescriptor;)Ljava/lang/String;" , (void*)getFdCon         },
     { "getPidContext"            , "(I)Ljava/lang/String;"                        , (void*)getPidCon        },
     { "isSELinuxEnforced"        , "()Z"                                          , (void*)isSELinuxEnforced},
     { "isSELinuxEnabled"         , "()Z"                                          , (void*)isSELinuxEnabled },
     { "native_restorecon"        , "(Ljava/lang/String;I)Z"                       , (void*)native_restorecon},
     { "setFileContext"           , "(Ljava/lang/String;Ljava/lang/String;)Z"      , (void*)setFileCon       },
     { "setFSCreateContext"       , "(Ljava/lang/String;)Z"                        , (void*)setFSCreateCon   },
-    { "fileSelabelLookup"        , "(Ljava/lang/String;)Ljava/lang/String;"       , (void*)fileSelabelLookup},
 };
 
 static int log_callback(int type, const char *fmt, ...) {

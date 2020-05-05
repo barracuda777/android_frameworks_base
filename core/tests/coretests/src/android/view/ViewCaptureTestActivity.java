@@ -19,7 +19,6 @@ package android.view;
 import android.annotation.Nullable;
 import android.app.Activity;
 import android.os.Bundle;
-
 import com.android.frameworks.coretests.R;
 
 public class ViewCaptureTestActivity extends Activity {

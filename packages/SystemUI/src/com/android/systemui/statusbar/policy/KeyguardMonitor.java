@@ -1,81 +1,140 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2014 The Android Open Source Project
+ * Copyright (C) 2017 The LineageOS Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
- * except in compliance with the License. You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software distributed under the
- * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.android.systemui.statusbar.policy;
 
-import com.android.systemui.statusbar.policy.KeyguardMonitor.Callback;
+import android.app.ActivityManager;
+import android.content.Context;
+import android.os.RemoteException;
+import android.view.WindowManagerGlobal;
 
-public interface KeyguardMonitor extends CallbackController<Callback> {
+import com.android.keyguard.KeyguardUpdateMonitor;
+import com.android.keyguard.KeyguardUpdateMonitorCallback;
+import com.android.systemui.settings.CurrentUserTracker;
 
-    boolean isSecure();
-    boolean isShowing();
-    boolean isOccluded();
-    boolean isKeyguardFadingAway();
-    boolean isKeyguardGoingAway();
-    boolean isLaunchTransitionFadingAway();
-    long getKeyguardFadingAwayDuration();
-    long getKeyguardFadingAwayDelay();
-    long calculateGoingToFullShadeDelay();
+import java.util.ArrayList;
 
-    /**
-     * @return a shortened fading away duration similar to
-     * {{@link #getKeyguardFadingAwayDuration()}} which may only span half of the duration, unless
-     * we're bypassing
-     */
-    default long getShortenedFadingAwayDuration() {
-        if (isBypassFadingAnimation()) {
-            return getKeyguardFadingAwayDuration();
-        } else {
-            return getKeyguardFadingAwayDuration() / 2;
+public final class KeyguardMonitor extends KeyguardUpdateMonitorCallback {
+
+    private final ArrayList<Callback> mCallbacks = new ArrayList<Callback>();
+
+    private final Context mContext;
+    private final CurrentUserTracker mUserTracker;
+    private final KeyguardUpdateMonitor mKeyguardUpdateMonitor;
+
+    private int mCurrentUser;
+    private boolean mShowing;
+    private boolean mSecure;
+    private boolean mOccluded;
+    private boolean mCanSkipBouncer;
+
+    private boolean mListening;
+
+    public KeyguardMonitor(Context context) {
+        mContext = context;
+        mKeyguardUpdateMonitor = KeyguardUpdateMonitor.getInstance(mContext);
+        mUserTracker = new CurrentUserTracker(mContext) {
+            @Override
+            public void onUserSwitched(int newUserId) {
+                mCurrentUser = newUserId;
+                updateCanSkipBouncerState();
+            }
+        };
+    }
+
+    public void addCallback(Callback callback) {
+        mCallbacks.add(callback);
+        if (mCallbacks.size() != 0 && !mListening) {
+            mListening = true;
+            mCurrentUser = ActivityManager.getCurrentUser();
+            updateCanSkipBouncerState();
+            mKeyguardUpdateMonitor.registerCallback(this);
+            mUserTracker.startTracking();
         }
     }
 
-    default boolean isDeviceInteractive() {
-        return false;
+    public void removeCallback(Callback callback) {
+        if (mCallbacks.remove(callback) && mCallbacks.size() == 0 && mListening) {
+            mListening = false;
+            mKeyguardUpdateMonitor.removeCallback(this);
+            mUserTracker.stopTracking();
+        }
     }
 
-    default void setLaunchTransitionFadingAway(boolean b) {
+    public boolean isShowing() {
+        return mShowing;
     }
 
-    default void notifyKeyguardGoingAway(boolean b) {
+    public boolean isSecure() {
+        return mSecure;
     }
 
-    /**
-     * @return {@code true} if the current fading away animation is the fast bypass fading.
-     */
-    default boolean isBypassFadingAnimation() {
-        return false;
+    public boolean isOccluded() {
+        return mOccluded;
     }
 
-    /**
-     * Notifies that the Keyguard is fading away with the specified timings.
-     * @param delay the precalculated animation delay in milliseconds
-     * @param fadeoutDuration the duration of the exit animation, in milliseconds
-     * @param isBypassFading is this a fading away animation while bypassing
-     */
-    default void notifyKeyguardFadingAway(long delay, long fadeoutDuration,
-            boolean isBypassFading) {
+    public boolean canSkipBouncer() {
+        return mCanSkipBouncer;
     }
 
-    default void notifyKeyguardDoneFading() {
+    public void unlock() {
+        try {
+            WindowManagerGlobal.getWindowManagerService().dismissKeyguard();
+        } catch (RemoteException e) {
+        }
     }
 
-    default void notifyKeyguardState(boolean showing, boolean methodSecure, boolean occluded) {
+    public void lock() {
+        try {
+            WindowManagerGlobal.getWindowManagerService().lockNow(null /* options */);
+        } catch (RemoteException e) {
+        }
     }
 
-    interface Callback {
-        default void onKeyguardShowingChanged() {}
-        default void onKeyguardFadingAwayChanged() {}
+    public void notifyKeyguardState(boolean showing, boolean secure, boolean occluded) {
+        if (mShowing == showing && mSecure == secure && mOccluded == occluded) return;
+        mShowing = showing;
+        mSecure = secure;
+        mOccluded = occluded;
+        notifyKeyguardChanged();
+    }
+
+    @Override
+    public void onTrustChanged(int userId) {
+        updateCanSkipBouncerState();
+        notifyKeyguardChanged();
+    }
+
+    public boolean isDeviceInteractive() {
+        return mKeyguardUpdateMonitor.isDeviceInteractive();
+    }
+
+    private void updateCanSkipBouncerState() {
+        mCanSkipBouncer = mKeyguardUpdateMonitor.getUserCanSkipBouncer(mCurrentUser);
+    }
+
+    private void notifyKeyguardChanged() {
+        ArrayList<Callback> callbacks = new ArrayList<Callback>(mCallbacks);
+        for (Callback callback : callbacks) {
+            callback.onKeyguardChanged();
+        }
+    }
+
+    public interface Callback {
+        void onKeyguardChanged();
     }
 }

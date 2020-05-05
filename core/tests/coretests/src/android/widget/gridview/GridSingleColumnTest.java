@@ -17,9 +17,10 @@
 package android.widget.gridview;
 
 import android.test.ActivityInstrumentationTestCase;
+import android.test.suitebuilder.annotation.MediumTest;
 import android.widget.GridView;
 
-import androidx.test.filters.MediumTest;
+import android.widget.gridview.GridSingleColumn;
 
 public class GridSingleColumnTest extends ActivityInstrumentationTestCase<GridSingleColumn> {
     private GridSingleColumn mActivity;

@@ -16,25 +16,26 @@
 
 package com.android.server.wm;
 
-import static android.app.ActivityTaskManager.RESIZE_MODE_USER;
-import static android.app.ActivityTaskManager.RESIZE_MODE_USER_FORCED;
+import static android.app.ActivityManager.DOCKED_STACK_CREATE_MODE_BOTTOM_OR_RIGHT;
+import static android.app.ActivityManager.DOCKED_STACK_CREATE_MODE_TOP_OR_LEFT;
+import static android.app.ActivityManager.RESIZE_MODE_USER;
+import static android.app.ActivityManager.RESIZE_MODE_USER_FORCED;
+import static android.app.ActivityManager.StackId.FREEFORM_WORKSPACE_STACK_ID;
+import static android.content.res.Configuration.ORIENTATION_LANDSCAPE;
 import static android.os.Trace.TRACE_TAG_WINDOW_MANAGER;
-
-import static com.android.server.wm.DragResizeMode.DRAG_RESIZE_MODE_FREEFORM;
 import static com.android.server.wm.WindowManagerDebugConfig.DEBUG_ORIENTATION;
 import static com.android.server.wm.WindowManagerDebugConfig.DEBUG_TASK_POSITIONING;
+import static com.android.server.wm.WindowManagerDebugConfig.SHOW_TRANSACTIONS;
 import static com.android.server.wm.WindowManagerDebugConfig.TAG_WITH_CLASS_NAME;
 import static com.android.server.wm.WindowManagerDebugConfig.TAG_WM;
 import static com.android.server.wm.WindowManagerService.dipToPixel;
+import static com.android.server.wm.DragResizeMode.DRAG_RESIZE_MODE_FREEFORM;
 import static com.android.server.wm.WindowState.MINIMUM_VISIBLE_HEIGHT_IN_DP;
 import static com.android.server.wm.WindowState.MINIMUM_VISIBLE_WIDTH_IN_DP;
 
 import android.annotation.IntDef;
-import android.app.IActivityTaskManager;
 import android.graphics.Point;
 import android.graphics.Rect;
-import android.os.Binder;
-import android.os.IBinder;
 import android.os.Looper;
 import android.os.Process;
 import android.os.RemoteException;
@@ -44,26 +45,24 @@ import android.util.Slog;
 import android.view.BatchedInputEventReceiver;
 import android.view.Choreographer;
 import android.view.Display;
-import android.view.InputApplicationHandle;
+import android.view.DisplayInfo;
 import android.view.InputChannel;
 import android.view.InputDevice;
 import android.view.InputEvent;
-import android.view.InputWindowHandle;
 import android.view.MotionEvent;
 import android.view.SurfaceControl;
 import android.view.WindowManager;
 
-import com.android.internal.annotations.VisibleForTesting;
+import com.android.server.input.InputApplicationHandle;
+import com.android.server.input.InputWindowHandle;
+import com.android.server.wm.WindowManagerService.H;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
-class TaskPositioner implements IBinder.DeathRecipient {
-    private static final boolean DEBUG_ORIENTATION_VIOLATIONS = false;
+class TaskPositioner implements DimLayer.DimLayerUser {
     private static final String TAG_LOCAL = "TaskPositioner";
     private static final String TAG = TAG_WITH_CLASS_NAME ? TAG_LOCAL : TAG_WM;
-
-    private static Factory sFactory;
 
     // The margin the pointer position has to be within the side of the screen to be
     // considered at the side of the screen.
@@ -90,37 +89,27 @@ class TaskPositioner implements IBinder.DeathRecipient {
 
     public static final int RESIZING_HINT_DURATION_MS = 0;
 
-    // The minimal aspect ratio which needs to be met to count as landscape (or 1/.. for portrait).
-    // Note: We do not use the 1.33 from the CDD here since the user is allowed to use what ever
-    // aspect he desires.
-    @VisibleForTesting
-    static final float MIN_ASPECT = 1.2f;
-
     private final WindowManagerService mService;
-    private final IActivityTaskManager mActivityManager;
     private WindowPositionerEventReceiver mInputEventReceiver;
-    private DisplayContent mDisplayContent;
+    private Display mDisplay;
     private final DisplayMetrics mDisplayMetrics = new DisplayMetrics();
+    private DimLayer mDimLayer;
+    @CtrlType
+    private int mCurrentDimSide;
     private Rect mTmpRect = new Rect();
     private int mSideMargin;
     private int mMinVisibleWidth;
     private int mMinVisibleHeight;
 
-    @VisibleForTesting
-    Task mTask;
+    private Task mTask;
     private boolean mResizing;
-    private boolean mPreserveOrientation;
-    private boolean mStartOrientationWasLandscape;
     private final Rect mWindowOriginalBounds = new Rect();
     private final Rect mWindowDragBounds = new Rect();
-    private final Point mMaxVisibleSize = new Point();
     private float mStartDragX;
     private float mStartDragY;
     @CtrlType
     private int mCtrlType = CTRL_NONE;
-    @VisibleForTesting
-    boolean mDragEnded;
-    IBinder mClientCallback;
+    private boolean mDragEnded = false;
 
     InputChannel mServerChannel;
     InputChannel mClientChannel;
@@ -165,7 +154,7 @@ class TaskPositioner implements IBinder.DeathRecipient {
                         if (DEBUG_TASK_POSITIONING){
                             Slog.w(TAG, "ACTION_MOVE @ {" + newX + ", " + newY + "}");
                         }
-                        synchronized (mService.mGlobalLock) {
+                        synchronized (mService.mWindowMap) {
                             mDragEnded = notifyMoveLocked(newX, newY);
                             mTask.getDimBounds(mTmpRect);
                         }
@@ -173,7 +162,7 @@ class TaskPositioner implements IBinder.DeathRecipient {
                             Trace.traceBegin(TRACE_TAG_WINDOW_MANAGER,
                                     "wm.TaskPositioner.resizeTask");
                             try {
-                                mActivityManager.resizeTask(
+                                mService.mActivityManager.resizeTask(
                                         mTask.mTaskId, mWindowDragBounds, RESIZE_MODE_USER);
                             } catch (RemoteException e) {
                             }
@@ -198,22 +187,30 @@ class TaskPositioner implements IBinder.DeathRecipient {
 
                 if (mDragEnded) {
                     final boolean wasResizing = mResizing;
-                    synchronized (mService.mGlobalLock) {
+                    synchronized (mService.mWindowMap) {
                         endDragLocked();
-                        mTask.getDimBounds(mTmpRect);
                     }
                     try {
-                        if (wasResizing && !mTmpRect.equals(mWindowDragBounds)) {
+                        if (wasResizing) {
                             // We were using fullscreen surface during resizing. Request
                             // resizeTask() one last time to restore surface to window size.
-                            mActivityManager.resizeTask(
+                            mService.mActivityManager.resizeTask(
                                     mTask.mTaskId, mWindowDragBounds, RESIZE_MODE_USER_FORCED);
+                        }
+
+                        if (mCurrentDimSide != CTRL_NONE) {
+                            final int createMode = mCurrentDimSide == CTRL_LEFT
+                                    ? DOCKED_STACK_CREATE_MODE_TOP_OR_LEFT
+                                    : DOCKED_STACK_CREATE_MODE_BOTTOM_OR_RIGHT;
+                            mService.mActivityManager.moveTaskToDockedStack(
+                                    mTask.mTaskId, createMode, true /*toTop*/, true /* animate */,
+                                    null /* initialBounds */, false /* moveHomeStackFront */);
                         }
                     } catch(RemoteException e) {}
 
                     // Post back to WM to handle clean-ups. We still need the input
                     // event handler for the last finishInputEvent()!
-                    mService.mTaskPositioningController.finishTaskPositioning();
+                    mService.mH.sendEmptyMessage(H.FINISH_TASK_POSITIONING);
                 }
                 handled = true;
             } catch (Exception e) {
@@ -224,28 +221,14 @@ class TaskPositioner implements IBinder.DeathRecipient {
         }
     }
 
-    @VisibleForTesting
-    TaskPositioner(WindowManagerService service, IActivityTaskManager activityManager) {
-        mService = service;
-        mActivityManager = activityManager;
-    }
-
-    /** Use {@link #create(WindowManagerService)} instead **/
     TaskPositioner(WindowManagerService service) {
-        this(service, service.mActivityTaskManager);
-    }
-
-    @VisibleForTesting
-    Rect getWindowDragBounds() {
-        return mWindowDragBounds;
+        mService = service;
     }
 
     /**
-     * @param displayContent The Display that the window being dragged is on.
+     * @param display The Display that the window being dragged is on.
      */
-    void register(DisplayContent displayContent) {
-        final Display display = displayContent.getDisplay();
-
+    void register(Display display) {
         if (DEBUG_TASK_POSITIONING) {
             Slog.d(TAG, "Registering task positioner");
         }
@@ -255,26 +238,25 @@ class TaskPositioner implements IBinder.DeathRecipient {
             return;
         }
 
-        mDisplayContent = displayContent;
-        display.getMetrics(mDisplayMetrics);
+        mDisplay = display;
+        mDisplay.getMetrics(mDisplayMetrics);
         final InputChannel[] channels = InputChannel.openInputChannelPair(TAG);
         mServerChannel = channels[0];
         mClientChannel = channels[1];
         mService.mInputManager.registerInputChannel(mServerChannel, null);
 
         mInputEventReceiver = new WindowPositionerEventReceiver(
-                mClientChannel, mService.mAnimationHandler.getLooper(),
-                mService.mAnimator.getChoreographer());
+                mClientChannel, mService.mH.getLooper(), mService.mChoreographer);
 
-        mDragApplicationHandle = new InputApplicationHandle(new Binder());
+        mDragApplicationHandle = new InputApplicationHandle(null);
         mDragApplicationHandle.name = TAG;
         mDragApplicationHandle.dispatchingTimeoutNanos =
                 WindowManagerService.DEFAULT_INPUT_DISPATCHING_TIMEOUT_NANOS;
 
         mDragWindowHandle = new InputWindowHandle(mDragApplicationHandle, null,
-                display.getDisplayId());
+                mDisplay.getDisplayId());
         mDragWindowHandle.name = TAG;
-        mDragWindowHandle.token = mServerChannel.getToken();
+        mDragWindowHandle.inputChannel = mServerChannel;
         mDragWindowHandle.layer = mService.getDragLayerLocked();
         mDragWindowHandle.layoutParamsFlags = 0;
         mDragWindowHandle.layoutParamsType = WindowManager.LayoutParams.TYPE_DRAG;
@@ -297,7 +279,7 @@ class TaskPositioner implements IBinder.DeathRecipient {
         mDragWindowHandle.frameLeft = 0;
         mDragWindowHandle.frameTop = 0;
         final Point p = new Point();
-        display.getRealSize(p);
+        mDisplay.getRealSize(p);
         mDragWindowHandle.frameRight = p.x;
         mDragWindowHandle.frameBottom = p.y;
 
@@ -305,16 +287,12 @@ class TaskPositioner implements IBinder.DeathRecipient {
         if (DEBUG_ORIENTATION) {
             Slog.d(TAG, "Pausing rotation during re-position");
         }
-        mDisplayContent.pauseRotationLocked();
+        mService.pauseRotationLocked();
 
-        // Notify InputMonitor to take mDragWindowHandle.
-        mDisplayContent.getInputMonitor().updateInputWindowsImmediately();
-        new SurfaceControl.Transaction().syncInputWindows().apply();
-
+        mDimLayer = new DimLayer(mService, this, mDisplay.getDisplayId(), TAG_LOCAL);
         mSideMargin = dipToPixel(SIDE_MARGIN_DIP, mDisplayMetrics);
         mMinVisibleWidth = dipToPixel(MINIMUM_VISIBLE_WIDTH_IN_DP, mDisplayMetrics);
         mMinVisibleHeight = dipToPixel(MINIMUM_VISIBLE_HEIGHT_IN_DP, mDisplayMetrics);
-        display.getRealSize(mMaxVisibleSize);
 
         mDragEnded = false;
     }
@@ -340,97 +318,64 @@ class TaskPositioner implements IBinder.DeathRecipient {
 
         mDragWindowHandle = null;
         mDragApplicationHandle = null;
-        mDragEnded = true;
+        mDisplay = null;
 
-        // Notify InputMonitor to remove mDragWindowHandle.
-        mDisplayContent.getInputMonitor().updateInputWindowsLw(true /*force*/);
+        if (mDimLayer != null) {
+            mDimLayer.destroySurface();
+            mDimLayer = null;
+        }
+        mCurrentDimSide = CTRL_NONE;
+        mDragEnded = true;
 
         // Resume rotations after a drag.
         if (DEBUG_ORIENTATION) {
             Slog.d(TAG, "Resuming rotation after re-position");
         }
-        mDisplayContent.resumeRotationLocked();
-        mDisplayContent = null;
-        mClientCallback.unlinkToDeath(this, 0 /* flags */);
+        mService.resumeRotationLocked();
     }
 
-    void startDrag(WindowState win, boolean resize, boolean preserveOrientation, float startX,
-                   float startY) {
+    void startDragLocked(WindowState win, boolean resize, float startX, float startY) {
         if (DEBUG_TASK_POSITIONING) {
-            Slog.d(TAG, "startDrag: win=" + win + ", resize=" + resize
-                    + ", preserveOrientation=" + preserveOrientation + ", {" + startX + ", "
-                    + startY + "}");
+            Slog.d(TAG, "startDragLocked: win=" + win + ", resize=" + resize
+                + ", {" + startX + ", " + startY + "}");
         }
-        try {
-            mClientCallback = win.mClient.asBinder();
-            mClientCallback.linkToDeath(this, 0 /* flags */);
-        } catch (RemoteException e) {
-            // The caller has died, so clean up TaskPositioningController.
-            mService.mTaskPositioningController.finishTaskPositioning();
-            return;
-        }
-        mTask = win.getTask();
-        // Use the bounds of the task which accounts for
-        // multiple app windows. Don't use any bounds from win itself as it
-        // may not be the same size as the task.
-        mTask.getBounds(mTmpRect);
-        startDrag(resize, preserveOrientation, startX, startY, mTmpRect);
-    }
-
-    protected void startDrag(boolean resize, boolean preserveOrientation,
-                   float startX, float startY, Rect startBounds) {
         mCtrlType = CTRL_NONE;
+        mTask = win.getTask();
         mStartDragX = startX;
         mStartDragY = startY;
-        mPreserveOrientation = preserveOrientation;
+
+        if (mTask.isDockedInEffect()) {
+            // If this is a docked task or if task size is affected by docked stack changing size,
+            // we can only be here if the task is not resizeable and we're handling a two-finger
+            // scrolling. Use the original task bounds to position the task, the dim bounds
+            // is cropped and doesn't move.
+            mTask.getBounds(mTmpRect);
+        } else {
+            // Use the dim bounds, not the original task bounds. The cursor
+            // movement should be calculated relative to the visible bounds.
+            // Also, use the dim bounds of the task which accounts for
+            // multiple app windows. Don't use any bounds from win itself as it
+            // may not be the same size as the task.
+            mTask.getDimBounds(mTmpRect);
+        }
 
         if (resize) {
-            if (startX < startBounds.left) {
+            if (startX < mTmpRect.left) {
                 mCtrlType |= CTRL_LEFT;
             }
-            if (startX > startBounds.right) {
+            if (startX > mTmpRect.right) {
                 mCtrlType |= CTRL_RIGHT;
             }
-            if (startY < startBounds.top) {
+            if (startY < mTmpRect.top) {
                 mCtrlType |= CTRL_TOP;
             }
-            if (startY > startBounds.bottom) {
+            if (startY > mTmpRect.bottom) {
                 mCtrlType |= CTRL_BOTTOM;
             }
-            mResizing = mCtrlType != CTRL_NONE;
+            mResizing = true;
         }
 
-        // In case of !isDockedInEffect we are using the union of all task bounds. These might be
-        // made up out of multiple windows which are only partially overlapping. When that happens,
-        // the orientation from the window of interest to the entire stack might diverge. However
-        // for now we treat them as the same.
-        mStartOrientationWasLandscape = startBounds.width() >= startBounds.height();
-        mWindowOriginalBounds.set(startBounds);
-
-        // Notify the app that resizing has started, even though we haven't received any new
-        // bounds yet. This will guarantee that the app starts the backdrop renderer before
-        // configuration changes which could cause an activity restart.
-        if (mResizing) {
-            synchronized (mService.mGlobalLock) {
-                notifyMoveLocked(startX, startY);
-            }
-
-            // Perform the resize on the WMS handler thread when we don't have the WMS lock held
-            // to ensure that we don't deadlock WMS and AMS. Note that WindowPositionerEventReceiver
-            // callbacks are delivered on the same handler so this initial resize is always
-            // guaranteed to happen before subsequent drag resizes.
-            mService.mH.post(() -> {
-                try {
-                    mActivityManager.resizeTask(
-                            mTask.mTaskId, startBounds, RESIZE_MODE_USER_FORCED);
-                } catch (RemoteException e) {
-                }
-            });
-        }
-
-        // Make sure we always have valid drag bounds even if the drag ends before any move events
-        // have been handled.
-        mWindowDragBounds.set(startBounds);
+        mWindowOriginalBounds.set(mTmpRect);
     }
 
     private void endDragLocked() {
@@ -445,239 +390,151 @@ class TaskPositioner implements IBinder.DeathRecipient {
         }
 
         if (mCtrlType != CTRL_NONE) {
-            resizeDrag(x, y);
+            // This is a resizing operation.
+            final int deltaX = Math.round(x - mStartDragX);
+            final int deltaY = Math.round(y - mStartDragY);
+            int left = mWindowOriginalBounds.left;
+            int top = mWindowOriginalBounds.top;
+            int right = mWindowOriginalBounds.right;
+            int bottom = mWindowOriginalBounds.bottom;
+            if ((mCtrlType & CTRL_LEFT) != 0) {
+                left = Math.min(left + deltaX, right - mMinVisibleWidth);
+            }
+            if ((mCtrlType & CTRL_TOP) != 0) {
+                top = Math.min(top + deltaY, bottom - mMinVisibleHeight);
+            }
+            if ((mCtrlType & CTRL_RIGHT) != 0) {
+                right = Math.max(left + mMinVisibleWidth, right + deltaX);
+            }
+            if ((mCtrlType & CTRL_BOTTOM) != 0) {
+                bottom = Math.max(top + mMinVisibleHeight, bottom + deltaY);
+            }
+            mWindowDragBounds.set(left, top, right, bottom);
             mTask.setDragResizing(true, DRAG_RESIZE_MODE_FREEFORM);
             return false;
         }
 
-        // This is a moving or scrolling operation.
+        // This is a moving operation.
         mTask.mStack.getDimBounds(mTmpRect);
-        // If a target window is covered by system bar, there is no way to move it again by touch.
-        // So we exclude them from stack bounds. and then it will be shown inside stable area.
-        Rect stableBounds = new Rect();
-        mDisplayContent.getStableRect(stableBounds);
-        mTmpRect.intersect(stableBounds);
 
-        int nX = (int) x;
-        int nY = (int) y;
+        // If this is a non-resizeable task put into side-by-side mode, we are
+        // handling a two-finger scrolling action. No need to shrink the bounds.
+        if (!mTask.isDockedInEffect()) {
+            mTmpRect.inset(mMinVisibleWidth, mMinVisibleHeight);
+        }
+
+        boolean dragEnded = false;
+        final int nX = (int) x;
+        final int nY = (int) y;
         if (!mTmpRect.contains(nX, nY)) {
-            // For a moving operation we allow the pointer to go out of the stack bounds, but
-            // use the clamped pointer position for the drag bounds computation.
-            nX = Math.min(Math.max(nX, mTmpRect.left), mTmpRect.right);
-            nY = Math.min(Math.max(nY, mTmpRect.top), mTmpRect.bottom);
+            // We end the moving operation if position is outside the stack bounds.
+            // In this case we need to clamp the position to stack bounds and calculate
+            // the final window drag bounds.
+            x = Math.min(Math.max(x, mTmpRect.left), mTmpRect.right);
+            y = Math.min(Math.max(y, mTmpRect.top), mTmpRect.bottom);
+            dragEnded = true;
         }
 
-        updateWindowDragBounds(nX, nY, mTmpRect);
-        return false;
+        updateWindowDragBounds(nX, nY);
+        updateDimLayerVisibility(nX);
+        return dragEnded;
     }
 
-    /**
-     * The user is drag - resizing the window.
-     *
-     * @param x The x coordinate of the current drag coordinate.
-     * @param y the y coordinate of the current drag coordinate.
-     */
-    @VisibleForTesting
-    void resizeDrag(float x, float y) {
-        // This is a resizing operation.
-        // We need to keep various constraints:
-        // 1. mMinVisible[Width/Height] <= [width/height] <= mMaxVisibleSize.[x/y]
-        // 2. The orientation is kept - if required.
-        final int deltaX = Math.round(x - mStartDragX);
-        final int deltaY = Math.round(y - mStartDragY);
-        int left = mWindowOriginalBounds.left;
-        int top = mWindowOriginalBounds.top;
-        int right = mWindowOriginalBounds.right;
-        int bottom = mWindowOriginalBounds.bottom;
-
-        // The aspect which we have to respect. Note that if the orientation does not need to be
-        // preserved the aspect will be calculated as 1.0 which neutralizes the following
-        // computations.
-        final float minAspect = !mPreserveOrientation
-                ? 1.0f
-                : (mStartOrientationWasLandscape ? MIN_ASPECT : (1.0f / MIN_ASPECT));
-        // Calculate the resulting width and height of the drag operation.
-        int width = right - left;
-        int height = bottom - top;
-        if ((mCtrlType & CTRL_LEFT) != 0) {
-            width = Math.max(mMinVisibleWidth, width - deltaX);
-        } else if ((mCtrlType & CTRL_RIGHT) != 0) {
-            width = Math.max(mMinVisibleWidth, width + deltaX);
-        }
-        if ((mCtrlType & CTRL_TOP) != 0) {
-            height = Math.max(mMinVisibleHeight, height - deltaY);
-        } else if ((mCtrlType & CTRL_BOTTOM) != 0) {
-            height = Math.max(mMinVisibleHeight, height + deltaY);
-        }
-
-        // If we have to preserve the orientation - check that we are doing so.
-        final float aspect = (float) width / (float) height;
-        if (mPreserveOrientation && ((mStartOrientationWasLandscape && aspect < MIN_ASPECT)
-                || (!mStartOrientationWasLandscape && aspect > (1.0 / MIN_ASPECT)))) {
-            // Calculate 2 rectangles fulfilling all requirements for either X or Y being the major
-            // drag axis. What ever is producing the bigger rectangle will be chosen.
-            int width1;
-            int width2;
-            int height1;
-            int height2;
-            if (mStartOrientationWasLandscape) {
-                // Assuming that the width is our target we calculate the height.
-                width1 = Math.max(mMinVisibleWidth, Math.min(mMaxVisibleSize.x, width));
-                height1 = Math.min(height, Math.round((float)width1 / MIN_ASPECT));
-                if (height1 < mMinVisibleHeight) {
-                    // If the resulting height is too small we adjust to the minimal size.
-                    height1 = mMinVisibleHeight;
-                    width1 = Math.max(mMinVisibleWidth,
-                            Math.min(mMaxVisibleSize.x, Math.round((float)height1 * MIN_ASPECT)));
-                }
-                // Assuming that the height is our target we calculate the width.
-                height2 = Math.max(mMinVisibleHeight, Math.min(mMaxVisibleSize.y, height));
-                width2 = Math.max(width, Math.round((float)height2 * MIN_ASPECT));
-                if (width2 < mMinVisibleWidth) {
-                    // If the resulting width is too small we adjust to the minimal size.
-                    width2 = mMinVisibleWidth;
-                    height2 = Math.max(mMinVisibleHeight,
-                            Math.min(mMaxVisibleSize.y, Math.round((float)width2 / MIN_ASPECT)));
-                }
-            } else {
-                // Assuming that the width is our target we calculate the height.
-                width1 = Math.max(mMinVisibleWidth, Math.min(mMaxVisibleSize.x, width));
-                height1 = Math.max(height, Math.round((float)width1 * MIN_ASPECT));
-                if (height1 < mMinVisibleHeight) {
-                    // If the resulting height is too small we adjust to the minimal size.
-                    height1 = mMinVisibleHeight;
-                    width1 = Math.max(mMinVisibleWidth,
-                            Math.min(mMaxVisibleSize.x, Math.round((float)height1 / MIN_ASPECT)));
-                }
-                // Assuming that the height is our target we calculate the width.
-                height2 = Math.max(mMinVisibleHeight, Math.min(mMaxVisibleSize.y, height));
-                width2 = Math.min(width, Math.round((float)height2 / MIN_ASPECT));
-                if (width2 < mMinVisibleWidth) {
-                    // If the resulting width is too small we adjust to the minimal size.
-                    width2 = mMinVisibleWidth;
-                    height2 = Math.max(mMinVisibleHeight,
-                            Math.min(mMaxVisibleSize.y, Math.round((float)width2 * MIN_ASPECT)));
-                }
-            }
-
-            // Use the bigger of the two rectangles if the major change was positive, otherwise
-            // do the opposite.
-            final boolean grows = width > (right - left) || height > (bottom - top);
-            if (grows == (width1 * height1 > width2 * height2)) {
-                width = width1;
-                height = height1;
-            } else {
-                width = width2;
-                height = height2;
-            }
-        }
-
-        // Update mWindowDragBounds to the new drag size.
-        updateDraggedBounds(left, top, right, bottom, width, height);
-    }
-
-    /**
-     * Given the old coordinates and the new width and height, update the mWindowDragBounds.
-     *
-     * @param left      The original left bound before the user started dragging.
-     * @param top       The original top bound before the user started dragging.
-     * @param right     The original right bound before the user started dragging.
-     * @param bottom    The original bottom bound before the user started dragging.
-     * @param newWidth  The new dragged width.
-     * @param newHeight The new dragged height.
-     */
-    void updateDraggedBounds(int left, int top, int right, int bottom, int newWidth,
-                             int newHeight) {
-        // Generate the final bounds by keeping the opposite drag edge constant.
-        if ((mCtrlType & CTRL_LEFT) != 0) {
-            left = right - newWidth;
-        } else { // Note: The right might have changed - if we pulled at the right or not.
-            right = left + newWidth;
-        }
-        if ((mCtrlType & CTRL_TOP) != 0) {
-            top = bottom - newHeight;
-        } else { // Note: The height might have changed - if we pulled at the bottom or not.
-            bottom = top + newHeight;
-        }
-
-        mWindowDragBounds.set(left, top, right, bottom);
-
-        checkBoundsForOrientationViolations(mWindowDragBounds);
-    }
-
-    /**
-     * Validate bounds against orientation violations (if DEBUG_ORIENTATION_VIOLATIONS is set).
-     *
-     * @param bounds The bounds to be checked.
-     */
-    private void checkBoundsForOrientationViolations(Rect bounds) {
-        // When using debug check that we are not violating the given constraints.
-        if (DEBUG_ORIENTATION_VIOLATIONS) {
-            if (mStartOrientationWasLandscape != (bounds.width() >= bounds.height())) {
-                Slog.e(TAG, "Orientation violation detected! should be "
-                        + (mStartOrientationWasLandscape ? "landscape" : "portrait")
-                        + " but is the other");
-            } else {
-                Slog.v(TAG, "new bounds size: " + bounds.width() + " x " + bounds.height());
-            }
-            if (mMinVisibleWidth > bounds.width() || mMinVisibleHeight > bounds.height()) {
-                Slog.v(TAG, "Minimum requirement violated: Width(min, is)=(" + mMinVisibleWidth
-                        + ", " + bounds.width() + ") Height(min,is)=("
-                        + mMinVisibleHeight + ", " + bounds.height() + ")");
-            }
-            if (mMaxVisibleSize.x < bounds.width() || mMaxVisibleSize.y < bounds.height()) {
-                Slog.v(TAG, "Maximum requirement violated: Width(min, is)=(" + mMaxVisibleSize.x
-                        + ", " + bounds.width() + ") Height(min,is)=("
-                        + mMaxVisibleSize.y + ", " + bounds.height() + ")");
-            }
-        }
-    }
-
-    private void updateWindowDragBounds(int x, int y, Rect stackBounds) {
-        final int offsetX = Math.round(x - mStartDragX);
-        final int offsetY = Math.round(y - mStartDragY);
+    private void updateWindowDragBounds(int x, int y) {
         mWindowDragBounds.set(mWindowOriginalBounds);
-        // Horizontally, at least mMinVisibleWidth pixels of the window should remain visible.
-        final int maxLeft = stackBounds.right - mMinVisibleWidth;
-        final int minLeft = stackBounds.left + mMinVisibleWidth - mWindowOriginalBounds.width();
-
-        // Vertically, the top mMinVisibleHeight of the window should remain visible.
-        // (This assumes that the window caption bar is at the top of the window).
-        final int minTop = stackBounds.top;
-        final int maxTop = stackBounds.bottom - mMinVisibleHeight;
-
-        mWindowDragBounds.offsetTo(
-                Math.min(Math.max(mWindowOriginalBounds.left + offsetX, minLeft), maxLeft),
-                Math.min(Math.max(mWindowOriginalBounds.top + offsetY, minTop), maxTop));
-
+        if (mTask.isDockedInEffect()) {
+            // Offset the bounds without clamp, the bounds will be shifted later
+            // by window manager before applying the scrolling.
+            if (mService.mCurConfiguration.orientation == ORIENTATION_LANDSCAPE) {
+                mWindowDragBounds.offset(Math.round(x - mStartDragX), 0);
+            } else {
+                mWindowDragBounds.offset(0, Math.round(y - mStartDragY));
+            }
+        } else {
+            mWindowDragBounds.offset(Math.round(x - mStartDragX), Math.round(y - mStartDragY));
+        }
         if (DEBUG_TASK_POSITIONING) Slog.d(TAG,
                 "updateWindowDragBounds: " + mWindowDragBounds);
     }
 
-    public String toShortString() {
-        return TAG;
-    }
-
-    static void setFactory(Factory factory) {
-        sFactory = factory;
-    }
-
-    static TaskPositioner create(WindowManagerService service) {
-        if (sFactory == null) {
-            sFactory = new Factory() {};
+    private void updateDimLayerVisibility(int x) {
+        @CtrlType
+        int dimSide = getDimSide(x);
+        if (dimSide == mCurrentDimSide) {
+            return;
         }
 
-        return sFactory.create(service);
+        mCurrentDimSide = dimSide;
+
+        if (SHOW_TRANSACTIONS) Slog.i(TAG, ">>> OPEN TRANSACTION updateDimLayerVisibility");
+        SurfaceControl.openTransaction();
+        if (mCurrentDimSide == CTRL_NONE) {
+            mDimLayer.hide();
+        } else {
+            showDimLayer();
+        }
+        SurfaceControl.closeTransaction();
+    }
+
+    /**
+     * Returns the side of the screen the dim layer should be shown.
+     * @param x horizontal coordinate used to determine if the dim layer should be shown
+     * @return Returns {@link #CTRL_LEFT} if the dim layer should be shown on the left half of the
+     * screen, {@link #CTRL_RIGHT} if on the right side, or {@link #CTRL_NONE} if the dim layer
+     * shouldn't be shown.
+     */
+    private int getDimSide(int x) {
+        if (mTask.mStack.mStackId != FREEFORM_WORKSPACE_STACK_ID
+                || !mTask.mStack.isFullscreen()
+                || mService.mCurConfiguration.orientation != ORIENTATION_LANDSCAPE) {
+            return CTRL_NONE;
+        }
+
+        mTask.mStack.getDimBounds(mTmpRect);
+        if (x - mSideMargin <= mTmpRect.left) {
+            return CTRL_LEFT;
+        }
+        if (x + mSideMargin >= mTmpRect.right) {
+            return CTRL_RIGHT;
+        }
+
+        return CTRL_NONE;
+    }
+
+    private void showDimLayer() {
+        mTask.mStack.getDimBounds(mTmpRect);
+        if (mCurrentDimSide == CTRL_LEFT) {
+            mTmpRect.right = mTmpRect.centerX();
+        } else if (mCurrentDimSide == CTRL_RIGHT) {
+            mTmpRect.left = mTmpRect.centerX();
+        }
+
+        mDimLayer.setBounds(mTmpRect);
+        mDimLayer.show(mService.getDragLayerLocked(), RESIZING_HINT_ALPHA,
+                RESIZING_HINT_DURATION_MS);
+    }
+
+    @Override /** {@link DimLayer.DimLayerUser} */
+    public boolean dimFullscreen() {
+        return isFullscreen();
+    }
+
+    boolean isFullscreen() {
+        return false;
+    }
+
+    @Override /** {@link DimLayer.DimLayerUser} */
+    public DisplayInfo getDisplayInfo() {
+        return mTask.mStack.getDisplayInfo();
     }
 
     @Override
-    public void binderDied() {
-        mService.mTaskPositioningController.finishTaskPositioning();
+    public void getDimBounds(Rect out) {
+        // This dim layer user doesn't need this.
     }
 
-    interface Factory {
-        default TaskPositioner create(WindowManagerService service) {
-            return new TaskPositioner(service);
-        }
+    @Override
+    public String toShortString() {
+        return TAG;
     }
 }

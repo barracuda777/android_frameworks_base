@@ -20,8 +20,7 @@
     android:width="16dp"
     android:viewportWidth="16"
     android:height="8dp"
-    android:viewportHeight="8"
-    android:tint="?android:attr/colorControlNormal" >
+    android:viewportHeight="8" >
     <group
         android:name="dot_01"
         android:translateX="8"

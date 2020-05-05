@@ -23,8 +23,6 @@ import android.net.LinkProperties;
 import android.net.Network;
 import android.net.NetworkUtils;
 import android.net.RouteInfo;
-import android.net.TrafficStats;
-import android.net.util.NetworkConstants;
 import android.os.SystemClock;
 import android.system.ErrnoException;
 import android.system.Os;
@@ -33,14 +31,11 @@ import android.text.TextUtils;
 import android.util.Pair;
 
 import com.android.internal.util.IndentingPrintWriter;
-import com.android.internal.util.TrafficStatsConstants;
-
-import libcore.io.IoUtils;
 
 import java.io.Closeable;
 import java.io.FileDescriptor;
-import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
@@ -51,13 +46,17 @@ import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
+
+import libcore.io.IoUtils;
+
 
 /**
  * NetworkDiagnostics
@@ -185,7 +184,7 @@ public class NetworkDiagnostics {
         // TODO: we could use mLinkProperties.isReachable(TEST_DNS6) here, because we won't set any
         // DNS servers for which isReachable() is false, but since this is diagnostic code, be extra
         // careful.
-        if (mLinkProperties.hasGlobalIpv6Address() || mLinkProperties.hasIpv6DefaultRoute()) {
+        if (mLinkProperties.hasGlobalIPv6Address() || mLinkProperties.hasIPv6DefaultRoute()) {
             mLinkProperties.addDnsServer(TEST_DNS6);
         }
 
@@ -382,13 +381,7 @@ public class NetworkDiagnostics {
         protected void setupSocket(
                 int sockType, int protocol, long writeTimeout, long readTimeout, int dstPort)
                 throws ErrnoException, IOException {
-            final int oldTag = TrafficStats.getAndSetThreadStatsTag(
-                    TrafficStatsConstants.TAG_SYSTEM_PROBE);
-            try {
-                mFileDescriptor = Os.socket(mAddressFamily, sockType, protocol);
-            } finally {
-                TrafficStats.setThreadStatsTag(oldTag);
-            }
+            mFileDescriptor = Os.socket(mAddressFamily, sockType, protocol);
             // Setting SNDTIMEO is purely for defensive purposes.
             Os.setsockoptTimeval(mFileDescriptor,
                     SOL_SOCKET, SO_SNDTIMEO, StructTimeval.fromMillis(writeTimeout));
@@ -422,6 +415,8 @@ public class NetworkDiagnostics {
     private class IcmpCheck extends SimpleSocketCheck implements Runnable {
         private static final int TIMEOUT_SEND = 100;
         private static final int TIMEOUT_RECV = 300;
+        private static final int ICMPV4_ECHO_REQUEST = 8;
+        private static final int ICMPV6_ECHO_REQUEST = 128;
         private static final int PACKET_BUFSIZE = 512;
         private final int mProtocol;
         private final int mIcmpType;
@@ -431,11 +426,11 @@ public class NetworkDiagnostics {
 
             if (mAddressFamily == AF_INET6) {
                 mProtocol = IPPROTO_ICMPV6;
-                mIcmpType = NetworkConstants.ICMPV6_ECHO_REQUEST_TYPE;
+                mIcmpType = ICMPV6_ECHO_REQUEST;
                 mMeasurement.description = "ICMPv6";
             } else {
                 mProtocol = IPPROTO_ICMP;
-                mIcmpType = NetworkConstants.ICMPV4_ECHO_REQUEST_TYPE;
+                mIcmpType = ICMPV4_ECHO_REQUEST;
                 mMeasurement.description = "ICMPv4";
             }
 
@@ -503,6 +498,7 @@ public class NetworkDiagnostics {
     private class DnsUdpCheck extends SimpleSocketCheck implements Runnable {
         private static final int TIMEOUT_SEND = 100;
         private static final int TIMEOUT_RECV = 500;
+        private static final int DNS_SERVER_PORT = 53;
         private static final int RR_TYPE_A = 1;
         private static final int RR_TYPE_AAAA = 28;
         private static final int PACKET_BUFSIZE = 512;
@@ -544,8 +540,7 @@ public class NetworkDiagnostics {
             }
 
             try {
-                setupSocket(SOCK_DGRAM, IPPROTO_UDP, TIMEOUT_SEND, TIMEOUT_RECV,
-                        NetworkConstants.DNS_SERVER_PORT);
+                setupSocket(SOCK_DGRAM, IPPROTO_UDP, TIMEOUT_SEND, TIMEOUT_RECV, DNS_SERVER_PORT);
             } catch (ErrnoException | IOException e) {
                 mMeasurement.recordFailure(e.toString());
                 return;

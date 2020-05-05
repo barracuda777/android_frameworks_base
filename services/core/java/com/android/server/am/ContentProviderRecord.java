@@ -16,9 +16,7 @@
 
 package com.android.server.am;
 
-import static com.android.server.am.ActivityManagerDebugConfig.TAG_AM;
-
-import android.app.ContentProviderHolder;
+import android.app.IActivityManager.ContentProviderHolder;
 import android.content.ComponentName;
 import android.content.IContentProvider;
 import android.content.pm.ApplicationInfo;
@@ -28,16 +26,13 @@ import android.os.IBinder.DeathRecipient;
 import android.os.Process;
 import android.os.RemoteException;
 import android.os.UserHandle;
-import android.util.ArrayMap;
 import android.util.Slog;
-
-import com.android.internal.app.procstats.AssociationState;
-import com.android.internal.app.procstats.ProcessStats;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.HashMap;
 
-final class ContentProviderRecord implements ComponentName.WithComponentName {
+final class ContentProviderRecord {
     final ActivityManagerService service;
     public final ProviderInfo info;
     final int uid;
@@ -51,7 +46,7 @@ final class ContentProviderRecord implements ComponentName.WithComponentName {
             = new ArrayList<ContentProviderConnection>();
     //final HashSet<ProcessRecord> clients = new HashSet<ProcessRecord>();
     // Handles for non-framework processes supported by this provider
-    ArrayMap<IBinder, ExternalProcessHandle> externalProcessTokenToHandle;
+    HashMap<IBinder, ExternalProcessHandle> externalProcessTokenToHandle;
     // Count for external process for which we have no handles.
     int externalProcessNoHandleCount;
     ProcessRecord proc; // if non-null, hosting process.
@@ -67,8 +62,7 @@ final class ContentProviderRecord implements ComponentName.WithComponentName {
         appInfo = ai;
         name = _name;
         singleton = _singleton;
-        noReleaseNeeded = (uid == 0 || uid == Process.SYSTEM_UID)
-                && (_name == null || !"com.android.settings".equals(_name.getPackageName()));
+        noReleaseNeeded = uid == 0 || uid == Process.SYSTEM_UID;
     }
 
     public ContentProviderRecord(ContentProviderRecord cpr) {
@@ -89,47 +83,22 @@ final class ContentProviderRecord implements ComponentName.WithComponentName {
         return holder;
     }
 
-    public void setProcess(ProcessRecord proc) {
-        this.proc = proc;
-        if (ActivityManagerService.TRACK_PROCSTATS_ASSOCIATIONS) {
-            for (int iconn = connections.size() - 1; iconn >= 0; iconn--) {
-                final ContentProviderConnection conn = connections.get(iconn);
-                if (proc != null) {
-                    conn.startAssociationIfNeeded();
-                } else {
-                    conn.stopAssociation();
-                }
-            }
-            if (externalProcessTokenToHandle != null) {
-                for (int iext = externalProcessTokenToHandle.size() - 1; iext >= 0; iext--) {
-                    final ExternalProcessHandle handle = externalProcessTokenToHandle.valueAt(iext);
-                    if (proc != null) {
-                        handle.startAssociationIfNeeded(this);
-                    } else {
-                        handle.stopAssociation();
-                    }
-                }
-            }
-        }
-    }
-
     public boolean canRunHere(ProcessRecord app) {
         return (info.multiprocess || info.processName.equals(app.processName))
                 && uid == app.info.uid;
     }
 
-    public void addExternalProcessHandleLocked(IBinder token, int callingUid, String callingTag) {
+    public void addExternalProcessHandleLocked(IBinder token) {
         if (token == null) {
             externalProcessNoHandleCount++;
         } else {
             if (externalProcessTokenToHandle == null) {
-                externalProcessTokenToHandle = new ArrayMap<>();
+                externalProcessTokenToHandle = new HashMap<IBinder, ExternalProcessHandle>();
             }
             ExternalProcessHandle handle = externalProcessTokenToHandle.get(token);
             if (handle == null) {
-                handle = new ExternalProcessHandle(token, callingUid, callingTag);
+                handle = new ExternalProcessHandle(token);
                 externalProcessTokenToHandle.put(token, handle);
-                handle.startAssociationIfNeeded(this);
             }
             handle.mAcquisitionCount++;
         }
@@ -160,7 +129,6 @@ final class ContentProviderRecord implements ComponentName.WithComponentName {
     private void removeExternalProcessHandleInternalLocked(IBinder token) {
         ExternalProcessHandle handle = externalProcessTokenToHandle.get(token);
         handle.unlinkFromOwnDeathLocked();
-        handle.stopAssociation();
         externalProcessTokenToHandle.remove(token);
         if (externalProcessTokenToHandle.size() == 0) {
             externalProcessTokenToHandle = null;
@@ -266,16 +234,11 @@ final class ContentProviderRecord implements ComponentName.WithComponentName {
     private class ExternalProcessHandle implements DeathRecipient {
         private static final String LOG_TAG = "ExternalProcessHanldle";
 
-        final IBinder mToken;
-        final int mOwningUid;
-        final String mOwningProcessName;
-        int mAcquisitionCount;
-        AssociationState.SourceState mAssociation;
+        private final IBinder mToken;
+        private int mAcquisitionCount;
 
-        public ExternalProcessHandle(IBinder token, int owningUid, String owningProcessName) {
+        public ExternalProcessHandle(IBinder token) {
             mToken = token;
-            mOwningUid = owningUid;
-            mOwningProcessName = owningProcessName;
             try {
                 token.linkToDeath(this, 0);
             } catch (RemoteException re) {
@@ -287,37 +250,6 @@ final class ContentProviderRecord implements ComponentName.WithComponentName {
             mToken.unlinkToDeath(this, 0);
         }
 
-        public void startAssociationIfNeeded(ContentProviderRecord provider) {
-            // If we don't already have an active association, create one...  but only if this
-            // is an association between two different processes.
-            if (ActivityManagerService.TRACK_PROCSTATS_ASSOCIATIONS
-                    && mAssociation == null && provider.proc != null
-                    && (provider.appInfo.uid != mOwningUid
-                            || !provider.info.processName.equals(mOwningProcessName))) {
-                ProcessStats.ProcessStateHolder holder = provider.proc.pkgList.get(
-                        provider.name.getPackageName());
-                if (holder == null) {
-                    Slog.wtf(TAG_AM, "No package in referenced provider "
-                            + provider.name.toShortString() + ": proc=" + provider.proc);
-                } else if (holder.pkg == null) {
-                    Slog.wtf(TAG_AM, "Inactive holder in referenced provider "
-                            + provider.name.toShortString() + ": proc=" + provider.proc);
-                } else {
-                    mAssociation = holder.pkg.getAssociationStateLocked(holder.state,
-                            provider.name.getClassName()).startSource(mOwningUid,
-                            mOwningProcessName, null);
-
-                }
-            }
-        }
-
-        public void stopAssociation() {
-            if (mAssociation != null) {
-                mAssociation.stop();
-                mAssociation = null;
-            }
-        }
-
         @Override
         public void binderDied() {
             synchronized (service) {
@@ -327,9 +259,5 @@ final class ContentProviderRecord implements ComponentName.WithComponentName {
                 }                        
             }
         }
-    }
-
-    public ComponentName getComponentName() {
-        return name;
     }
 }

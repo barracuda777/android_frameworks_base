@@ -426,21 +426,6 @@ please see styles_device_defaults.xml.
         <item name="textColor">@color/primary_text_secondary_when_activated_material_inverse</item>
     </style>
 
-    <style name="TextAppearance.Material.TimePicker.InputHeader" parent="TextAppearance.Material">
-        <item name="textSize">@dimen/text_size_display_1_material</item>
-        <item name="textColor">@color/white</item>
-        <item name="fontFamily">sans-serif-medium</item>
-    </style>
-
-    <style name="TextAppearance.Material.TimePicker.InputField" parent="TextAppearance.Material">
-        <item name="textSize">@dimen/timepicker_edit_text_size</item>
-    </style>
-
-    <style name="TextAppearance.Material.TimePicker.PromptLabel" parent="TextAppearance.Material">
-        <item name="textSize">@dimen/timepicker_text_size_normal</item>
-        <item name="fontFamily">sans-serif-medium</item>
-    </style>
-
     <style name="TextAppearance.Material.DatePicker.YearLabel" parent="TextAppearance.Material">
         <item name="textColor">@color/primary_text_secondary_when_activated_material_inverse</item>
         <item name="textSize">@dimen/date_picker_year_label_size</item>
@@ -466,14 +451,14 @@ please see styles_device_defaults.xml.
     </style>
 
     <style name="TextAppearance.Material.Notification">
-        <item name="textColor">@color/notification_secondary_text_color_light</item>
+        <item name="textColor">@color/secondary_text_material_light</item>
         <item name="textSize">@dimen/notification_text_size</item>
     </style>
 
     <style name="TextAppearance.Material.Notification.Reply" />
 
     <style name="TextAppearance.Material.Notification.Title">
-        <item name="fontFamily">sans-serif-medium</item>
+        <item name="textColor">@color/primary_text_default_material_light</item>
         <item name="textSize">@dimen/notification_title_text_size</item>
     </style>
 
@@ -482,6 +467,7 @@ please see styles_device_defaults.xml.
     </style>
 
     <style name="TextAppearance.Material.Notification.Info">
+        <item name="textColor">@color/secondary_text_default_material_light</item>
         <item name="textSize">@dimen/notification_subtext_size</item>
     </style>
 
@@ -496,22 +482,12 @@ please see styles_device_defaults.xml.
 
     <style name="Widget.Material.Notification.ProgressBar" parent="Widget.Material.Light.ProgressBar.Horizontal" />
 
-    <style name="Widget.Material.Notification.Text" parent="Widget.Material.Light.TextView">
-        <item name="lineHeight">20sp</item>
-        <item name="textAppearance">@style/TextAppearance.Material.Notification</item>
-    </style>
-
-    <style name="Widget.Material.Notification.MessagingText" parent="Widget.Material.Notification.Text">
-        <item name="layout_width">wrap_content</item>
-        <item name="layout_height">wrap_content</item>
-        <item name="ellipsize">end</item>z
-    </style>
-
-    <style name="Widget.Material.Notification.MessagingName" parent="Widget.Material.Light.TextView">
-        <item name="layout_width">wrap_content</item>
+    <style name="Widget.Material.Notification.MessagingText" parent="Widget.Material.Light.TextView">
+        <item name="layout_width">match_parent</item>
         <item name="layout_height">wrap_content</item>
         <item name="ellipsize">end</item>
-        <item name="textAppearance">@style/TextAppearance.Material.Notification.Title</item>
+        <item name="visibility">gone</item>
+        <item name="textAppearance">@style/TextAppearance.Material.Notification</item>
     </style>
 
     <!-- Widget Styles -->
@@ -557,7 +533,7 @@ please see styles_device_defaults.xml.
 
     <!-- Alert dialog button bar button -->
     <style name="Widget.Material.Button.ButtonBar.AlertDialog" parent="Widget.Material.Button.Borderless.Colored">
-        <item name="minWidth">@dimen/alert_dialog_button_bar_width</item>
+        <item name="minWidth">64dp</item>
         <item name="minHeight">@dimen/alert_dialog_button_bar_height</item>
     </style>
 
@@ -968,7 +944,6 @@ please see styles_device_defaults.xml.
         <item name="src">@drawable/ic_menu_moreoverflow_material</item>
         <item name="background">?attr/actionBarItemBackground</item>
         <item name="contentDescription">@string/action_menu_overflow_description</item>
-        <item name="tooltipText">@string/action_menu_overflow_description</item>
         <item name="minWidth">@dimen/action_button_min_width_overflow_material</item>
         <item name="minHeight">@dimen/action_button_min_height_material</item>
         <item name="paddingStart">@dimen/action_bar_overflow_padding_start_material</item>
@@ -1059,7 +1034,7 @@ please see styles_device_defaults.xml.
     </style>
 
     <style name="Widget.Material.MediaRouteButton" parent ="Widget.Material.ActionButton">
-        <item name="externalRouteEnabledDrawable">@drawable/ic_media_route_dark_material</item>
+        <item name="externalRouteEnabledDrawable">@drawable/ic_media_route_material</item>
         <item name="contentDescription">@string/media_route_button_content_description</item>
     </style>
 
@@ -1208,10 +1183,7 @@ please see styles_device_defaults.xml.
     <style name="Widget.Material.Light.ActionBar" parent="Widget.Material.ActionBar" />
     <style name="Widget.Material.Light.ActionBar.Solid" parent="Widget.Material.ActionBar.Solid" />
     <style name="Widget.Material.Light.FastScroll" parent="Widget.Material.FastScroll"/>
-
-    <style name="Widget.Material.Light.MediaRouteButton" parent="Widget.Material.MediaRouteButton">
-        <item name="externalRouteEnabledDrawable">@drawable/ic_media_route_light_material</item>
-    </style>
+    <style name="Widget.Material.Light.MediaRouteButton" parent="Widget.Material.MediaRouteButton" />
 
     <!-- Animation Styles -->
 
@@ -1294,15 +1266,5 @@ please see styles_device_defaults.xml.
     </style>
 
     <style name="DialogWindowTitle.Material.Light" />
-
-    <style name="Notification.Header" parent="">
-        <item name="paddingTop">@dimen/notification_header_padding_top</item>
-        <item name="paddingBottom">@dimen/notification_header_padding_bottom</item>
-        <item name="layout_marginBottom">@dimen/notification_header_margin_bottom</item>
-        <item name="paddingStart">@dimen/notification_content_margin_start</item>
-        <item name="paddingEnd">@dimen/notification_content_margin_end</item>
-        <item name="gravity">top</item>
-    </style>
-
 
 </resources>

@@ -16,9 +16,11 @@
 
 package android.windowanimationjank;
 
-import android.support.test.uiautomator.UiDevice;
+import java.io.IOException;
+import java.util.StringTokenizer;
 
-import androidx.test.jank.JankTestBase;
+import android.support.test.jank.JankTestBase;
+import android.support.test.uiautomator.UiDevice;
 
 /**
  * This adds additional system level jank monitor and its result is merged with primary monitor

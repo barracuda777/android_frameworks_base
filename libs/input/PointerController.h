@@ -23,12 +23,12 @@
 #include <vector>
 
 #include <ui/DisplayInfo.h>
-#include <input/DisplayViewport.h>
 #include <input/Input.h>
-#include <PointerControllerInterface.h>
+#include <inputflinger/PointerControllerInterface.h>
 #include <utils/BitSet.h>
 #include <utils/RefBase.h>
 #include <utils/Looper.h>
+#include <utils/String8.h>
 #include <gui/DisplayEventReceiver.h>
 
 namespace android {
@@ -62,10 +62,10 @@ protected:
     virtual ~PointerControllerPolicyInterface() { }
 
 public:
-    virtual void loadPointerIcon(SpriteIcon* icon, int32_t displayId) = 0;
-    virtual void loadPointerResources(PointerResources* outResources, int32_t displayId) = 0;
+    virtual void loadPointerIcon(SpriteIcon* icon) = 0;
+    virtual void loadPointerResources(PointerResources* outResources) = 0;
     virtual void loadAdditionalMouseResources(std::map<int32_t, SpriteIcon>* outResources,
-            std::map<int32_t, PointerAnimation>* outAnimationResources, int32_t displayId) = 0;
+            std::map<int32_t, PointerAnimation>* outAnimationResources) = 0;
     virtual int32_t getDefaultPointerIconId() = 0;
     virtual int32_t getCustomPointerIconId() = 0;
 };
@@ -97,18 +97,17 @@ public:
     virtual int32_t getButtonState() const;
     virtual void setPosition(float x, float y);
     virtual void getPosition(float* outX, float* outY) const;
-    virtual int32_t getDisplayId() const;
     virtual void fade(Transition transition);
     virtual void unfade(Transition transition);
 
     virtual void setPresentation(Presentation presentation);
     virtual void setSpots(const PointerCoords* spotCoords,
-            const uint32_t* spotIdToIndex, BitSet32 spotIdBits, int32_t displayId);
+            const uint32_t* spotIdToIndex, BitSet32 spotIdBits);
     virtual void clearSpots();
 
     void updatePointerIcon(int32_t iconId);
     void setCustomPointerIcon(const SpriteIcon& icon);
-    void setDisplayViewport(const DisplayViewport& viewport);
+    void setDisplayViewport(int32_t width, int32_t height, int32_t orientation);
     void setInactivityTimeout(InactivityTimeout inactivityTimeout);
     void reloadPointerResources();
 
@@ -133,7 +132,7 @@ private:
                 : id(id), sprite(sprite), alpha(1.0f), scale(1.0f),
                   x(0.0f), y(0.0f), lastIcon(NULL) { }
 
-        void updateSprite(const SpriteIcon* icon, float x, float y, int32_t displayId);
+        void updateSprite(const SpriteIcon* icon, float x, float y);
 
     private:
         const SpriteIcon* lastIcon;
@@ -158,7 +157,9 @@ private:
         size_t animationFrameIndex;
         nsecs_t lastFrameUpdatedTime;
 
-        DisplayViewport viewport;
+        int32_t displayWidth;
+        int32_t displayHeight;
+        int32_t displayOrientation;
 
         InactivityTimeout inactivityTimeout;
 
@@ -180,9 +181,9 @@ private:
 
         int32_t buttonState;
 
-        std::map<int32_t /* displayId */, std::vector<Spot*>> spotsByDisplay;
-        std::vector<sp<Sprite> > recycledSprites;
-    } mLocked GUARDED_BY(mLock);
+        Vector<Spot*> spots;
+        Vector<sp<Sprite> > recycledSprites;
+    } mLocked;
 
     bool getBoundsLocked(float* outMinX, float* outMinY, float* outMaxX, float* outMaxY) const;
     void setPositionLocked(float x, float y);
@@ -200,14 +201,14 @@ private:
     void removeInactivityTimeoutLocked();
     void updatePointerLocked();
 
-    Spot* getSpot(uint32_t id, const std::vector<Spot*>& spots);
-    Spot* createAndAddSpotLocked(uint32_t id, std::vector<Spot*>& spots);
-    Spot* removeFirstFadingSpotLocked(std::vector<Spot*>& spots);
+    Spot* getSpotLocked(uint32_t id);
+    Spot* createAndAddSpotLocked(uint32_t id);
+    Spot* removeFirstFadingSpotLocked();
     void releaseSpotLocked(Spot* spot);
     void fadeOutAndReleaseSpotLocked(Spot* spot);
     void fadeOutAndReleaseAllSpotsLocked();
 
-    void loadResourcesLocked();
+    void loadResources();
 };
 
 } // namespace android

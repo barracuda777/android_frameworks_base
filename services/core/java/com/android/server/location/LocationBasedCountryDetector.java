@@ -235,15 +235,18 @@ public class LocationBasedCountryDetector extends CountryDetectorBase {
      * Start a new thread to query the country from Geocoder.
      */
     private synchronized void queryCountryCode(final Location location) {
+        if (location == null) {
+            notifyListener(null);
+            return;
+        }
         if (mQueryThread != null) return;
         mQueryThread = new Thread(new Runnable() {
             @Override
             public void run() {
-                if (location == null) {
-                    notifyListener(null);
-                    return;
+                String countryIso = null;
+                if (location != null) {
+                    countryIso = getCountryFromLocation(location);
                 }
-                String countryIso = getCountryFromLocation(location);
                 if (countryIso != null) {
                     mDetectedCountry = new Country(countryIso, Country.COUNTRY_SOURCE_LOCATION);
                 } else {

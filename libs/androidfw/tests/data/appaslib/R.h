@@ -14,53 +14,39 @@
  * limitations under the License.
  */
 
-#ifndef DATA_APPASLIB_R_H_
-#define DATA_APPASLIB_R_H_
+#ifndef __APPASLIB_R_H
+#define __APPASLIB_R_H
 
-#include <cstdint>
-
-namespace com {
-namespace android {
 namespace appaslib {
-
+namespace R {
 namespace lib {
-
-struct R {
-  struct integer {
-    enum : uint32_t {
-      number1 = 0x02020000,  // default
+namespace integer {
+    enum {
+        number1     = 0x02020000,   // default
     };
-  };
+}
 
-  struct array {
-    enum : uint32_t {
-      integerArray1 = 0x02030000,  // default
+namespace array {
+    enum {
+        integerArray1 = 0x02030000,   // default
     };
-  };
-};
-
-}  // namespace lib
+}
+} // namespace lib
 
 namespace app {
-
-struct R {
-  struct integer {
-    enum : uint32_t {
-      number1 = 0x7f020000,  // default
+namespace integer {
+    enum {
+        number1     = 0x7f020000,     // default
     };
-  };
+}
 
-  struct array {
-    enum : uint32_t {
-      integerArray1 = 0x7f030000,  // default
+namespace array {
+    enum {
+        integerArray1 = 0x7f030000,   // default
     };
-  };
-};
+}
+} // namespace app
+} // namespace R
+} // namespace appaslib
 
-}  // namespace app
-
-}  // namespace appaslib
-}  // namespace android
-}  // namespace com
-
-#endif  // DATA_APPASLIB_R_H_
+#endif // __APPASLIB_R_H

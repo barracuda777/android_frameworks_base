@@ -17,14 +17,13 @@
 // in android.app so ContextImpl has package access
 package android.app;
 
-import android.app.job.IJobScheduler;
 import android.app.job.JobInfo;
 import android.app.job.JobScheduler;
-import android.app.job.JobSnapshot;
-import android.app.job.JobWorkItem;
+import android.app.job.IJobScheduler;
 import android.os.RemoteException;
 
 import java.util.List;
+
 
 /**
  * Concrete implementation of the JobScheduler interface
@@ -41,15 +40,6 @@ public class JobSchedulerImpl extends JobScheduler {
     public int schedule(JobInfo job) {
         try {
             return mBinder.schedule(job);
-        } catch (RemoteException e) {
-            return JobScheduler.RESULT_FAILURE;
-        }
-    }
-
-    @Override
-    public int enqueue(JobInfo job, JobWorkItem work) {
-        try {
-            return mBinder.enqueue(job, work);
         } catch (RemoteException e) {
             return JobScheduler.RESULT_FAILURE;
         }
@@ -83,7 +73,7 @@ public class JobSchedulerImpl extends JobScheduler {
     @Override
     public List<JobInfo> getAllPendingJobs() {
         try {
-            return mBinder.getAllPendingJobs().getList();
+            return mBinder.getAllPendingJobs();
         } catch (RemoteException e) {
             return null;
         }
@@ -93,24 +83,6 @@ public class JobSchedulerImpl extends JobScheduler {
     public JobInfo getPendingJob(int jobId) {
         try {
             return mBinder.getPendingJob(jobId);
-        } catch (RemoteException e) {
-            return null;
-        }
-    }
-
-    @Override
-    public List<JobInfo> getStartedJobs() {
-        try {
-            return mBinder.getStartedJobs();
-        } catch (RemoteException e) {
-            return null;
-        }
-    }
-
-    @Override
-    public List<JobSnapshot> getAllJobSnapshots() {
-        try {
-            return mBinder.getAllJobSnapshots().getList();
         } catch (RemoteException e) {
             return null;
         }

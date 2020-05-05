@@ -16,15 +16,17 @@
 
 package android.widget.scroll;
 
+import android.test.suitebuilder.annotation.Suppress;
+import android.widget.scroll.ScrollViewButtonsAndLabels;
+
 import android.test.ActivityInstrumentationTestCase;
-import android.view.KeyEvent;
+import android.test.suitebuilder.annotation.LargeTest;
+import android.test.suitebuilder.annotation.MediumTest;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.view.KeyEvent;
 
-import androidx.test.filters.LargeTest;
-import androidx.test.filters.MediumTest;
-import androidx.test.filters.Suppress;
 
 public class ScrollViewButtonsAndLabelsTest
         extends ActivityInstrumentationTestCase<ScrollViewButtonsAndLabels> {
@@ -66,9 +68,6 @@ public class ScrollViewButtonsAndLabelsTest
 
         int offScreenIndex = findFirstButtonOffScreenTop2Bottom();
         Button firstButtonOffScreen = getActivity().getButton(offScreenIndex);
-
-        getActivity().runOnUiThread(() -> getActivity().getButton(0).requestFocus());
-        getInstrumentation().waitForIdleSync();
 
         for (int i = 0; i < offScreenIndex; i++) {
             sendKeys(KeyEvent.KEYCODE_DPAD_DOWN);

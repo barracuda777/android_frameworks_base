@@ -19,12 +19,24 @@
 */
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="wifi_security_short_wep">WEP</string>
+    <string name="wifi_security_short_wpa">WPA</string>
+    <string name="wifi_security_short_wpa2">WPA2</string>
+    <string name="wifi_security_short_wpa_wpa2">WPA/WPA2</string>
+    <string name="wifi_security_short_psk_generic">@string/wifi_security_short_wpa_wpa2</string>
+    <string name="wifi_security_short_eap">802.1x</string>
+    <string name="wifi_security_wep">WEP</string>
+    <string name="wifi_security_wpa">WPA PSK</string>
+    <string name="wifi_security_wpa2">WPA2 PSK</string>
+    <string name="wifi_security_wpa_wpa2">WPA/WPA2 PSK</string>
+    <string name="wifi_security_psk_generic">@string/wifi_security_wpa_wpa2</string>
+    <string name="wifi_security_eap">802.1x EAP</string>
+    <string name="wifi_security_passpoint">Passpoint</string>
     <string name="wifi_remembered">Konservita</string>
-    <string name="wifi_disconnected">Malkonektita</string>
     <string name="bluetooth_disconnected">Malkonektita</string>
+    <string name="bluetooth_connected">Konektita</string>
     <string name="bluetooth_pairing_decline">Nuligi</string>
     <string name="data_usage_uninstalled_apps">Forigitaj aplikaĵoj</string>
     <string name="data_usage_uninstalled_apps_users">Forigitaj aplikaĵoj kaj uzantoj</string>
     <string name="user_guest">Gasto</string>
-    <string name="cancel">Nuligi</string>
 </resources>

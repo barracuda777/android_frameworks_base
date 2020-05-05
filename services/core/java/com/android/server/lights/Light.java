@@ -17,42 +17,31 @@
 
 package com.android.server.lights;
 
-import android.hardware.light.V2_0.Brightness;
-import android.hardware.light.V2_0.Flash;
-
 public abstract class Light {
-    public static final int LIGHT_FLASH_NONE = Flash.NONE;
-    public static final int LIGHT_FLASH_TIMED = Flash.TIMED;
-    public static final int LIGHT_FLASH_HARDWARE = Flash.HARDWARE;
+    public static final int LIGHT_FLASH_NONE = 0;
+    public static final int LIGHT_FLASH_TIMED = 1;
+    public static final int LIGHT_FLASH_HARDWARE = 2;
 
     /**
      * Light brightness is managed by a user setting.
      */
-    public static final int BRIGHTNESS_MODE_USER = Brightness.USER;
+    public static final int BRIGHTNESS_MODE_USER = 0;
 
     /**
      * Light brightness is managed by a light sensor.
      */
-    public static final int BRIGHTNESS_MODE_SENSOR = Brightness.SENSOR;
+    public static final int BRIGHTNESS_MODE_SENSOR = 1;
 
     /**
      * Low-persistence light mode.
      */
-    public static final int BRIGHTNESS_MODE_LOW_PERSISTENCE = Brightness.LOW_PERSISTENCE;
+    public static final int BRIGHTNESS_MODE_LOW_PERSISTENCE = 2;
 
-    /**
-     * Set the brightness of a display.
-     */
     public abstract void setBrightness(int brightness);
-
-    /**
-     * Set the brightness and mode of a display.
-     */
     public abstract void setBrightness(int brightness, int brightnessMode);
-
     public abstract void setColor(int color);
     public abstract void setFlashing(int color, int mode, int onMS, int offMS);
-    public abstract void setModes(int brightnessLevel);
+    public abstract void setModes(int brightnessLevel, boolean multipleLeds);
     public abstract void pulse();
     public abstract void pulse(int color, int onMS);
     public abstract void turnOff();

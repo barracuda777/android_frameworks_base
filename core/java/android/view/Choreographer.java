@@ -16,15 +16,7 @@
 
 package android.view;
 
-import static android.view.DisplayEventReceiver.CONFIG_CHANGED_EVENT_SUPPRESS;
-import static android.view.DisplayEventReceiver.VSYNC_SOURCE_APP;
-import static android.view.DisplayEventReceiver.VSYNC_SOURCE_SURFACE_FLINGER;
-
-import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
-import android.graphics.FrameInfo;
 import android.hardware.display.DisplayManagerGlobal;
-import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -110,31 +102,11 @@ public final class Choreographer {
             if (looper == null) {
                 throw new IllegalStateException("The current thread must have a looper!");
             }
-            Choreographer choreographer = new Choreographer(looper, VSYNC_SOURCE_APP);
-            if (looper == Looper.getMainLooper()) {
-                mMainInstance = choreographer;
-            }
-            return choreographer;
+            return new Choreographer(looper);
         }
     };
 
-    private static volatile Choreographer mMainInstance;
-
-    // Thread local storage for the SF choreographer.
-    private static final ThreadLocal<Choreographer> sSfThreadInstance =
-            new ThreadLocal<Choreographer>() {
-                @Override
-                protected Choreographer initialValue() {
-                    Looper looper = Looper.myLooper();
-                    if (looper == null) {
-                        throw new IllegalStateException("The current thread must have a looper!");
-                    }
-                    return new Choreographer(looper, VSYNC_SOURCE_SURFACE_FLINGER);
-                }
-            };
-
     // Enable/disable vsync for animations and drawing.
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 123769497)
     private static final boolean USE_VSYNC = SystemProperties.getBoolean(
             "debug.choreographer.vsync", true);
 
@@ -156,7 +128,6 @@ public final class Choreographer {
         public String toString() { return "FRAME_CALLBACK_TOKEN"; }
     };
 
-    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     private final Object mLock = new Object();
 
     private final Looper mLooper;
@@ -165,22 +136,17 @@ public final class Choreographer {
     // The display event receiver can only be accessed by the looper thread to which
     // it is attached.  We take care to ensure that we post message to the looper
     // if appropriate when interacting with the display event receiver.
-    @UnsupportedAppUsage
     private final FrameDisplayEventReceiver mDisplayEventReceiver;
 
     private CallbackRecord mCallbackPool;
 
-    @UnsupportedAppUsage
     private final CallbackQueue[] mCallbackQueues;
 
     private boolean mFrameScheduled;
     private boolean mCallbacksRunning;
-    @UnsupportedAppUsage
     private long mLastFrameTimeNanos;
-    @UnsupportedAppUsage
     private long mFrameIntervalNanos;
     private boolean mDebugPrintNextFrameTimeDelta;
-    private int mFPSDivisor = 1;
 
     /**
      * Contains information about the current frame for jank-tracking,
@@ -200,7 +166,7 @@ public final class Choreographer {
      * @hide
      */
     private static final String[] CALLBACK_TRACE_TITLES = {
-            "input", "animation", "insets_animation", "traversal", "commit"
+            "input", "animation", "traversal", "commit"
     };
 
     /**
@@ -210,33 +176,17 @@ public final class Choreographer {
     public static final int CALLBACK_INPUT = 0;
 
     /**
-     * Callback type: Animation callback.  Runs before {@link #CALLBACK_INSETS_ANIMATION}.
+     * Callback type: Animation callback.  Runs before traversals.
      * @hide
      */
-    @TestApi
     public static final int CALLBACK_ANIMATION = 1;
-
-    /**
-     * Callback type: Animation callback to handle inset updates. This is separate from
-     * {@link #CALLBACK_ANIMATION} as we need to "gather" all inset animation updates via
-     * {@link WindowInsetsAnimationController#changeInsets} for multiple ongoing animations but then
-     * update the whole view system with a single callback to {@link View#dispatchWindowInsetsAnimationProgress}
-     * that contains all the combined updated insets.
-     * <p>
-     * Both input and animation may change insets, so we need to run this after these callbacks, but
-     * before traversals.
-     * <p>
-     * Runs before traversals.
-     * @hide
-     */
-    public static final int CALLBACK_INSETS_ANIMATION = 2;
 
     /**
      * Callback type: Traversal callback.  Handles layout and draw.  Runs
      * after all other asynchronous messages have been handled.
      * @hide
      */
-    public static final int CALLBACK_TRAVERSAL = 3;
+    public static final int CALLBACK_TRAVERSAL = 2;
 
     /**
      * Callback type: Commit callback.  Handles post-draw operations for the frame.
@@ -248,16 +198,14 @@ public final class Choreographer {
      * to the view hierarchy state) actually took effect.
      * @hide
      */
-    public static final int CALLBACK_COMMIT = 4;
+    public static final int CALLBACK_COMMIT = 3;
 
     private static final int CALLBACK_LAST = CALLBACK_COMMIT;
 
-    private Choreographer(Looper looper, int vsyncSource) {
+    private Choreographer(Looper looper) {
         mLooper = looper;
         mHandler = new FrameHandler(looper);
-        mDisplayEventReceiver = USE_VSYNC
-                ? new FrameDisplayEventReceiver(looper, vsyncSource)
-                : null;
+        mDisplayEventReceiver = USE_VSYNC ? new FrameDisplayEventReceiver(looper) : null;
         mLastFrameTimeNanos = Long.MIN_VALUE;
 
         mFrameIntervalNanos = (long)(1000000000 / getRefreshRate());
@@ -266,8 +214,6 @@ public final class Choreographer {
         for (int i = 0; i <= CALLBACK_LAST; i++) {
             mCallbackQueues[i] = new CallbackQueue();
         }
-        // b/68769804: For low FPS experiments.
-        setFPSDivisor(SystemProperties.getInt(ThreadedRenderer.DEBUG_FPS_DIVISOR, 1));
     }
 
     private static float getRefreshRate() {
@@ -285,22 +231,6 @@ public final class Choreographer {
      */
     public static Choreographer getInstance() {
         return sThreadInstance.get();
-    }
-
-    /**
-     * @hide
-     */
-    @UnsupportedAppUsage
-    public static Choreographer getSfInstance() {
-        return sSfThreadInstance.get();
-    }
-
-    /**
-     * @return The Choreographer of the main thread, if it exists, or {@code null} otherwise.
-     * @hide
-     */
-    public static Choreographer getMainThreadInstance() {
-        return mMainInstance;
     }
 
     /** Destroys the calling thread's choreographer
@@ -331,7 +261,6 @@ public final class Choreographer {
      * @return the requested time between frames, in milliseconds
      * @hide
      */
-    @TestApi
     public static long getFrameDelay() {
         return sFrameDelay;
     }
@@ -351,7 +280,6 @@ public final class Choreographer {
      * @param frameDelay the requested time between frames, in milliseconds
      * @hide
      */
-    @TestApi
     public static void setFrameDelay(long frameDelay) {
         sFrameDelay = frameDelay;
     }
@@ -413,7 +341,6 @@ public final class Choreographer {
      * @see #removeCallbacks
      * @hide
      */
-    @TestApi
     public void postCallback(int callbackType, Runnable action, Object token) {
         postCallbackDelayed(callbackType, action, token, 0);
     }
@@ -432,7 +359,6 @@ public final class Choreographer {
      * @see #removeCallback
      * @hide
      */
-    @TestApi
     public void postCallbackDelayed(int callbackType,
             Runnable action, Object token, long delayMillis) {
         if (action == null) {
@@ -482,7 +408,6 @@ public final class Choreographer {
      * @see #postCallbackDelayed
      * @hide
      */
-    @TestApi
     public void removeCallbacks(int callbackType, Runnable action, Object token) {
         if (callbackType < 0 || callbackType > CALLBACK_LAST) {
             throw new IllegalArgumentException("callbackType is invalid");
@@ -582,7 +507,6 @@ public final class Choreographer {
      * @throws IllegalStateException if no frame is in progress.
      * @hide
      */
-    @UnsupportedAppUsage
     public long getFrameTime() {
         return getFrameTimeNanos() / TimeUtils.NANOS_PER_MS;
     }
@@ -595,25 +519,12 @@ public final class Choreographer {
      * @throws IllegalStateException if no frame is in progress.
      * @hide
      */
-    @UnsupportedAppUsage
     public long getFrameTimeNanos() {
         synchronized (mLock) {
             if (!mCallbacksRunning) {
                 throw new IllegalStateException("This method must only be called as "
                         + "part of a callback while a frame is in progress.");
             }
-            return USE_FRAME_TIME ? mLastFrameTimeNanos : System.nanoTime();
-        }
-    }
-
-    /**
-     * Like {@link #getLastFrameTimeNanos}, but always returns the last frame time, not matter
-     * whether callbacks are currently running.
-     * @return The frame start time of the last frame, in the {@link System#nanoTime()} time base.
-     * @hide
-     */
-    public long getLastFrameTimeNanos() {
-        synchronized (mLock) {
             return USE_FRAME_TIME ? mLastFrameTimeNanos : System.nanoTime();
         }
     }
@@ -649,13 +560,6 @@ public final class Choreographer {
         }
     }
 
-    void setFPSDivisor(int divisor) {
-        if (divisor <= 0) divisor = 1;
-        mFPSDivisor = divisor;
-        ThreadedRenderer.setFPSDivisor(divisor);
-    }
-
-    @UnsupportedAppUsage
     void doFrame(long frameTimeNanos, int frame) {
         final long startNanos;
         synchronized (mLock) {
@@ -698,14 +602,6 @@ public final class Choreographer {
                 return;
             }
 
-            if (mFPSDivisor > 1) {
-                long timeSinceVsync = frameTimeNanos - mLastFrameTimeNanos;
-                if (timeSinceVsync < (mFrameIntervalNanos * mFPSDivisor) && timeSinceVsync > 0) {
-                    scheduleVsyncLocked();
-                    return;
-                }
-            }
-
             mFrameInfo.setVsync(intendedFrameTimeNanos, frameTimeNanos);
             mFrameScheduled = false;
             mLastFrameTimeNanos = frameTimeNanos;
@@ -720,7 +616,6 @@ public final class Choreographer {
 
             mFrameInfo.markAnimationsStart();
             doCallbacks(Choreographer.CALLBACK_ANIMATION, frameTimeNanos);
-            doCallbacks(Choreographer.CALLBACK_INSETS_ANIMATION, frameTimeNanos);
 
             mFrameInfo.markPerformTraversalsStart();
             doCallbacks(Choreographer.CALLBACK_TRAVERSAL, frameTimeNanos);
@@ -822,7 +717,6 @@ public final class Choreographer {
         }
     }
 
-    @UnsupportedAppUsage
     private void scheduleVsyncLocked() {
         mDisplayEventReceiver.scheduleVsync();
     }
@@ -910,15 +804,29 @@ public final class Choreographer {
         private long mTimestampNanos;
         private int mFrame;
 
-        public FrameDisplayEventReceiver(Looper looper, int vsyncSource) {
-            super(looper, vsyncSource, CONFIG_CHANGED_EVENT_SUPPRESS);
+        public FrameDisplayEventReceiver(Looper looper) {
+            super(looper);
         }
 
-        // TODO(b/116025192): physicalDisplayId is ignored because SF only emits VSYNC events for
-        // the internal display and DisplayEventReceiver#scheduleVsync only allows requesting VSYNC
-        // for the internal display implicitly.
         @Override
-        public void onVsync(long timestampNanos, long physicalDisplayId, int frame) {
+        public void onVsync(long timestampNanos, int builtInDisplayId, int frame) {
+            // Ignore vsync from secondary display.
+            // This can be problematic because the call to scheduleVsync() is a one-shot.
+            // We need to ensure that we will still receive the vsync from the primary
+            // display which is the one we really care about.  Ideally we should schedule
+            // vsync for a particular display.
+            // At this time Surface Flinger won't send us vsyncs for secondary displays
+            // but that could change in the future so let's log a message to help us remember
+            // that we need to fix this.
+            if (builtInDisplayId != SurfaceControl.BUILT_IN_DISPLAY_ID_MAIN) {
+                Log.d(TAG, "Received vsync from secondary display, but we don't support "
+                        + "this case yet.  Choreographer needs a way to explicitly request "
+                        + "vsync for a specific display to ensure it doesn't lose track "
+                        + "of its scheduled vsync.");
+                scheduleVsync();
+                return;
+            }
+
             // Post the vsync event to the Handler.
             // The idea is to prevent incoming vsync events from completely starving
             // the message queue.  If there are no messages in the queue with timestamps
@@ -959,7 +867,6 @@ public final class Choreographer {
         public Object action; // Runnable or FrameCallback
         public Object token;
 
-        @UnsupportedAppUsage
         public void run(long frameTimeNanos) {
             if (token == FRAME_CALLBACK_TOKEN) {
                 ((FrameCallback)action).doFrame(frameTimeNanos);
@@ -996,7 +903,6 @@ public final class Choreographer {
             return callbacks;
         }
 
-        @UnsupportedAppUsage
         public void addCallbackLocked(long dueTime, Object action, Object token) {
             CallbackRecord callback = obtainCallbackLocked(dueTime, action, token);
             CallbackRecord entry = mHead;

@@ -17,12 +17,11 @@
 package android.widget.listview.arrowscroll;
 
 import android.test.ActivityInstrumentationTestCase;
-import android.view.KeyEvent;
-import android.view.View;
+import android.test.suitebuilder.annotation.MediumTest;
 import android.widget.ListView;
+import android.view.View;
+import android.view.KeyEvent;
 import android.widget.listview.ListLastItemPartiallyVisible;
-
-import androidx.test.filters.MediumTest;
 
 public class ListLastItemPartiallyVisibleTest extends ActivityInstrumentationTestCase<ListLastItemPartiallyVisible> {
     private ListView mListView;

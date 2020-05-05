@@ -18,7 +18,7 @@
 #define _ANDROID_UTIL_LOG_H
 
 #include <jni.h>
-#include <nativehelper/JNIHelp.h>
+#include <JNIHelp.h>
 
 
 namespace android {

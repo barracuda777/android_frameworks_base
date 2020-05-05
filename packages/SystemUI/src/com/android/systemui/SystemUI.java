@@ -24,9 +24,8 @@ import android.os.Bundle;
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.util.Map;
-import java.util.function.Function;
 
-public abstract class SystemUI implements SysUiServiceProvider {
+public abstract class SystemUI {
     public Context mContext;
     public Map<Class<?>, Object> mComponents;
 
@@ -52,17 +51,11 @@ public abstract class SystemUI implements SysUiServiceProvider {
         }
     }
 
-    public static void overrideNotificationAppName(Context context, Notification.Builder n,
-            boolean system) {
+    public static void overrideNotificationAppName(Context context, Notification.Builder n) {
         final Bundle extras = new Bundle();
-        String appName = system
-                ? context.getString(com.android.internal.R.string.notification_app_name_system)
-                : context.getString(com.android.internal.R.string.notification_app_name_settings);
-        extras.putString(Notification.EXTRA_SUBSTITUTE_APP_NAME, appName);
+        extras.putString(Notification.EXTRA_SUBSTITUTE_APP_NAME,
+                context.getString(com.android.internal.R.string.android_system_label));
 
         n.addExtras(extras);
-    }
-
-    public interface Injector extends Function<Context, SystemUI> {
     }
 }

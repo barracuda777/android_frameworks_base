@@ -37,7 +37,8 @@
     <string name="save_as_pdf">Cadw fel PDF</string>
     <string name="all_printers">Pob argraffydd…</string>
     <string name="print_dialog">Deialog argraffu</string>
-    <string name="current_page_template"><xliff:g id="current_page">%1$d</xliff:g>/<xliff:g id="page_count">%2$d</xliff:g></string>
+    <string name="current_page_template"><xliff:g id="current_page">%1$d</xliff:g>
+        /<xliff:g id="page_count">%2$d</xliff:g></string>
     <string name="page_description_template">Tudalen <xliff:g id="current_page" example="1">%1$d</xliff:g> o <xliff:g id="page_count" example="100">%2$d</xliff:g></string>
     <string name="summary_template">Crynodeb, copïau <xliff:g id="copies" example="1">%1$s </xliff:g>, maint papur <xliff:g id="paper_size" example="A4">%2$s </xliff:g></string>
     <string name="expand_handle">Dolen ehangu</string>
@@ -64,8 +65,6 @@
     </plurals>
     <string name="printer_extended_description_template"><xliff:g id="print_service_label" example="Canon Print Service">%1$s</xliff:g> - <xliff:g id="printer_description" example="Printer under the stairs">%2$s</xliff:g></string>
     <string name="printer_info_desc">Rhagor o wybodaeth am yr argraffydd</string>
-    <string name="notification_channel_progress">Tasgau argraffu ar y gweill</string>
-    <string name="notification_channel_failure">Tasgau argraffu wedi methu</string>
     <string name="could_not_create_file">Methwyd â chreu ffeil</string>
     <string name="print_services_disabled_toast">Mae rhai gwasanaethau argraffu wedi eu hanalluogi.</string>
     <string name="print_searching_for_printers">Chwilio am beiriannau argraffu</string>

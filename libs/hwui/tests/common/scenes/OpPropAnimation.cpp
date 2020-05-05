@@ -20,8 +20,10 @@
 class OpPropAnimation;
 
 static TestScene::Registrar _Shapes(TestScene::Info{
-        "opprops", "A minimal demonstration of CanvasProperty drawing operations.",
-        TestScene::simpleCreateScene<OpPropAnimation>});
+    "opprops",
+    "A minimal demonstration of CanvasProperty drawing operations.",
+    TestScene::simpleCreateScene<OpPropAnimation>
+});
 
 class OpPropAnimation : public TestScene {
 public:
@@ -39,10 +41,9 @@ public:
     sp<CanvasPropertyPrimitive> mCircleRadius = new CanvasPropertyPrimitive(0);
 
     sp<RenderNode> content;
-    void createContent(int width, int height, Canvas& canvas) override {
-        content = TestUtils::createNode(0, 0, width, height, [this, width, height](
-                                                                     RenderProperties& props,
-                                                                     Canvas& canvas) {
+    void createContent(int width, int height, TestCanvas& canvas) override {
+        content = TestUtils::createNode(0, 0, width, height,
+                [this, width, height](RenderProperties& props, TestCanvas& canvas) {
             mPaint->value.setAntiAlias(true);
             mPaint->value.setColor(Color::Blue_500);
 
@@ -52,10 +53,10 @@ public:
             mCircleX->value = width * 0.75;
             mCircleY->value = height * 0.75;
 
-            canvas.drawColor(Color::White, SkBlendMode::kSrcOver);
-            canvas.drawRoundRect(mRoundRectLeft.get(), mRoundRectTop.get(), mRoundRectRight.get(),
-                                 mRoundRectBottom.get(), mRoundRectRx.get(), mRoundRectRy.get(),
-                                 mPaint.get());
+            canvas.drawColor(Color::White, SkXfermode::Mode::kSrcOver_Mode);
+            canvas.drawRoundRect(mRoundRectLeft.get(), mRoundRectTop.get(),
+                    mRoundRectRight.get(), mRoundRectBottom.get(),
+                    mRoundRectRx.get(), mRoundRectRy.get(), mPaint.get());
             canvas.drawCircle(mCircleX.get(), mCircleY.get(), mCircleRadius.get(), mPaint.get());
         });
         canvas.drawRenderNode(content.get());

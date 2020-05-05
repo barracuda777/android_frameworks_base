@@ -37,12 +37,9 @@ public:
 };
 
 struct JDrm : public BnDrmClient {
-    static status_t IsCryptoSchemeSupported(const uint8_t uuid[16],
-                                            const String8 &mimeType,
-                                            DrmPlugin::SecurityLevel level,
-                                            bool *isSupported);
+    static bool IsCryptoSchemeSupported(const uint8_t uuid[16], const String8 &mimeType);
 
-    JDrm(JNIEnv *env, jobject thiz, const uint8_t uuid[16], const String8 &appPackageName);
+    JDrm(JNIEnv *env, jobject thiz, const uint8_t uuid[16]);
 
     status_t initCheck() const;
     sp<IDrm> getDrm() { return mDrm; }
@@ -64,7 +61,7 @@ private:
     Mutex mLock;
 
     static sp<IDrm> MakeDrm();
-    static sp<IDrm> MakeDrm(const uint8_t uuid[16], const String8 &appPackageName);
+    static sp<IDrm> MakeDrm(const uint8_t uuid[16]);
 
     DISALLOW_EVIL_CONSTRUCTORS(JDrm);
 };

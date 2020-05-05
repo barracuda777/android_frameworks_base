@@ -19,7 +19,8 @@ package android.view;
 import android.app.Activity;
 import android.os.Bundle;
 import android.widget.TextView;
-
+import android.view.View;
+import android.view.ViewTreeObserver;
 import com.android.frameworks.coretests.R;
 
 /**

@@ -49,13 +49,12 @@ public:
     Bundle(void)
         : mCmd(kCommandUnknown), mVerbose(false), mAndroidList(false),
           mForce(false), mGrayscaleTolerance(0), mMakePackageDirs(false),
-          mUpdate(false), mExtending(false),
+          mUpdate(false), mExtending(false), mExtendedPackageId(0),
           mRequireLocalization(false), mPseudolocalize(NO_PSEUDOLOCALIZATION),
           mWantUTF16(false), mValues(false), mIncludeMetaData(false),
           mCompressionMethod(0), mJunkPath(false), mOutputAPKFile(NULL),
           mManifestPackageNameOverride(NULL), mInstrumentationPackageNameOverride(NULL),
           mAutoAddOverlay(false), mGenDependencies(false), mNoVersionVectors(false),
-          mNoVersionTransitions(false),
           mCrunchedOutputDir(NULL), mProguardFile(NULL), mMainDexProguardFile(NULL),
           mAndroidManifestFile(NULL), mPublicOutputFile(NULL),
           mRClassDir(NULL), mResourceIntermediatesDir(NULL), mManifestMinSdkVersion(NULL),
@@ -68,7 +67,6 @@ public:
           mSingleCrunchInputFile(NULL), mSingleCrunchOutputFile(NULL),
           mBuildSharedLibrary(false),
           mBuildAppAsSharedLibrary(false),
-          mCompileSdkVersion(0),
           mArgc(0), mArgv(NULL)
         {}
     ~Bundle(void) {}
@@ -97,6 +95,8 @@ public:
     void setUpdate(bool val) { mUpdate = val; }
     bool getExtending(void) const { return mExtending; }
     void setExtending(bool val) { mExtending = val; }
+    int getExtendedPackageId(void) const { return mExtendedPackageId; }
+    void setExtendedPackageId(int val) { mExtendedPackageId = val; }
     bool getRequireLocalization(void) const { return mRequireLocalization; }
     void setRequireLocalization(bool val) { mRequireLocalization = val; }
     short getPseudolocalize(void) const { return mPseudolocalize; }
@@ -124,10 +124,6 @@ public:
     void setErrorOnFailedInsert(bool val) { mErrorOnFailedInsert = val; }
     bool getErrorOnMissingConfigEntry() { return mErrorOnMissingConfigEntry; }
     void setErrorOnMissingConfigEntry(bool val) { mErrorOnMissingConfigEntry = val; }
-    const android::String8& getCompileSdkVersionCodename() { return mCompileSdkVersionCodename; }
-    void setCompileSdkVersionCodename(const android::String8& codename) { mCompileSdkVersionCodename = codename; }
-    int getCompileSdkVersion() { return mCompileSdkVersion; }
-    void setCompileSdkVersion(int version) { mCompileSdkVersion = version; }
     const android::String8& getPlatformBuildVersionCode() { return mPlatformVersionCode; }
     void setPlatformBuildVersionCode(const android::String8& code) { mPlatformVersionCode = code; }
     const android::String8& getPlatformBuildVersionName() { return mPlatformVersionName; }
@@ -225,8 +221,6 @@ public:
     void setBuildAppAsSharedLibrary(bool val) { mBuildAppAsSharedLibrary = val; }
     void setNoVersionVectors(bool val) { mNoVersionVectors = val; }
     bool getNoVersionVectors() const { return mNoVersionVectors; }
-    void setNoVersionTransitions(bool val) { mNoVersionTransitions = val; }
-    bool getNoVersionTransitions() const { return mNoVersionTransitions; }
 
     /*
      * Set and get the file specification.
@@ -294,6 +288,7 @@ private:
     bool        mMakePackageDirs;
     bool        mUpdate;
     bool        mExtending;
+    int         mExtendedPackageId;
     bool        mRequireLocalization;
     short       mPseudolocalize;
     bool        mWantUTF16;
@@ -307,7 +302,6 @@ private:
     bool        mAutoAddOverlay;
     bool        mGenDependencies;
     bool        mNoVersionVectors;
-    bool        mNoVersionTransitions;
     const char* mCrunchedOutputDir;
     const char* mProguardFile;
     const char* mMainDexProguardFile;
@@ -349,8 +343,6 @@ private:
     const char* mSingleCrunchOutputFile;
     bool        mBuildSharedLibrary;
     bool        mBuildAppAsSharedLibrary;
-    int         mCompileSdkVersion;
-    android::String8 mCompileSdkVersionCodename;
     android::String8 mPlatformVersionCode;
     android::String8 mPlatformVersionName;
     android::String8 mPrivateSymbolsPackage;

@@ -16,10 +16,7 @@
 
 package android.media.audiopolicy;
 
-import android.annotation.NonNull;
 import android.annotation.SystemApi;
-import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
 import android.media.AudioAttributes;
 import android.os.Parcel;
 import android.util.Log;
@@ -42,15 +39,12 @@ import java.util.Objects;
  *         .build();
  * </pre>
  */
-@TestApi
 @SystemApi
 public class AudioMixingRule {
 
-    private AudioMixingRule(int mixType, ArrayList<AudioMixMatchCriterion> criteria,
-                            boolean allowPrivilegedPlaybackCapture) {
+    private AudioMixingRule(int mixType, ArrayList<AudioMixMatchCriterion> criteria) {
         mCriteria = criteria;
         mTargetMixType = mixType;
-        mAllowPrivilegedPlaybackCapture = allowPrivilegedPlaybackCapture;
     }
 
     /**
@@ -59,6 +53,7 @@ public class AudioMixingRule {
      * {@link Builder#addMixRule(int, Object)} where the Object parameter is an instance of
      * {@link AudioAttributes}.
      */
+    @SystemApi
     public static final int RULE_MATCH_ATTRIBUTE_USAGE = 0x1;
     /**
      * A rule requiring the capture preset information of the {@link AudioAttributes} to match.
@@ -66,12 +61,14 @@ public class AudioMixingRule {
      * {@link Builder#addMixRule(int, Object)} where the Object parameter is an instance of
      * {@link AudioAttributes}.
      */
+    @SystemApi
     public static final int RULE_MATCH_ATTRIBUTE_CAPTURE_PRESET = 0x1 << 1;
     /**
      * A rule requiring the UID of the audio stream to match that specified.
      * This mixing rule can be added with {@link Builder#addMixRule(int, Object)} where the Object
      * parameter is an instance of {@link java.lang.Integer}.
      */
+    @SystemApi
     public static final int RULE_MATCH_UID = 0x1 << 2;
 
     private final static int RULE_EXCLUSION_MASK = 0x8000;
@@ -94,13 +91,9 @@ public class AudioMixingRule {
     public static final int RULE_EXCLUDE_UID =
             RULE_EXCLUSION_MASK | RULE_MATCH_UID;
 
-    /** @hide */
-    public static final class AudioMixMatchCriterion {
-        @UnsupportedAppUsage
+    static final class AudioMixMatchCriterion {
         final AudioAttributes mAttr;
-        @UnsupportedAppUsage
         final int mIntProp;
-        @UnsupportedAppUsage
         final int mRule;
 
         /** input parameters must be valid */
@@ -140,61 +133,16 @@ public class AudioMixingRule {
                 dest.writeInt(-1);
             }
         }
-
-        public AudioAttributes getAudioAttributes() { return mAttr; }
-        public int getIntProp() { return mIntProp; }
-        public int getRule() { return mRule; }
-    }
-
-    boolean isAffectingUsage(int usage) {
-        for (AudioMixMatchCriterion criterion : mCriteria) {
-            if ((criterion.mRule & RULE_MATCH_ATTRIBUTE_USAGE) != 0
-                    && criterion.mAttr != null
-                    && criterion.mAttr.getUsage() == usage) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean areCriteriaEquivalent(ArrayList<AudioMixMatchCriterion> cr1,
-            ArrayList<AudioMixMatchCriterion> cr2) {
-        if (cr1 == null || cr2 == null) return false;
-        if (cr1 == cr2) return true;
-        if (cr1.size() != cr2.size()) return false;
-        //TODO iterate over rules to check they contain the same criterion
-        return (cr1.hashCode() == cr2.hashCode());
     }
 
     private final int mTargetMixType;
     int getTargetMixType() { return mTargetMixType; }
-    @UnsupportedAppUsage
     private final ArrayList<AudioMixMatchCriterion> mCriteria;
-    /** @hide */
-    public ArrayList<AudioMixMatchCriterion> getCriteria() { return mCriteria; }
-    @UnsupportedAppUsage
-    private boolean mAllowPrivilegedPlaybackCapture = false;
-
-    /** @hide */
-    public boolean allowPrivilegedPlaybackCapture() {
-        return mAllowPrivilegedPlaybackCapture;
-    }
-
-    /** @hide */
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
-        final AudioMixingRule that = (AudioMixingRule) o;
-        return (this.mTargetMixType == that.mTargetMixType)
-                && (areCriteriaEquivalent(this.mCriteria, that.mCriteria)
-                && this.mAllowPrivilegedPlaybackCapture == that.mAllowPrivilegedPlaybackCapture);
-    }
+    ArrayList<AudioMixMatchCriterion> getCriteria() { return mCriteria; }
 
     @Override
     public int hashCode() {
-        return Objects.hash(mTargetMixType, mCriteria, mAllowPrivilegedPlaybackCapture);
+        return Objects.hash(mTargetMixType, mCriteria);
     }
 
     private static boolean isValidSystemApiRule(int rule) {
@@ -255,14 +203,15 @@ public class AudioMixingRule {
     /**
      * Builder class for {@link AudioMixingRule} objects
      */
+    @SystemApi
     public static class Builder {
         private ArrayList<AudioMixMatchCriterion> mCriteria;
         private int mTargetMixType = AudioMix.MIX_TYPE_INVALID;
-        private boolean mAllowPrivilegedPlaybackCapture = false;
 
         /**
          * Constructs a new Builder with no rules.
          */
+        @SystemApi
         public Builder() {
             mCriteria = new ArrayList<AudioMixMatchCriterion>();
         }
@@ -277,6 +226,7 @@ public class AudioMixingRule {
          * @throws IllegalArgumentException
          * @see #excludeRule(AudioAttributes, int)
          */
+        @SystemApi
         public Builder addRule(AudioAttributes attrToMatch, int rule)
                 throws IllegalArgumentException {
             if (!isValidAttributesSystemApiRule(rule)) {
@@ -305,6 +255,7 @@ public class AudioMixingRule {
          * @throws IllegalArgumentException
          * @see #addRule(AudioAttributes, int)
          */
+        @SystemApi
         public Builder excludeRule(AudioAttributes attrToMatch, int rule)
                 throws IllegalArgumentException {
             if (!isValidAttributesSystemApiRule(rule)) {
@@ -326,6 +277,7 @@ public class AudioMixingRule {
          * @throws IllegalArgumentException
          * @see #excludeMixRule(int, Object)
          */
+        @SystemApi
         public Builder addMixRule(int rule, Object property) throws IllegalArgumentException {
             if (!isValidSystemApiRule(rule)) {
                 throw new IllegalArgumentException("Illegal rule value " + rule);
@@ -355,30 +307,12 @@ public class AudioMixingRule {
          * @return the same Builder instance.
          * @throws IllegalArgumentException
          */
+        @SystemApi
         public Builder excludeMixRule(int rule, Object property) throws IllegalArgumentException {
             if (!isValidSystemApiRule(rule)) {
                 throw new IllegalArgumentException("Illegal rule value " + rule);
             }
             return checkAddRuleObjInternal(rule | RULE_EXCLUSION_MASK, property);
-        }
-
-        /**
-         * Set if the audio of app that opted out of audio playback capture should be captured.
-         *
-         * Caller of this method with <code>true</code>, MUST abide to the restriction listed in
-         * {@link ALLOW_CAPTURE_BY_SYSTEM}, including but not limited to the captured audio
-         * can not leave the capturing app, and the quality is limited to 16k mono.
-         *
-         * The permission {@link CAPTURE_AUDIO_OUTPUT} or {@link CAPTURE_MEDIA_OUTPUT} is needed
-         * to ignore the opt-out.
-         *
-         * Only affects LOOPBACK|RENDER mix.
-         *
-         * @return the same Builder instance.
-         */
-        public @NonNull Builder allowPrivilegedPlaybackCapture(boolean allow) {
-            mAllowPrivilegedPlaybackCapture = allow;
-            return this;
         }
 
         /**
@@ -448,10 +382,6 @@ public class AudioMixingRule {
                 final int match_rule = rule & ~RULE_EXCLUSION_MASK;
                 while (crIterator.hasNext()) {
                     final AudioMixMatchCriterion criterion = crIterator.next();
-
-                    if ((criterion.mRule & ~RULE_EXCLUSION_MASK) != match_rule) {
-                        continue; // The two rules are not of the same type
-                    }
                     switch (match_rule) {
                         case RULE_MATCH_ATTRIBUTE_USAGE:
                             // "usage"-based rule
@@ -546,7 +476,7 @@ public class AudioMixingRule {
          * @return a new {@link AudioMixingRule} object
          */
         public AudioMixingRule build() {
-            return new AudioMixingRule(mTargetMixType, mCriteria, mAllowPrivilegedPlaybackCapture);
+            return new AudioMixingRule(mTargetMixType, mCriteria);
         }
     }
 }

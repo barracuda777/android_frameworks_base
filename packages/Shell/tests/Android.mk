@@ -6,17 +6,11 @@ LOCAL_MODULE_TAGS := tests
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_JAVA_LIBRARIES := android.test.runner android.test.base android.test.mock
+LOCAL_JAVA_LIBRARIES := android.test.runner
 
-LOCAL_STATIC_JAVA_LIBRARIES := \
-    androidx.test.rules \
-    mockito-target-minus-junit4 \
-    ub-uiautomator \
-    junit \
+LOCAL_STATIC_JAVA_LIBRARIES := ub-uiautomator
 
 LOCAL_PACKAGE_NAME := ShellTests
-LOCAL_PRIVATE_PLATFORM_APIS := true
-LOCAL_COMPATIBILITY_SUITE := device-tests
 LOCAL_INSTRUMENTATION_FOR := Shell
 
 LOCAL_CERTIFICATE := platform

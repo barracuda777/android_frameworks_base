@@ -33,17 +33,9 @@ import android.annotation.Nullable;
  *     return null;
  *   }
  * });
- * </pre>
+ * </pre></p>
  */
 public abstract class ServiceWorkerController {
-
-    /**
-     * @deprecated This class should not be constructed by applications, use {@link #getInstance()}
-     * instead to fetch the singleton instance.
-     */
-    // TODO(ntfschr): mark this as @SystemApi after a year.
-    @Deprecated
-    public ServiceWorkerController() {}
 
     /**
      * Returns the default ServiceWorkerController instance. At present there is

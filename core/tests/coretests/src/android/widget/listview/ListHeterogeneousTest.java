@@ -18,11 +18,12 @@ package android.widget.listview;
 
 import android.app.Instrumentation;
 import android.test.ActivityInstrumentationTestCase;
+import android.test.suitebuilder.annotation.LargeTest;
+import android.test.suitebuilder.annotation.MediumTest;
 import android.view.KeyEvent;
 import android.widget.ListView;
 
-import androidx.test.filters.LargeTest;
-import androidx.test.filters.MediumTest;
+import android.widget.listview.ListHeterogeneous;
 
 public class ListHeterogeneousTest extends ActivityInstrumentationTestCase<ListHeterogeneous> {
     private ListHeterogeneous mActivity;

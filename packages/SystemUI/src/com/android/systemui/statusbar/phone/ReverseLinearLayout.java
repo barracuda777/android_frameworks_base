@@ -16,12 +16,11 @@ package com.android.systemui.statusbar.phone;
 
 import android.annotation.Nullable;
 import android.content.Context;
+import android.content.res.Configuration;
 import android.util.AttributeSet;
-import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
-import android.widget.RelativeLayout;
 
 import java.util.ArrayList;
 
@@ -49,7 +48,7 @@ public class ReverseLinearLayout extends LinearLayout {
 
     @Override
     public void addView(View child) {
-        reverseParams(child.getLayoutParams(), child, mIsLayoutReverse);
+        reversParams(child.getLayoutParams());
         if (mIsLayoutReverse) {
             super.addView(child, 0);
         } else {
@@ -59,7 +58,7 @@ public class ReverseLinearLayout extends LinearLayout {
 
     @Override
     public void addView(View child, ViewGroup.LayoutParams params) {
-        reverseParams(params, child, mIsLayoutReverse);
+        reversParams(params);
         if (mIsLayoutReverse) {
             super.addView(child, 0, params);
         } else {
@@ -95,76 +94,19 @@ public class ReverseLinearLayout extends LinearLayout {
             }
             removeAllViews();
             for (int i = childCount - 1; i >= 0; i--) {
-                final View child = childList.get(i);
-                super.addView(child);
+                super.addView(childList.get(i));
             }
             mIsLayoutReverse = isLayoutReverse;
         }
     }
 
-    private static void reverseParams(ViewGroup.LayoutParams params, View child,
-            boolean isLayoutReverse) {
-        if (child instanceof Reversable) {
-            ((Reversable) child).reverse(isLayoutReverse);
-        }
-        if (child.getPaddingLeft() == child.getPaddingRight()
-                && child.getPaddingTop() == child.getPaddingBottom()) {
-            child.setPadding(child.getPaddingTop(), child.getPaddingLeft(),
-                    child.getPaddingTop(), child.getPaddingLeft());
-        }
+    private void reversParams(ViewGroup.LayoutParams params) {
         if (params == null) {
             return;
         }
         int width = params.width;
         params.width = params.height;
         params.height = width;
-    }
-
-    public interface Reversable {
-        void reverse(boolean isLayoutReverse);
-    }
-
-    public static class ReverseRelativeLayout extends RelativeLayout implements Reversable {
-
-        public ReverseRelativeLayout(Context context) {
-            super(context);
-        }
-
-        @Override
-        public void reverse(boolean isLayoutReverse) {
-            updateGravity(isLayoutReverse);
-            reverseGroup(this, isLayoutReverse);
-        }
-
-        private int mDefaultGravity = Gravity.NO_GRAVITY;
-        public void setDefaultGravity(int gravity) {
-            mDefaultGravity = gravity;
-        }
-
-        public void updateGravity(boolean isLayoutReverse) {
-            // Flip gravity if top of bottom is used
-            if (mDefaultGravity != Gravity.TOP && mDefaultGravity != Gravity.BOTTOM) return;
-
-            // Use the default (intended for 270 LTR and 90 RTL) unless layout is otherwise
-            int gravityToApply = mDefaultGravity;
-            if (isLayoutReverse) {
-                gravityToApply = mDefaultGravity == Gravity.TOP ? Gravity.BOTTOM : Gravity.TOP;
-            }
-
-            if (getGravity() != gravityToApply) setGravity(gravityToApply);
-        }
-    }
-    
-    private static void reverseGroup(ViewGroup group, boolean isLayoutReverse) {
-        for (int i = 0; i < group.getChildCount(); i++) {
-            final View child = group.getChildAt(i);
-            reverseParams(child.getLayoutParams(), child, isLayoutReverse);
-
-            // Recursively reverse all children
-            if (child instanceof ViewGroup) {
-                reverseGroup((ViewGroup) child, isLayoutReverse);
-            }
-        }
     }
 
 }

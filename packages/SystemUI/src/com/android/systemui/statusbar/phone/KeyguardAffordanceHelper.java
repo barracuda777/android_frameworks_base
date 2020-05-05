@@ -27,7 +27,7 @@ import android.view.ViewConfiguration;
 
 import com.android.systemui.Interpolators;
 import com.android.systemui.R;
-import com.android.systemui.plugins.FalsingManager;
+import com.android.systemui.classifier.FalsingManager;
 import com.android.systemui.statusbar.FlingAnimationUtils;
 import com.android.systemui.statusbar.KeyguardAffordanceView;
 
@@ -36,6 +36,7 @@ import com.android.systemui.statusbar.KeyguardAffordanceView;
  */
 public class KeyguardAffordanceHelper {
 
+    public static final float SWIPE_RESTING_ALPHA_AMOUNT = 0.5f;
     public static final long HINT_PHASE1_DURATION = 200;
     private static final long HINT_PHASE2_DURATION = 350;
     private static final float BACKGROUND_RADIUS_SCALE_FACTOR = 0.25f;
@@ -56,9 +57,10 @@ public class KeyguardAffordanceHelper {
     private int mMinFlingVelocity;
     private int mHintGrowAmount;
     private KeyguardAffordanceView mLeftIcon;
+    private KeyguardAffordanceView mCenterIcon;
     private KeyguardAffordanceView mRightIcon;
     private Animator mSwipeAnimator;
-    private final FalsingManager mFalsingManager;
+    private FalsingManager mFalsingManager;
     private int mMinBackgroundRadius;
     private boolean mMotionCancelled;
     private int mTouchTargetSize;
@@ -79,13 +81,13 @@ public class KeyguardAffordanceHelper {
         }
     };
 
-    KeyguardAffordanceHelper(Callback callback, Context context, FalsingManager falsingManager) {
+    KeyguardAffordanceHelper(Callback callback, Context context) {
         mContext = context;
         mCallback = callback;
         initIcons();
         updateIcon(mLeftIcon, 0.0f, mLeftIcon.getRestingAlpha(), false, false, true, false);
+        updateIcon(mCenterIcon, 0.0f, mCenterIcon.getRestingAlpha(), false, false, true, false);
         updateIcon(mRightIcon, 0.0f, mRightIcon.getRestingAlpha(), false, false, true, false);
-        mFalsingManager = falsingManager;
         initDimens();
     }
 
@@ -102,10 +104,12 @@ public class KeyguardAffordanceHelper {
         mHintGrowAmount =
                 mContext.getResources().getDimensionPixelSize(R.dimen.hint_grow_amount_sideways);
         mFlingAnimationUtils = new FlingAnimationUtils(mContext, 0.4f);
+        mFalsingManager = FalsingManager.getInstance(mContext);
     }
 
     private void initIcons() {
         mLeftIcon = mCallback.getLeftIcon();
+        mCenterIcon = mCallback.getCenterIcon();
         mRightIcon = mCallback.getRightIcon();
         updatePreviews();
     }
@@ -363,10 +367,10 @@ public class KeyguardAffordanceHelper {
         }
     }
 
-    private void startFinishingCircleAnimation(float velocity, Runnable animationEndRunnable,
+    private void startFinishingCircleAnimation(float velocity, Runnable mAnimationEndRunnable,
             boolean right) {
         KeyguardAffordanceView targetView = right ? mRightIcon : mLeftIcon;
-        targetView.finishAnimation(velocity, animationEndRunnable);
+        targetView.finishAnimation(velocity, mAnimationEndRunnable);
     }
 
     private void setTranslation(float translation, boolean isReset, boolean animateReset) {
@@ -391,10 +395,12 @@ public class KeyguardAffordanceHelper {
                         false, false, false, false);
             } else {
                 updateIcon(targetView, 0.0f, fadeOutAlpha * targetView.getRestingAlpha(),
-                        animateIcons, slowAnimation, true /* isReset */, forceNoCircleAnimation);
+                        animateIcons, slowAnimation, false, forceNoCircleAnimation);
             }
             updateIcon(otherView, 0.0f, fadeOutAlpha * otherView.getRestingAlpha(),
-                    animateIcons, slowAnimation, isReset, forceNoCircleAnimation);
+                    animateIcons, slowAnimation, false, forceNoCircleAnimation);
+            updateIcon(mCenterIcon, 0.0f, fadeOutAlpha * mCenterIcon.getRestingAlpha(),
+                    animateIcons, slowAnimation, false, forceNoCircleAnimation);
 
             mTranslation = translation;
         }
@@ -412,6 +418,7 @@ public class KeyguardAffordanceHelper {
         KeyguardAffordanceView otherView = targetView == mRightIcon ? mLeftIcon : mRightIcon;
         updateIconAlpha(targetView, alpha + fadeOutAlpha * targetView.getRestingAlpha(), false);
         updateIconAlpha(otherView, fadeOutAlpha * otherView.getRestingAlpha(), false);
+        updateIconAlpha(mCenterIcon, fadeOutAlpha * mCenterIcon.getRestingAlpha(), false);
     }
 
     private float getTranslationFromRadius(float circleSize) {
@@ -502,7 +509,7 @@ public class KeyguardAffordanceHelper {
 
     public void reset(boolean animate) {
         cancelAnimation();
-        setTranslation(0.0f, true /* isReset */, animate);
+        setTranslation(0.0f, true, animate);
         mMotionCancelled = true;
         if (mSwipingInProgress) {
             mCallback.onSwipingAborted();
@@ -522,20 +529,15 @@ public class KeyguardAffordanceHelper {
         KeyguardAffordanceView targetView = left ? mLeftIcon : mRightIcon;
         KeyguardAffordanceView otherView = left ? mRightIcon : mLeftIcon;
         startSwiping(targetView);
-
-        // Do not animate the circle expanding if the affordance isn't visible,
-        // otherwise the circle will be meaningless.
-        if (targetView.getVisibility() != View.VISIBLE) {
-            animate = false;
-        }
-
         if (animate) {
             fling(0, false, !left);
             updateIcon(otherView, 0.0f, 0, true, false, true, false);
+            updateIcon(mCenterIcon, 0.0f, 0, true, false, true, false);
         } else {
             mCallback.onAnimationToSideStarted(!left, mTranslation, 0);
             mTranslation = left ? mCallback.getMaxTranslationDistance()
                     : mCallback.getMaxTranslationDistance();
+            updateIcon(mCenterIcon, 0.0f, 0.0f, false, false, true, false);
             updateIcon(otherView, 0.0f, 0.0f, false, false, true, false);
             targetView.instantFinishAnimation();
             mFlingEndListener.onAnimationEnd(null);
@@ -566,6 +568,8 @@ public class KeyguardAffordanceHelper {
         void onIconClicked(boolean rightIcon);
 
         KeyguardAffordanceView getLeftIcon();
+
+        KeyguardAffordanceView getCenterIcon();
 
         KeyguardAffordanceView getRightIcon();
 

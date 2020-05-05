@@ -17,7 +17,6 @@ package android.view;
 
 import android.animation.LayoutTransition;
 import android.annotation.NonNull;
-import android.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Rect;
@@ -56,7 +55,6 @@ public class ViewOverlay {
      * of the overlay
      * @return
      */
-    @UnsupportedAppUsage
     ViewGroup getOverlayView() {
         return mOverlayViewGroup;
     }
@@ -96,7 +94,6 @@ public class ViewOverlay {
         mOverlayViewGroup.clear();
     }
 
-    @UnsupportedAppUsage
     boolean isEmpty() {
         return mOverlayViewGroup.isEmpty();
     }
@@ -298,9 +295,8 @@ public class ViewOverlay {
             }
         }
 
-        /** @hide */
         @Override
-        public void invalidate(boolean invalidateCache) {
+        void invalidate(boolean invalidateCache) {
             super.invalidate(invalidateCache);
             if (mHostView != null) {
                 mHostView.invalidate(invalidateCache);
@@ -331,22 +327,34 @@ public class ViewOverlay {
             }
         }
 
+        /**
+         * @hide
+         */
         @Override
-        public void onDescendantInvalidated(@NonNull View child, @NonNull View target) {
+        public void damageChild(View child, final Rect dirty) {
             if (mHostView != null) {
-                if (mHostView instanceof ViewGroup) {
-                    // Propagate invalidate through the host...
-                    ((ViewGroup) mHostView).onDescendantInvalidated(mHostView, target);
-
-                    // ...and also this view, since it will hold the descendant, and must later
-                    // propagate the calls to update display lists if dirty
-                    super.onDescendantInvalidated(child, target);
-                } else {
-                    // Can't use onDescendantInvalidated because host isn't a ViewGroup - fall back
-                    // to invalidating.
-                    invalidate();
+                // Note: This is not a "fast" invalidation. Would be nice to instead invalidate
+                // using DisplayList properties and a dirty rect instead of causing a real
+                // invalidation of the host view
+                int left = child.mLeft;
+                int top = child.mTop;
+                if (!child.getMatrix().isIdentity()) {
+                    child.transformRect(dirty);
                 }
+                dirty.offset(left, top);
+                mHostView.invalidate(dirty);
             }
+        }
+
+        /**
+         * @hide
+         */
+        @Override
+        protected ViewParent damageChildInParent(int left, int top, Rect dirty) {
+            if (mHostView instanceof ViewGroup) {
+                return ((ViewGroup) mHostView).damageChildInParent(left, top, dirty);
+            }
+            return null;
         }
 
         @Override
