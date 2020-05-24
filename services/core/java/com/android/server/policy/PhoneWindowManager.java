@@ -672,7 +672,6 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     boolean mHavePendingMediaKeyRepeatWithWakeLock;
 
     private int mCurrentUserId;
-    private boolean mThreeFingerGestureEnabled = false;
 
     // Maps global key codes to the components that will handle them.
     private GlobalKeyManager mGlobalKeyManager;
@@ -906,9 +905,6 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     LineageSettings.Secure.KILL_APP_LONGPRESS_BACK), false, this,
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(LineageSettings.System.getUriFor(
-                    LineageSettings.System.SWIPE_TO_SCREENSHOT), false, this,
-                    UserHandle.USER_ALL);
-            resolver.registerContentObserver(LineageSettings.System.getUriFor(
                     LineageSettings.System.FORCE_SHOW_NAVBAR), false, this,
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(LineageSettings.System.getUriFor(
@@ -1007,8 +1003,6 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             mActivityManagerInternal.prepareForPossibleShutdown();
         }
     };
-
-    private SwipeToScreenshotListener mSwipeToScreenshot;
 
     private void handleRingerChordGesture() {
         if (mRingerToggleChord == VOLUME_HUSH_OFF) {
@@ -1667,6 +1661,10 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     private final Runnable mBackLongPress = new Runnable() {
         @Override
         public void run() {
+            if (unpinActivity(false)) {
+                return;
+            }
+
             if (ActionUtils.killForegroundApp(mContext, mCurrentUserId)) {
                 performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, false,
                         "Back - Long Press");
@@ -2066,14 +2064,6 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     context, minHorizontal, maxHorizontal, minVertical, maxVertical, maxRadius);
         }
 
-        mSwipeToScreenshot = new SwipeToScreenshotListener(
-                context, new SwipeToScreenshotListener.Callbacks() {
-            @Override
-            public void onSwipeThreeFinger() {
-                mHandler.post(mScreenshotRunnable);
-            }
-        });
-
         mHandler = new PolicyHandler();
         mWakeGestureListener = new MyWakeGestureListener(mContext, mHandler);
         mSettingsObserver = new SettingsObserver(mHandler);
@@ -2240,20 +2230,6 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             public int onAppTransitionStartingLocked(int transit, long duration,
                     long statusBarAnimationStartTime, long statusBarAnimationDuration) {
                 return handleStartTransitionForKeyguardLw(transit, duration);
-            }
-
-             private void enableSwipeThreeFingerGesture(boolean enable) {
-                if (enable == mThreeFingerGestureEnabled) {
-                    return;
-                }
-
-                if (enable) {
-                    mThreeFingerGestureEnabled = true;
-                    mWindowManagerFuncs.registerPointerEventListener(mSwipeToScreenshot);
-                } else {
-                    mThreeFingerGestureEnabled = false;
-                    mWindowManagerFuncs.unregisterPointerEventListener(mSwipeToScreenshot);
-                }
             }
 
             @Override
@@ -2497,11 +2473,6 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             }
 
             updateKeyAssignments();
-
-             // Three Finger Gesture
-            boolean threeFingerGesture = LineageSettings.System.getIntForUser(resolver,
-                    LineageSettings.System.SWIPE_TO_SCREENSHOT, 0, UserHandle.USER_CURRENT) == 1;
-            enableSwipeThreeFingerGesture(threeFingerGesture);
 
             // use screen off timeout setting as the timeout for the lockscreen
             mLockScreenTimeout = Settings.System.getIntForUser(resolver,
@@ -3448,7 +3419,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             }
             return -1;
         } else if (keyCode == KeyEvent.KEYCODE_BACK) {
-            if (mKillAppLongpressBack) {
+            if (mKillAppLongpressBack || unpinActivity(true)) {
                 if (down && repeatCount == 0) {
                     mHandler.postDelayed(mBackLongPress, mBackKillTimeout);
                 }
@@ -3686,6 +3657,22 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 }
             } catch (Exception e) {
                 Slog.w(TAG, "Could not dispatch event to device key handler", e);
+            }
+        }
+        return false;
+    }
+
+    private boolean unpinActivity(boolean checkOnly) {
+        if (!hasNavigationBar()) {
+            try {
+                if (ActivityTaskManager.getService().isInLockTaskMode()) {
+                    if (!checkOnly) {
+                        ActivityTaskManager.getService().stopSystemLockTaskMode();
+                    }
+                    return true;
+                }
+            } catch (RemoteException e) {
+                // ignore
             }
         }
         return false;
