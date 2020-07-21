@@ -18,6 +18,7 @@ package com.android.server.am;
 
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 import static android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MANIFEST;
+import static android.os.Process.ZYGOTE_POLICY_FLAG_EMPTY;
 
 import static com.android.server.am.ActivityManagerDebugConfig.DEBUG_BACKGROUND_CHECK;
 import static com.android.server.am.ActivityManagerDebugConfig.DEBUG_FOREGROUND_SERVICE;
@@ -2245,11 +2246,11 @@ public final class ActiveServices {
                 final int opCode = AppOpsManager.permissionToOpCode(r.permission);
                 if (opCode != AppOpsManager.OP_NONE && mAm.mAppOpsService.checkOperation(
                         opCode, callingUid, callingPackage) != AppOpsManager.MODE_ALLOWED) {
-                    Slog.w(TAG, "Appop Denial " + callingPackage + ": Accessing service " + r.shortInstanceName
+                    Slog.w(TAG, "Appop Denial: Accessing service " + r.shortInstanceName
                             + " from pid=" + callingPid
                             + ", uid=" + callingUid
                             + " requires appop " + AppOpsManager.opToName(opCode));
-                    if (callingPackage.compareTo("com.google.android.gms") != 0) return null;
+                    return null;
                 }
             }
             return new ServiceLookupResult(r, null);
@@ -2617,8 +2618,10 @@ public final class ActiveServices {
         // Not running -- get it started, and enqueue this service record
         // to be executed when the app comes up.
         if (app == null && !permissionsReviewRequired) {
+            // TODO (chriswailes): Change the Zygote policy flags based on if the launch-for-service
+            //  was initiated from a notification tap or not.
             if ((app=mAm.startProcessLocked(procName, r.appInfo, true, intentFlags,
-                    hostingRecord, false, isolated, false)) == null) {
+                    hostingRecord, ZYGOTE_POLICY_FLAG_EMPTY, false, isolated, false)) == null) {
                 String msg = "Unable to launch app "
                         + r.appInfo.packageName + "/"
                         + r.appInfo.uid + " for service "
