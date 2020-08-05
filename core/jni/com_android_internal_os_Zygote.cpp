@@ -964,7 +964,6 @@ static pid_t ForkCommon(JNIEnv* env, bool is_system_server,
   // on each of the pages it is managing after the fork.
   mallopt(M_PURGE, 0);
 
-
   pid_t pid = fork();
 
   if (pid == 0) {
