@@ -3178,27 +3178,8 @@ public class PackageManagerService extends IPackageManager.Stub {
                 ? Collections.<String>emptySet() : permissionsState.getPermissions(userId);
         final PackageUserState state = ps.readUserState(userId);
 
-        return mayFakeSignature(p, PackageParser.generatePackageInfo(p, gids, flags,
-                ps.firstInstallTime, ps.lastUpdateTime, permissions, state, userId),
-                permissions);
-    }
-
-    private PackageInfo mayFakeSignature(PackageParser.Package p, PackageInfo pi,
-            Set<String> permissions) {
-        try {
-            if (permissions.contains("android.permission.FAKE_PACKAGE_SIGNATURE")
-                    && p.applicationInfo.targetSdkVersion > Build.VERSION_CODES.LOLLIPOP_MR1
-                    && p.mAppMetaData != null) {
-                String sig = p.mAppMetaData.getString("fake-signature");
-                if (sig != null) {
-                    pi.signatures = new Signature[] {new Signature(sig)};
-                }
-            }
-        } catch (Throwable t) {
-            // We should never die because of any failures, this is system code!
-            Log.w("PackageManagerService.FAKE_PACKAGE_SIGNATURE", t);
-        }
-        return pi;
+        return PackageParser.generatePackageInfo(p, gids, flags,
+                ps.firstInstallTime, ps.lastUpdateTime, permissions, state, userId);
     }
 
     @Override
@@ -15629,7 +15610,9 @@ public class PackageManagerService extends IPackageManager.Stub {
                 final int verificationId = mIntentFilterVerificationToken++;
                 for (PackageParser.Activity a : pkg.activities) {
                     for (ActivityIntentInfo filter : a.intents) {
-                        if (filter.handlesWebUris(true) && needsNetworkVerificationLPr(filter)) {
+                        // Run verification against hosts mentioned in any web-nav intent filter,
+                        // even if the filter matches non-web schemes as well
+                        if (filter.handlesWebUris(false) && needsNetworkVerificationLPr(filter)) {
                             if (DEBUG_DOMAIN_VERIFICATION) Slog.d(TAG,
                                     "Verification needed for IntentFilter:" + filter.toString());
                             mIntentFilterVerifier.addOneIntentFilterVerification(
