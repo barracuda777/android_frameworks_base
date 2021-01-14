@@ -290,6 +290,7 @@ import com.android.internal.os.SomeArgs;
 import com.android.internal.os.Zygote;
 import com.android.internal.telephony.CarrierAppUtils;
 import com.android.internal.util.ArrayUtils;
+import com.android.internal.util.CollectionUtils;
 import com.android.internal.util.ConcurrentUtils;
 import com.android.internal.util.DumpUtils;
 import com.android.internal.util.FastXmlSerializer;
@@ -4191,9 +4192,8 @@ public class PackageManagerService extends IPackageManager.Stub
                 });
             }
 
-            PackageInfo packageInfo = mayFakeSignature(p, PackageParser.generatePackageInfo(p, gids, flags,
-                ps.firstInstallTime, ps.lastUpdateTime, permissions, state, userId),
-                permissions);  
+            PackageInfo packageInfo = PackageParser.generatePackageInfo(p, gids, flags,
+                    ps.firstInstallTime, ps.lastUpdateTime, permissions, state, userId);
 
             if (packageInfo == null) {
                 return null;
@@ -4227,24 +4227,6 @@ public class PackageManagerService extends IPackageManager.Stub
         } else {
             return null;
         }
-    }
-    
-     private PackageInfo mayFakeSignature(PackageParser.Package p, PackageInfo pi,
-            Set<String> permissions) {
-        try {
-            if (permissions.contains("android.permission.FAKE_PACKAGE_SIGNATURE")
-                    && p.applicationInfo.targetSdkVersion > Build.VERSION_CODES.LOLLIPOP_MR1
-                    && p.mAppMetaData != null) {
-                String sig = p.mAppMetaData.getString("fake-signature");
-                if (sig != null) {
-                    pi.signatures = new Signature[] {new Signature(sig)};
-                }
-            }
-        } catch (Throwable t) {
-            // We should never die because of any failures, this is system code!
-            Log.w("PackageManagerService.FAKE_PACKAGE_SIGNATURE", t);
-	}
-        return pi;
     }
 
     @Override
@@ -12381,12 +12363,17 @@ public class PackageManagerService extends IPackageManager.Stub
                 mPermissionManager.addAllPermissionGroups(pkg, chatty);
             }
 
+            // If a permission has had its defining app changed, or it has had its protection
+            // upgraded, we need to revoke apps that hold it
+            final List<String> permissionsWithChangedDefinition;
             // Don't allow ephemeral applications to define new permissions.
             if ((scanFlags & SCAN_AS_INSTANT_APP) != 0) {
+                permissionsWithChangedDefinition = null;
                 Slog.w(TAG, "Permissions from package " + pkg.packageName
                         + " ignored: instant apps cannot define new permissions.");
             } else {
-                mPermissionManager.addAllPermissions(pkg, chatty);
+                permissionsWithChangedDefinition =
+                        mPermissionManager.addAllPermissions(pkg, chatty);
             }
 
             int collectionSize = pkg.instrumentation.size();
@@ -12431,7 +12418,10 @@ public class PackageManagerService extends IPackageManager.Stub
                 }
             }
 
-            if (oldPkg != null) {
+            boolean hasOldPkg = oldPkg != null;
+            boolean hasPermissionDefinitionChanges =
+                    !CollectionUtils.isEmpty(permissionsWithChangedDefinition);
+            if (hasOldPkg || hasPermissionDefinitionChanges) {
                 // We need to call revokeRuntimePermissionsIfGroupChanged async as permission
                 // revoke callbacks from this method might need to kill apps which need the
                 // mPackages lock on a different thread. This would dead lock.
@@ -12442,9 +12432,17 @@ public class PackageManagerService extends IPackageManager.Stub
                 // won't be granted yet, hence new packages are no problem.
                 final ArrayList<String> allPackageNames = new ArrayList<>(mPackages.keySet());
 
-                AsyncTask.execute(() ->
+                AsyncTask.execute(() -> {
+                    if (hasOldPkg) {
                         mPermissionManager.revokeRuntimePermissionsIfGroupChanged(pkg, oldPkg,
-                                allPackageNames, mPermissionCallback));
+                                allPackageNames, mPermissionCallback);
+                    }
+                    if (hasPermissionDefinitionChanges) {
+                        mPermissionManager.revokeRuntimePermissionsIfPermissionDefinitionChanged(
+                                permissionsWithChangedDefinition, allPackageNames,
+                                mPermissionCallback);
+                    }
+                });
             }
         }
 
