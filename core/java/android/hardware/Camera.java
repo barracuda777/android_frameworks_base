@@ -16,14 +16,20 @@
 
 package android.hardware;
 
-import static android.system.OsConstants.*;
+import static android.system.OsConstants.EACCES;
+import static android.system.OsConstants.EBUSY;
+import static android.system.OsConstants.EINVAL;
+import static android.system.OsConstants.ENODEV;
+import static android.system.OsConstants.ENOSYS;
+import static android.system.OsConstants.EOPNOTSUPP;
+import static android.system.OsConstants.EUSERS;
 
 import android.annotation.Nullable;
 import android.annotation.SdkConstant;
 import android.annotation.SdkConstant.SdkConstantType;
-import android.annotation.UnsupportedAppUsage;
 import android.app.ActivityThread;
 import android.app.AppOpsManager;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.graphics.ImageFormat;
 import android.graphics.Point;
@@ -290,10 +296,10 @@ public class Camera {
         String packageName = ActivityThread.currentOpPackageName();
         List<String> packageList = Arrays.asList(
                 SystemProperties.get("vendor.camera.aux.packagelist", packageName).split(","));
-        List<String> packageBlacklist = Arrays.asList(
-                SystemProperties.get("vendor.camera.aux.packageblacklist", "").split(","));
+        List<String> packageExcludelist = Arrays.asList(
+                SystemProperties.get("vendor.camera.aux.packageexcludelist", "").split(","));
 
-        return packageList.contains(packageName) && !packageBlacklist.contains(packageName);
+        return packageList.contains(packageName) && !packageExcludelist.contains(packageName);
     }
 
     /**
@@ -2423,6 +2429,20 @@ public class Camera {
 
         return p;
     }
+
+    /**
+     * Set camera audio restriction mode.
+     *
+     * @hide
+     */
+    public native final void setAudioRestriction(int mode);
+
+    /**
+     * Get currently applied camera audio restriction mode.
+     *
+     * @hide
+     */
+    public native final int getAudioRestriction();
 
     /**
      * Image size (width and height dimensions).

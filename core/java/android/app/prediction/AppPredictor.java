@@ -83,6 +83,8 @@ public final class AppPredictor {
     private final AppPredictionSessionId mSessionId;
     private final ArrayMap<Callback, CallbackWrapper> mRegisteredCallbacks = new ArrayMap<>();
 
+    private final IBinder mToken = new Binder();
+
     /**
      * Creates a new Prediction client.
      * <p>
@@ -96,9 +98,9 @@ public final class AppPredictor {
         IBinder b = ServiceManager.getService(Context.APP_PREDICTION_SERVICE);
         mPredictionManager = IPredictionManager.Stub.asInterface(b);
         mSessionId = new AppPredictionSessionId(
-                context.getPackageName() + ":" + UUID.randomUUID().toString());
+                context.getPackageName() + ":" + UUID.randomUUID().toString(), context.getUserId());
         try {
-            mPredictionManager.createPredictionSession(predictionContext, mSessionId);
+            mPredictionManager.createPredictionSession(predictionContext, mSessionId, mToken);
         } catch (RemoteException e) {
             Log.e(TAG, "Failed to create predictor", e);
             e.rethrowAsRuntimeException();
@@ -260,6 +262,7 @@ public final class AppPredictor {
                 Log.e(TAG, "Failed to notify app target event", e);
                 e.rethrowAsRuntimeException();
             }
+            mRegisteredCallbacks.clear();
         } else {
             throw new IllegalStateException("This client has already been destroyed.");
         }

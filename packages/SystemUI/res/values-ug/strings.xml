@@ -137,6 +137,7 @@
     <string name="quick_settings_brightness_dialog_title">يورۇقلۇق</string>
     <string name="quick_settings_brightness_dialog_auto_brightness_label">ئاپتوماتىك</string>
     <string name="ssl_ca_cert_warning">تور نازارەت قىلىنغان\nبولۇشى مۇمكىن</string>
+    <string name="notification_section_header_alerting">ئۇقتۇرۇشلار</string>
     <string name="stream_voice_call">Call</string>
     <string name="stream_ring">Ring</string>
     <string name="stream_bluetooth_sco">كۆكچىش</string>

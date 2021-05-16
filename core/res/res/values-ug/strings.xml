@@ -141,6 +141,7 @@
     <string name="global_actions" product="default">تېلېفون تاللانما</string>
     <string name="global_action_lock">ئېكران قۇلۇپلا</string>
     <string name="global_action_power_off">تاقا</string>
+    <string name="global_action_restart">قايتا قوزغات</string>
     <string name="global_action_bug_report">خاتالىق دوكلاتى</string>
     <string name="bugreport_title">خاتالىق دوكلاتى</string>
     <string name="bugreport_message">نۆۋەتتىكى ئۈسكۈنىڭىزنىڭ ھالىتىگە ئائىت ئۇچۇرلارنى توپلاپ، تورخەت ئۇچۇرى يوللايدۇ. يوللاشقا لازىملىق خاتالىق دوكلاتىنى قوزغىتىپ تەييارلاشقا بىر ئاز ۋاقىت كېتىشى مۇمكىن. سەۋرىچانلىق بىلەن كۈتۈڭ.</string>
@@ -155,7 +156,6 @@
     <string name="android_system_label">Android سىستېما</string>
     <string name="permgrouplab_calendar">يىلنامە</string>
     <string name="permgrouplab_sms">قىسقا ئۇچۇر</string>
-    <string name="permgrouplab_storage">ساقلىغۇچ</string>
     <string name="permgrouplab_microphone">مىكروفون</string>
     <string name="permgroupdesc_microphone">ئاۋاز ئېلىش</string>
     <string name="permgrouplab_camera">كامېرا</string>
@@ -696,7 +696,6 @@
     <string name="ringtone_default">كۆڭۈلدىكى قوڭغۇراق ئاۋازى</string>
     <string name="ringtone_silent">يوق</string>
     <string name="ringtone_picker_title">قوڭغۇراق ئاۋازى</string>
-    <string name="wifi_suggestion_action_allow_app">يول قوي</string>
     <string name="network_available_sign_in_detailed"><xliff:g id="network_ssid">%1$s</xliff:g></string>
     <string-array name="network_switch_type_name">
         <item>mobile data</item>
@@ -705,21 +704,8 @@
         <item>Ethernet</item>
         <item>VPN</item>
     </string-array>
-    <string name="wifi_watchdog_network_disabled">Wi-Fi تورىغا باغلىنالمايدۇ</string>
-    <string name="wifi_p2p_dialog_title">Wi-Fi Direct</string>
-    <string name="wifi_p2p_turnon_message">Wi-Fi Direct مەشغۇلاتىنى قوزغات. بۇ مەشغۇلات Wi-Fi خېرىدارى/قىزىق نۇقتا مەشغۇلاتىنى تاقايدۇ.</string>
-    <string name="wifi_p2p_failed_message">Wi-Fi Direct نى قوزغىتالمايدۇ</string>
-    <string name="wifi_p2p_enabled_notification_title">Wi-Fi Direct ئوچۇق</string>
     <string name="accept">قوشۇل</string>
     <string name="decline">قوشۇلما</string>
-    <string name="wifi_p2p_invitation_sent_title">تەكلىپ يوللاندى</string>
-    <string name="wifi_p2p_invitation_to_connect_title">باغلىنىش تەكلىپى</string>
-    <string name="wifi_p2p_from_message">يوللىغۇچى:</string>
-    <string name="wifi_p2p_to_message">تاپشۇرۇپ ئالغۇچى:</string>
-    <string name="wifi_p2p_enter_pin_message">لازىملىق PIN نى كىرگۈزۈڭ</string>
-    <string name="wifi_p2p_show_pin_message">PIN:</string>
-    <string name="wifi_p2p_frequency_conflict_message" product="tablet">تاختا كومپيۇتېر <xliff:g id="DEVICE_NAME">%1$s</xliff:g> غا باغلانغاندا Wi-FI باغلىنىشىنى ۋاقىتلىق ئۈزىدۇ</string>
-    <string name="wifi_p2p_frequency_conflict_message" product="default">تېلېفون <xliff:g id="DEVICE_NAME">%1$s</xliff:g> غا باغلانغاندا Wi-FI باغلىنىشىنى ۋاقىتلىق ئۈزىدۇ</string>
     <string name="select_character">ھەرپ قىستۇر</string>
     <string name="sms_control_title">قىسقا ئۇچۇر يوللاۋاتىدۇ</string>
     <string name="sms_control_message">&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; كۆپ مىقداردا قىسقا ئۇچۇر يوللاۋاتىدۇ. بۇ ئەپنىڭ قىسقا ئۇچۇر يوللاشنى داۋاملاشتۇرۇشىغا يول قويامسىز؟</string>
@@ -782,7 +768,6 @@
     <string name="no_file_chosen">ھۆججەت تاللانمىغان</string>
     <string name="reset">ئەسلىگە قايتۇر</string>
     <string name="submit">تاپشۇر</string>
-    <string name="tethered_notification_title">USB غا باغلاش ياكى قىزىق نۇقتىنى قوزغىتىش</string>
     <string name="back_button_label">قايت</string>
     <string name="next_button_label">كېيىنكى</string>
     <string name="skip_button_label">ئاتلا</string>
@@ -917,6 +902,11 @@
     <string name="kg_failed_attempts_now_wiping" product="default">سىز تېلېفون قۇلۇپىنى ئېچىشنى <xliff:g id="NUMBER">%d</xliff:g> قېتىم خاتا سىنىدىڭىز. تېلېفون زاۋۇتتىن چىققان ھالەتكە ئەسلىگە قايتىدۇ، </string>
     <string name="kg_text_message_separator" product="default">" — "</string>
     <string name="kg_reordering_delete_drop_target_text">چىقىرىۋەت</string>
+    <string name="accessibility_shortcut_menu_item_status_on">ئوچۇق</string>
+    <string name="accessibility_shortcut_menu_item_status_off">تاقاق</string>
+    <string name="accessibility_dialog_button_allow">يول قوي</string>
+    <string name="accessibility_dialog_button_deny">رەت قىل</string>
+    <string name="done_accessibility_shortcut_menu_button">تامام</string>
     <string name="user_switched">نۆۋەتتىكى ئىشلەتكۈچى <xliff:g id="NAME">%1$s</xliff:g>.</string>
     <string name="owner_name" msgid="3879126011135546571">ئىگىدار</string>
     <string name="error_message_title">خاتالىق</string>
@@ -1026,8 +1016,12 @@
     <string name="locale_search_menu">ئىزدە</string>
     <string name="time_picker_hour_label">سائەت</string>
     <string name="time_picker_header_text">ۋاقىت تەڭشەك</string>
+    <string name="autofill_save_notnow">ھازىرچە ياق</string>
+    <string name="autofill_save_never">ھەرگىز</string>
     <string name="screenshot_edit">تەھرىر</string>
     <string name="notification_app_name_system">سىستېما</string>
     <string name="notification_appops_camera_active">كامېرا</string>
     <string name="notification_appops_microphone_active">مىكروفون</string>
+    <string name="accessibility_system_action_home_label">ئۆي</string>
+    <string name="accessibility_system_action_back_label">قايت</string>
 </resources>

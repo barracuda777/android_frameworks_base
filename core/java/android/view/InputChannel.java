@@ -16,7 +16,7 @@
 
 package android.view;
 
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -55,12 +55,12 @@ public final class InputChannel implements Parcelable {
     private static native InputChannel[] nativeOpenInputChannelPair(String name);
 
     private native void nativeDispose(boolean finalized);
+    private native void nativeRelease();
     private native void nativeTransferTo(InputChannel other);
     private native void nativeReadFromParcel(Parcel parcel);
     private native void nativeWriteToParcel(Parcel parcel);
     private native void nativeDup(InputChannel target);
     private native IBinder nativeGetToken();
-    private native void nativeSetToken(IBinder token);
 
     private native String nativeGetName();
 
@@ -111,19 +111,20 @@ public final class InputChannel implements Parcelable {
     }
 
     /**
-     * @hide
-     */
-    public boolean isValid() {
-        return mPtr != 0;
-    }
-
-    /**
      * Disposes the input channel.
      * Explicitly releases the reference this object is holding on the input channel.
      * When all references are released, the input channel will be closed.
      */
     public void dispose() {
         nativeDispose(false);
+    }
+
+    /**
+     * Release the Java objects hold over the native InputChannel. If other references
+     * still exist in native-land, then the channel may continue to exist.
+     */
+    public void release() {
+        nativeRelease();
     }
 
     /**
@@ -182,9 +183,5 @@ public final class InputChannel implements Parcelable {
 
     public IBinder getToken() {
         return nativeGetToken();
-    }
-
-    public void setToken(IBinder token) {
-        nativeSetToken(token);
     }
 }

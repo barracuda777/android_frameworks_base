@@ -25,8 +25,8 @@ import static android.companion.BluetoothDeviceFilterUtils.patternToString;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
 import android.bluetooth.BluetoothDevice;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.os.Parcel;
 import android.os.ParcelUuid;
 import android.provider.OneTimeUseBuilder;
@@ -139,6 +139,16 @@ public final class BluetoothDeviceFilter implements DeviceFilter<BluetoothDevice
     @Override
     public int hashCode() {
         return Objects.hash(mNamePattern, mAddress, mServiceUuids, mServiceUuidMasks);
+    }
+
+    @Override
+    public String toString() {
+        return "BluetoothDeviceFilter{"
+                + "mNamePattern=" + mNamePattern
+                + ", mAddress='" + mAddress + '\''
+                + ", mServiceUuids=" + mServiceUuids
+                + ", mServiceUuidMasks=" + mServiceUuidMasks
+                + '}';
     }
 
     @Override

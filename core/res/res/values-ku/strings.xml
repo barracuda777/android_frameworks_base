@@ -147,6 +147,7 @@
     <string name="global_actions" product="default">بژاردەکانی ته‌له‌فۆن</string>
     <string name="global_action_lock">داخەری ڕوونما</string>
     <string name="global_action_power_off">کوژاندنه‌وه‌</string>
+    <string name="global_action_restart">لەنۆکردنەوە</string>
     <string name="global_action_bug_report">ڕاپۆرتی کەلێن</string>
     <string name="bugreport_title">ڕاپۆرتی کەلێن</string>
     <string name="bugreport_message">ئه‌م کردارە سەبارەت بە ئامێری ئێستات زانیاری کۆ ده‌کاته‌وه‌
@@ -163,7 +164,6 @@
     <string name="android_system_label">سیسته‌می ئه‌ندرۆید</string>
     <string name="permgrouplab_calendar">ڕۆژمێر</string>
     <string name="permgrouplab_sms">کورتەنامە</string>
-    <string name="permgrouplab_storage">بیرگه‌</string>
     <string name="permgrouplab_microphone">بیستۆک</string>
     <string name="permgroupdesc_microphone">تۆمارکردنی دەنگ</string>
     <string name="permgrouplab_camera">کامێرا</string>
@@ -766,15 +766,6 @@
     <string name="ringtone_default">زەنگی بنەڕەتی</string>
     <string name="ringtone_silent">هیچ</string>
     <string name="ringtone_picker_title">دەنگی زەنگ</string>
-    <plurals name="wifi_available">
-        <item quantity="one">Wi-Fi تۆڕ لەکارە</item>
-        <item quantity="other">Wi-Fi تۆڕ لەکارە</item>
-    </plurals>
-    <plurals name="wifi_available_detailed">
-        <item quantity="one"> Wi-Fi تۆڕی کراوە لە کارە</item>
-        <item quantity="other"> Wi-Fi تۆڕەکانی کراوە لە کارە</item>
-    </plurals>
-    <string name="wifi_suggestion_action_allow_app">رێدان</string>
     <string name="network_available_sign_in_detailed"><xliff:g id="network_ssid">%1$s</xliff:g></string>
     <string-array name="network_switch_type_name">
         <item>mobile data</item>
@@ -783,21 +774,8 @@
         <item>Ethernet</item>
         <item>VPN</item>
     </string-array>
-    <string name="wifi_watchdog_network_disabled">ناتوانرێت پەیوەستبکرێت بە Wi-Fiەوە</string>
-    <string name="wifi_p2p_dialog_title">Wi-Fi ڕاستەوخۆ</string>
-    <string name="wifi_p2p_turnon_message">دەستپێکردنی Wi-Fi. ئەمە Wi-Fi /هۆتسپۆت ئەکوژێنێتەوە.</string>
-    <string name="wifi_p2p_failed_message">ناتوانرێت Wi-Fi یەکسەر بکەوێتە کار.</string>
-    <string name="wifi_p2p_enabled_notification_title">Wi-Fi ڕاستەوخۆ لە کارە</string>
     <string name="accept">پەسەند کردن</string>
     <string name="decline">ڕەتکردنەوە</string>
-    <string name="wifi_p2p_invitation_sent_title">بانگەشەکردنەکە نێردرا</string>
-    <string name="wifi_p2p_invitation_to_connect_title">بانگەشەکردن بۆ پەیوەندکردن</string>
-    <string name="wifi_p2p_from_message">لە: </string>
-    <string name="wifi_p2p_to_message">بۆ: </string>
-    <string name="wifi_p2p_enter_pin_message">PINی پێویست بنووسە: </string>
-    <string name="wifi_p2p_show_pin_message">PIN: </string>
-    <string name="wifi_p2p_frequency_conflict_message" product="tablet">تابلێت بۆ ماوەی کاتی پەیوەندی Wi-Fi ئەپچڕێنێت کاتێک بەستراوەتەوە بە <xliff:g id="device_name">%1$s</xliff:g></string>
-    <string name="wifi_p2p_frequency_conflict_message" product="default">تەلەفۆن بۆ ماوەی کاتی پەیوەندی Wi-Fi ئەپچڕێنێت کاتێک بەستراوەتەوە بە <xliff:g id="device_name">%1$s</xliff:g></string>
     <string name="select_character">تێخستنی نووسە</string>
     <string name="sms_control_title">ناردنی کورتە نامە</string>
     <string name="sms_control_message">وlt;bوgt;<xliff:g id="app_name">%1$s</xliff:g>وlt;/bوgt; خەریکە ژمارەیەکی زۆر کورتە نامە دەنێرێت. ئایا دەتەوێت ڕێگە بەم بەرنامە بدەیت بۆ ناردنی کورتەنامەکان؟</string>
@@ -860,7 +838,6 @@
     <string name="no_file_chosen">هیچ فایلێک دەستنیشان نەکراوە</string>
     <string name="reset">ڕێکخستنەوە</string>
     <string name="submit">پێشکەشکردن</string>
-    <string name="tethered_notification_title">چالاککردن و به‌ستنه‌وه‌ی hotspot</string>
     <string name="back_button_label">گەڕانەوە</string>
     <string name="next_button_label">دواتر</string>
     <string name="skip_button_label">تێپەڕاندن</string>
@@ -1003,6 +980,11 @@
     </string>
     <string name="kg_text_message_separator" product="default">" \u2014 "</string>
     <string name="kg_reordering_delete_drop_target_text">سڕینەوە</string>
+    <string name="accessibility_shortcut_menu_item_status_on">چالاککردن</string>
+    <string name="accessibility_shortcut_menu_item_status_off">کووژاوە</string>
+    <string name="accessibility_dialog_button_allow">رێدان</string>
+    <string name="accessibility_dialog_button_deny">نکوڵی</string>
+    <string name="done_accessibility_shortcut_menu_button">ئه‌نجام درا</string>
     <string name="user_switched">بەکارهێنەری ئێستا <xliff:g id="name" example="Bob">%1$s</xliff:g>.</string>
     <string name="owner_name" msgid="3879126011135546571">خاوەن</string>
     <string name="error_message_title">هەڵە</string>
@@ -1116,8 +1098,12 @@
     <string name="locale_search_menu">گەڕان</string>
     <string name="time_picker_hour_label">کاژێر</string>
     <string name="time_picker_header_text">دیاریکردنی کات</string>
+    <string name="autofill_save_notnow">ئێستا نا</string>
+    <string name="autofill_save_never">هەرگیز</string>
     <string name="screenshot_edit">دەستکاری</string>
     <string name="notification_app_name_system">سیستەم</string>
     <string name="notification_appops_camera_active">کامێرا</string>
     <string name="notification_appops_microphone_active">بیستۆک</string>
+    <string name="accessibility_system_action_home_label">ماڵ</string>
+    <string name="accessibility_system_action_back_label">گەڕانەوە</string>
 </resources>

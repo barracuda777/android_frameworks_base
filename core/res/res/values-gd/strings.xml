@@ -95,7 +95,10 @@
     <string name="serviceClassVoice">Guth</string>
     <string name="serviceClassData">Dàta</string>
     <string name="serviceClassFAX">FACS</string>
+    <string name="serviceClassSMS">SMS</string>
+    <string name="serviceClassDataAsync">Async</string>
     <string name="serviceClassPacket">Pacaid</string>
+    <string name="serviceClassPAD">PAD</string>
     <string name="roamingText0">Tha taisbeanair air fàrsan air</string>
     <string name="roamingText1">Tha taisbeanair air fàrsan dheth</string>
     <string name="roamingText2">Tha taisbeanair air fàrsan a’ boillsgeadh</string>
@@ -146,7 +149,6 @@
     <string name="contentServiceTooManyDeletesNotificationDesc">Dh’fheuch thu ri cus <xliff:g id="content_type">%s</xliff:g> a sguabadh às.</string>
     <string name="low_memory" product="tablet">Tha stòras na tablaid làn. Sguab às cuid dhe faidhlichean a shaoradh àite.</string>
     <string name="low_memory" product="watch">Tha stòras an uaireadair làn. Sguab às cuid dhe faidhlichean a shaoradh àite.</string>
-    <string name="low_memory" product="tv">Tha stòras an TBh làn. Sguab às cuid dhe faidhlichean a shaoradh àite.</string>
     <string name="low_memory" product="default">Tha stòras an fhòn làn. Sguab às cuid dhe faidhlichean a shaoradh àite.</string>
     <plurals name="ssl_ca_cert_warning">
         <item quantity="one">Chaidh ùghdarras teisteanachaidh a stàladh</item>
@@ -160,9 +162,9 @@
     <string name="work_profile_deleted_reason_maximum_password_failure">Cus oidhirpean air an fhacal-fhaire</string>
     <string name="factory_reset_warning">Thèid an t-uidheam agad a shuathadh às</string>
     <string name="printing_disabled_by">Chaidh an clò-bhualadh a chur dheth le <xliff:g id="owner_app">%s</xliff:g>.</string>
+    <string name="personal_apps_suspended_turn_profile_on">Cuir air</string>
     <string name="me">Mise</string>
     <string name="power_dialog" product="tablet">Roghainnean na tablaid</string>
-    <string name="power_dialog" product="tv">Roghainnean a’ TBh</string>
     <string name="power_dialog" product="default">Roghainnean an fhòn</string>
     <string name="silent_mode">Am modh sàmhach</string>
     <string name="turn_on_radio">Cuir uèirleas air</string>
@@ -180,7 +182,6 @@
     <string name="reboot_to_reset_message">’Ga ath-thòiseachadh\u2026</string>
     <string name="shutdown_progress">Ga chur dheth…</string>
     <string name="shutdown_confirm" product="tablet">Thèid an tablaid agad a chur dheth.</string>
-    <string name="shutdown_confirm" product="tv">Thèid an TBh agad a chur dheth.</string>
     <string name="shutdown_confirm" product="watch">Thèid an t-uaireadair agad a chur dheth.</string>
     <string name="shutdown_confirm" product="default">Thèid am fòn agad a chur dheth.</string>
     <string name="shutdown_confirm_question">A bheil thu airson a chur dheth?</string>
@@ -191,7 +192,6 @@
     <string name="recent_tasks_title">O chionn ghoirid</string>
     <string name="no_recent_tasks">Chan eil aplacaid o chionn ghoirid ann.</string>
     <string name="global_actions" product="tablet">Roghainnean na tablaid</string>
-    <string name="global_actions" product="tv">Roghainnean a’ TBh</string>
     <string name="global_actions" product="default">Roghainnean an fhòn</string>
     <string name="global_action_lock">Glais an sgrìn</string>
     <string name="global_action_power_off">Cuir dheth</string>
@@ -227,6 +227,7 @@
     <string name="global_action_assist">Cuidiche</string>
     <string name="global_action_voice_assist">Taic gutha</string>
     <string name="global_action_lockdown">Glasadh</string>
+    <string name="status_bar_notification_info_overflow">999+</string>
     <string name="notification_channel_heavy_weight_app">Tha aplacaid a’ ruith</string>
     <string name="safeMode">Am modh sàbhailte</string>
     <string name="android_system_label">Siostam Android</string>
@@ -234,42 +235,22 @@
     <string name="managed_profile_label">Geàrr leum gu pròifil na h-obrach</string>
     <string name="permgrouplab_contacts">Luchd-aithne</string>
     <string name="permgroupdesc_contacts">an luchd-aithne agad inntrigeadh</string>
-    <string name="permgrouprequest_contacts">A bheil thu airson cead a thoirt dha
-        &lt;b&gt;<xliff:g id="app_name" example="Gmail">%1$s</xliff:g>&lt;/b&gt; an luchd-aithne agad inntrigeadh?</string>
     <string name="permgrouplab_location">Ionad</string>
     <string name="permgroupdesc_location">ionad an uidheim seo inntrigeadh</string>
-    <string name="permgrouprequest_location">A bheil thu airson cead a thoirt dha
-        &lt;b&gt;<xliff:g id="app_name" example="Gmail">%1$s</xliff:g>&lt;/b&gt; ionad an uidheim seo inntrigeadh?</string>
     <string name="permgrouplab_calendar">Mìosachan</string>
     <string name="permgroupdesc_calendar">an mìosachan agad inntrigeadh</string>
-    <string name="permgrouprequest_calendar">A bheil thu airson cead a thoirt dha
-        &lt;b&gt;<xliff:g id="app_name" example="Gmail">%1$s</xliff:g>&lt;/b&gt; am mìosachan agad inntrigeadh?</string>
+    <string name="permgrouplab_sms">SMS</string>
     <string name="permgroupdesc_sms">teachdaireachdan SMS a chur ’s a shealltainn</string>
-    <string name="permgrouprequest_sms">A bheil thu airson cead a thoirt dha
-        &lt;b&gt;<xliff:g id="app_name" example="Gmail">%1$s</xliff:g>&lt;/b&gt; teachdaireachdan SMS a chur ’s a choimhead orra?</string>
-    <string name="permgrouplab_storage">An stòras</string>
     <string name="permgroupdesc_storage">na dealbhan, meadhanan is faidhlichean air an uidheam agad inntrigeadh</string>
-    <string name="permgrouprequest_storage">A bheil thu airson cead a thoirt dha
-        &lt;b&gt;<xliff:g id="app_name" example="Gmail">%1$s</xliff:g>&lt;/b&gt; dealbhan, meadhanan ’s faidhlichean inntrigeadh air an uidheam agad?</string>
     <string name="permgrouplab_microphone">Micreofon</string>
     <string name="permgroupdesc_microphone">fuaim a chlàradh</string>
-    <string name="permgrouprequest_microphone">A bheil thu airson cead a thoirt dha
-        &lt;b&gt;<xliff:g id="app_name" example="Gmail">%1$s</xliff:g>&lt;/b&gt; fuaim a chlàradh?</string>
     <string name="permgrouplab_camera">Camara</string>
     <string name="permgroupdesc_camera">dealbhan a thogail ’s videothan a chlàradh</string>
-    <string name="permgrouprequest_camera">A bheil thu airson cead a thoirt dha
-        &lt;b&gt;<xliff:g id="app_name" example="Gmail">%1$s</xliff:g>&lt;/b&gt; dealbhan a thogail is videothan a chlàradh?</string>
     <string name="permgrouplab_calllog">Logaichean nan gairmean</string>
     <string name="permgroupdesc_calllog">loga gairmean an fhòn a leughadh ’s a sgrìobhadh</string>
-    <string name="permgrouprequest_calllog">A bheil thu airson cead a thoirt dha
-        &lt;b&gt;<xliff:g id="app_name" example="Gmail">%1$s</xliff:g>&lt;/b&gt; logaichean gairmean an fhòn agad inntrigeadh?</string>
     <string name="permgrouplab_phone">Fòn</string>
     <string name="permgroupdesc_phone">gairmean fòn a chur ’s a stiùireadh</string>
-    <string name="permgrouprequest_phone">A bheil thu airson cead a thoirt dha
-        &lt;b&gt;<xliff:g id="app_name" example="Gmail">%1$s</xliff:g>&lt;/b&gt; gairmean fòn a chur ’s a stiùireadh?</string>
     <string name="permgroupdesc_sensors">dàta mhothaichearan mu do bheò inntrigeadh</string>
-    <string name="permgrouprequest_sensors">A bheil thu airson cead a thoirt dha
-        &lt;b&gt;<xliff:g id="app_name" example="Gmail">%1$s</xliff:g>&lt;/b&gt; dàta mhothaichearan mu do bheò inntrigeadh?</string>
     <string name="capability_title_canRetrieveWindowContent">Faighinn susbaint uinneige</string>
     <string name="capability_desc_canRetrieveWindowContent">Susbaint na h-uinneige ris a bheil thu
         a sgrùdadh.</string>
@@ -344,7 +325,6 @@
       ri linn sin.</string>
     <string name="permlab_persistentActivity">toirt air aplacaid ruith an-còmhnaidh</string>
     <string name="permdesc_persistentActivity" product="tablet">Leigidh seo leis an aplacaid gum mair cuid dhith sa chuimhne. Faodaidh seo an cuimhne a tha ri làimh do dh’aplacaidean eile a chuingeachadh ’s an tablaid a dhèanamh nas slaodaiche.</string>
-    <string name="permdesc_persistentActivity" product="tv">Leigidh seo leis an aplacaid gum mair cuid dhith sa chuimhne. Faodaidh seo an cuimhne a tha ri làimh do dh’aplacaidean eile a chuingeachadh ’s an TBh a dhèanamh nas slaodaiche.</string>
     <string name="permdesc_persistentActivity" product="default">Leigidh seo leis an aplacaid gum mair cuid dhith sa chuimhne. Faodaidh seo an cuimhne a tha ri làimh do dh’aplacaidean eile a chuingeachadh ’s am fòn a dhèanamh nas slaodaiche.</string>
     <string name="permlab_foregroundService">seirbheis a ruith air a’ bheulaibh</string>
     <string name="permdesc_foregroundService">Leigidh seo leis an aplacaid seirbheisean beulaibh a chleachdadh.</string>
@@ -359,10 +339,6 @@
         gun tòisich i leatha fhèin cho luath ’s a bhios an siostam air a bhùtadh.
         Dh’fhaoidte gun doir e nas fhaide mus bi an tablaid air a cur gu dol is gun cuir an aplacaid maille air
         air an tablaid san fharsaingeachd on a bhios i a’ ruith an-còmhnaidh.</string>
-    <string name="permdesc_receiveBootCompleted" product="tv">Leigidh seo leis an aplacaid
-        gun tòisich i leatha fhèin cho luath ’s a bhios an siostam air a bhùtadh.
-        Dh’fhaoidte gun doir e nas fhaide mus bi an TBh air a chur gu dol is gun cuir an aplacaid maille air
-        air an TBh san fharsaingeachd on a bhios i a’ ruith an-còmhnaidh.</string>
     <string name="permdesc_receiveBootCompleted" product="default">Leigidh seo leis an aplacaid
         gun tòisich i leatha fhèin cho luath ’s a bhios an siostam air a bhùtadh.
         Dh’fhaoidte gun doir e nas fhaide mus bi am fòn air a chur gu dol is gun cuir an aplacaid maille air
@@ -372,10 +348,6 @@
    craolaidhean steigeach a mhaireas nuair a bhios an craoladh seachad. Ma thèid an gleus seo a chleachdadh cus,
     dh’fhaoidte gum bi an tablaid slaodach no neo-sheasmhach ma chleachdas i cus dhen chuimhne.
     </string>
-    <string name="permdesc_broadcastSticky" product="tv">Leigidh seo leis an aplacaid gun cuir i
-   craolaidhean steigeach a mhaireas nuair a bhios an craoladh seachad. Ma thèid an gleus seo a chleachdadh cus,
-    dh’fhaoidte gum bi an TBh slaodach no neo-sheasmhach ma chleachdas e cus dhen chuimhne.
-    </string>
     <string name="permdesc_broadcastSticky" product="default">Leigidh seo leis an aplacaid gun cuir i
    craolaidhean steigeach a mhaireas nuair a bhios an craoladh seachad. Ma thèid an gleus seo a chleachdadh cus,    dh’fhaoidte gum bi am fòn slaodach no neo-sheasmhach ma chleachdas e cus dhen chuimhne.</string>
     <string name="permlab_readContacts">an luchd-aithne agad a leughadh</string>
@@ -383,8 +355,6 @@
     <string name="permlab_readCallLog">loga nan gairmean a leughadh</string>
     <string name="permlab_writeCallLog">sgrìobhadh gu loga nan gairmean</string>
     <string name="permdesc_writeCallLog" product="tablet">Leigidh seo leis an aplacaid gun atharraich i      loga nan gairmean air an tablaid agad, a’ gabhail a-staigh dàta mu gairmean a-steach is a-mach.
-      Faodaidh aplacaidean droch-rùnach seo a chleachdadh airson loga nan gairmean agad a shuathadh bàn no atharrachadh.</string>
-    <string name="permdesc_writeCallLog" product="tv">Leigidh seo leis an aplacaid gun atharraich i      loga nan gairmean air an TBh agad, a’ gabhail a-staigh dàta mu gairmean a-steach is a-mach.
       Faodaidh aplacaidean droch-rùnach seo a chleachdadh airson loga nan gairmean agad a shuathadh bàn no atharrachadh.</string>
     <string name="permdesc_writeCallLog" product="default">Leigidh seo leis an aplacaid gun atharraich i      loga nan gairmean air an fhòn agad, a’ gabhail a-staigh dàta mu gairmean a-steach is a-mach.
       Faodaidh aplacaidean droch-rùnach seo a chleachdadh airson loga nan gairmean agad a shuathadh bàn no atharrachadh.</string>
@@ -421,14 +391,11 @@
     <string name="permlab_acceptHandover">leantainn air gairm o aplacaid eile</string>
     <string name="permdesc_acceptHandovers">Leigidh seo leis an aplacaid leantainn air adhart le gairm a chaidh a thòiseachadh le aplacaid eile.</string>
     <string name="permlab_wakeLock" product="tablet">an tablaid a chumail ’na dùisg</string>
-    <string name="permlab_wakeLock" product="tv">an TBh a chumail ’na dhùisg</string>
     <string name="permlab_wakeLock" product="default">am fòn a chumail ’na dhùisg</string>
     <string name="permdesc_wakeLock" product="tablet">Leigidh seo leis an aplacaid cadal na tablaid a bhacadh.</string>
-    <string name="permdesc_wakeLock" product="tv">Leigidh seo leis an aplacaid cadal an TBh a bhacadh.</string>
     <string name="permdesc_wakeLock" product="default">Leigidh seo leis an aplacaid cadal an fhòn a bhacadh.</string>
     <string name="permlab_transmitIr">tar-chur le fo-dhearg</string>
     <string name="permdesc_transmitIr" product="tablet">Leigidh seo leis an aplacaid tar-chuirear fo-dhearg na tablaid a chleachdadh.</string>
-    <string name="permdesc_transmitIr" product="tv">Leigidh seo leis an aplacaid tar-chuirear fo-dhearg an TBh a chleachdadh.</string>
     <string name="permdesc_transmitIr" product="default">Leigidh seo leis an aplacaid tar-chuirear fo-dhearg an fhòn a chleachdadh.</string>
     <string name="permlab_setWallpaper">am pàipear-balla a shuidheachadh</string>
     <string name="permdesc_setWallpaper">Leigidh seo leis an aplacaid pàipear-balla an t-siostaim a shuidheachadh.</string>
@@ -436,14 +403,10 @@
     <string name="permdesc_setWallpaperHints">Leigidh seo leis an aplacaid oidheaman meud airson pàipear-balla an t-siostaim a shuidheachadh.</string>
     <string name="permlab_setTimeZone">an roinn-tìde a shuidheachadh</string>
     <string name="permdesc_setTimeZone" product="tablet">Leigidh seo leis an aplacaid roinn-tìde na tablaid atharrachadh.</string>
-    <string name="permdesc_setTimeZone" product="tv">Leigidh seo leis an aplacaid roinn-tìde an TBh atharrachadh.</string>
     <string name="permdesc_setTimeZone" product="default">Leigidh seo leis an aplacaid roinn-tìde an fhòn atharrachadh.</string>
     <string name="permlab_getAccounts">cunntasan a lorg air an uidheam</string>
     <string name="permdesc_getAccounts" product="tablet">Leigidh seo leis an aplacaid
       liosta nan cunntasan air a bheil an tablaid eòlach fhaighinn. Dh’fhaoidte gun gabh seo a-staigh cunntasan
-      a chaidh a chruthachadh leis na h-aplacaidean a stàlaich thu.</string>
-    <string name="permdesc_getAccounts" product="tv">Leigidh seo leis an aplacaid
-      liosta nan cunntasan air a bheil an TBh eòlach fhaighinn. Dh’fhaoidte gun gabh seo a-staigh cunntasan
       a chaidh a chruthachadh leis na h-aplacaidean a stàlaich thu.</string>
     <string name="permdesc_getAccounts" product="default">Leigidh seo leis an aplacaid
       liosta nan cunntasan air a bheil an fhòn eòlach fhaighinn. Dh’fhaoidte gun gabh seo a-staigh cunntasan
@@ -473,18 +436,12 @@
     <string name="permdesc_changeWifiMulticastState" product="tablet">Leigidh seo leis an aplacaid pacaidean fhaighinn
       a chaidh a chur le seòlaidhean ioma-chraolaidh dhan a h-uile uidheam air lìonra WiFi
       seach dhan tablaid agad a-mhàin. Cleachdaidh seo barrachd dhen chumhachd na am modh às aonais ioma-chraoladh.</string>
-    <string name="permdesc_changeWifiMulticastState" product="tv">Leigidh seo leis an aplacaid pacaidean fhaighinn
-      a chaidh a chur le seòlaidhean ioma-chraolaidh dhan a h-uile uidheam air lìonra WiFi
-      seach dhan TBh agad a-mhàin. Cleachdaidh seo barrachd dhen chumhachd na am modh às aonais ioma-chraoladh.</string>
     <string name="permdesc_changeWifiMulticastState" product="default">Leigidh seo leis an aplacaid pacaidean fhaighinn
       a chaidh a chur le seòlaidhean ioma-chraolaidh dhan a h-uile uidheam air lìonra WiFi
       seach dhan fhòn agad a-mhàin. Cleachdaidh seo barrachd dhen chumhachd na am modh às aonais ioma-chraoladh.</string>
     <string name="permlab_bluetoothAdmin">na roghainnean Bluetooth inntrigeadh</string>
     <string name="permdesc_bluetoothAdmin" product="tablet">Leigidh seo leis an aplacaid
       an tablaid Bluetooth ionadail a rèiteachadh agus uidheaman cèine a lorg
-      ’s a phaidhreachadh leotha.</string>
-    <string name="permdesc_bluetoothAdmin" product="tv">Leigidh seo leis an aplacaid
-      an TBh Bluetooth ionadail a rèiteachadh agus uidheaman cèine a lorg
       ’s a phaidhreachadh leotha.</string>
     <string name="permdesc_bluetoothAdmin" product="default">Leigidh seo leis an aplacaid
       an fhòn Bluetooth ionadail a rèiteachadh agus uidheaman cèine a lorg      ’s a phaidhreachadh leotha.</string>
@@ -495,16 +452,11 @@
     <string name="permlab_changeWimaxState">an staid WiMAX atharrachadh</string>
     <string name="permdesc_changeWimaxState" product="tablet">Leigidh seo leis an aplacaid
       an tablaid a cheangal gu lìonraidhean WiMAX ’s na ceanglaichean sin a bhriseadh.</string>
-    <string name="permdesc_changeWimaxState" product="tv">Leigidh seo leis an aplacaid
-      an TBh a cheangal gu lìonraidhean WiMAX ’s na ceanglaichean sin a bhriseadh.</string>
     <string name="permdesc_changeWimaxState" product="default">Leigidh seo leis an aplacaid
       am fòn a cheangal gu lìonraidhean WiMAX ’s na ceanglaichean sin a bhriseadh.</string>
     <string name="permlab_bluetooth">paidhreachadh le uidheaman Bluetooth</string>
     <string name="permdesc_bluetooth" product="tablet">Leigidh seo leis an aplacaid
       sealltainn air rèiteachadh Bluetooth na tablaid agus ceanglaichean ri uidheaman paidhrichte
-      a dhèanamh is gabhail riutha.</string>
-    <string name="permdesc_bluetooth" product="tv">Leigidh seo leis an aplacaid
-      sealltainn air rèiteachadh Bluetooth an TBh agus ceanglaichean ri uidheaman paidhrichte
       a dhèanamh is gabhail riutha.</string>
     <string name="permdesc_bluetooth" product="default">Leigidh seo leis an aplacaid
       sealltainn air rèiteachadh Bluetooth an fhòn agus ceanglaichean ri uidheaman paidhrichte
@@ -513,17 +465,40 @@
     <string name="permdesc_nfc">Leigidh seo leis an aplacaid conaltradh slighe
       tagaichean, cairtean is leughadairean a’ chonaltraidh raoin fhaisg (NFC).</string>
     <string name="permlab_disableKeyguard">glas na sgrìn agad a chur à comas</string>
+    <string name="permdesc_disableKeyguard">Leigidh seo leis an aplacaid an glasadh-iuchrach
+      is gach tèarainteachd facail-fhaire co-cheangailte ris a chur à comas. Mar eisimpleir, cuiridh am fòn
+      an glasadh-iuchrach à comas nuair a thig gairm a-steach agus
+      cuiridh e an glasadh-iuchrach an comas a-rithist nuair a bhios a’ ghairm air a tighinn gu crìoch.</string>
     <string name="permlab_useBiometric">bathar-cruaidh beò-meatrach a chleachdadh</string>
     <string name="permdesc_useBiometric">Leigidh seo leis an aplacaid bathar-cruaidh beò-meatrach a chleachdadh a chùm dearbh-aithneachadh</string>
+    <string name="permlab_manageFingerprint">stiùireadh bathar-cruaidh nan lorgan-meòir</string>
+    <string name="permdesc_manageFingerprint">Leigidh seo leis an aplacaid modhan a ghairm airson teamplaidean lorgan-meòir a chùm cleachdaidh a chur ris is a sguabadh às.</string>
+    <string name="permlab_useFingerprint">cleachdadh bathar-cruaidh nan lorgan-meòir</string>
+    <string name="permdesc_useFingerprint">Leigidh seo leis an aplacaid bathar-cruaidh lorgan-meòir a chleachdadh a chùm dearbh-aithneachadh</string>
     <string name="biometric_not_recognized">Gun aithneachadh</string>
+    <string name="fingerprint_acquired_partial">Cha do mhothaich sinn ach do chuid dhen lorg-mheòir. Feuch ris a-rithist.</string>
+    <string name="fingerprint_acquired_insufficient">Cha b’ urrainn dhuinn an lorg-mheòir a phròiseasadh. Feuch ris a-rithist.</string>
+    <string name="fingerprint_acquired_imager_dirty">Tha mothaichear nan lorgan-meòir salach. Glan e is feuch ris a-rithist.</string>
+    <string name="fingerprint_acquired_too_fast">Ghluais do mheur ro luath. Feuch ris a-rithist.</string>
+    <string name="fingerprint_acquired_too_slow">Ghluais do mheur ro shlaodach. Feuch ris a-rithist.</string>
     <string-array name="fingerprint_acquired_vendor"/>
     <string name="fingerprint_authenticated">Chaidh an lorg-mheòir a dhearbhadh</string>
+    <string name="fingerprint_error_hw_not_available">Chan eil bathar-cruaidh luirge-meòir ri fhaighinn.</string>
+    <string name="fingerprint_error_no_space">Cha ghabh an lorg-meòir a stòradh. Thoir air falbh lorg-meòir a tha ann.</string>
+    <string name="fingerprint_error_timeout">Dh’fhalbh an ùine air an lorg-mheòir. Feuch ris a-rithist.</string>
+    <string name="fingerprint_error_canceled">Chaidh sgur de dh’obrachadh na luirge-meòir.</string>
     <string name="fingerprint_error_user_canceled">Sguir cleachdaiche de ghnìomh an luirg-mheòir.</string>
+    <string name="fingerprint_error_lockout">Cus oidhirpean. Feuch ris a-rithist an ceann greis.</string>
     <string name="fingerprint_error_unable_to_process">Feuch ris a-rithist.</string>
     <string name="fingerprint_error_no_fingerprints">Cha deach lorg-mheòir sam bith a chlàradh.</string>
+    <string name="fingerprint_name_template">Meur <xliff:g id="fingerId" example="1">%d</xliff:g></string>
     <string-array name="fingerprint_error_vendor"/>
+    <string name="fingerprint_icon_content_description">Ìomhaigheag na luirge-meòir</string>
     <string-array name="face_acquired_vendor"/>
+    <string name="face_error_lockout">Cus oidhirpean. Feuch ris a-rithist an ceann greis.</string>
     <string-array name="face_error_vendor"/>
+    <string name="permlab_readSyncSettings">leughadh roghainnean an t-sioncronachaidh</string>
+    <string name="permdesc_readSyncSettings">Leigidh seo leis an aplacaid roghainnean an t-sioncronachaidh aig cunntas a leughadh. Mar eisimpleir, bidh buaidh aig a’ chead seo air co-dhiù an dèid aplacaid nan daoine a shioncronachadh le cunntas gus nach dèid.</string>
     <string name="permlab_accessNotifications">cothrom fhaighinn air brathan</string>
     <string-array name="phoneTypes">
         <item>Home</item>
@@ -558,14 +533,28 @@
         <item>Other</item>
         <item>Gnàthaichte</item>
     </string-array>
+    <string-array name="imProtocols">
+        <item>AIM</item>
+        <item>Windows Live</item>
+        <item>Yahoo</item>
+        <item>Skype</item>
+        <item>QQ</item>
+        <item>Google Talk</item>
+        <item>ICQ</item>
+        <item>Jabber</item>
+    </string-array>
     <string name="phoneTypeCustom">Gnàthaichte</string>
     <string name="phoneTypeWork">Obair</string>
     <string name="phoneTypeFaxWork">Facs obrach</string>
     <string name="phoneTypeFaxHome">Facs dachaigh</string>
+    <string name="phoneTypeCallback">Gairm air ais</string>
     <string name="phoneTypeCar">Càr</string>
+    <string name="phoneTypeIsdn">ISDN</string>
     <string name="phoneTypeRadio">Rèidio</string>
+    <string name="phoneTypeTelex">Telex</string>
     <string name="phoneTypeWorkMobile">Fòn-làimhe na h-obrach</string>
     <string name="phoneTypeAssistant">Cuidiche</string>
+    <string name="phoneTypeMms">MMS</string>
     <string name="eventTypeCustom">Gnàthaichte</string>
     <string name="eventTypeBirthday">Co-là breith</string>
     <string name="eventTypeAnniversary">Ceann-bliadhna</string>
@@ -576,6 +565,12 @@
     <string name="imTypeCustom">Gnàthaichte</string>
     <string name="imTypeWork">Obair</string>
     <string name="imProtocolCustom">Gnàthaichte</string>
+    <string name="imProtocolMsn">Windows Live</string>
+    <string name="imProtocolYahoo">Yahoo</string>
+    <string name="imProtocolSkype">Skype</string>
+    <string name="imProtocolQq">QQ</string>
+    <string name="imProtocolIcq">ICQ</string>
+    <string name="imProtocolJabber">Jabber</string>
     <string name="orgTypeWork">Obair</string>
     <string name="orgTypeCustom">Gnàthaichte</string>
     <string name="relationTypeCustom">Gnàthaichte</string>
@@ -611,11 +606,6 @@
        thèid iarraidh ort gun doir thu a’ ghlas far na tablaid agad leis a’ chlàradh a-steach agad air Google.\n\n
        Feuch ris a-rithist an ceann <xliff:g id="number">%3$d</xliff:g> diog(an).
     </string>
-    <string name="lockscreen_failed_attempts_almost_glogin" product="tv">        Tharraing thu am pàtran neo-ghlasaidh gu ceàrr <xliff:g id="number">%1$d</xliff:g> tura(i)s.
-       Às dèidh <xliff:g id="number">%2$d</xliff:g>oidhirp(ean) neo-shoirbheachail eile,
-       thèid iarraidh ort gun doir thu a’ ghlas far an TBh agad leis a’ chlàradh a-steach agad air Google.\n\n
-       Feuch ris a-rithist an ceann <xliff:g id="number">%3$d</xliff:g> diog(an).
-    </string>
     <string name="lockscreen_failed_attempts_almost_glogin" product="default">        Tharraing thu am pàtran neo-ghlasaidh gu ceàrr <xliff:g id="number">%1$d</xliff:g> tura(i)s.
        Às dèidh <xliff:g id="number">%2$d</xliff:g>oidhirp(ean) neo-shoirbheachail eile,
        thèid iarraidh ort gun doir thu a’ ghlas far an fhòn agad leis a’ chlàradh a-steach agad air Google.\n\n
@@ -624,10 +614,6 @@
     <string name="lockscreen_failed_attempts_almost_at_wipe" product="tablet">       Dh’fhàillig leat a’ ghlas a thoirt far na tablaid <xliff:g id="number">%1$d</xliff:g> tura(i)s.
        Às dèidh <xliff:g id="number">%2$d</xliff:g> oidhirp(ean) neo-shoirbheachail eile,
        thèid an tablaid ath-shuidheachadh air bun-roghainnean an fhactaraidh agus caillidh tu an dàta cleachdaiche uile.
-    </string>
-    <string name="lockscreen_failed_attempts_almost_at_wipe" product="tv">       Dh’fhàillig leat a’ ghlas a thoirt far an TBh <xliff:g id="number">%1$d</xliff:g> tura(i)s.
-       Às dèidh <xliff:g id="number">%2$d</xliff:g> oidhirp(ean) neo-shoirbheachail eile,
-       thèid an TBh ath-shuidheachadh air bun-roghainnean an fhactaraidh agus caillidh tu an dàta cleachdaiche uile.
     </string>
     <string name="lockscreen_failed_attempts_almost_at_wipe" product="default">       Dh’fhàillig leat a’ ghlas a thoirt far an fhòn <xliff:g id="number">%1$d</xliff:g> tura(i)s.
        Às dèidh <xliff:g id="number">%2$d</xliff:g> oidhirp(ean) neo-shoirbheachail eile,
@@ -638,7 +624,9 @@
     <string name="lockscreen_glogin_submit_button">Clàraich a-steach</string>
     <string name="keyguard_accessibility_sim_pin_unlock">Neo-ghlasadh an t-SIM le PIN.</string>
     <string name="keyguard_accessibility_sim_puk_unlock">Neo-ghlasadh an t-SIM le PUK.</string>
+    <string name="password_keyboard_label_alpha_key">ABC</string>
     <string name="granularity_label_character">caractar</string>
+    <string name="js_dialog_title_default">JavaScript</string>
     <string name="js_dialog_before_unload_title">Dearbh an t-seòladaireachd</string>
     <string name="autofill_window_title">Lìon gu fèin-obrachail le <xliff:g id="serviceName" example="MyPass">%1$s</xliff:g></string>
     <string name="autofill_name_on_card_contextual_re">ainm</string>
@@ -770,23 +758,6 @@
     <string name="selectTextMode">Tagh an teacsa</string>
     <string name="undo">Neo-dhèan</string>
     <string name="redo">Ath-dhèan</string>
-    <string name="email_desc">Cuir post-d dhan t-seòladh a thagh thu</string>
-    <string name="dial">Cuir fòn</string>
-    <string name="dial_desc">Cuir fòn dhan àireamh fòn a thagh thu</string>
-    <string name="map">Mapa</string>
-    <string name="map_desc">Lorg far a bheil an seòladh a thagh thu</string>
-    <string name="browse">Fosgail</string>
-    <string name="browse_desc">Fosgail an URL a thagh thu</string>
-    <string name="sms">Cuir teachdaireachd</string>
-    <string name="sms_desc">Cuir teachdaireachd dhan àireamh fòn a thagh thu</string>
-    <string name="add_contact">Cuir ris</string>
-    <string name="add_contact_desc">Cuir ris an luchd-aithne</string>
-    <string name="view_calendar">Seall</string>
-    <string name="view_calendar_desc">Seall an t-àm a thagh thu sa mhìosachan</string>
-    <string name="add_calendar_event">Sgeidealaich</string>
-    <string name="add_calendar_event_desc">Cuir tachartas air an sgeideal airson an ama a thagh thu</string>
-    <string name="view_flight">Tracaich</string>
-    <string name="view_flight_desc">Tracaich an t-iteal a thagh thu</string>
     <string name="app_running_notification_text">Thoir gogag airson barrachd fiosrachaidh
         no airson stad a chur air an aplacaid.</string>
     <string name="dialog_alert_title">An aire</string>
@@ -848,19 +819,7 @@
     <string name="volume_icon_description_notification">Àirde fuaim nam brathan</string>
     <string name="ringtone_silent">Chan eil gin</string>
     <string name="ringtone_unknown">Neo-aithnichte</string>
-    <string name="wifi_available_carrier_network_title">Ceangail ri lìonra WiFi a’ ghiùlanair</string>
-    <string name="wifi_available_title_connecting">’Gad cheangal ri lìonra WiFi</string>
-    <string name="wifi_available_action_all_networks">Gach lìonra</string>
-    <string name="wifi_suggestion_action_allow_app">Ceadaich</string>
-    <string name="wifi_wakeup_onboarding_title">Thèid WiFi a chur air gu fèin-obrachail</string>
-    <string name="wifi_wakeup_onboarding_subtext">Nuair a bhios tu faisg air lìonra le càileachd àrd a shabhail thu</string>
-    <string name="wifi_wakeup_onboarding_action_disable">Na cuir air e</string>
-    <string name="wifi_wakeup_enabled_title">Chaidh WiFi a chur air gu fèin-obrachail</string>
-    <string name="wifi_wakeup_enabled_content">Tha thu faisg air lìonra a shàbhail thu: <xliff:g id="network_ssid">%1$s</xliff:g></string>
     <string name="wifi_no_internet_detailed">Thoir gnogag airson roghainnean</string>
-    <string name="wifi_softap_config_change">Chaidh roghainnean a’ hotspot agad atharrachadh</string>
-    <string name="wifi_softap_config_change_summary">Chaidh bann a’ hotspot agad atharrachadh.</string>
-    <string name="wifi_softap_config_change_detailed">Tha chur an t-uidheam seo taic ri 5GHz a-mhàin mar a b’ fheàrr leat. Cha chleachd an t-uidheam seo bann 5GHz ach nuair a bhios fear ri làimh.</string>
     <string name="network_switch_metered">Chaidh leum a ghearradh gu <xliff:g id="network_type">%1$s</xliff:g></string>
     <string name="network_switch_metered_detail">Cleachdaidh an t-uidheam seo <xliff:g id="new_network">%1$s</xliff:g> mura bi inntrigeadh dhan eadar-lìon aig <xliff:g id="previous_network">%2$s</xliff:g>. Dh’fhaoidte gun èirich cosgaisean ’na lùib.</string>
     <string name="network_switch_metered_toast">Chaidh leum a ghearradh o <xliff:g id="previous_network">%1$s</xliff:g> gu <xliff:g id="new_network">%2$s</xliff:g></string>
@@ -872,12 +831,7 @@
         <item>VPN</item>
     </string-array>
     <string name="network_switch_type_name_unknown">seòrsa lìonraidh nach aithne dhuinn</string>
-    <string name="wifi_watchdog_network_disabled_detailed">\u0020le ceangal bochd dhan eadar-lìon.</string>
-    <string name="wifi_connect_alert_title">A bheil thu airson an ceangal a cheadachadh?</string>
-    <string name="wifi_connect_default_application">Aplacaid</string>
-    <string name="wifi_p2p_enabled_notification_message">Thoir gnogag airson roghainnean</string>
     <string name="decline">Diùlt</string>
-    <string name="wifi_p2p_to_message">Gu: </string>
     <string name="sms_control_yes">Ceadaich</string>
     <string name="sms_short_code_remember_choice">Cuimhnich mo roghainn</string>
     <string name="sim_added_title">Chaidh cairt SIM a chur ris</string>
@@ -950,9 +904,6 @@
     <string name="submit">Cuir a-null</string>
     <string name="car_mode_disable_notification_title">Tha aplacaid draibhidh a’ ruith</string>
     <string name="car_mode_disable_notification_message">Thoir gnogag gus aplacaid draibhidh fhàgail.</string>
-    <string name="tethered_notification_message">Thoir gnogag gus a shuidheachadh.</string>
-    <string name="disable_tether_notification_title">Tha an teadhrachadh à comas</string>
-    <string name="disable_tether_notification_message">Cuir fios gun rianaire agad airson fiosrachaidh</string>
     <string name="next_button_label">Air adhart</string>
     <string name="no_matches">Gun mhaids</string>
     <string name="share">Co-roinn</string>
@@ -961,9 +912,12 @@
     <string name="number_picker_increment_scroll_mode"><xliff:g id="value" example="3">%s</xliff:g> suath ris ⁊ cùm sìos.</string>
     <string name="date_picker_prev_month_button">Am mìos roimhe</string>
     <string name="date_picker_next_month_button">An ath mhìos</string>
+    <string name="keyboardview_keycode_alt">Alt</string>
     <string name="keyboardview_keycode_shift">Gluais</string>
+    <string name="keyboardview_keycode_enter">Enter</string>
     <string name="action_bar_up_description">Seòl suas</string>
     <string name="action_menu_overflow_description">Barrachd roghainnean</string>
+    <string name="action_bar_home_description_format">%1$s, %2$s</string>
     <string name="storage_internal">Stòras inntearnail co-roinnte</string>
     <string name="storage_sd_card">Cairt SD</string>
     <string name="storage_usb_drive">Draibh USB</string>
@@ -987,7 +941,8 @@
     <string name="activity_chooser_view_see_all">Seall na h-uile</string>
     <string name="activity_resolver_use_always">An-còmhnaidh</string>
     <string name="activity_resolver_use_once">Aon turas a-mhàin</string>
-    <string name="activity_resolver_app_settings">Roghainnean</string>
+    <string name="default_audio_route_name_hdmi">HDMI</string>
+    <string name="default_audio_route_name_headphones">Headphones</string>
     <string name="default_audio_route_name_usb">USB</string>
     <string name="default_audio_route_category_name">An siostam</string>
     <string name="media_route_chooser_extended_settings">Roghainnean</string>
@@ -1019,10 +974,6 @@
        Às dèidh <xliff:g id="number">%2$d</xliff:g> oidhirp(ean) neo-shoirbheachail eile,
        thèid an tablaid ath-shuidheachadh air bun-roghainnean an fhactaraidh agus caillidh tu an dàta cleachdaiche uile.
     </string>
-    <string name="kg_failed_attempts_almost_at_wipe" product="tv">       Dh’fhàillig leat a’ ghlas a thoirt far an TBh <xliff:g id="number">%1$d</xliff:g> tura(i)s.
-       Às dèidh <xliff:g id="number">%2$d</xliff:g> oidhirp(ean) neo-shoirbheachail eile,
-       thèid an TBh ath-shuidheachadh air bun-roghainnean an fhactaraidh agus caillidh tu an dàta cleachdaiche uile.
-    </string>
     <string name="kg_failed_attempts_almost_at_wipe" product="default">       Dh’fhàillig leat a’ ghlas a thoirt far an fhòn <xliff:g id="number">%1$d</xliff:g> tura(i)s.
        Às dèidh <xliff:g id="number">%2$d</xliff:g> oidhirp(ean) neo-shoirbheachail eile,
        thèid am fòn ath-shuidheachadh air bun-roghainnean an fhactaraidh agus caillidh tu an dàta cleachdaiche uile.
@@ -1032,25 +983,28 @@
        thèid iarraidh ort gun doir thu a’ ghlas far na tablaid agad le cunntas puist-d.\n\n
        Feuch ris a-rithist an ceann <xliff:g id="number">%3$d</xliff:g> diog(an).
     </string>
-    <string name="kg_failed_attempts_almost_at_login" product="tv">        Tharraing thu am pàtran neo-ghlasaidh gu ceàrr <xliff:g id="number">%1$d</xliff:g> tura(i)s.
-       Às dèidh <xliff:g id="number">%2$d</xliff:g>oidhirp(ean) neo-shoirbheachail eile,
-       thèid iarraidh ort gun doir thu a’ ghlas far an TBh agad le cunntas puist-d.\n\n
-       Feuch ris a-rithist an ceann <xliff:g id="number">%3$d</xliff:g> diog(an).
-    </string>
     <string name="kg_failed_attempts_almost_at_login" product="default">        Tharraing thu am pàtran neo-ghlasaidh gu ceàrr <xliff:g id="number">%1$d</xliff:g> tura(i)s.
        Às dèidh <xliff:g id="number">%2$d</xliff:g>oidhirp(ean) neo-shoirbheachail eile,
        thèid iarraidh ort gun doir thu a’ ghlas far an fhòn agad le cunntas puist-d.\n\n
        Feuch ris a-rithist an ceann <xliff:g id="number">%3$d</xliff:g> diog(an).
     </string>
+    <string name="accessibility_shortcut_on">Cuir air</string>
+    <string name="accessibility_shortcut_menu_item_status_on">AIR</string>
+    <string name="accessibility_shortcut_menu_item_status_off">DHETH</string>
+    <string name="accessibility_dialog_button_allow">Ceadaich</string>
     <string name="color_inversion_feature_name">Ais-thionndadh nan dathan</string>
     <string name="color_correction_feature_name">Ceartachadh nan dathan</string>
     <string name="user_logging_out_message">A’ clàradh <xliff:g id="name" example="Bob">%1$s</xliff:g> a-mach\u2026</string>
+    <string name="mediasize_na_gvrnmt_letter">Government Letter</string>
+    <string name="mediasize_na_tabloid">Tabloid</string>
+    <string name="mediasize_na_quarto">Quarto</string>
     <string name="restr_pin_enter_pin">Cuir a-steach am PIN</string>
     <string name="restr_pin_enter_old_pin">Am PIN làithreach</string>
     <string name="restr_pin_confirm_pin">Dearbh am PIN ùr</string>
     <string name="restr_pin_error_doesnt_match">Chan eil an dà chòd PIN co-ionnann. Feuch ris a-rithist.</string>
     <string name="immersive_cling_positive">Tha mi agaibh</string>
     <string name="select_year">Tagh bliadhna</string>
+    <string name="time_placeholder">--</string>
     <string name="confirm_battery_saver">Ceart ma-thà</string>
     <string name="data_saver_description">Ach an caith thu nas lugha a dhàta, bacaidh caomhnaiche an dàta cuid a dh’aplacaidean o dhàta a chur no fhaighinn sa chùlaibh. ’S urrainn do dh’aplacaid a bhios tu ris dàta inntrigeadh ach dh’fhaoidte nach dèan i cho tric e. Is ciall dha seo nach dèid cuid a dhealbhan a shealltainn mus doir thu gnogag orra, mar eisimpleir.</string>
     <string name="data_saver_enable_title">A bheil tu airson caomhnaiche an dàta a chur air?</string>
@@ -1082,6 +1036,7 @@
     <string name="stk_cc_ss_to_ss">Chaidh atharrachadh gu iarrtas SS ùr</string>
     <string name="notification_work_profile_content_description">Pròifil na h-obrach</string>
     <string name="expand_action_accessibility">toglaich an leudachadh</string>
+    <string name="usb_midi_peripheral_manufacturer_name">Android</string>
     <string name="floating_toolbar_open_overflow_description">Barrachd roghainnean</string>
     <string name="maximize_button_text">Làn-mheudaich</string>
     <string name="close_button_text">Dùin</string>
@@ -1113,7 +1068,6 @@
     <string name="usb_mtp_launch_notification_title">Ceangailte ri <xliff:g id="product_name">%1$s</xliff:g></string>
     <string name="usb_mtp_launch_notification_description">Thoir gnogag gus faidhlichean a shealltainn</string>
     <string name="pin_target">Prìnich</string>
-    <string name="unpin_target">Dì-phrìnich</string>
     <string name="app_info">Fiosrachadh mun aplacaid</string>
     <string name="negative_duration">\u2212<xliff:g id="time" example="1:14">%1$s</xliff:g></string>
     <string name="demo_starting_message">A’ tòiseachadh air demo\u2026</string>
@@ -1121,6 +1075,7 @@
     <string name="suspended_widget_accessibility">Chaidh <xliff:g id="label" example="Calendar">%1$s</xliff:g> a chur à comas</string>
     <string name="conference_call">Gairm coinneimh</string>
     <string name="time_picker_hour_label">uair</string>
+    <string name="autofill_save_notnow">Chan ann an-dràsta</string>
     <string name="mmcc_authentication_reject">Chan eil an SIM ceadaichte airson guth</string>
     <string name="mmcc_imsi_unknown_in_hlr">Chan eil an SIM ’ga sholar airson guth</string>
     <string name="mmcc_illegal_ms">Chan eil an SIM ceadaichte airson guth</string>
@@ -1154,4 +1109,8 @@
     <string name="notification_appops_microphone_active">Micreofon</string>
     <string name="notification_appops_overlay_active">’ga shealltainn thar aplacaidean eile air an sgrìn agad</string>
     <string name="car_loading_profile">’Ga luchdadh</string>
+    <string name="accessibility_system_action_screenshot_label">Glacadh-sgrìn</string>
+    <string name="resolver_personal_tab">Pearsanta</string>
+    <string name="resolver_work_tab">Obair</string>
+    <string name="resolver_switch_on_work">Cuir air</string>
 </resources>

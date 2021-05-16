@@ -52,11 +52,6 @@ public class SlicePermissionActivity extends Activity implements OnClickListener
 
         mUri = getIntent().getParcelableExtra(SliceProvider.EXTRA_BIND_URI);
         mCallingPkg = getIntent().getStringExtra(SliceProvider.EXTRA_PKG);
-        if (mUri == null) {
-            Log.e(TAG, SliceProvider.EXTRA_BIND_URI + " wasn't provided");
-            finish();
-            return;
-        }
 
         try {
             PackageManager pm = getPackageManager();
@@ -108,7 +103,7 @@ public class SlicePermissionActivity extends Activity implements OnClickListener
     }
 
     private void verifyCallingPkg() {
-        final String providerPkg = getIntent().getStringExtra("provider_pkg");
+        final String providerPkg = getIntent().getStringExtra(SliceProvider.EXTRA_PROVIDER_PKG);
         if (providerPkg == null || mProviderPkg.equals(providerPkg)) return;
         final String callingPkg = getCallingPkg();
         EventLog.writeEvent(0x534e4554, "159145361", getUid(callingPkg));

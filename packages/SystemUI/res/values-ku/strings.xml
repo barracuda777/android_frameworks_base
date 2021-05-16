@@ -176,6 +176,7 @@
     <string name="quick_settings_notifications_label">تێبینیه‌کان</string>
     <string name="quick_settings_flashlight_label">لایتی فلاش</string>
     <string name="ssl_ca_cert_warning">تۆڕه‌که‌ مۆنیته‌ر کراوه‌</string>
+    <string name="notification_section_header_alerting">تێبینی</string>
     <string name="stream_voice_call">Call</string>
     <string name="stream_ring">Ring</string>
     <string name="stream_bluetooth_sco">بلوتوس</string>
@@ -187,7 +188,9 @@
     <string name="status_bar_airplane">شێوازی فڕۆکە</string>
     <string name="enable_bluetooth_confirmation_ok">کردنە کار</string>
     <string name="notification_header_default_channel">تێبینی</string>
+    <string name="notification_conversation_channel_settings">ڕێکخستنه‌کان</string>
     <string name="notification_appops_settings">ڕێکخستنه‌کان</string>
+    <string name="notification_menu_settings_action">ڕێکخستنه‌کان</string>
     <string name="keyboard_key_home">ماڵەوە</string>
     <string name="keyboard_key_back">گەڕانەوە</string>
     <string name="keyboard_key_move_home">ماڵەوە</string>
@@ -200,4 +203,6 @@
     <string name="tuner_menu">پێڕست</string>
     <string name="app_info">زانیاری دەربارەی بەرنامە</string>
     <string name="open_saver_setting_action">ڕێکخستنه‌کان</string>
+    <string name="priority_onboarding_settings_button_title">ڕێکخستنه‌کان</string>
+    <string name="controls_media_settings_button">ڕێکخستنه‌کان</string>
 </resources>

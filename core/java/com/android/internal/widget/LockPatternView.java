@@ -19,7 +19,7 @@ package com.android.internal.widget;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
@@ -182,6 +182,7 @@ public class LockPatternView extends View {
         /**
          * @param row The row of the cell.
          * @param column The column of the cell.
+         * @param size The size of the cell.
          */
         private Cell(int row, int column, byte size) {
             checkRange(row, column, size);
@@ -197,11 +198,7 @@ public class LockPatternView extends View {
             return column;
         }
 
-        /**
-         * @param row The row of the cell.
-         * @param column The column of the cell.
-         */
-        public static synchronized Cell of(int row, int column, byte size) {
+        public static Cell of(int row, int column, byte size) {
             checkRange(row, column, size);
             return sCells[row][column];
         }
@@ -223,7 +220,6 @@ public class LockPatternView extends View {
                 throw new IllegalArgumentException("column must be in range 0-" + (size - 1));
             }
         }
-
         @Override
         public String toString() {
             return "(row=" + row + ",clmn=" + column + ")";
@@ -1383,7 +1379,8 @@ public class LockPatternView extends View {
         super.onRestoreInstanceState(ss.getSuperState());
         setPattern(
                 DisplayMode.Correct,
-                LockPatternUtils.stringToPattern(ss.getSerializedPattern(), ss.getPatternSize()));
+                LockPatternUtils.byteArrayToPattern(ss.getSerializedPattern().getBytes(),
+                        ss.getPatternSize()));
         mPatternDisplayMode = DisplayMode.values()[ss.getDisplayMode()];
         mPatternSize = ss.getPatternSize();
         mInputEnabled = ss.isInputEnabled();

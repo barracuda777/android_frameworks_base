@@ -46,6 +46,7 @@ import com.android.systemui.Interpolators;
 import com.android.systemui.R;
 import com.android.systemui.plugins.DarkIconDispatcher.DarkReceiver;
 import com.android.systemui.qs.QSPanel;
+import com.android.systemui.statusbar.CommandQueue;
 import com.android.systemui.statusbar.phone.StatusBarIconController.TintedIconManager;
 import com.android.systemui.statusbar.policy.BatteryController;
 import com.android.systemui.statusbar.policy.BatteryController.BatteryStateChangeCallback;
@@ -100,6 +101,11 @@ public class KeyguardStatusBarView extends RelativeLayout
      */
     private int mCutoutSideNudge = 0;
 
+    private DisplayCutout mDisplayCutout;
+    private int mRoundedCornerPadding = 0;
+    // right and left padding applied to this view to account for cutouts and rounded corners
+    private Pair<Integer, Integer> mPadding = new Pair(0, 0);
+
     public KeyguardStatusBarView(Context context, AttributeSet attrs) {
         super(context, attrs);
     }
@@ -148,14 +154,16 @@ public class KeyguardStatusBarView extends RelativeLayout
         mCarrierLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX,
                 getResources().getDimensionPixelSize(
                         com.android.internal.R.dimen.text_size_small_material));
-        lp = (MarginLayoutParams) mCarrierLabel.getLayoutParams();
-        lp.setMarginStart(
-                getResources().getDimensionPixelSize(R.dimen.keyguard_carrier_text_margin));
-        mCarrierLabel.setLayoutParams(lp);
 
-        lp = (MarginLayoutParams) getLayoutParams();
+        updateKeyguardStatusBarHeight();
+    }
+
+    private void updateKeyguardStatusBarHeight() {
+        final int waterfallTop =
+                mDisplayCutout == null ? 0 : mDisplayCutout.getWaterfallInsets().top;
+        MarginLayoutParams lp =  (MarginLayoutParams) getLayoutParams();
         lp.height =  getResources().getDimensionPixelSize(
-                R.dimen.status_bar_header_height_keyguard);
+                R.dimen.status_bar_header_height_keyguard) + waterfallTop;
         setLayoutParams(lp);
     }
 
@@ -167,6 +175,8 @@ public class KeyguardStatusBarView extends RelativeLayout
                 R.dimen.system_icons_super_container_avatarless_margin_end);
         mCutoutSideNudge = getResources().getDimensionPixelSize(
                 R.dimen.display_cutout_margin_consumption);
+        mRoundedCornerPadding = res.getDimensionPixelSize(
+                R.dimen.rounded_corner_content_padding);
     }
 
     private void updateVisibilities() {
@@ -201,6 +211,7 @@ public class KeyguardStatusBarView extends RelativeLayout
                 : 0;
         int marginEnd = mKeyguardUserSwitcherShowing ? mSystemIconsSwitcherHiddenExpandedMargin :
                 baseMarginEnd;
+        marginEnd = calculateMargin(marginEnd, mPadding.second);
         if (marginEnd != lp.getMarginEnd()) {
             lp.setMarginEnd(marginEnd);
             mSystemIconsContainer.setLayoutParams(lp);
@@ -217,23 +228,37 @@ public class KeyguardStatusBarView extends RelativeLayout
     }
 
     private boolean updateLayoutConsideringCutout() {
-        DisplayCutout dc = getRootWindowInsets().getDisplayCutout();
+        mDisplayCutout = getRootWindowInsets().getDisplayCutout();
+        updateKeyguardStatusBarHeight();
+
         Pair<Integer, Integer> cornerCutoutMargins =
-                PhoneStatusBarView.cornerCutoutMargins(dc, getDisplay());
-        updateCornerCutoutPadding(cornerCutoutMargins);
-        if (dc == null || cornerCutoutMargins != null) {
+                StatusBarWindowView.cornerCutoutMargins(mDisplayCutout, getDisplay());
+        updatePadding(cornerCutoutMargins);
+        updateCarrierLabelParams();
+        if (mDisplayCutout == null || cornerCutoutMargins != null) {
             return updateLayoutParamsNoCutout();
         } else {
-            return updateLayoutParamsForCutout(dc);
+            return updateLayoutParamsForCutout();
         }
     }
 
-    private void updateCornerCutoutPadding(Pair<Integer, Integer> cornerCutoutMargins) {
-        if (cornerCutoutMargins != null) {
-            setPadding(cornerCutoutMargins.first, 0, cornerCutoutMargins.second, 0);
-        } else {
-            setPadding(0, 0, 0, 0);
-        }
+    private void updatePadding(Pair<Integer, Integer> cornerCutoutMargins) {
+        final int waterfallTop =
+                mDisplayCutout == null ? 0 : mDisplayCutout.getWaterfallInsets().top;
+        mPadding =
+                StatusBarWindowView.paddingNeededForCutoutAndRoundedCorner(
+                        mDisplayCutout, cornerCutoutMargins, mRoundedCornerPadding);
+        setPadding(mPadding.first, waterfallTop, mPadding.second, 0);
+    }
+
+    private void updateCarrierLabelParams() {
+        int marginStart = calculateMargin(
+                getResources().getDimensionPixelSize(R.dimen.keyguard_carrier_text_margin),
+                mPadding.first);
+        MarginLayoutParams lp = (MarginLayoutParams) mCarrierLabel.getLayoutParams();
+        lp.setMarginStart(marginStart);
+
+        mCarrierLabel.setLayoutParams(lp);
     }
 
     private boolean updateLayoutParamsNoCutout() {
@@ -260,7 +285,7 @@ public class KeyguardStatusBarView extends RelativeLayout
         return true;
     }
 
-    private boolean updateLayoutParamsForCutout(DisplayCutout dc) {
+    private boolean updateLayoutParamsForCutout() {
         if (mLayoutState == LAYOUT_CUTOUT) {
             return false;
         }
@@ -271,7 +296,7 @@ public class KeyguardStatusBarView extends RelativeLayout
         }
 
         Rect bounds = new Rect();
-        boundsFromDirection(dc, Gravity.TOP, bounds);
+        boundsFromDirection(mDisplayCutout, Gravity.TOP, bounds);
 
         mCutoutSpace.setVisibility(View.VISIBLE);
         RelativeLayout.LayoutParams lp = (LayoutParams) mCutoutSpace.getLayoutParams();
@@ -322,7 +347,8 @@ public class KeyguardStatusBarView extends RelativeLayout
         mMultiUserSwitch.setUserSwitcherController(mUserSwitcherController);
         userInfoController.reloadUserInfo();
         Dependency.get(ConfigurationController.class).addCallback(this);
-        mIconManager = new TintedIconManager(findViewById(R.id.statusIcons));
+        mIconManager = new TintedIconManager(findViewById(R.id.statusIcons),
+                Dependency.get(CommandQueue.class));
         Dependency.get(StatusBarIconController.class).addIconGroup(mIconManager);
         onThemeChanged();
     }
@@ -476,6 +502,17 @@ public class KeyguardStatusBarView extends RelativeLayout
         View v = findViewById(id);
         if (v instanceof DarkReceiver) {
             ((DarkReceiver) v).onDarkChanged(tintArea, intensity, color);
+        }
+    }
+
+    /**
+     * Calculates the margin that isn't already accounted for in the view's padding.
+     */
+    private int calculateMargin(int margin, int padding) {
+        if (padding >= margin) {
+            return 0;
+        } else {
+            return margin - padding;
         }
     }
 

@@ -31,7 +31,7 @@
     <string name="saved_network">Chaidh a shàbhaladh le <xliff:g id="name">%1$s</xliff:g></string>
     <string name="connected_via_passpoint">Ceangailte slighe %1$s</string>
     <string name="available_via_passpoint">Ri fhaighinn slighe %1$s</string>
-    <string name="wifi_connected_no_internet">Ceangailte gun eadar-lìon</string>
+    <string name="wifi_connected_no_internet">Gun eadar-lìon</string>
     <string name="wifi_status_no_internet">Gun eadar-lìon</string>
     <string name="wifi_status_sign_in_required">Tha feum air clàradh a-steach</string>
     <string name="connected_via_carrier">Ceangailte slighe %1$s</string>
@@ -326,7 +326,6 @@
     <string name="daltonizer_mode_protanomaly">Protanomaly (dearg-uaine)</string>
     <string name="daltonizer_mode_tritanomaly">Tritanomaly (gorm-buidhe)</string>
     <string name="accessibility_display_daltonizer_preference_title">Ceartachadh nan dathan</string>
-    <string name="accessibility_display_daltonizer_preference_subtitle">’S e gleus deuchainneil a tha seo agus dh’fhaoidte gun doir e buaidh air an dèanadas.</string>
     <string name="daltonizer_type_overridden">’Ga thar-àithne le <xliff:g id="title" example="Simulate color space">%1$s</xliff:g></string>
     <string name="power_remaining_settings_home_page"><xliff:g id="percentage" example="10%">%1$s</xliff:g> – <xliff:g id="time_string" example="1 hour left based on your usage">%2$s</xliff:g></string>
     <string name="power_remaining_duration_only">Mu <xliff:g id="time_remaining">%1$s</xliff:g> air fhàgail</string>
@@ -337,18 +336,6 @@
     <string name="power_discharge_by_only_enhanced">Bu chòir dha mairsinn mu <xliff:g id="time">%1$s</xliff:g> a-rèir do chaitheamh</string>
     <string name="power_discharge_by">Bu chòir dha mairsinn mu <xliff:g id="time">%1$s</xliff:g> (<xliff:g id="level">%2$s</xliff:g>)</string>
     <string name="power_discharge_by_only">Bu chòir dha mairsinn mu <xliff:g id="time">%1$s</xliff:g></string>
-    <string name="power_remaining_less_than_duration_only">Tha nas lugha na <xliff:g id="threshold">%1$s</xliff:g> air fhàgail</string>
-    <string name="power_remaining_less_than_duration">Tha nas lugha na <xliff:g id="threshold">%1$s</xliff:g> air fhàgail (<xliff:g id="level">%2$s</xliff:g>)</string>
-    <string name="power_remaining_more_than_subtext">Tha barrachd air <xliff:g id="time_remaining">%1$s</xliff:g> air fhàgail (<xliff:g id="level">%2$s</xliff:g>)</string>
-    <string name="power_remaining_only_more_than_subtext">Tha barrachd air <xliff:g id="time_remaining">%1$s</xliff:g> air fhàgail</string>
-    <string name="power_remaining_duration_only_shutdown_imminent" product="default">Thèid am fòn a chur sìos a dh’aithghearr</string>
-    <string name="power_remaining_duration_only_shutdown_imminent" product="tablet">Thèid an tablaid a chur sìos a dh’aithghearr</string>
-    <string name="power_remaining_duration_only_shutdown_imminent" product="device">Thèid an t-uidheam a chur sìos a dh’aithghearr</string>
-    <string name="power_remaining_duration_shutdown_imminent" product="default">Thèid am fòn a chur sìos a dh’aithghearr (<xliff:g id="level">%1$s</xliff:g>)</string>
-    <string name="power_remaining_duration_shutdown_imminent" product="tablet">Thèid an tablaid a chur sìos a dh’aithghearr (<xliff:g id="level">%1$s</xliff:g>)</string>
-    <string name="power_remaining_duration_shutdown_imminent" product="device">Thèid an t-uidheam a chur sìos a dh’aithghearr (<xliff:g id="level">%1$s</xliff:g>)</string>
-    <string name="power_remaining_charging_duration_only"><xliff:g id="time">%1$s</xliff:g> air fhàgail gus am bi e air a làn-theàirrdseadh</string>
-    <string name="power_charging_duration"><xliff:g id="level">%1$s</xliff:g> – <xliff:g id="time">%2$s</xliff:g> gus am bi e air a làn-theairrdseadh</string>
     <string name="battery_info_status_unknown">Neo-aithnichte</string>
     <string name="battery_info_status_charging">’Ga theàirrdseadh</string>
     <string name="battery_info_status_discharging">Chan eil e ’ga theàirrdseadh</string>
@@ -399,4 +386,7 @@
     <string name="zen_mode_duration_settings_title">Faid</string>
     <string name="zen_mode_duration_always_prompt_title">Faighnich dhìom gach turas</string>
     <string name="time_unit_just_now">An-dràsta fhèin</string>
+    <string name="help_label">Taic ⁊ beachd thugainn</string>
+    <string name="guest_nickname">Aoigh</string>
+    <string name="cached_apps_freezer_disabled">À comas</string>
 </resources>

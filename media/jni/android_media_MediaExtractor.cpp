@@ -68,7 +68,7 @@ JMediaExtractor::JMediaExtractor(JNIEnv *env, jobject thiz)
     mClass = (jclass)env->NewGlobalRef(clazz);
     mObject = env->NewWeakGlobalRef(thiz);
 
-    mImpl = new NuMediaExtractor;
+    mImpl = new NuMediaExtractor(NuMediaExtractor::EntryPoint::SDK);
 }
 
 JMediaExtractor::~JMediaExtractor() {
@@ -913,7 +913,7 @@ android_media_MediaExtractor_native_getMetrics(JNIEnv * env, jobject thiz)
     }
 
     // build and return the Bundle
-    std::unique_ptr<MediaAnalyticsItem> item(MediaAnalyticsItem::create());
+    std::unique_ptr<mediametrics::Item> item(mediametrics::Item::create());
     item->readFromParcel(reply);
     jobject mybundle = MediaMetricsJNI::writeMetricsToBundle(env, item.get(), NULL);
 

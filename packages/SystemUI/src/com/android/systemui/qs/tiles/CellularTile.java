@@ -48,8 +48,7 @@ import com.android.systemui.qs.QSHost;
 import com.android.systemui.qs.SignalTileView;
 import com.android.systemui.qs.tileimpl.QSTileImpl;
 import com.android.systemui.statusbar.phone.SystemUIDialog;
-import com.android.systemui.statusbar.phone.UnlockMethodCache;
-import com.android.systemui.statusbar.policy.KeyguardMonitor;
+import com.android.systemui.statusbar.policy.KeyguardStateController;
 import com.android.systemui.statusbar.policy.NetworkController;
 import com.android.systemui.statusbar.policy.NetworkController.IconState;
 import com.android.systemui.statusbar.policy.NetworkController.SignalCallback;
@@ -66,17 +65,15 @@ public class CellularTile extends QSTileImpl<SignalState> {
 
     private final CellSignalCallback mSignalCallback = new CellSignalCallback();
     private final ActivityStarter mActivityStarter;
-    private final KeyguardMonitor mKeyguardMonitor;
-    private final UnlockMethodCache mUnlockMethodCache;
+    private final KeyguardStateController mKeyguard;
 
     @Inject
     public CellularTile(QSHost host, NetworkController networkController,
-            ActivityStarter activityStarter, KeyguardMonitor keyguardMonitor) {
+            ActivityStarter activityStarter, KeyguardStateController keyguardStateController) {
         super(host);
         mController = networkController;
         mActivityStarter = activityStarter;
-        mKeyguardMonitor = keyguardMonitor;
-        mUnlockMethodCache = UnlockMethodCache.getInstance(mHost.getContext());
+        mKeyguard = keyguardStateController;
         mDataController = mController.getMobileDataController();
         mDetailAdapter = new CellularDetailAdapter();
         mController.observe(getLifecycle(), mSignalCallback);
@@ -98,11 +95,10 @@ public class CellularTile extends QSTileImpl<SignalState> {
     }
 
     @Override
-    public void handleSetListening(boolean listening) {
-    }
-
-    @Override
     public Intent getLongClickIntent() {
+        if (getState().state == Tile.STATE_UNAVAILABLE) {
+            return new Intent(Settings.ACTION_WIRELESS_SETTINGS);
+        }
         return getCellularSettingIntent();
     }
 
@@ -125,7 +121,8 @@ public class CellularTile extends QSTileImpl<SignalState> {
             return;
         }
         String carrierName = mController.getMobileDataNetworkName();
-        if (TextUtils.isEmpty(carrierName)) {
+        boolean isInService = mController.isMobileDataNetworkInService();
+        if (TextUtils.isEmpty(carrierName) || !isInService) {
             carrierName = mContext.getString(R.string.mobile_data_disable_message_default_carrier);
         }
         AlertDialog dialog = new Builder(mContext)
@@ -152,7 +149,7 @@ public class CellularTile extends QSTileImpl<SignalState> {
             return;
         }
         if (mDataController.isMobileDataSupported()) {
-            if (mKeyguardMonitor.isSecure() && !mUnlockMethodCache.canSkipBouncer()) {
+            if (mKeyguard.isMethodSecure() && !mKeyguard.canDismissLockScreen()) {
                 mActivityStarter.postQSRunnableDismissingKeyguard(() -> {
                     showDetail(true);
                 });
@@ -209,17 +206,13 @@ public class CellularTile extends QSTileImpl<SignalState> {
             state.secondaryLabel = r.getString(R.string.cell_data_off);
         }
 
-
-        // TODO(b/77881974): Instead of switching out the description via a string check for
-        // we need to have two strings provided by the MobileIconGroup.
-        final CharSequence contentDescriptionSuffix;
+        state.contentDescription = state.label;
         if (state.state == Tile.STATE_INACTIVE) {
-            contentDescriptionSuffix = r.getString(R.string.cell_data_off_content_description);
+            // This information is appended later by converting the Tile.STATE_INACTIVE state.
+            state.stateDescription = "";
         } else {
-            contentDescriptionSuffix = state.secondaryLabel;
+            state.stateDescription = state.secondaryLabel;
         }
-
-        state.contentDescription = state.label + ", " + contentDescriptionSuffix;
     }
 
     private CharSequence appendMobileDataType(CharSequence current, CharSequence dataType) {

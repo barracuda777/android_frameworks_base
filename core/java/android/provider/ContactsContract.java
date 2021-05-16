@@ -17,12 +17,14 @@
 package android.provider;
 
 import android.accounts.Account;
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.annotation.SdkConstant;
 import android.annotation.SdkConstant.SdkConstantType;
 import android.annotation.SystemApi;
 import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
 import android.app.Activity;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.ContentProviderClient;
@@ -55,6 +57,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * <p>
@@ -126,6 +129,7 @@ public final class ContactsContract {
      * Prefix for column names that are not visible to client apps.
      * @hide
      */
+    @UnsupportedAppUsage
     @TestApi
     public static final String HIDDEN_COLUMN_PREFIX = "x_";
 
@@ -2207,6 +2211,28 @@ public final class ContactsContract {
         public static InputStream openContactPhotoInputStream(ContentResolver cr, Uri contactUri) {
             return openContactPhotoInputStream(cr, contactUri, false);
         }
+
+        /**
+         * Creates and returns a corp lookup URI from the given enterprise lookup URI by removing
+         * {@link #ENTERPRISE_CONTACT_LOOKUP_PREFIX} from the key. Returns {@code null} if the given
+         * URI is not an enterprise lookup URI.
+         *
+         * @hide
+         */
+        @Nullable
+        public static Uri createCorpLookupUriFromEnterpriseLookupUri(
+                @NonNull Uri enterpriseLookupUri) {
+            final List<String> pathSegments = enterpriseLookupUri.getPathSegments();
+            if (pathSegments == null || pathSegments.size() <= 2) {
+                return null;
+            }
+            final String key = pathSegments.get(2);
+            if (TextUtils.isEmpty(key) || !key.startsWith(ENTERPRISE_CONTACT_LOOKUP_PREFIX)) {
+                return null;
+            }
+            final String actualKey = key.substring(ENTERPRISE_CONTACT_LOOKUP_PREFIX.length());
+            return Uri.withAppendedPath(Contacts.CONTENT_LOOKUP_URI, actualKey);
+        }
     }
 
     /**
@@ -2442,7 +2468,11 @@ public final class ContactsContract {
          * Flag indicating that a raw contact's metadata has changed, and its metadata
          * needs to be synchronized by the server.
          * <P>Type: INTEGER (boolean)</P>
+         *
+         * @deprecated This column never actually worked since added. It will not supported as
+         * of Android version {@link android.os.Build.VERSION_CODES#R}.
          */
+        @Deprecated
         public static final String METADATA_DIRTY = "metadata_dirty";
     }
 
@@ -2898,6 +2928,44 @@ public final class ContactsContract {
                 if (cursor != null) cursor.close();
             }
             return lookupUri;
+        }
+
+        /**
+         * The default value used for {@link #ACCOUNT_NAME} of raw contacts when they are inserted
+         * without a value for this column.
+         *
+         * <p>This account is used to identify contacts that are only stored locally in the
+         * contacts database instead of being associated with an {@link Account} managed by an
+         * installed application.
+         *
+         * <p>When this returns null then {@link #getLocalAccountType} will also return null and
+         * when it is non-null {@link #getLocalAccountType} will also return a non-null value.
+         */
+        @Nullable
+        public static String getLocalAccountName(@NonNull Context context) {
+            //  config_rawContactsLocalAccountName is defined in
+            //  platform/frameworks/base/core/res/res/values/config.xml
+            return TextUtils.nullIfEmpty(context.getString(
+                    com.android.internal.R.string.config_rawContactsLocalAccountName));
+        }
+
+        /**
+         * The default value used for {@link #ACCOUNT_TYPE} of raw contacts when they are inserted
+         * without a value for this column.
+         *
+         * <p>This account is used to identify contacts that are only stored locally in the
+         * contacts database instead of being associated with an {@link Account} managed by an
+         * installed application.
+         *
+         * <p>When this returns null then {@link #getLocalAccountName} will also return null and
+         * when it is non-null {@link #getLocalAccountName} will also return a non-null value.
+         */
+        @Nullable
+        public static String getLocalAccountType(@NonNull Context context) {
+            //  config_rawContactsLocalAccountType is defined in
+            //  platform/frameworks/base/core/res/res/values/config.xml
+            return TextUtils.nullIfEmpty(context.getString(
+                    com.android.internal.R.string.config_rawContactsLocalAccountType));
         }
 
         /**
@@ -4147,7 +4215,10 @@ public final class ContactsContract {
          * Hash id on the data fields, used for backup and restore.
          *
          * @hide
+         * @deprecated This column was never public since added. It will not be supported
+         * as of Android version {@link android.os.Build.VERSION_CODES#R}.
          */
+        @Deprecated
         public static final String HASH_ID = "hash_id";
 
         /**
@@ -6069,6 +6140,7 @@ public final class ContactsContract {
             *
             * @hide
             */
+            @UnsupportedAppUsage
             @TestApi
             public static final Uri ENTERPRISE_CONTENT_URI =
                     Uri.withAppendedPath(Data.ENTERPRISE_CONTENT_URI, "phones");
@@ -9453,7 +9525,10 @@ public final class ContactsContract {
 
     /**
      * @hide
+     * @deprecated These columns were never public since added. They will not be supported
+     * as of Android version {@link android.os.Build.VERSION_CODES#R}.
      */
+    @Deprecated
     @SystemApi
     protected interface MetadataSyncColumns {
 
@@ -9560,7 +9635,10 @@ public final class ContactsContract {
      * from server before it is merged into other CP2 tables.
      *
      * @hide
+     * @deprecated These columns were never public since added. They will not be supported
+     * as of Android version {@link android.os.Build.VERSION_CODES#R}.
      */
+    @Deprecated
     @SystemApi
     public static final class MetadataSync implements BaseColumns, MetadataSyncColumns {
 
@@ -9596,7 +9674,10 @@ public final class ContactsContract {
 
     /**
      * @hide
+     * @deprecated These columns are no longer supported as of Android version
+     * {@link android.os.Build.VERSION_CODES#R}.
      */
+    @Deprecated
     @SystemApi
     protected interface MetadataSyncStateColumns {
 
@@ -9630,7 +9711,10 @@ public final class ContactsContract {
      * sync state for a set of accounts.
      *
      * @hide
+     * @deprecated These columns are no longer supported as of Android version
+     * {@link android.os.Build.VERSION_CODES#R}.
      */
+    @Deprecated
     @SystemApi
     public static final class MetadataSyncState implements BaseColumns, MetadataSyncStateColumns {
 

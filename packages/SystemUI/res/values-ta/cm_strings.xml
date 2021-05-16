@@ -2,7 +2,7 @@
 <!--
 /**
  * Copyright (c) 2015, The CyanogenMod Project
- * Copyright (c) 2017-2020, The LineageOS Project
+ * Copyright (c) 2017-2019, The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,6 @@
  */
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="accessibility_dpad_left">இடஞ்சுட்டி இடது</string>
-    <string name="accessibility_dpad_right">இடஞ்சுட்டி வலது</string>
-    <string name="quick_settings_network_adb_label">பிணையத்தின் மீது ADB</string>
     <string name="quick_settings_ambient_display_label">சூழல்சார் திரை</string>
     <string name="accessibility_quick_settings_ambient_display_off">சூழல் காட்சி ஆஃப்.</string>
     <string name="accessibility_quick_settings_ambient_display_on">சூழல் காட்சி ஆன்.</string>
@@ -46,4 +43,6 @@
     <string name="accessibility_quick_settings_profiles_changed">சுயவிவரம் <xliff:g id="profile" example="Default">%s</xliff:g>க்கு மாற்றப்பட்டது.</string>
     <string name="quick_settings_usb_tether_label">USB டெதெரிங்</string>
     <string name="quick_settings_volume_panel_label">வால்யூம் பேனல்</string>
+    <string name="accessibility_dpad_left">இடஞ்சுட்டி இடது</string>
+    <string name="accessibility_dpad_right">இடஞ்சுட்டி வலது</string>
 </resources>

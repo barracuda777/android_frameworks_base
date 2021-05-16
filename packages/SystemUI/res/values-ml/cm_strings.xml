@@ -2,7 +2,7 @@
 <!--
 /**
  * Copyright (c) 2015, The CyanogenMod Project
- * Copyright (c) 2017-2020, The LineageOS Project
+ * Copyright (c) 2017-2019, The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,6 @@
  */
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="accessibility_dpad_left">കർസർ ഇടത്</string>
-    <string name="accessibility_dpad_right">കർസർ വലത്</string>
-    <string name="quick_settings_network_adb_label">നെറ്റ്‌വർക്കിൽ ADB</string>
     <string name="quick_settings_ambient_display_label">ആമ്പിയന്റ് ഡിസ്‌പ്ലേ</string>
     <string name="accessibility_quick_settings_ambient_display_off">ആമ്പിയൻറ് പ്രദര്‍ശനം ഓഫ്.</string>
     <string name="accessibility_quick_settings_ambient_display_on">ആമ്പിയൻറ് പ്രദര്‍ശനം ഓണ്‍.</string>
@@ -46,4 +43,6 @@
     <string name="accessibility_quick_settings_profiles_changed">പ്രൊഫൈൽ <xliff:g id="profile" example="Default">%s</xliff:g> ലേക്ക് മാറ്റി.</string>
     <string name="quick_settings_usb_tether_label">USB ടെതറിംഗ്</string>
     <string name="quick_settings_volume_panel_label">വോളിയം പാനൽ</string>
+    <string name="accessibility_dpad_left">കർസർ ഇടത്</string>
+    <string name="accessibility_dpad_right">കർസർ വലത്</string>
 </resources>

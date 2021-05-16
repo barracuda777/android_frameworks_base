@@ -52,6 +52,8 @@ import com.android.settingslib.notification.EnableZenModeDialog;
 import com.android.systemui.Prefs;
 import com.android.systemui.R;
 import com.android.systemui.SysUIToast;
+import com.android.systemui.broadcast.BroadcastDispatcher;
+import com.android.systemui.dagger.qualifiers.Main;
 import com.android.systemui.plugins.ActivityStarter;
 import com.android.systemui.plugins.qs.DetailAdapter;
 import com.android.systemui.plugins.qs.QSTile.BooleanState;
@@ -82,6 +84,8 @@ public class DndTile extends QSTileImpl<BooleanState> {
     private final ZenModeController mController;
     private final DndDetailAdapter mDetailAdapter;
     private final ActivityStarter mActivityStarter;
+    private final SharedPreferences mSharedPreferences;
+    private final BroadcastDispatcher mBroadcastDispatcher;
 
     private boolean mListening;
     private boolean mShowingDetail;
@@ -89,12 +93,15 @@ public class DndTile extends QSTileImpl<BooleanState> {
 
     @Inject
     public DndTile(QSHost host, ZenModeController zenModeController,
-            ActivityStarter activityStarter) {
+            ActivityStarter activityStarter, BroadcastDispatcher broadcastDispatcher,
+            @Main SharedPreferences sharedPreferences) {
         super(host);
         mController = zenModeController;
         mActivityStarter = activityStarter;
+        mSharedPreferences = sharedPreferences;
         mDetailAdapter = new DndDetailAdapter();
-        mContext.registerReceiver(mReceiver, new IntentFilter(ACTION_SET_VISIBLE));
+        mBroadcastDispatcher = broadcastDispatcher;
+        broadcastDispatcher.registerReceiver(mReceiver, new IntentFilter(ACTION_SET_VISIBLE));
         mReceiverRegistered = true;
         mController.observe(getLifecycle(), mZenCallback);
     }
@@ -103,7 +110,7 @@ public class DndTile extends QSTileImpl<BooleanState> {
     protected void handleDestroy() {
         super.handleDestroy();
         if (mReceiverRegistered) {
-            mContext.unregisterReceiver(mReceiver);
+            mBroadcastDispatcher.unregisterReceiver(mReceiver);
             mReceiverRegistered = false;
         }
     }
@@ -112,16 +119,16 @@ public class DndTile extends QSTileImpl<BooleanState> {
         Prefs.putBoolean(context, Prefs.Key.DND_TILE_VISIBLE, visible);
     }
 
-    public static boolean isVisible(Context context) {
-        return Prefs.getBoolean(context, Prefs.Key.DND_TILE_VISIBLE, false /* defaultValue */);
+    public static boolean isVisible(SharedPreferences prefs) {
+        return prefs.getBoolean(Prefs.Key.DND_TILE_VISIBLE, false /* defaultValue */);
     }
 
     public static void setCombinedIcon(Context context, boolean combined) {
         Prefs.putBoolean(context, Prefs.Key.DND_TILE_COMBINED_ICON, combined);
     }
 
-    public static boolean isCombinedIcon(Context context) {
-        return Prefs.getBoolean(context, Prefs.Key.DND_TILE_COMBINED_ICON,
+    public static boolean isCombinedIcon(SharedPreferences sharedPreferences) {
+        return sharedPreferences.getBoolean(Prefs.Key.DND_TILE_COMBINED_ICON,
                 false /* defaultValue */);
     }
 
@@ -257,6 +264,8 @@ public class DndTile extends QSTileImpl<BooleanState> {
                 zen != Global.ZEN_MODE_OFF, zenConfig, false));
         state.icon = ResourceIcon.get(com.android.internal.R.drawable.ic_qs_dnd);
         checkIfRestrictionEnforcedByAdminOnly(state, UserManager.DISALLOW_ADJUST_VOLUME);
+        // Keeping the secondaryLabel in contentDescription instead of stateDescription is easier
+        // to understand.
         switch (zen) {
             case Global.ZEN_MODE_IMPORTANT_INTERRUPTIONS:
                 state.contentDescription =
@@ -304,6 +313,7 @@ public class DndTile extends QSTileImpl<BooleanState> {
 
     @Override
     public void handleSetListening(boolean listening) {
+        super.handleSetListening(listening);
         if (mListening == listening) return;
         mListening = listening;
         if (mListening) {
@@ -315,7 +325,7 @@ public class DndTile extends QSTileImpl<BooleanState> {
 
     @Override
     public boolean isAvailable() {
-        return isVisible(mContext);
+        return isVisible(mSharedPreferences);
     }
 
     private final OnSharedPreferenceChangeListener mPrefListener

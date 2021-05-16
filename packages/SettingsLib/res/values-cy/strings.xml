@@ -40,7 +40,7 @@
     <string name="connected_via_app">Wedi cysylltu trwy <xliff:g id="name" example="Wifi App">%1$s</xliff:g></string>
     <string name="available_via_passpoint">Ar gael drwy %1$s</string>
     <string name="tap_to_sign_up">Tapi i fewngofnodi</string>
-    <string name="wifi_connected_no_internet">Wedi cysylltu; dim rhyngrwyd</string>
+    <string name="wifi_connected_no_internet">Dim rhyngrwyd</string>
     <string name="wifi_limited_connection">Cysylltiad cyfyngedig</string>
     <string name="wifi_status_no_internet">Dim rhyngrwyd</string>
     <string name="wifi_status_sign_in_required">Rhaid mewngofnodi</string>
@@ -376,7 +376,6 @@ Gwasga \'Clirio a Throsi\' i barhau.</string>
     <string name="daltonizer_mode_protanomaly">Protoanomaledd (coch-gwyrdd)</string>
     <string name="daltonizer_mode_tritanomaly">Trithoanomaledd (glas-melyn)</string>
     <string name="accessibility_display_daltonizer_preference_title">Cywiriad lliw</string>
-    <string name="accessibility_display_daltonizer_preference_subtitle">Mae\'r nodwedd hon yn arbrofol a gall effeithio ar berfformiad.</string>
     <string name="daltonizer_type_overridden">Mae\'n cael ei or-reoli gan <xliff:g id="title" example="Simulate color space">%1$s</xliff:g></string>
     <string name="power_remaining_settings_home_page"><xliff:g id="percentage" example="10%">%1$s</xliff:g> - <xliff:g id="time_string" example="1 hour left based on your usage">%2$s</xliff:g></string>
     <string name="power_remaining_duration_only">Tua <xliff:g id="time_remaining">%1$s</xliff:g> yn weddill</string>
@@ -389,23 +388,9 @@ Gwasga \'Clirio a Throsi\' i barhau.</string>
     <string name="power_discharge_by">Dylai para tan tua <xliff:g id="time">%1$s</xliff:g> (<xliff:g id="level">%2$s</xliff:g>)</string>
     <string name="power_discharge_by_only">Dylai para tan tua <xliff:g id="time">%1$s</xliff:g></string>
     <string name="power_discharge_by_only_short">Hyd at <xliff:g id="time" example="12 PM">%1$s</xliff:g></string>
-    <string name="power_suggestion_extend_battery">Ymestyn oes y batri tu hwnt i <xliff:g id="time" example="12 PM">%1$s</xliff:g></string>
-    <string name="power_remaining_less_than_duration_only">Llai na <xliff:g id="threshold">%1$s</xliff:g> yn weddill</string>
-    <string name="power_remaining_less_than_duration">Llai na <xliff:g id="time_remaining">%1$s</xliff:g> yn weddill (<xliff:g id="level">%2$s</xliff:g>)</string>
-    <string name="power_remaining_more_than_subtext">Mwy na <xliff:g id="time_remaining">%1$s</xliff:g> yn weddill (<xliff:g id="level">%2$s</xliff:g>)</string>
-    <string name="power_remaining_only_more_than_subtext">Mwy na <xliff:g id="time_remaining">%1$s</xliff:g> yn weddill</string>
-    <string name="power_remaining_duration_only_shutdown_imminent" product="default">Gallai\'r ffôn diffodd yn fuan</string>
-    <string name="power_remaining_duration_only_shutdown_imminent" product="tablet">Gallai\'r llechen diffodd yn fuan</string>
-    <string name="power_remaining_duration_only_shutdown_imminent" product="device">Gallai\'r ddyfais diffodd yn fuan</string>
-    <string name="power_remaining_duration_shutdown_imminent" product="default">Gallai\'r ffôn diffodd yn fuan (<xliff:g id="level">%1$s</xliff:g>)</string>
-    <string name="power_remaining_duration_shutdown_imminent" product="tablet">Gallai\'r llechen diffodd yn fuan (<xliff:g id="level">%1$s</xliff:g>)</string>
-    <string name="power_remaining_duration_shutdown_imminent" product="device">Gallai\'r ddyfais diffodd yn fuan (<xliff:g id="level">%1$s</xliff:g>)</string>
     <string name="power_charging"><xliff:g id="level">%1$s</xliff:g> - <xliff:g id="state">%2$s</xliff:g></string>
-    <string name="power_remaining_charging_duration_only"><xliff:g id="time">%1$s</xliff:g> yn weddill nes wedi gwefru\'n llawn</string>
-    <string name="power_charging_duration"><xliff:g id="level">%1$s</xliff:g> - <xliff:g id="time">%2$s</xliff:g> nes wedi gwefru\'n llawn</string>
     <string name="battery_info_status_unknown">Anhysybys</string>
     <string name="battery_info_status_charging">Yn gwefru</string>
-    <string name="battery_info_status_charging_lower">yn gwefru</string>
     <string name="battery_info_status_discharging">Dim yn gwefru</string>
     <string name="battery_info_status_not_charging">Wedi cysylltu â phŵer ond methu a gwefru ar hyn o bryd</string>
     <string name="battery_info_status_full">Llawn</string>
@@ -468,5 +453,7 @@ Gwasga \'Clirio a Throsi\' i barhau.</string>
     <string name="zen_mode_duration_always_prompt_title">Gofyn bob tro</string>
     <string name="zen_mode_forever">Nes dy fod yn ei ddiffodd</string>
     <string name="time_unit_just_now">Jyst nawr</string>
-    <string name="media_transfer_this_device_name">Y ddyfais hon</string>
+    <string name="help_label">Cymorth ac adborth</string>
+    <string name="guest_nickname">Gwestai</string>
+    <string name="cached_apps_freezer_disabled">Wedi\'i analluogi</string>
 </resources>

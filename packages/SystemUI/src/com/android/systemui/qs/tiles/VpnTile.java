@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 The LineageOS Project
+ * Copyright (C) 2019-2020 The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,17 +35,14 @@ import android.widget.TextView;
 import com.android.internal.net.VpnConfig;
 import com.android.internal.net.VpnProfile;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
-import com.android.systemui.Dependency;
 import com.android.systemui.R;
 import com.android.systemui.plugins.ActivityStarter;
 import com.android.systemui.plugins.qs.QSTile.BooleanState;
 import com.android.systemui.qs.QSHost;
 import com.android.systemui.qs.tileimpl.QSTileImpl;
 import com.android.systemui.statusbar.phone.SystemUIDialog;
-import com.android.systemui.statusbar.phone.UnlockMethodCache;
+import com.android.systemui.statusbar.policy.KeyguardStateController;
 import com.android.systemui.statusbar.policy.SecurityController;
-import com.android.systemui.statusbar.policy.SecurityController.SecurityControllerCallback;
-import com.android.systemui.statusbar.policy.KeyguardMonitor;
 
 import java.util.List;
 import java.util.Set;
@@ -54,18 +51,17 @@ import javax.inject.Inject;
 /** Quick settings tile: VPN **/
 public class VpnTile extends QSTileImpl<BooleanState> {
     private final SecurityController mController;
-    private final KeyguardMonitor mKeyguard;
-    private final UnlockMethodCache mUnlockMethodCache;
+    private final KeyguardStateController mKeyguard;
     private final Callback mCallback = new Callback();
     private final ActivityStarter mActivityStarter;
 
     @Inject
-    public VpnTile(QSHost host) {
+    public VpnTile(QSHost host, SecurityController securityController,
+            KeyguardStateController keyguardStateController, ActivityStarter activityStarter) {
         super(host);
-        mController = Dependency.get(SecurityController.class);
-        mKeyguard = Dependency.get(KeyguardMonitor.class);
-        mUnlockMethodCache = UnlockMethodCache.getInstance(mHost.getContext());
-        mActivityStarter = Dependency.get(ActivityStarter.class);
+        mController = securityController;
+        mKeyguard = keyguardStateController;
+        mActivityStarter = activityStarter;
     }
 
     @Override
@@ -103,7 +99,7 @@ public class VpnTile extends QSTileImpl<BooleanState> {
 
     @Override
     protected void handleClick() {
-        if (mKeyguard.isSecure() && !mUnlockMethodCache.canSkipBouncer()) {
+        if (mKeyguard.isMethodSecure() && !mKeyguard.canDismissLockScreen()) {
             mActivityStarter.postQSRunnableDismissingKeyguard(() -> {
                 showConnectDialogOrDisconnect();
             });
@@ -263,7 +259,8 @@ public class VpnTile extends QSTileImpl<BooleanState> {
         }
     }
 
-    private final class Callback implements SecurityControllerCallback, KeyguardMonitor.Callback {
+    private final class Callback implements
+            SecurityController.SecurityControllerCallback, KeyguardStateController.Callback {
         @Override
         public void onStateChanged() {
             refreshState();

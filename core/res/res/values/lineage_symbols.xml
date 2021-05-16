@@ -15,28 +15,11 @@
      limitations under the License.
 -->
 <resources>
-    <!-- ADB notification -->
-    <java-symbol type="string" name="adb_net_active_notification_title" />
-    <java-symbol type="string" name="adb_both_active_notification_title" />
-    <java-symbol type="string" name="adb_active_generic_notification_message" />
-
-    <!-- Button and keyboard backlight -->
-    <java-symbol type="integer" name="config_buttonBrightnessSettingDefault" />
-    <java-symbol type="integer" name="config_keyboardBrightnessSettingDefault" />
-    <java-symbol type="bool" name="config_deviceHasVariableButtonBrightness" />
-    <java-symbol type="bool" name="config_deviceHasVariableKeyboardBrightness" />
-
     <!-- Whether to allow process with media UID to access CameraServiceProxy -->
     <java-symbol type="bool" name="config_allowMediaUidForCameraServiceProxy" />
 
     <!-- Rotation sensor -->
     <java-symbol type="bool" name="config_useSystemClockforRotationSensor" />
-
-    <!-- Post reset runnable for all clients -->
-    <java-symbol type="bool" name="config_fingerprintPostResetRunnableForAllClients" />
-
-    <!-- Whether to cleanup fingerprints upon connection to the daemon and when user switches -->
-    <java-symbol type="bool" name="config_cleanupUnusedFingerprints" />
 
     <!-- Package Manager -->
     <java-symbol type="array" name="config_deviceDisabledComponents" />

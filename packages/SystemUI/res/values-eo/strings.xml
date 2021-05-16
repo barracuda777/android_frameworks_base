@@ -36,17 +36,19 @@
     <string name="quick_settings_notifications_label">Sciigoj</string>
     <string name="description_target_search">Serĉi</string>
     <string name="user_new_user_name">Nova uzanto</string>
-    <string name="guest_nickname">Gasto</string>
-    <string name="guest_new_guest">Aldoni gaston</string>
-    <string name="guest_exit_guest">Forigi gaston</string>
     <string name="guest_exit_guest_dialog_remove">Forigi</string>
     <string name="guest_notification_remove_action">FORIGI GASTON</string>
     <string name="user_remove_user_remove">Forigi</string>
+    <string name="notification_section_header_alerting">Sciigoj</string>
     <string name="status_bar_airplane">Aviadila reĝimo</string>
     <string name="notification_header_default_channel">Sciigoj</string>
+    <string name="notification_conversation_channel_settings">Agordoj</string>
     <string name="notification_appops_settings">Agordoj</string>
+    <string name="notification_menu_settings_action">Agordoj</string>
     <string name="keyboard_shortcut_group_system_notifications">Sciigoj</string>
     <string name="pip_phone_close">Fermi</string>
     <string name="pip_phone_settings">Agordoj</string>
     <string name="open_saver_setting_action">Agordoj</string>
+    <string name="priority_onboarding_settings_button_title">Agordoj</string>
+    <string name="controls_media_settings_button">Agordoj</string>
 </resources>

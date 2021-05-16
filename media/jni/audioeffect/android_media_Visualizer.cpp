@@ -24,7 +24,7 @@
 #include <nativehelper/JNIHelp.h>
 #include <android_runtime/AndroidRuntime.h>
 #include <utils/threads.h>
-#include "media/Visualizer.h"
+#include "Visualizer.h"
 
 #include <nativehelper/ScopedUtfChars.h>
 
@@ -382,15 +382,15 @@ android_media_visualizer_native_setup(JNIEnv *env, jobject thiz, jobject weak_th
     }
 
     // create the native Visualizer object
-    lpVisualizer = new Visualizer(String16(opPackageNameStr.c_str()),
-                                  0,
-                                  android_media_visualizer_effect_callback,
-                                  lpJniStorage,
-                                  (audio_session_t) sessionId);
+    lpVisualizer = new Visualizer(String16(opPackageNameStr.c_str()));
     if (lpVisualizer == 0) {
         ALOGE("Error creating Visualizer");
         goto setup_failure;
     }
+    lpVisualizer->set(0,
+                      android_media_visualizer_effect_callback,
+                      lpJniStorage,
+                      (audio_session_t) sessionId);
 
     lStatus = translateError(lpVisualizer->initCheck());
     if (lStatus != VISUALIZER_SUCCESS && lStatus != VISUALIZER_ERROR_ALREADY_EXISTS) {

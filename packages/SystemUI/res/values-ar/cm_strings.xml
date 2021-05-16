@@ -2,7 +2,7 @@
 <!--
 /**
  * Copyright (c) 2015, The CyanogenMod Project
- * Copyright (c) 2017-2020, The LineageOS Project
+ * Copyright (c) 2017-2019, The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,19 +18,6 @@
  */
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="global_action_restart_system">النظام</string>
-    <string name="global_action_restart_recovery">الإسترداد</string>
-    <string name="global_action_restart_bootloader">محمل الاقلاع</string>
-    <string name="global_action_restart_download">التنزيل</string>
-    <string name="global_action_restart_progress">جارٍ إعادة التشغيل</string>
-    <string name="global_action_restart_recovery_progress">إعادة التشغيل إلى وضع الإسترداد</string>
-    <string name="global_action_restart_bootloader_progress">إعادة التشغيل إلى وضع البوتلودر</string>
-    <string name="global_action_restart_download_progress">إعادة التشغيل الى وضع التنزيل</string>
-    <string name="global_action_current_user">الحالي</string>
-    <string name="accessibility_dpad_left">المؤشر إلى اليسار</string>
-    <string name="accessibility_dpad_right">المؤشر الى اليمين</string>
-    <string name="quick_settings_network_adb_label">ADB عبر الشبكة</string>
-    <string name="quick_settings_network_adb_no_network">لا توجد شبكة</string>
     <string name="quick_settings_ambient_display_label">العرض المحيط</string>
     <string name="accessibility_quick_settings_ambient_display_off">تعطيل العرض المحيط.</string>
     <string name="accessibility_quick_settings_ambient_display_on">تشغيل العرض المحيط.</string>
@@ -61,8 +48,14 @@
     <string name="accessibility_quick_settings_profiles_changed">تم تغيير ملف التعريف إلى <xliff:g id="profile" example="Default">%s</xliff:g>.</string>
     <string name="quick_settings_usb_tether_label">الربط عبر USB</string>
     <string name="quick_settings_volume_panel_label">لوحة مستوى الصوت</string>
-    <string name="status_bar_battery">البطارية</string>
-    <string name="status_bar_location">الموقع</string>
-    <string name="screen_pinning_description_no_navbar">يؤدي هذا إلى استمرار العرض إلى أن يتم إزالة التثبيت. ويمكنك لمس مع الاستمرار لإزالة التثبيت.</string>
-    <string name="screen_pinning_toast_no_navbar">لإلغاء تثبيت هذه الشاشة، استمر&amp; بالضغط على زر الرجوع</string>
+    <string name="accessibility_dpad_left">المؤشر إلى اليسار</string>
+    <string name="accessibility_dpad_right">المؤشر الى اليمين</string>
+    <string name="global_action_restart_system">النظام</string>
+    <string name="global_action_restart_recovery">الإسترداد</string>
+    <string name="global_action_restart_bootloader">محمل الاقلاع</string>
+    <string name="global_action_restart_download">التنزيل</string>
+    <string name="global_action_restart_progress">جارٍ إعادة التشغيل</string>
+    <string name="global_action_restart_recovery_progress">إعادة التشغيل إلى وضع الإسترداد</string>
+    <string name="global_action_restart_bootloader_progress">إعادة التشغيل إلى وضع البوتلودر</string>
+    <string name="global_action_restart_download_progress">إعادة التشغيل الى وضع التنزيل</string>
 </resources>

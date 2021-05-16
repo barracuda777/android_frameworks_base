@@ -19,7 +19,7 @@ package android.widget;
 import static android.os.Build.VERSION_CODES.JELLY_BEAN_MR1;
 
 import android.annotation.NonNull;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.res.ResourceId;
 import android.content.res.TypedArray;
@@ -2026,6 +2026,11 @@ public class RelativeLayout extends ViewGroup {
          * A node with no dependent is considered a root of the graph.
          */
         static class Node {
+
+            @UnsupportedAppUsage
+            Node() {
+            }
+
             /**
              * The view representing this node in the layout.
              */

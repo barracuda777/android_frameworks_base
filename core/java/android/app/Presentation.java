@@ -21,7 +21,7 @@ import static android.content.Context.WINDOW_SERVICE;
 import static android.view.WindowManager.LayoutParams.TYPE_PRESENTATION;
 import static android.view.WindowManager.LayoutParams.TYPE_PRIVATE_PRESENTATION;
 
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.content.res.Resources;
 import android.hardware.display.DisplayManager;

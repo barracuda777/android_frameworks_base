@@ -18,15 +18,18 @@ package android.telephony.ims.stub;
 
 import android.annotation.IntDef;
 import android.annotation.SystemApi;
+import android.annotation.TestApi;
 import android.net.Uri;
-import android.os.RemoteCallbackList;
 import android.os.RemoteException;
 import android.telephony.ims.ImsReasonInfo;
+import android.telephony.ims.RegistrationManager;
 import android.telephony.ims.aidl.IImsRegistration;
 import android.telephony.ims.aidl.IImsRegistrationCallback;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.telephony.util.RemoteCallbackListExt;
+import com.android.internal.util.ArrayUtils;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -37,6 +40,7 @@ import java.lang.annotation.RetentionPolicy;
  * @hide
  */
 @SystemApi
+@TestApi
 public class ImsRegistrationImplBase {
 
     private static final String LOG_TAG = "ImsRegistrationImplBase";
@@ -72,9 +76,6 @@ public class ImsRegistrationImplBase {
     // with NOT_REGISTERED in the case where the ImsService has not updated the registration state
     // yet.
     private static final int REGISTRATION_STATE_UNKNOWN = -1;
-    private static final int REGISTRATION_STATE_NOT_REGISTERED = 0;
-    private static final int REGISTRATION_STATE_REGISTERING = 1;
-    private static final int REGISTRATION_STATE_REGISTERED = 2;
 
     private final IImsRegistration mBinder = new IImsRegistration.Stub() {
 
@@ -94,8 +95,8 @@ public class ImsRegistrationImplBase {
         }
     };
 
-    private final RemoteCallbackList<IImsRegistrationCallback> mCallbacks
-            = new RemoteCallbackList<>();
+    private final RemoteCallbackListExt<IImsRegistrationCallback> mCallbacks =
+            new RemoteCallbackListExt<>();
     private final Object mLock = new Object();
     // Locked on mLock
     private @ImsRegistrationTech
@@ -104,6 +105,11 @@ public class ImsRegistrationImplBase {
     private int mRegistrationState = REGISTRATION_STATE_UNKNOWN;
     // Locked on mLock, create unspecified disconnect cause.
     private ImsReasonInfo mLastDisconnectCause = new ImsReasonInfo();
+
+    // We hold onto the uris each time they change so that we can send it to a callback when its
+    // first added.
+    private Uri[] mUris = new Uri[0];
+    private boolean mUrisSet = false;
 
     /**
      * @hide
@@ -128,8 +134,8 @@ public class ImsRegistrationImplBase {
      * {@link #REGISTRATION_TECH_LTE} and {@link #REGISTRATION_TECH_IWLAN}.
      */
     public final void onRegistered(@ImsRegistrationTech int imsRadioTech) {
-        updateToState(imsRadioTech, REGISTRATION_STATE_REGISTERED);
-        mCallbacks.broadcast((c) -> {
+        updateToState(imsRadioTech, RegistrationManager.REGISTRATION_STATE_REGISTERED);
+        mCallbacks.broadcastAction((c) -> {
             try {
                 c.onRegistered(imsRadioTech);
             } catch (RemoteException e) {
@@ -146,8 +152,8 @@ public class ImsRegistrationImplBase {
      * {@link #REGISTRATION_TECH_LTE} and {@link #REGISTRATION_TECH_IWLAN}.
      */
     public final void onRegistering(@ImsRegistrationTech int imsRadioTech) {
-        updateToState(imsRadioTech, REGISTRATION_STATE_REGISTERING);
-        mCallbacks.broadcast((c) -> {
+        updateToState(imsRadioTech, RegistrationManager.REGISTRATION_STATE_REGISTERING);
+        mCallbacks.broadcastAction((c) -> {
             try {
                 c.onRegistering(imsRadioTech);
             } catch (RemoteException e) {
@@ -175,9 +181,11 @@ public class ImsRegistrationImplBase {
      */
     public final void onDeregistered(ImsReasonInfo info) {
         updateToDisconnectedState(info);
-        mCallbacks.broadcast((c) -> {
+        // ImsReasonInfo should never be null.
+        final ImsReasonInfo reasonInfo = (info != null) ? info : new ImsReasonInfo();
+        mCallbacks.broadcastAction((c) -> {
             try {
-                c.onDeregistered(info);
+                c.onDeregistered(reasonInfo);
             } catch (RemoteException e) {
                 Log.w(LOG_TAG, e + " " + "onRegistrationDisconnected() - Skipping " +
                         "callback.");
@@ -194,9 +202,10 @@ public class ImsRegistrationImplBase {
      */
     public final void onTechnologyChangeFailed(@ImsRegistrationTech int imsRadioTech,
             ImsReasonInfo info) {
-        mCallbacks.broadcast((c) -> {
+        final ImsReasonInfo reasonInfo = (info != null) ? info : new ImsReasonInfo();
+        mCallbacks.broadcastAction((c) -> {
             try {
-                c.onTechnologyChangeFailed(imsRadioTech, info);
+                c.onTechnologyChangeFailed(imsRadioTech, reasonInfo);
             } catch (RemoteException e) {
                 Log.w(LOG_TAG, e + " " + "onRegistrationChangeFailed() - Skipping " +
                         "callback.");
@@ -205,19 +214,27 @@ public class ImsRegistrationImplBase {
     }
 
     /**
-     * The this device's subscriber associated {@link Uri}s have changed, which are used to filter
-     * out this device's {@link Uri}s during conference calling.
-     * @param uris
+     * Invoked when the {@link Uri}s associated to this device's subscriber have changed.
+     * These {@link Uri}s' are filtered out during conference calls.
+     *
+     * The {@link Uri}s are not guaranteed to be different between subsequent calls.
+     * @param uris changed uris
      */
     public final void onSubscriberAssociatedUriChanged(Uri[] uris) {
-        mCallbacks.broadcast((c) -> {
-            try {
-                c.onSubscriberAssociatedUriChanged(uris);
-            } catch (RemoteException e) {
-                Log.w(LOG_TAG, e + " " + "onSubscriberAssociatedUriChanged() - Skipping " +
-                        "callback.");
-            }
-        });
+        synchronized (mLock) {
+            mUris = ArrayUtils.cloneOrNull(uris);
+            mUrisSet = true;
+        }
+        mCallbacks.broadcastAction((c) -> onSubscriberAssociatedUriChanged(c, uris));
+    }
+
+    private void onSubscriberAssociatedUriChanged(IImsRegistrationCallback callback, Uri[] uris) {
+        try {
+            callback.onSubscriberAssociatedUriChanged(uris);
+        } catch (RemoteException e) {
+            Log.w(LOG_TAG, e + " " + "onSubscriberAssociatedUriChanged() - Skipping "
+                    + "callback.");
+        }
     }
 
     private void updateToState(@ImsRegistrationTech int connType, int newState) {
@@ -230,7 +247,12 @@ public class ImsRegistrationImplBase {
 
     private void updateToDisconnectedState(ImsReasonInfo info) {
         synchronized (mLock) {
-            updateToState(REGISTRATION_TECH_NONE, REGISTRATION_STATE_NOT_REGISTERED);
+            //We don't want to send this info over if we are disconnected
+            mUrisSet = false;
+            mUris = null;
+
+            updateToState(REGISTRATION_TECH_NONE,
+                    RegistrationManager.REGISTRATION_STATE_NOT_REGISTERED);
             if (info != null) {
                 mLastDisconnectCause = info;
             } else {
@@ -256,23 +278,28 @@ public class ImsRegistrationImplBase {
      * @param c the newly registered callback that will be updated with the current registration
      *         state.
      */
-    private void updateNewCallbackWithState(IImsRegistrationCallback c) throws RemoteException {
+    private void updateNewCallbackWithState(IImsRegistrationCallback c)
+            throws RemoteException {
         int state;
         ImsReasonInfo disconnectInfo;
+        boolean urisSet;
+        Uri[] uris;
         synchronized (mLock) {
             state = mRegistrationState;
             disconnectInfo = mLastDisconnectCause;
+            urisSet = mUrisSet;
+            uris = mUris;
         }
         switch (state) {
-            case REGISTRATION_STATE_NOT_REGISTERED: {
+            case RegistrationManager.REGISTRATION_STATE_NOT_REGISTERED: {
                 c.onDeregistered(disconnectInfo);
                 break;
             }
-            case REGISTRATION_STATE_REGISTERING: {
+            case RegistrationManager.REGISTRATION_STATE_REGISTERING: {
                 c.onRegistering(getConnectionType());
                 break;
             }
-            case REGISTRATION_STATE_REGISTERED: {
+            case RegistrationManager.REGISTRATION_STATE_REGISTERED: {
                 c.onRegistered(getConnectionType());
                 break;
             }
@@ -280,6 +307,9 @@ public class ImsRegistrationImplBase {
                 // Do not callback if the state has not been updated yet by the ImsService.
                 break;
             }
+        }
+        if (urisSet) {
+            onSubscriberAssociatedUriChanged(c, uris);
         }
     }
 }

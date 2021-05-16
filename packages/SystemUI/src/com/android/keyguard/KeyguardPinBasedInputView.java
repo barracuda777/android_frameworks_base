@@ -23,6 +23,7 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 
+import com.android.internal.widget.LockscreenCredential;
 import com.android.systemui.R;
 
 /**
@@ -115,6 +116,8 @@ public abstract class KeyguardPinBasedInputView extends KeyguardAbsKeyInputView
                 return R.string.kg_prompt_reason_device_admin;
             case PROMPT_REASON_USER_REQUEST:
                 return R.string.kg_prompt_reason_user_request;
+            case PROMPT_REASON_PREPARE_FOR_UPDATE:
+                return R.string.kg_prompt_reason_timeout_pin;
             case PROMPT_REASON_NONE:
                 return 0;
             default:
@@ -122,12 +125,16 @@ public abstract class KeyguardPinBasedInputView extends KeyguardAbsKeyInputView
         }
     }
 
+    protected int getNumberIndex(int number) {
+        return number;
+    }
+
     private void performClick(View view) {
         view.performClick();
     }
 
     private void performNumberClick(int number) {
-        switch (number) {
+        switch (getNumberIndex(number)) {
             case 0:
                 performClick(mButton0);
                 break;
@@ -167,8 +174,8 @@ public abstract class KeyguardPinBasedInputView extends KeyguardAbsKeyInputView
     }
 
     @Override
-    protected byte[] getPasswordText() {
-        return charSequenceToByteArray(mPasswordEntry.getText());
+    protected LockscreenCredential getEnteredCredential() {
+        return LockscreenCredential.createPinOrNone(mPasswordEntry.getText());
     }
 
     @Override
@@ -265,19 +272,5 @@ public abstract class KeyguardPinBasedInputView extends KeyguardAbsKeyInputView
     public CharSequence getTitle() {
         return getContext().getString(
                 com.android.internal.R.string.keyguard_accessibility_pin_unlock);
-    }
-
-    /*
-     * This method avoids creating a new string when getting a byte array from EditView#getText().
-     */
-    private static byte[] charSequenceToByteArray(CharSequence chars) {
-        if (chars == null) {
-            return null;
-        }
-        byte[] bytes = new byte[chars.length()];
-        for (int i = 0; i < chars.length(); i++) {
-            bytes[i] = (byte) chars.charAt(i);
-        }
-        return bytes;
     }
 }

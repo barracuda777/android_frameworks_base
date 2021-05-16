@@ -33,7 +33,6 @@ import android.widget.ArrayAdapter;
 import android.widget.CheckedTextView;
 import android.widget.ListView;
 
-import com.android.systemui.Dependency;
 import com.android.systemui.plugins.ActivityStarter;
 import com.android.systemui.plugins.qs.DetailAdapter;
 import com.android.systemui.plugins.qs.QSTile.State;
@@ -41,11 +40,12 @@ import com.android.systemui.qs.QSDetailItemsList;
 import com.android.systemui.qs.QSHost;
 import com.android.systemui.qs.tileimpl.QSTileImpl;
 import com.android.systemui.R;
-import com.android.systemui.statusbar.policy.KeyguardMonitor;
+import com.android.systemui.statusbar.policy.KeyguardStateController;
 
 import lineageos.app.Profile;
 import lineageos.app.ProfileManager;
 import lineageos.providers.LineageSettings;
+
 import org.lineageos.internal.logging.LineageMetricsLogger;
 
 import java.util.ArrayList;
@@ -66,17 +66,18 @@ public class ProfilesTile extends QSTileImpl<State> {
     private ProfileAdapter mAdapter;
 
     private final ActivityStarter mActivityStarter;
-    private final KeyguardMonitor mKeyguardMonitor;
+    private final KeyguardStateController mKeyguard;
     private final ProfileManager mProfileManager;
     private final ProfilesObserver mObserver;
     private final ProfileDetailAdapter mDetailAdapter;
-    private final KeyguardMonitorCallback mCallback = new KeyguardMonitorCallback();
+    private final Callback mCallback = new Callback();
 
     @Inject
-    public ProfilesTile(QSHost host) {
+    public ProfilesTile(QSHost host,
+            ActivityStarter activityStarter, KeyguardStateController keyguardStateController) {
         super(host);
-        mActivityStarter = Dependency.get(ActivityStarter.class);
-        mKeyguardMonitor = Dependency.get(KeyguardMonitor.class);
+        mActivityStarter = activityStarter;
+        mKeyguard = keyguardStateController;
         mProfileManager = ProfileManager.getInstance(mContext);
         mObserver = new ProfilesObserver(mHandler);
         mDetailAdapter = (ProfileDetailAdapter) createDetailAdapter();
@@ -99,7 +100,7 @@ public class ProfilesTile extends QSTileImpl<State> {
 
     @Override
     protected void handleClick() {
-        if (mKeyguardMonitor.isSecure() && mKeyguardMonitor.isShowing()) {
+        if (mKeyguard.isMethodSecure() && mKeyguard.isShowing()) {
             mActivityStarter.postQSRunnableDismissingKeyguard(() -> {
                 setProfilesEnabled(!profilesEnabled());
             });
@@ -110,7 +111,7 @@ public class ProfilesTile extends QSTileImpl<State> {
 
     @Override
     protected void handleSecondaryClick() {
-        if (mKeyguardMonitor.isSecure() && mKeyguardMonitor.isShowing()) {
+        if (mKeyguard.isMethodSecure() && mKeyguard.isShowing()) {
             mActivityStarter.postQSRunnableDismissingKeyguard(() -> {
                 setProfilesEnabled(true);
                 showDetail(true);
@@ -179,12 +180,12 @@ public class ProfilesTile extends QSTileImpl<State> {
             filter.addAction(ProfileManager.INTENT_ACTION_PROFILE_SELECTED);
             filter.addAction(ProfileManager.INTENT_ACTION_PROFILE_UPDATED);
             mContext.registerReceiver(mReceiver, filter);
-            mKeyguardMonitor.addCallback(mCallback);
+            mKeyguard.addCallback(mCallback);
             refreshState();
         } else {
             mObserver.endObserving();
             mContext.unregisterReceiver(mReceiver);
-            mKeyguardMonitor.removeCallback(mCallback);
+            mKeyguard.removeCallback(mCallback);
         }
     }
 
@@ -198,7 +199,7 @@ public class ProfilesTile extends QSTileImpl<State> {
         return new ProfileDetailAdapter();
     }
 
-    private class KeyguardMonitorCallback implements KeyguardMonitor.Callback {
+    private final class Callback implements KeyguardStateController.Callback {
         @Override
         public void onKeyguardShowingChanged() {
             refreshState();

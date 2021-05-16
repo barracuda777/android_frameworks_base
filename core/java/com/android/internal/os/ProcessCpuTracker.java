@@ -16,9 +16,15 @@
 
 package com.android.internal.os;
 
-import static android.os.Process.*;
+import static android.os.Process.PROC_COMBINE;
+import static android.os.Process.PROC_OUT_FLOAT;
+import static android.os.Process.PROC_OUT_LONG;
+import static android.os.Process.PROC_OUT_STRING;
+import static android.os.Process.PROC_PARENS;
+import static android.os.Process.PROC_SPACE_TERM;
 
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
+import android.os.CpuUsageProto;
 import android.os.Process;
 import android.os.StrictMode;
 import android.os.SystemClock;
@@ -26,10 +32,12 @@ import android.system.ErrnoException;
 import android.system.Os;
 import android.system.OsConstants;
 import android.util.Slog;
+import android.util.proto.ProtoOutputStream;
 
 import com.android.internal.util.FastPrintWriter;
 
 import java.io.File;
+import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.text.SimpleDateFormat;
@@ -735,6 +743,65 @@ public class ProcessCpuTracker {
         return mWorkingProcs.get(index);
     }
 
+    /** Dump cpuinfo in protobuf format. */
+    public final void dumpProto(FileDescriptor fd) {
+        final long now = SystemClock.uptimeMillis();
+        final ProtoOutputStream proto = new ProtoOutputStream(fd);
+        final long currentLoadToken = proto.start(CpuUsageProto.CURRENT_LOAD);
+        proto.write(CpuUsageProto.Load.LOAD1, mLoad1);
+        proto.write(CpuUsageProto.Load.LOAD5, mLoad5);
+        proto.write(CpuUsageProto.Load.LOAD15, mLoad15);
+        proto.end(currentLoadToken);
+
+        buildWorkingProcs();
+
+        proto.write(CpuUsageProto.NOW, now);
+        proto.write(CpuUsageProto.LAST_SAMPLE_TIME, mLastSampleTime);
+        proto.write(CpuUsageProto.CURRENT_SAMPLE_TIME, mCurrentSampleTime);
+        proto.write(CpuUsageProto.LAST_SAMPLE_REAL_TIME, mLastSampleRealTime);
+        proto.write(CpuUsageProto.CURRENT_SAMPLE_REAL_TIME, mCurrentSampleRealTime);
+        proto.write(CpuUsageProto.LAST_SAMPLE_WALL_TIME, mLastSampleWallTime);
+        proto.write(CpuUsageProto.CURRENT_SAMPLE_WALL_TIME, mCurrentSampleWallTime);
+
+        proto.write(CpuUsageProto.TOTAL_USER_TIME, mRelUserTime);
+        proto.write(CpuUsageProto.TOTAL_SYSTEM_TIME, mRelSystemTime);
+        proto.write(CpuUsageProto.TOTAL_IOWAIT_TIME, mRelIoWaitTime);
+        proto.write(CpuUsageProto.TOTAL_IRQ_TIME, mRelIrqTime);
+        proto.write(CpuUsageProto.TOTAL_SOFT_IRQ_TIME, mRelSoftIrqTime);
+        proto.write(CpuUsageProto.TOTAL_IDLE_TIME, mRelIdleTime);
+        final int totalTime = mRelUserTime + mRelSystemTime + mRelIoWaitTime
+                + mRelIrqTime + mRelSoftIrqTime + mRelIdleTime;
+        proto.write(CpuUsageProto.TOTAL_TIME, totalTime);
+
+        for (Stats st : mWorkingProcs) {
+            dumpProcessCpuProto(proto, st, null);
+            if (!st.removed && st.workingThreads != null) {
+                for (Stats tst : st.workingThreads) {
+                    dumpProcessCpuProto(proto, tst, st);
+                }
+            }
+        }
+        proto.flush();
+    }
+
+    private static void dumpProcessCpuProto(ProtoOutputStream proto, Stats st, Stats proc) {
+        long statToken = proto.start(CpuUsageProto.PROCESSES);
+        proto.write(CpuUsageProto.Stat.UID, st.uid);
+        proto.write(CpuUsageProto.Stat.PID, st.pid);
+        proto.write(CpuUsageProto.Stat.NAME, st.name);
+        proto.write(CpuUsageProto.Stat.ADDED, st.added);
+        proto.write(CpuUsageProto.Stat.REMOVED, st.removed);
+        proto.write(CpuUsageProto.Stat.UPTIME, st.rel_uptime);
+        proto.write(CpuUsageProto.Stat.USER_TIME, st.rel_utime);
+        proto.write(CpuUsageProto.Stat.SYSTEM_TIME, st.rel_stime);
+        proto.write(CpuUsageProto.Stat.MINOR_FAULTS, st.rel_minfaults);
+        proto.write(CpuUsageProto.Stat.MAJOR_FAULTS, st.rel_majfaults);
+        if (proc != null) {
+            proto.write(CpuUsageProto.Stat.PARENT_PID, proc.pid);
+        }
+        proto.end(statToken);
+    }
+
     final public String printCurrentLoad() {
         StringWriter sw = new StringWriter();
         PrintWriter pw = new FastPrintWriter(sw, false, 128);
@@ -878,11 +945,8 @@ public class ProcessCpuTracker {
 
     private void getName(Stats st, String cmdlineFile) {
         String newName = st.name;
-        if (st.name == null
-                || st.name.equals("app_process")
-                || st.name.equals("<pre-initialized>")
-                || st.name.equals("usap32")
-                || st.name.equals("usap64")) {
+        if (st.name == null || st.name.equals("app_process")
+                || st.name.equals("<pre-initialized>")) {
             String cmdName = ProcStatsUtil.readTerminatedProcFile(cmdlineFile, (byte) '\0');
             if (cmdName != null && cmdName.length() > 1) {
                 newName = cmdName;

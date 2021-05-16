@@ -2,7 +2,7 @@
 <!--
 /**
  * Copyright (c) 2015, The CyanogenMod Project
- * Copyright (c) 2017-2020, The LineageOS Project
+ * Copyright (c) 2017-2019, The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,47 +18,17 @@
  */
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <!-- Advanced restart menu -->
-    <!-- Button to restart the device, within the Restart Options dialog -->
-    <string name="global_action_restart_system">System</string>
-    <!-- Button to restart the device into recovery mode, within the Restart Options dialog -->
-    <string name="global_action_restart_recovery">Recovery</string>
-    <!-- Button to restart the device into bootloader mode, within the Restart Options dialog -->
-    <string name="global_action_restart_bootloader">Bootloader</string>
-    <!-- Button to restart the device into download mode, within the Restart Options dialog -->
-    <string name="global_action_restart_download">Download</string>
-    <!-- Button to restart the device into fastboot mode, within the Restart Options dialog -->
-    <string name="global_action_restart_fastboot">Fastbootd</string>
-
-    <!-- Restart progress dialog. This is shown if the user chooses to restart the device. -->
-    <string name="global_action_restart_progress">Restarting\u2026</string>
-    <!-- Restart to recovery mode progress dialog. This is shown if the user chooses to restart the device. -->
-    <string name="global_action_restart_recovery_progress">Restarting to recovery mode\u2026</string>
-    <!-- Restart to bootloader mode progress dialog. This is shown if the user chooses to restart the device. -->
-    <string name="global_action_restart_bootloader_progress">Restarting to bootloader mode\u2026</string>
-    <!-- Restart to download mode progress dialog. This is shown if the user chooses to restart the device. -->
-    <string name="global_action_restart_download_progress">Restarting to download mode\u2026</string>
-    <!-- Restart to fastboot mode progress dialog. This is shown if the user chooses to restart the device. -->
-    <string name="global_action_restart_fastboot_progress">Restarting to fastbootd mode\u2026</string>
-
-    <!-- Label for current user in power menu options dialog -->
-    <string name="global_action_current_user">Current</string>
-
-    <!-- Navigation bar dpad -->
-    <string name="accessibility_dpad_left">Cursor left</string>
-    <string name="accessibility_dpad_right">Cursor right</string>
-
     <!-- Custom QS tiles -->
-    <!-- ADB over network QS tile -->
-    <string name="quick_settings_network_adb_label">ADB over network</string>
-    <string name="quick_settings_network_adb_no_network">no network</string>
-
     <!-- Ambient display QS tile -->
     <string name="quick_settings_ambient_display_label">Ambient display</string>
     <string name="accessibility_quick_settings_ambient_display_off">Ambient display off.</string>
     <string name="accessibility_quick_settings_ambient_display_on">Ambient display on.</string>
     <string name="accessibility_quick_settings_ambient_display_changed_off">Ambient display turned off.</string>
     <string name="accessibility_quick_settings_ambient_display_changed_on">Ambient display turned on.</string>
+
+    <!-- AOD QS tile -->
+    <string name="quick_settings_aod_label">AOD</string>
+    <string name="quick_settings_aod_off_powersave_label">AOD off\nBattery saver</string>
 
     <!-- Caffeine QS tile -->
     <string name="quick_settings_caffeine_label">Caffeine</string>
@@ -71,6 +41,16 @@
     <string name="accessibility_quick_settings_heads_up_on">Heads up on.</string>
     <string name="accessibility_quick_settings_heads_up_changed_off">Heads up turned off.</string>
     <string name="accessibility_quick_settings_heads_up_changed_on">Heads up turned on.</string>
+
+    <!-- Partial screenshot -->
+    <string name="global_screenshot_selector_capture_description">Capture partial screenshot</string>
+    <string name="global_screenshot_selector_cancel_description">Cancel partial screenshot</string>
+
+    <!-- PowerShare QS tile -->
+    <string name="quick_settings_powershare_label">Wireless PowerShare</string>
+    <string name="quick_settings_powershare_off_powersave_label">Wireless PowerShare off\nBattery saver</string>
+    <string name="quick_settings_powershare_off_low_battery_label">Wireless PowerShare off\nBattery too low</string>
+    <string name="quick_settings_powershare_enabled_label">Wireless PowerShare is enabled</string>
 
     <!-- Reader mode QS tile -->
     <string name="quick_settings_reading_mode">Reading mode</string>
@@ -107,28 +87,35 @@
     <string name="vpn_credentials_password">Password</string>
     <string name="vpn_credentials_dialog_connect">Connect</string>
 
-    <!-- AOD QS tile -->
-    <string name="quick_settings_aod_label">AOD</string>
-    <string name="quick_settings_aod_off_powersave_label">AOD off\nBattery saver</string>
+    <!-- Anti flicker QS tile -->
+    <string name="quick_settings_anti_flicker">Anti flicker</string>
 
-    <!-- PowerShare QS tile -->
-    <string name="quick_settings_powershare_label">Wireless PowerShare</string>
-    <string name="quick_settings_powershare_off_powersave_label">Wireless PowerShare off\nBattery saver</string>
-    <string name="quick_settings_powershare_off_low_battery_label">Wireless PowerShare off\nBattery too low</string>
-    <string name="quick_settings_powershare_enabled_label">Wireless PowerShare is enabled</string>
+    <!-- Navigation bar dpad -->
+    <string name="accessibility_dpad_left">Cursor left</string>
+    <string name="accessibility_dpad_right">Cursor right</string>
 
-    <!-- Name of the additional status bar icons also exposed with SystemUI Tuner -->
-    <string name="status_bar_battery">Battery</string>
-    <string name="status_bar_camera">Camera</string>
-    <string name="status_bar_location">Location</string>
-    <string name="status_bar_microphone">Microphone</string>
+    <!-- Advanced restart menu -->
+    <!-- Button to indicate more options -->
+    <string name="global_action_restart_more">Restart\u2026</string>
+    <!-- Button to restart the device, within the Restart Options dialog -->
+    <string name="global_action_restart_system">System</string>
+    <!-- Button to restart the device into recovery mode, within the Restart Options dialog -->
+    <string name="global_action_restart_recovery">Recovery</string>
+    <!-- Button to restart the device into bootloader mode, within the Restart Options dialog -->
+    <string name="global_action_restart_bootloader">Bootloader</string>
+    <!-- Button to restart the device into download mode, within the Restart Options dialog -->
+    <string name="global_action_restart_download">Download</string>
+    <!-- Button to restart the device into fastboot mode, within the Restart Options dialog -->
+    <string name="global_action_restart_fastboot">Fastbootd</string>
 
-    <!-- Screen pinning dialog description. (for devices without navbar) -->
-    <string name="screen_pinning_description_no_navbar">This keeps it in view until you unpin. Touch &amp; hold Back to unpin.</string>
-
-    <!-- Notify use that they are in Lock-to-app (for devices without navbar)-->
-    <string name="screen_pinning_toast_no_navbar">To unpin this screen, touch &amp; hold Back button</string>
-
-    <!-- Lineage clock -->
-    <string name="clock_title_lineage" translatable="false">LineageOS</string>
+    <!-- Restart progress dialog. This is shown if the user chooses to restart the device. -->
+    <string name="global_action_restart_progress">Restarting\u2026</string>
+    <!-- Restart to recovery mode progress dialog. This is shown if the user chooses to restart the device. -->
+    <string name="global_action_restart_recovery_progress">Restarting to recovery mode\u2026</string>
+    <!-- Restart to bootloader mode progress dialog. This is shown if the user chooses to restart the device. -->
+    <string name="global_action_restart_bootloader_progress">Restarting to bootloader mode\u2026</string>
+    <!-- Restart to download mode progress dialog. This is shown if the user chooses to restart the device. -->
+    <string name="global_action_restart_download_progress">Restarting to download mode\u2026</string>
+    <!-- Restart to fastboot mode progress dialog. This is shown if the user chooses to restart the device. -->
+    <string name="global_action_restart_fastboot_progress">Restarting to fastbootd mode\u2026</string>
 </resources>

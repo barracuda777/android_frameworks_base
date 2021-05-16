@@ -23,7 +23,7 @@ import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
 import android.annotation.SystemService;
 import android.annotation.TestApi;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.os.Binder;
 import android.os.IBinder;
@@ -153,6 +153,11 @@ public class StatusBarManager {
      */
     public static final int DEFAULT_SETUP_DISABLE2_FLAGS = DISABLE2_ROTATE_SUGGESTIONS;
 
+    /**
+     * disable flags to be applied when the device is sim-locked.
+     */
+    private static final int DEFAULT_SIM_LOCKED_DISABLED_FLAGS = DISABLE_EXPAND;
+
     /** @hide */
     public static final int NAVIGATION_HINT_BACK_ALT      = 1 << 0;
     /** @hide */
@@ -264,6 +269,7 @@ public class StatusBarManager {
      * @hide
      */
     @UnsupportedAppUsage
+    @TestApi
     public void expandNotificationsPanel() {
         try {
             final IStatusBarService svc = getService();
@@ -281,6 +287,7 @@ public class StatusBarManager {
      * @hide
      */
     @UnsupportedAppUsage
+    @TestApi
     public void collapsePanels() {
         try {
             final IStatusBarService svc = getService();
@@ -379,6 +386,29 @@ public class StatusBarManager {
                 svc.disableForUser(disabled ? DEFAULT_SETUP_DISABLE_FLAGS : DISABLE_NONE,
                         mToken, mContext.getPackageName(), userId);
                 svc.disable2ForUser(disabled ? DEFAULT_SETUP_DISABLE2_FLAGS : DISABLE2_NONE,
+                        mToken, mContext.getPackageName(), userId);
+            }
+        } catch (RemoteException ex) {
+            throw ex.rethrowFromSystemServer();
+        }
+    }
+
+    /**
+     * Enable or disable expansion of the status bar. When the device is SIM-locked, the status
+     * bar should not be expandable.
+     *
+     * @param disabled If {@code true}, the status bar will be set to non-expandable. If
+     *                 {@code false}, re-enables expansion of the status bar.
+     * @hide
+     */
+    @TestApi
+    @RequiresPermission(android.Manifest.permission.STATUS_BAR)
+    public void setDisabledForSimNetworkLock(boolean disabled) {
+        try {
+            final int userId = Binder.getCallingUserHandle().getIdentifier();
+            final IStatusBarService svc = getService();
+            if (svc != null) {
+                svc.disableForUser(disabled ? DEFAULT_SIM_LOCKED_DISABLED_FLAGS : DISABLE_NONE,
                         mToken, mContext.getPackageName(), userId);
             }
         } catch (RemoteException ex) {
@@ -622,6 +652,7 @@ public class StatusBarManager {
             mNotificationIcons = true;
         }
 
+        @NonNull
         @Override
         public String toString() {
             StringBuilder sb = new StringBuilder();

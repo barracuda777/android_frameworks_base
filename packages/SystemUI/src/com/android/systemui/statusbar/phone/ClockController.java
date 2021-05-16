@@ -16,6 +16,7 @@
 
 package com.android.systemui.statusbar.phone;
 
+import android.content.Context;
 import android.util.Log;
 import android.view.View;
 
@@ -25,22 +26,28 @@ import com.android.systemui.statusbar.phone.StatusBarIconController;
 import com.android.systemui.statusbar.policy.Clock;
 import com.android.systemui.tuner.TunerService;
 
+import lineageos.providers.LineageSettings;
+
 public class ClockController implements TunerService.Tunable {
 
     private static final String TAG = "ClockController";
+
+    private static final String CLOCK_POSITION =
+            "lineagesystem:" + LineageSettings.System.STATUS_BAR_CLOCK;
 
     private static final int CLOCK_POSITION_RIGHT = 0;
     private static final int CLOCK_POSITION_CENTER = 1;
     private static final int CLOCK_POSITION_LEFT = 2;
 
-    private static final String CLOCK_POSITION = "lineagesystem:status_bar_clock";
-
+    private Context mContext;
     private Clock mActiveClock, mCenterClock, mLeftClock, mRightClock;
 
     private int mClockPosition = CLOCK_POSITION_LEFT;
     private boolean mBlackListed = false;
 
-    public ClockController(View statusBar) {
+    public ClockController(Context context, View statusBar) {
+        mContext = context;
+
         mCenterClock = statusBar.findViewById(R.id.clock_center);
         mLeftClock = statusBar.findViewById(R.id.clock);
         mRightClock = statusBar.findViewById(R.id.clock_right);
@@ -77,13 +84,10 @@ public class ClockController implements TunerService.Tunable {
         Log.d(TAG, "onTuningChanged key=" + key + " value=" + newValue);
 
         if (CLOCK_POSITION.equals(key)) {
-            try {
-                mClockPosition = Integer.valueOf(newValue);
-            } catch (NumberFormatException ex) {
-                mClockPosition = CLOCK_POSITION_LEFT;
-            }
+            mClockPosition = TunerService.parseInteger(newValue, CLOCK_POSITION_LEFT);
         } else {
-            mBlackListed = StatusBarIconController.getIconBlacklist(newValue).contains("clock");
+            mBlackListed = StatusBarIconController.getIconBlacklist(
+                    mContext, newValue).contains("clock");
         }
         updateActiveClock();
     }

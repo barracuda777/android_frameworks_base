@@ -2,7 +2,7 @@
 <!--
 /**
  * Copyright (c) 2015, The CyanogenMod Project
- * Copyright (c) 2017-2020, The LineageOS Project
+ * Copyright (c) 2017-2019, The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,6 @@
  */
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="accessibility_dpad_left">Cursor lénks</string>
-    <string name="accessibility_dpad_right">Cursor riets</string>
-    <string name="quick_settings_network_adb_label">ADB iwwer Netzwierk</string>
     <string name="quick_settings_ambient_display_label">Ambiente Schierm</string>
     <string name="accessibility_quick_settings_ambient_display_off">Ambiente Schierm aus.</string>
     <string name="accessibility_quick_settings_ambient_display_on">Ambiente Schierm un.</string>
@@ -46,4 +43,6 @@
     <string name="accessibility_quick_settings_profiles_changed">Profil op <xliff:g id="profile" example="Default">%s</xliff:g> geännert.</string>
     <string name="quick_settings_usb_tether_label">USB-Tethering</string>
     <string name="quick_settings_volume_panel_label">Lautstäerktpanneau</string>
+    <string name="accessibility_dpad_left">Cursor lénks</string>
+    <string name="accessibility_dpad_right">Cursor riets</string>
 </resources>

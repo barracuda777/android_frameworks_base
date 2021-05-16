@@ -18,6 +18,7 @@ package com.android.systemui;
 import static android.app.StatusBarManager.DISABLE2_SYSTEM_ICONS;
 import static android.app.StatusBarManager.DISABLE_NONE;
 
+import static com.android.systemui.DejankUtils.whitelistIpcs;
 import static com.android.systemui.util.SysuiLifecycle.viewAttachLifecycle;
 
 import static lineageos.providers.LineageSettings.System.STATUS_BAR_SHOW_BATTERY_PERCENT;
@@ -53,9 +54,11 @@ import androidx.annotation.StyleRes;
 import com.android.settingslib.Utils;
 import com.android.settingslib.graph.CircleBatteryDrawable;
 import com.android.settingslib.graph.ThemedBatteryDrawable;
+import com.android.systemui.broadcast.BroadcastDispatcher;
 import com.android.systemui.plugins.DarkIconDispatcher;
 import com.android.systemui.plugins.DarkIconDispatcher.DarkReceiver;
 import com.android.systemui.settings.CurrentUserTracker;
+import com.android.systemui.statusbar.CommandQueue;
 import com.android.systemui.statusbar.phone.StatusBarIconController;
 import com.android.systemui.statusbar.policy.BatteryController;
 import com.android.systemui.statusbar.policy.BatteryController.BatteryStateChangeCallback;
@@ -123,16 +126,13 @@ public class BatteryMeterView extends LinearLayout implements
     private int mNonAdaptedForegroundColor;
     private int mNonAdaptedBackgroundColor;
 
-    public BatteryMeterView(Context context) {
-        this(context, null, 0);
-    }
-
     public BatteryMeterView(Context context, AttributeSet attrs) {
         this(context, attrs, 0);
     }
 
     public BatteryMeterView(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
+        BroadcastDispatcher broadcastDispatcher = Dependency.get(BroadcastDispatcher.class);
 
         setOrientation(LinearLayout.HORIZONTAL);
         setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
@@ -148,8 +148,10 @@ public class BatteryMeterView extends LinearLayout implements
 
         mSettingObserver = new SettingObserver(new Handler(context.getMainLooper()));
 
+
         addOnAttachStateChangeListener(
-                new DisableStateTracker(DISABLE_NONE, DISABLE2_SYSTEM_ICONS));
+                new DisableStateTracker(DISABLE_NONE, DISABLE2_SYSTEM_ICONS,
+                        Dependency.get(CommandQueue.class)));
 
         setupLayoutTransition();
 
@@ -169,7 +171,7 @@ public class BatteryMeterView extends LinearLayout implements
         // Init to not dark at all.
         onDarkChanged(new Rect(), 0, DarkIconDispatcher.DEFAULT_ICON_TINT);
 
-        mUserTracker = new CurrentUserTracker(mContext) {
+        mUserTracker = new CurrentUserTracker(broadcastDispatcher) {
             @Override
             public void onUserSwitched(int newUserId) {
                 mUser = newUserId;
@@ -297,11 +299,12 @@ public class BatteryMeterView extends LinearLayout implements
     @Override
     public void onTuningChanged(String key, String newValue) {
         if (StatusBarIconController.ICON_BLACKLIST.equals(key)) {
-            ArraySet<String> icons = StatusBarIconController.getIconBlacklist(newValue);
+            ArraySet<String> icons = StatusBarIconController.getIconBlacklist(
+                    getContext(), newValue);
             mBatteryHidden = icons.contains(mSlotBattery);
             setVisibility(mBatteryHidden ? View.GONE : View.VISIBLE);
-        } else if (STATUS_BAR_BATTERY_STYLE.equals(key) && newValue != null) {
-            mBatteryStyle = Integer.parseInt(newValue);
+        } else if (STATUS_BAR_BATTERY_STYLE.equals(key)) {
+            mBatteryStyle = TunerService.parseInteger(newValue, BATTERY_STYLE_PORTRAIT);
             updateBatteryStyle();
             updateShowPercent();
         }
@@ -412,6 +415,7 @@ public class BatteryMeterView extends LinearLayout implements
                 showBatteryPercent == 1;
         final boolean drawPercentOnly = mShowPercentMode == MODE_ESTIMATE ||
                 showBatteryPercent == 2;
+
         if (drawPercentOnly && (!drawPercentInside || mCharging) ||
                 mBatteryStyle == BATTERY_STYLE_TEXT) {
             mCircleDrawable.setShowPercent(false);

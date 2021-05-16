@@ -2,7 +2,7 @@
 <!--
 /**
  * Copyright (c) 2015, The CyanogenMod Project
- * Copyright (c) 2017-2020, The LineageOS Project
+ * Copyright (c) 2017-2019, The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,9 @@
  */
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="global_action_restart_system">Sistem</string>
     <string name="accessibility_quick_settings_profiles_off">Profili isključeni.</string>
     <string name="accessibility_quick_settings_profiles">Profil: <xliff:g id="profile" example="Default">%s</xliff:g>.</string>
     <string name="accessibility_quick_settings_profiles_changed_off">Profili su isključeni.</string>
     <string name="accessibility_quick_settings_profiles_changed">Profil promjenjen u <xliff:g id="profile" example="Default">%s</xliff:g>.</string>
-    <string name="status_bar_location">Lokacija</string>
+    <string name="global_action_restart_system">Sistem</string>
 </resources>

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of the License at
@@ -28,7 +28,7 @@ class OngoingPrivacyChip @JvmOverloads constructor(
     attrs: AttributeSet? = null,
     defStyleAttrs: Int = 0,
     defStyleRes: Int = 0
-) : LinearLayout(context, attrs, defStyleAttrs, defStyleRes) {
+) : FrameLayout(context, attrs, defStyleAttrs, defStyleRes) {
 
     private val iconMarginExpanded = context.resources.getDimensionPixelSize(
                     R.dimen.ongoing_appops_chip_icon_margin_expanded)
@@ -51,19 +51,19 @@ class OngoingPrivacyChip @JvmOverloads constructor(
             }
         }
 
-    var builder = PrivacyDialogBuilder(context, emptyList<PrivacyItem>())
+    var builder = PrivacyChipBuilder(context, emptyList<PrivacyItem>())
     var privacyList = emptyList<PrivacyItem>()
         set(value) {
             field = value
-            builder = PrivacyDialogBuilder(context, value)
+            builder = PrivacyChipBuilder(context, value)
             updateView()
         }
 
     override fun onFinishInflate() {
         super.onFinishInflate()
 
-        back = findViewById(R.id.background)
-        iconsContainer = findViewById(R.id.icons_container)
+        back = requireViewById(R.id.background)
+        iconsContainer = requireViewById(R.id.icons_container)
     }
 
     // Should only be called if the builder icons or app changed
@@ -71,9 +71,9 @@ class OngoingPrivacyChip @JvmOverloads constructor(
         back.background = if (expanded) backgroundDrawable else null
         val padding = if (expanded) sidePadding else 0
         back.setPaddingRelative(padding, 0, padding, 0)
-        fun setIcons(dialogBuilder: PrivacyDialogBuilder, iconsContainer: ViewGroup) {
+        fun setIcons(chipBuilder: PrivacyChipBuilder, iconsContainer: ViewGroup) {
             iconsContainer.removeAllViews()
-            dialogBuilder.generateIcons().forEachIndexed { i, it ->
+            chipBuilder.generateIcons().forEachIndexed { i, it ->
                 it.mutate()
                 it.setTint(iconColor)
                 val image = ImageView(context).apply {

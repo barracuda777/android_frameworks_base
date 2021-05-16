@@ -68,7 +68,10 @@ public class QSAnimator implements Callback, PageListener, Listener, OnLayoutCha
     private TouchAnimator mTranslationYAnimator;
     private TouchAnimator mNonfirstPageAnimator;
     private TouchAnimator mNonfirstPageDelayedAnimator;
+    // This animates fading of SecurityFooter and media divider
+    private TouchAnimator mAllPagesDelayedAnimator;
     private TouchAnimator mBrightnessAnimator;
+    private boolean mNeedsAnimatorUpdate = false;
 
     private boolean mOnKeyguard;
 
@@ -101,6 +104,12 @@ public class QSAnimator implements Callback, PageListener, Listener, OnLayoutCha
 
     public void onRtlChanged() {
         updateAnimators();
+    }
+
+
+    public void onQsScrollingChanged() {
+        // Lazily update animators whenever the scrolling changes
+        mNeedsAnimatorUpdate = true;
     }
 
     public void setOnKeyguard(boolean onKeyguard) {
@@ -162,15 +171,10 @@ public class QSAnimator implements Callback, PageListener, Listener, OnLayoutCha
         } else if (MOVE_FULL_ROWS.equals(key)) {
             mFullRows = TunerService.parseIntegerSwitch(newValue, true);
         } else if (QuickQSPanel.NUM_QUICK_TILES.equals(key)) {
-            mNumQuickTiles = mQuickQsPanel.getNumQuickTiles(mQs.getContext());
+            mNumQuickTiles = QuickQSPanel.parseNumTiles(newValue);
             clearAnimationState();
         } else if (QS_SHOW_BRIGHTNESS_SLIDER.equals(key)) {
-            try {
-                mIsQuickQsBrightnessEnabled = Integer.parseInt(newValue) > 1;
-            } catch (NumberFormatException e) {
-                // Catches exception as newValue may be null or malformed.
-                mIsQuickQsBrightnessEnabled = false;
-            }
+            mIsQuickQsBrightnessEnabled = TunerService.parseInteger(newValue, 0) > 1;
         }
         updateAnimators();
     }
@@ -185,6 +189,7 @@ public class QSAnimator implements Callback, PageListener, Listener, OnLayoutCha
     }
 
     private void updateAnimators() {
+        mNeedsAnimatorUpdate = false;
         TouchAnimator.Builder firstPageBuilder = new Builder();
         TouchAnimator.Builder translationXBuilder = new Builder();
         TouchAnimator.Builder translationYBuilder = new Builder();
@@ -281,6 +286,7 @@ public class QSAnimator implements Callback, PageListener, Listener, OnLayoutCha
             mAllViews.add(tileView);
             count++;
         }
+
         if (mAllowFancy) {
             // Make brightness appear static position and alpha in through second half.
             View brightness = mQsPanel.getBrightnessView();
@@ -298,13 +304,27 @@ public class QSAnimator implements Callback, PageListener, Listener, OnLayoutCha
                     .setListener(this)
                     .build();
             // Fade in the tiles/labels as we reach the final position.
-            mFirstPageDelayedAnimator = new TouchAnimator.Builder()
+            Builder builder = new Builder()
                     .setStartDelay(EXPANDED_TILE_DELAY)
-                    .addFloat(tileLayout, "alpha", 0, 1)
-                    .addFloat(mQsPanel.getDivider(), "alpha", 0, 1)
-                    .addFloat(mQsPanel.getFooter().getView(), "alpha", 0, 1).build();
-            mAllViews.add(mQsPanel.getDivider());
-            mAllViews.add(mQsPanel.getFooter().getView());
+                    .addFloat(tileLayout, "alpha", 0, 1);
+            mFirstPageDelayedAnimator = builder.build();
+
+            // Fade in the security footer and the divider as we reach the final position
+            builder = new Builder().setStartDelay(EXPANDED_TILE_DELAY);
+            if (mQsPanel.getSecurityFooter() != null) {
+                builder.addFloat(mQsPanel.getSecurityFooter().getView(), "alpha", 0, 1);
+            }
+            if (mQsPanel.getDivider() != null) {
+                builder.addFloat(mQsPanel.getDivider(), "alpha", 0, 1);
+            }
+            mAllPagesDelayedAnimator = builder.build();
+            if (mQsPanel.getSecurityFooter() != null) {
+                mAllViews.add(mQsPanel.getSecurityFooter().getView());
+            }
+            if (mQsPanel.getDivider() != null) {
+                mAllViews.add(mQsPanel.getDivider());
+            }
+
             float px = 0;
             float py = 1;
             if (tiles.size() <= 3) {
@@ -320,7 +340,6 @@ public class QSAnimator implements Callback, PageListener, Listener, OnLayoutCha
         }
         mNonfirstPageAnimator = new TouchAnimator.Builder()
                 .addFloat(mQuickQsPanel, "alpha", 1, 0)
-                .addFloat(mQsPanel.getDivider(), "alpha", 0, 1)
                 .setListener(mNonFirstPageListener)
                 .setEndDelay(.5f)
                 .build();
@@ -351,10 +370,18 @@ public class QSAnimator implements Callback, PageListener, Listener, OnLayoutCha
             loc1[0] += view.getLeft();
             loc1[1] += view.getTop();
         }
+        if (!(view instanceof PagedTileLayout)) {
+            // Remove the scrolling position of all scroll views other than the viewpager
+            loc1[0] -= view.getScrollX();
+            loc1[1] -= view.getScrollY();
+        }
         getRelativePositionInt(loc1, (View) view.getParent(), parent);
     }
 
     public void setPosition(float position) {
+        if (mNeedsAnimatorUpdate) {
+            updateAnimators();
+        }
         if (mFirstPageAnimator == null) return;
         if (mOnKeyguard) {
             if (mShowCollapsedOnKeyguard) {
@@ -376,6 +403,9 @@ public class QSAnimator implements Callback, PageListener, Listener, OnLayoutCha
         } else {
             mNonfirstPageAnimator.setPosition(position);
             mNonfirstPageDelayedAnimator.setPosition(position);
+        }
+        if (mAllowFancy) {
+            mAllPagesDelayedAnimator.setPosition(position);
         }
     }
 

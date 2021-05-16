@@ -20,9 +20,12 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.app.ActivityManager;
+import android.content.Context;
 import android.graphics.Matrix;
 import android.graphics.Rect;
+import android.hardware.fingerprint.IFingerprintService;
 import android.os.RemoteException;
+import android.os.ServiceManager;
 import android.util.MathUtils;
 import android.view.IRemoteAnimationFinishedCallback;
 import android.view.IRemoteAnimationRunner;
@@ -34,12 +37,15 @@ import android.view.View;
 
 import com.android.internal.policy.ScreenDecorationsUtils;
 import com.android.systemui.Interpolators;
-import com.android.systemui.shared.system.SurfaceControlCompat;
+import com.android.systemui.biometrics.FODCircleViewImpl;
+import com.android.systemui.statusbar.NotificationShadeDepthController;
 import com.android.systemui.statusbar.notification.row.ExpandableNotificationRow;
 import com.android.systemui.statusbar.notification.stack.NotificationListContainer;
 import com.android.systemui.statusbar.phone.CollapsedStatusBarFragment;
-import com.android.systemui.statusbar.phone.NotificationPanelView;
-import com.android.systemui.statusbar.phone.StatusBarWindowView;
+import com.android.systemui.statusbar.phone.NotificationPanelViewController;
+import com.android.systemui.statusbar.phone.NotificationShadeWindowViewController;
+
+import java.util.concurrent.Executor;
 
 /**
  * A class that allows activities to be launched in a seamless way where the notification
@@ -54,10 +60,12 @@ public class ActivityLaunchAnimator {
             CollapsedStatusBarFragment.FADE_IN_DURATION - CollapsedStatusBarFragment.FADE_IN_DELAY
             - 16;
     private static final long LAUNCH_TIMEOUT = 500;
-    private final NotificationPanelView mNotificationPanel;
+    private final NotificationPanelViewController mNotificationPanel;
     private final NotificationListContainer mNotificationContainer;
-    private final StatusBarWindowView mStatusBarWindow;
     private final float mWindowCornerRadius;
+    private final NotificationShadeWindowViewController mNotificationShadeWindowViewController;
+    private final NotificationShadeDepthController mDepthController;
+    private final Executor mMainExecutor;
     private Callback mCallback;
     private final Runnable mTimeoutRunnable = () -> {
         setAnimationPending(false);
@@ -66,22 +74,35 @@ public class ActivityLaunchAnimator {
     private boolean mAnimationPending;
     private boolean mAnimationRunning;
     private boolean mIsLaunchForActivity;
+    private IFingerprintService mFingerprintService;
+    private FODCircleViewImpl mFODCircleViewImpl;
 
-    public ActivityLaunchAnimator(StatusBarWindowView statusBarWindow,
+    public ActivityLaunchAnimator(
+            NotificationShadeWindowViewController notificationShadeWindowViewController,
             Callback callback,
-            NotificationPanelView notificationPanel,
-            NotificationListContainer container) {
+            NotificationPanelViewController notificationPanel,
+            NotificationShadeDepthController depthController,
+            NotificationListContainer container,
+            Executor mainExecutor,
+            FODCircleViewImpl fodCircleViewImpl) {
         mNotificationPanel = notificationPanel;
         mNotificationContainer = container;
-        mStatusBarWindow = statusBarWindow;
+        mDepthController = depthController;
+        mNotificationShadeWindowViewController = notificationShadeWindowViewController;
         mCallback = callback;
+        mMainExecutor = mainExecutor;
         mWindowCornerRadius = ScreenDecorationsUtils
-                .getWindowCornerRadius(statusBarWindow.getResources());
+                .getWindowCornerRadius(mNotificationShadeWindowViewController.getView()
+                        .getResources());
+        mFODCircleViewImpl = fodCircleViewImpl;
+        mFingerprintService = IFingerprintService.Stub.asInterface(
+                ServiceManager.getService(Context.FINGERPRINT_SERVICE));
     }
 
     public RemoteAnimationAdapter getLaunchAnimation(
             View sourceView, boolean occluded) {
-        if (!(sourceView instanceof ExpandableNotificationRow) || !mCallback.areLaunchAnimationsEnabled() || occluded) {
+        if (!(sourceView instanceof ExpandableNotificationRow)
+                || !mCallback.areLaunchAnimationsEnabled() || occluded) {
             return null;
         }
         AnimationRunner animationRunner = new AnimationRunner(
@@ -113,11 +134,12 @@ public class ActivityLaunchAnimator {
 
     private void setAnimationPending(boolean pending) {
         mAnimationPending = pending;
-        mStatusBarWindow.setExpandAnimationPending(pending);
+        mNotificationShadeWindowViewController.setExpandAnimationPending(pending);
         if (pending) {
-            mStatusBarWindow.postDelayed(mTimeoutRunnable, LAUNCH_TIMEOUT);
+            mNotificationShadeWindowViewController.getView().postDelayed(mTimeoutRunnable,
+                    LAUNCH_TIMEOUT);
         } else {
-            mStatusBarWindow.removeCallbacks(mTimeoutRunnable);
+            mNotificationShadeWindowViewController.getView().removeCallbacks(mTimeoutRunnable);
         }
     }
 
@@ -145,9 +167,10 @@ public class ActivityLaunchAnimator {
 
         @Override
         public void onAnimationStart(RemoteAnimationTarget[] remoteAnimationTargets,
+                RemoteAnimationTarget[] remoteAnimationWallpaperTargets,
                 IRemoteAnimationFinishedCallback iRemoteAnimationFinishedCallback)
                     throws RemoteException {
-            mSourceNotification.post(() -> {
+            mMainExecutor.execute(() -> {
                 RemoteAnimationTarget primary = getPrimaryRemoteAnimationTarget(
                         remoteAnimationTargets);
                 if (primary == null) {
@@ -183,8 +206,9 @@ public class ActivityLaunchAnimator {
                     }
                 }
                 int targetWidth = primary.sourceContainerBounds.width();
-                int notificationHeight = mSourceNotification.getActualHeight()
-                        - mSourceNotification.getClipBottomAmount();
+                // If the notification panel is collapsed, the clip may be larger than the height.
+                int notificationHeight = Math.max(mSourceNotification.getActualHeight()
+                        - mSourceNotification.getClipBottomAmount(), 0);
                 int notificationWidth = mSourceNotification.getWidth();
                 anim.setDuration(ANIMATION_DURATION);
                 anim.setInterpolator(Interpolators.LINEAR);
@@ -208,7 +232,7 @@ public class ActivityLaunchAnimator {
                                 mWindowCornerRadius, progress);
                         applyParamsToWindow(primary);
                         applyParamsToNotification(mParams);
-                        applyParamsToNotificationList(mParams);
+                        applyParamsToNotificationShade(mParams);
                     }
                 });
                 anim.addListener(new AnimatorListenerAdapter() {
@@ -246,20 +270,30 @@ public class ActivityLaunchAnimator {
         private void setExpandAnimationRunning(boolean running) {
             mNotificationPanel.setLaunchingNotification(running);
             mSourceNotification.setExpandAnimationRunning(running);
-            mStatusBarWindow.setExpandAnimationRunning(running);
+            mNotificationShadeWindowViewController.setExpandAnimationRunning(running);
             mNotificationContainer.setExpandingNotification(running ? mSourceNotification : null);
             mAnimationRunning = running;
+            boolean isFPClientActive = false;
+            try {
+                isFPClientActive = mFingerprintService.isClientActive();
+            } catch (Exception e) {
+                // do nothing.
+            }
+            if (!isFPClientActive) {
+                mFODCircleViewImpl.hideInDisplayFingerprintView();
+            }
             if (!running) {
                 mCallback.onExpandAnimationFinished(mIsFullScreenLaunch);
                 applyParamsToNotification(null);
-                applyParamsToNotificationList(null);
+                applyParamsToNotificationShade(null);
             }
 
         }
 
-        private void applyParamsToNotificationList(ExpandAnimationParameters params) {
+        private void applyParamsToNotificationShade(ExpandAnimationParameters params) {
             mNotificationContainer.applyExpandAnimationParams(params);
             mNotificationPanel.applyExpandAnimationParams(params);
+            mDepthController.setNotificationLaunchAnimationParams(params);
         }
 
         private void applyParamsToNotification(ExpandAnimationParameters params) {
@@ -270,14 +304,20 @@ public class ActivityLaunchAnimator {
             Matrix m = new Matrix();
             m.postTranslate(0, (float) (mParams.top - app.position.y));
             mWindowCrop.set(mParams.left, 0, mParams.right, mParams.getHeight());
-            SurfaceParams params = new SurfaceParams(app.leash, 1f /* alpha */, m, mWindowCrop,
-                    app.prefixOrderIndex, mCornerRadius, true /* visible */);
+            SurfaceParams params = new SurfaceParams.Builder(app.leash)
+                    .withAlpha(1f)
+                    .withMatrix(m)
+                    .withWindowCrop(mWindowCrop)
+                    .withLayer(app.prefixOrderIndex)
+                    .withCornerRadius(mCornerRadius)
+                    .withVisibility(true)
+                    .build();
             mSyncRtTransactionApplier.scheduleApply(params);
         }
 
         @Override
         public void onAnimationCancelled() throws RemoteException {
-            mSourceNotification.post(() -> {
+            mMainExecutor.execute(() -> {
                 setAnimationPending(false);
                 mCallback.onLaunchAnimationCancelled();
             });
@@ -285,7 +325,7 @@ public class ActivityLaunchAnimator {
     };
 
     public static class ExpandAnimationParameters {
-        float linearProgress;
+        public float linearProgress;
         int[] startPosition;
         float startTranslationZ;
         int left;

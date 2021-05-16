@@ -18,7 +18,7 @@ package android.view;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
 import android.graphics.Rect;
 import android.graphics.Region;
@@ -218,6 +218,11 @@ public final class ViewTreeObserver {
      * @hide
      */
     public final static class InternalInsetsInfo {
+
+        @UnsupportedAppUsage
+        public InternalInsetsInfo() {
+        }
+
         /**
          * Offsets from the frame of the window at which the content of
          * windows behind it should be placed.

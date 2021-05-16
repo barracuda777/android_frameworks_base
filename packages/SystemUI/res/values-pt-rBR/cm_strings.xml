@@ -2,7 +2,7 @@
 <!--
 /**
  * Copyright (c) 2015, The CyanogenMod Project
- * Copyright (c) 2017-2020, The LineageOS Project
+ * Copyright (c) 2017-2019, The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,21 +18,6 @@
  */
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="global_action_restart_system">Sistema</string>
-    <string name="global_action_restart_recovery">Recuperação</string>
-    <string name="global_action_restart_bootloader">Bootloader</string>
-    <string name="global_action_restart_download">Download</string>
-    <string name="global_action_restart_fastboot">Fastbootd</string>
-    <string name="global_action_restart_progress">Reiniciando\u2026</string>
-    <string name="global_action_restart_recovery_progress">Reiniciando no modo de recuperação\u2026</string>
-    <string name="global_action_restart_bootloader_progress">Reiniciando no modo de bootloader\u2026</string>
-    <string name="global_action_restart_download_progress">Reiniciando no modo de download\u2026</string>
-    <string name="global_action_restart_fastboot_progress">Reiniciando no modo fastbootd\u2026</string>
-    <string name="global_action_current_user">Atual</string>
-    <string name="accessibility_dpad_left">Cursor à esquerda</string>
-    <string name="accessibility_dpad_right">Cursor à direita</string>
-    <string name="quick_settings_network_adb_label">ADB sobre rede</string>
-    <string name="quick_settings_network_adb_no_network">sem rede</string>
     <string name="quick_settings_ambient_display_label">Tela ambiente</string>
     <string name="accessibility_quick_settings_ambient_display_off">Tela ambiente desativado.</string>
     <string name="accessibility_quick_settings_ambient_display_on">Tela ambiente ativada.</string>
@@ -69,10 +54,17 @@
     <string name="vpn_credentials_username">Usuário</string>
     <string name="vpn_credentials_password">Senha</string>
     <string name="vpn_credentials_dialog_connect">Conectar</string>
-    <string name="status_bar_battery">Bateria</string>
-    <string name="status_bar_camera">Câmera</string>
-    <string name="status_bar_location">Localização</string>
-    <string name="status_bar_microphone">Microfone</string>
-    <string name="screen_pinning_description_no_navbar">Ela é mantida à vista até que seja liberada. Mantenha o botão Voltar pressionado para liberar.</string>
-    <string name="screen_pinning_toast_no_navbar">Para liberar esta tela, toque no botão \"Voltar\" e mantenha-o pressionado</string>
+    <string name="accessibility_dpad_left">Cursor à esquerda</string>
+    <string name="accessibility_dpad_right">Cursor à direita</string>
+    <string name="global_action_restart_more">Reiniciar\u2026</string>
+    <string name="global_action_restart_system">Sistema</string>
+    <string name="global_action_restart_recovery">Recuperação</string>
+    <string name="global_action_restart_bootloader">Bootloader</string>
+    <string name="global_action_restart_download">Download</string>
+    <string name="global_action_restart_fastboot">Fastbootd</string>
+    <string name="global_action_restart_progress">Reiniciando\u2026</string>
+    <string name="global_action_restart_recovery_progress">Reiniciando no modo de recuperação\u2026</string>
+    <string name="global_action_restart_bootloader_progress">Reiniciando no modo de bootloader\u2026</string>
+    <string name="global_action_restart_download_progress">Reiniciando no modo de download\u2026</string>
+    <string name="global_action_restart_fastboot_progress">Reiniciando no modo fastbootd\u2026</string>
 </resources>

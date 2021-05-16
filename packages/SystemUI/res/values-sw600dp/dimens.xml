@@ -16,8 +16,6 @@
 */
 -->
 <resources>
-    <!-- Standard notification width + gravity -->
-    <dimen name="notification_panel_width">416dp</dimen>
 
     <!-- Diameter of outer shape drawable shown in navbar search-->
     <dimen name="navbar_search_outerring_diameter">430dip</dimen>
@@ -34,6 +32,9 @@
     <!-- Minimum fraction of the screen that should be taken up by the notification panel. -->
     <item type="dimen" name="notification_panel_min_height_frac">40%</item>
 
+    <!-- Standard notification width -->
+    <dimen name="notification_panel_width">416dp</dimen>
+
     <!-- How far to slide the panel out when you touch it -->
     <!-- On tablets this is just the close_handle_height -->
     <dimen name="peek_height">@dimen/close_handle_height</dimen>
@@ -44,6 +45,11 @@
 
     <!-- Height of the status bar header bar when on Keyguard -->
     <dimen name="status_bar_header_height_keyguard">60dp</dimen>
+
+    <!-- Size of user icon + frame in the qs user picker (incl. frame) -->
+    <dimen name="qs_framed_avatar_size">60dp</dimen>
+    <!-- Size of user icon + frame in the keyguard user picker (incl. frame) -->
+    <dimen name="kg_framed_avatar_size">48dp</dimen>
 
     <!-- The width of user avatar when on Keyguard -->
     <dimen name="multi_user_switch_width_keyguard">48dp</dimen>
@@ -88,4 +94,7 @@
 
     <!-- Keyboard shortcuts helper -->
     <dimen name="ksh_layout_width">488dp</dimen>
+
+    <!-- Text size for user name in user switcher -->
+    <dimen name="kg_user_switcher_text_size">18sp</dimen>
 </resources>

@@ -20,15 +20,12 @@ import static com.android.internal.util.Preconditions.checkNotNull;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.app.ActivityThread;
 import android.net.MacAddress;
-import android.net.MatchAllNetworkSpecifier;
 import android.net.NetworkRequest;
 import android.net.NetworkSpecifier;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.PatternMatcher;
-import android.os.Process;
 import android.text.TextUtils;
 import android.util.Pair;
 
@@ -41,6 +38,7 @@ import java.util.Objects;
  * {@link WifiNetworkSpecifier.Builder} class to create an instance.
  */
 public final class WifiNetworkSpecifier extends NetworkSpecifier implements Parcelable {
+    private static final String TAG = "WifiNetworkSpecifier";
 
     /**
      * Builder used to create {@link WifiNetworkSpecifier} objects.
@@ -49,11 +47,11 @@ public final class WifiNetworkSpecifier extends NetworkSpecifier implements Parc
         private static final String MATCH_ALL_SSID_PATTERN_PATH = ".*";
         private static final String MATCH_EMPTY_SSID_PATTERN_PATH = "";
         private static final Pair<MacAddress, MacAddress> MATCH_NO_BSSID_PATTERN1 =
-                new Pair(MacAddress.BROADCAST_ADDRESS, MacAddress.BROADCAST_ADDRESS);
+                new Pair<>(MacAddress.BROADCAST_ADDRESS, MacAddress.BROADCAST_ADDRESS);
         private static final Pair<MacAddress, MacAddress> MATCH_NO_BSSID_PATTERN2 =
-                new Pair(MacAddress.ALL_ZEROS_ADDRESS, MacAddress.BROADCAST_ADDRESS);
+                new Pair<>(WifiManager.ALL_ZEROS_MAC_ADDRESS, MacAddress.BROADCAST_ADDRESS);
         private static final Pair<MacAddress, MacAddress> MATCH_ALL_BSSID_PATTERN =
-                new Pair(MacAddress.ALL_ZEROS_ADDRESS, MacAddress.ALL_ZEROS_ADDRESS);
+                new Pair<>(WifiManager.ALL_ZEROS_MAC_ADDRESS, WifiManager.ALL_ZEROS_MAC_ADDRESS);
         private static final MacAddress MATCH_EXACT_BSSID_PATTERN_MASK =
                 MacAddress.BROADCAST_ADDRESS;
 
@@ -80,12 +78,12 @@ public final class WifiNetworkSpecifier extends NetworkSpecifier implements Parc
         private @Nullable String mWpa3SaePassphrase;
         /**
          * The enterprise configuration details specifying the EAP method,
-         * certificates and other settings associated with the WPA-EAP networks.
+         * certificates and other settings associated with the WPA/WPA2-Enterprise networks.
          */
         private @Nullable WifiEnterpriseConfig mWpa2EnterpriseConfig;
         /**
          * The enterprise configuration details specifying the EAP method,
-         * certificates and other settings associated with the SuiteB networks.
+         * certificates and other settings associated with the WPA3-Enterprise networks.
          */
         private @Nullable WifiEnterpriseConfig mWpa3EnterpriseConfig;
         /**
@@ -157,7 +155,8 @@ public final class WifiNetworkSpecifier extends NetworkSpecifier implements Parc
          */
         public @NonNull Builder setBssidPattern(
                 @NonNull MacAddress baseAddress, @NonNull MacAddress mask) {
-            checkNotNull(baseAddress, mask);
+            checkNotNull(baseAddress);
+            checkNotNull(mask);
             mBssidPatternMatcher = Pair.create(baseAddress, mask);
             return this;
         }
@@ -244,7 +243,11 @@ public final class WifiNetworkSpecifier extends NetworkSpecifier implements Parc
 
         /**
          * Set the associated enterprise configuration for this network. Needed for authenticating
-         * to WPA3-SuiteB networks. See {@link WifiEnterpriseConfig} for description.
+         * to WPA3-Enterprise networks (standard and 192-bit security). See
+         * {@link WifiEnterpriseConfig} for description. For 192-bit security networks, both the
+         * client and CA certificates must be provided, and must be of type of either
+         * sha384WithRSAEncryption (OID 1.2.840.113549.1.1.12) or ecdsa-with-SHA384
+         * (OID 1.2.840.10045.4.3.3).
          *
          * @param enterpriseConfig Instance of {@link WifiEnterpriseConfig}.
          * @return Instance of {@link Builder} to enable chaining of the builder method.
@@ -285,8 +288,25 @@ public final class WifiNetworkSpecifier extends NetworkSpecifier implements Parc
             } else if (mWpa2EnterpriseConfig != null) { // WPA-EAP network
                 configuration.setSecurityParams(WifiConfiguration.SECURITY_TYPE_EAP);
                 configuration.enterpriseConfig = mWpa2EnterpriseConfig;
-            } else if (mWpa3EnterpriseConfig != null) { // WPA3-SuiteB network
-                configuration.setSecurityParams(WifiConfiguration.SECURITY_TYPE_EAP_SUITE_B);
+            } else if (mWpa3EnterpriseConfig != null) { // WPA3-Enterprise
+                if (mWpa3EnterpriseConfig.getEapMethod() == WifiEnterpriseConfig.Eap.TLS
+                        && WifiEnterpriseConfig.isSuiteBCipherCert(
+                        mWpa3EnterpriseConfig.getClientCertificate())
+                        && WifiEnterpriseConfig.isSuiteBCipherCert(
+                        mWpa3EnterpriseConfig.getCaCertificate())) {
+                    // WPA3-Enterprise in 192-bit security mode (Suite-B)
+                    configuration.setSecurityParams(WifiConfiguration.SECURITY_TYPE_EAP_SUITE_B);
+                } else {
+                    // WPA3-Enterprise
+                    configuration.setSecurityParams(WifiConfiguration.SECURITY_TYPE_EAP);
+                    configuration.allowedProtocols.set(WifiConfiguration.Protocol.RSN);
+                    configuration.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.CCMP);
+                    configuration.allowedPairwiseCiphers.set(
+                            WifiConfiguration.PairwiseCipher.GCMP_256);
+                    configuration.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.CCMP);
+                    configuration.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.GCMP_256);
+                    configuration.requirePmf = true;
+                }
                 configuration.enterpriseConfig = mWpa3EnterpriseConfig;
             } else if (mIsEnhancedOpen) { // OWE network
                 configuration.setSecurityParams(WifiConfiguration.SECURITY_TYPE_OWE);
@@ -385,7 +405,8 @@ public final class WifiNetworkSpecifier extends NetworkSpecifier implements Parc
          *
          * For example:
          * To connect to an open network with a SSID prefix of "test" and a BSSID OUI of "10:03:23":
-         * {@code
+         *
+         * <pre>{@code
          * final NetworkSpecifier specifier =
          *      new Builder()
          *      .setSsidPattern(new PatternMatcher("test", PatterMatcher.PATTERN_PREFIX))
@@ -407,7 +428,7 @@ public final class WifiNetworkSpecifier extends NetworkSpecifier implements Parc
          *      // etc.
          * };
          * connectivityManager.requestNetwork(request, networkCallback);
-         * }
+         * }</pre>
          *
          * @return Instance of {@link NetworkSpecifier}.
          * @throws IllegalStateException on invalid params set.
@@ -433,9 +454,7 @@ public final class WifiNetworkSpecifier extends NetworkSpecifier implements Parc
             return new WifiNetworkSpecifier(
                     mSsidPatternMatcher,
                     mBssidPatternMatcher,
-                    buildWifiConfiguration(),
-                    Process.myUid(),
-                    ActivityThread.currentApplication().getApplicationContext().getOpPackageName());
+                    buildWifiConfiguration());
         }
     }
 
@@ -463,20 +482,6 @@ public final class WifiNetworkSpecifier extends NetworkSpecifier implements Parc
      */
     public final WifiConfiguration wifiConfiguration;
 
-    /**
-     * The UID of the process initializing this network specifier. Validated by receiver using
-     * checkUidIfNecessary() and is used by satisfiedBy() to determine whether the specifier
-     * matches the offered network.
-     * @hide
-     */
-    public final int requestorUid;
-
-    /**
-     * The package name of the app initializing this network specifier.
-     * @hide
-     */
-    public final String requestorPackageName;
-
     /** @hide */
     public WifiNetworkSpecifier() throws IllegalAccessException {
         throw new IllegalAccessException("Use the builder to create an instance");
@@ -485,18 +490,14 @@ public final class WifiNetworkSpecifier extends NetworkSpecifier implements Parc
     /** @hide */
     public WifiNetworkSpecifier(@NonNull PatternMatcher ssidPatternMatcher,
                                 @NonNull Pair<MacAddress, MacAddress> bssidPatternMatcher,
-                                @NonNull WifiConfiguration wifiConfiguration,
-                                int requestorUid, @NonNull String requestorPackageName) {
+                                @NonNull WifiConfiguration wifiConfiguration) {
         checkNotNull(ssidPatternMatcher);
         checkNotNull(bssidPatternMatcher);
         checkNotNull(wifiConfiguration);
-        checkNotNull(requestorPackageName);
 
         this.ssidPatternMatcher = ssidPatternMatcher;
         this.bssidPatternMatcher = bssidPatternMatcher;
         this.wifiConfiguration = wifiConfiguration;
-        this.requestorUid = requestorUid;
-        this.requestorPackageName = requestorPackageName;
     }
 
     public static final @NonNull Creator<WifiNetworkSpecifier> CREATOR =
@@ -509,10 +510,8 @@ public final class WifiNetworkSpecifier extends NetworkSpecifier implements Parc
                     Pair<MacAddress, MacAddress> bssidPatternMatcher =
                             Pair.create(baseAddress, mask);
                     WifiConfiguration wifiConfiguration = in.readParcelable(null);
-                    int requestorUid = in.readInt();
-                    String requestorPackageName = in.readString();
                     return new WifiNetworkSpecifier(ssidPatternMatcher, bssidPatternMatcher,
-                            wifiConfiguration, requestorUid, requestorPackageName);
+                            wifiConfiguration);
                 }
 
                 @Override
@@ -532,18 +531,13 @@ public final class WifiNetworkSpecifier extends NetworkSpecifier implements Parc
         dest.writeParcelable(bssidPatternMatcher.first, flags);
         dest.writeParcelable(bssidPatternMatcher.second, flags);
         dest.writeParcelable(wifiConfiguration, flags);
-        dest.writeInt(requestorUid);
-        dest.writeString(requestorPackageName);
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(
-                ssidPatternMatcher.getPath(),
-                ssidPatternMatcher.getType(),
-                bssidPatternMatcher,
-                wifiConfiguration.allowedKeyManagement,
-                requestorUid, requestorPackageName);
+                ssidPatternMatcher.getPath(), ssidPatternMatcher.getType(), bssidPatternMatcher,
+                wifiConfiguration.allowedKeyManagement);
     }
 
     @Override
@@ -562,9 +556,7 @@ public final class WifiNetworkSpecifier extends NetworkSpecifier implements Parc
                 && Objects.equals(this.bssidPatternMatcher,
                     lhs.bssidPatternMatcher)
                 && Objects.equals(this.wifiConfiguration.allowedKeyManagement,
-                    lhs.wifiConfiguration.allowedKeyManagement)
-                && requestorUid == lhs.requestorUid
-                && TextUtils.equals(requestorPackageName, lhs.requestorPackageName);
+                    lhs.wifiConfiguration.allowedKeyManagement);
     }
 
     @Override
@@ -575,35 +567,18 @@ public final class WifiNetworkSpecifier extends NetworkSpecifier implements Parc
                 .append(", BSSID Match pattern=").append(bssidPatternMatcher)
                 .append(", SSID=").append(wifiConfiguration.SSID)
                 .append(", BSSID=").append(wifiConfiguration.BSSID)
-                .append(", requestorUid=").append(requestorUid)
-                .append(", requestorPackageName=").append(requestorPackageName)
                 .append("]")
                 .toString();
     }
 
     /** @hide */
     @Override
-    public boolean satisfiedBy(NetworkSpecifier other) {
-        if (this == other) {
-            return true;
-        }
-        // Any generic requests should be satisifed by a specific wifi network.
-        if (other == null || other instanceof MatchAllNetworkSpecifier) {
-            return true;
-        }
+    public boolean canBeSatisfiedBy(NetworkSpecifier other) {
         if (other instanceof WifiNetworkAgentSpecifier) {
             return ((WifiNetworkAgentSpecifier) other).satisfiesNetworkSpecifier(this);
         }
         // Specific requests are checked for equality although testing for equality of 2 patterns do
         // not make much sense!
         return equals(other);
-    }
-
-    /** @hide */
-    @Override
-    public void assertValidFromUid(int requestorUid) {
-        if (this.requestorUid != requestorUid) {
-            throw new SecurityException("mismatched UIDs");
-        }
     }
 }

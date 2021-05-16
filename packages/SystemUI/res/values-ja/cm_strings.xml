@@ -2,7 +2,7 @@
 <!--
 /**
  * Copyright (c) 2015, The CyanogenMod Project
- * Copyright (c) 2017-2020, The LineageOS Project
+ * Copyright (c) 2017-2019, The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,19 +18,6 @@
  */
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="global_action_restart_system">システム</string>
-    <string name="global_action_restart_recovery">リカバリー</string>
-    <string name="global_action_restart_bootloader">ブートローダー</string>
-    <string name="global_action_restart_download">ダウンロード</string>
-    <string name="global_action_restart_progress">再起動中\u2026</string>
-    <string name="global_action_restart_recovery_progress">リカバリーモードで再起動中\u2026</string>
-    <string name="global_action_restart_bootloader_progress">ブートローダーモードで再起動中\u2026</string>
-    <string name="global_action_restart_download_progress">ダウンロードモードで再起動中\u2026</string>
-    <string name="global_action_current_user">現在</string>
-    <string name="accessibility_dpad_left">カーソルを左へ</string>
-    <string name="accessibility_dpad_right">カーソルを右へ</string>
-    <string name="quick_settings_network_adb_label">ネットワーク経由のADB</string>
-    <string name="quick_settings_network_adb_no_network">ネットワークがありません</string>
     <string name="quick_settings_ambient_display_label">アンビエント表示</string>
     <string name="accessibility_quick_settings_ambient_display_off">アンビエント表示は OFF です。</string>
     <string name="accessibility_quick_settings_ambient_display_on">アンビエント表示は ON です。</string>
@@ -61,8 +48,14 @@
     <string name="accessibility_quick_settings_profiles_changed">プロファイルが<xliff:g id="profile" example="Default">%s</xliff:g>に変更されました。</string>
     <string name="quick_settings_usb_tether_label">USBテザリング</string>
     <string name="quick_settings_volume_panel_label">音量パネル</string>
-    <string name="status_bar_battery">バッテリー</string>
-    <string name="status_bar_location">位置情報</string>
-    <string name="screen_pinning_description_no_navbar">固定を解除するまで画面が常に表示されるようになります。固定を解除するには戻るボタンを押し続けます。</string>
-    <string name="screen_pinning_toast_no_navbar">画面の固定を解除するには戻るボタンを長押しします</string>
+    <string name="accessibility_dpad_left">カーソルを左へ</string>
+    <string name="accessibility_dpad_right">カーソルを右へ</string>
+    <string name="global_action_restart_system">システム</string>
+    <string name="global_action_restart_recovery">リカバリー</string>
+    <string name="global_action_restart_bootloader">ブートローダー</string>
+    <string name="global_action_restart_download">ダウンロード</string>
+    <string name="global_action_restart_progress">再起動中\u2026</string>
+    <string name="global_action_restart_recovery_progress">リカバリーモードで再起動中\u2026</string>
+    <string name="global_action_restart_bootloader_progress">ブートローダーモードで再起動中\u2026</string>
+    <string name="global_action_restart_download_progress">ダウンロードモードで再起動中\u2026</string>
 </resources>

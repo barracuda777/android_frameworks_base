@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,30 +16,47 @@
 
 package com.android.systemui.appops
 
-import android.content.Context
 import android.content.pm.PackageManager
 import android.os.UserHandle
-import android.util.ArrayMap
-import com.android.internal.annotations.VisibleForTesting
-
-private data class PermissionFlag(val flag: Int, val timestamp: Long)
+import androidx.annotation.WorkerThread
+import com.android.systemui.dagger.qualifiers.Background
+import java.util.concurrent.Executor
+import javax.inject.Inject
+import javax.inject.Singleton
 
 private data class PermissionFlagKey(
     val permission: String,
     val packageName: String,
-    val user: UserHandle
+    val uid: Int
 )
-
-internal const val CACHE_EXPIRATION = 10000L
 
 /**
  * Cache for PackageManager's PermissionFlags.
  *
- * Flags older than [CACHE_EXPIRATION] will be retrieved again.
+ * After a specific `{permission, package, uid}` has been requested, updates to it will be tracked,
+ * and changes to the uid will trigger new requests (in the background).
  */
-internal open class PermissionFlagsCache(context: Context) {
-    private val packageManager = context.packageManager
-    private val permissionFlagsCache = ArrayMap<PermissionFlagKey, PermissionFlag>()
+@Singleton
+class PermissionFlagsCache @Inject constructor(
+    private val packageManager: PackageManager,
+    @Background private val executor: Executor
+) : PackageManager.OnPermissionsChangedListener {
+
+    private val permissionFlagsCache =
+            mutableMapOf<Int, MutableMap<PermissionFlagKey, Int>>()
+    private var listening = false
+
+    override fun onPermissionsChanged(uid: Int) {
+        executor.execute {
+            // Only track those that we've seen before
+            val keys = permissionFlagsCache.get(uid)
+            if (keys != null) {
+                keys.mapValuesTo(keys) {
+                    getFlags(it.key)
+                }
+            }
+        }
+    }
 
     /**
      * Retrieve permission flags from cache or PackageManager. There parameters will be passed
@@ -47,24 +64,22 @@ internal open class PermissionFlagsCache(context: Context) {
      *
      * Calls to this method should be done from a background thread.
      */
-    fun getPermissionFlags(permission: String, packageName: String, user: UserHandle): Int {
-        val key = PermissionFlagKey(permission, packageName, user)
-        val now = getCurrentTime()
-        val value = permissionFlagsCache.getOrPut(key) {
-            PermissionFlag(getFlags(key), now)
+    @WorkerThread
+    fun getPermissionFlags(permission: String, packageName: String, uid: Int): Int {
+        if (!listening) {
+            listening = true
+            packageManager.addOnPermissionsChangeListener(this)
         }
-        if (now - value.timestamp > CACHE_EXPIRATION) {
-            val newValue = PermissionFlag(getFlags(key), now)
-            permissionFlagsCache.put(key, newValue)
-            return newValue.flag
-        } else {
-            return value.flag
+        val key = PermissionFlagKey(permission, packageName, uid)
+        return permissionFlagsCache.getOrPut(uid, { mutableMapOf() }).get(key) ?: run {
+            getFlags(key).also {
+                permissionFlagsCache.get(uid)?.put(key, it)
+            }
         }
     }
 
-    private fun getFlags(key: PermissionFlagKey) =
-            packageManager.getPermissionFlags(key.permission, key.packageName, key.user)
-
-    @VisibleForTesting
-    protected open fun getCurrentTime() = System.currentTimeMillis()
+    private fun getFlags(key: PermissionFlagKey): Int {
+        return packageManager.getPermissionFlags(key.permission, key.packageName,
+                UserHandle.getUserHandleForUid(key.uid))
+    }
 }

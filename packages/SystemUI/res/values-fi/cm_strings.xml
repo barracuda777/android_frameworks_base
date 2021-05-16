@@ -2,7 +2,7 @@
 <!--
 /**
  * Copyright (c) 2015, The CyanogenMod Project
- * Copyright (c) 2017-2020, The LineageOS Project
+ * Copyright (c) 2017-2019, The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,26 +18,13 @@
  */
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="global_action_restart_system">Järjestelmä</string>
-    <string name="global_action_restart_recovery">Recovery-tila</string>
-    <string name="global_action_restart_bootloader">Bootloader-tila</string>
-    <string name="global_action_restart_download">Lataa</string>
-    <string name="global_action_restart_fastboot">Fastbootd</string>
-    <string name="global_action_restart_progress">Käynnistetään uudelleen\u2026</string>
-    <string name="global_action_restart_recovery_progress">Uudelleenkäynnistetään Recovery-tilaan\u2026</string>
-    <string name="global_action_restart_bootloader_progress">Uudelleenkäynnistetään Bootloader-tilaan\u2026</string>
-    <string name="global_action_restart_download_progress">Uudelleenkäynnistetään Download-tilaan\u2026</string>
-    <string name="global_action_restart_fastboot_progress">Uudelleenkäynnistetään fastbootd-tilaan\u2026</string>
-    <string name="global_action_current_user">Nykyinen</string>
-    <string name="accessibility_dpad_left">Kohdistin vasemmalle</string>
-    <string name="accessibility_dpad_right">Kohdistin oikealle</string>
-    <string name="quick_settings_network_adb_label">ADB verkon yli</string>
-    <string name="quick_settings_network_adb_no_network">ei verkkoa</string>
     <string name="quick_settings_ambient_display_label">Ambient-näyttö</string>
     <string name="accessibility_quick_settings_ambient_display_off">Ambient-näyttö pois.</string>
     <string name="accessibility_quick_settings_ambient_display_on">Ambient-näyttö päällä.</string>
     <string name="accessibility_quick_settings_ambient_display_changed_off">Ambient-näyttö pois päältä.</string>
     <string name="accessibility_quick_settings_ambient_display_changed_on">Ambient-näyttö päällä.</string>
+    <string name="quick_settings_aod_label">AOD</string>
+    <string name="quick_settings_aod_off_powersave_label">AOD pois\nVirransäästö</string>
     <string name="quick_settings_caffeine_label">Kofeiini</string>
     <string name="accessibility_quick_settings_caffeine_off">Kofeiini pois.</string>
     <string name="accessibility_quick_settings_caffeine_on">Kofeiini päällä.</string>
@@ -46,6 +33,12 @@
     <string name="accessibility_quick_settings_heads_up_on">Heads up päällä.</string>
     <string name="accessibility_quick_settings_heads_up_changed_off">Heads up pois päältä.</string>
     <string name="accessibility_quick_settings_heads_up_changed_on">Heads up päällä.</string>
+    <string name="global_screenshot_selector_capture_description">Ota osittainen kuvakaappaus</string>
+    <string name="global_screenshot_selector_cancel_description">Peruuta osittainen kuvakaappaus</string>
+    <string name="quick_settings_powershare_label">Langaton virranjako</string>
+    <string name="quick_settings_powershare_off_powersave_label">Langaton virranjako pois\nVirransäästö</string>
+    <string name="quick_settings_powershare_off_low_battery_label">Langaton virranjako pois\nAkun varaus alhainen</string>
+    <string name="quick_settings_powershare_enabled_label">Langaton virranjako käytössä</string>
     <string name="quick_settings_reading_mode">Lukutila</string>
     <string name="accessibility_quick_settings_reading_mode_on">Lukutila päällä.</string>
     <string name="accessibility_quick_settings_reading_mode_off">Lukutila pois.</string>
@@ -69,16 +62,17 @@
     <string name="vpn_credentials_username">Käyttäjänimi</string>
     <string name="vpn_credentials_password">Salasana</string>
     <string name="vpn_credentials_dialog_connect">Yhdistä</string>
-    <string name="quick_settings_aod_label">AOD</string>
-    <string name="quick_settings_aod_off_powersave_label">AOD pois\nVirransäästö</string>
-    <string name="quick_settings_powershare_label">Langaton virranjako</string>
-    <string name="quick_settings_powershare_off_powersave_label">Langaton virranjako pois\nVirransäästö</string>
-    <string name="quick_settings_powershare_off_low_battery_label">Langaton virranjako pois\nAkun varaus alhainen</string>
-    <string name="quick_settings_powershare_enabled_label">Langaton virranjako käytössä</string>
-    <string name="status_bar_battery">Akku</string>
-    <string name="status_bar_camera">Kamera</string>
-    <string name="status_bar_location">Sijainti</string>
-    <string name="status_bar_microphone">Mikrofoni</string>
-    <string name="screen_pinning_description_no_navbar">Tämä pitää sen näkyvissä, kunnes peruutat kiinnityksen. Peruuta kiinnitys koskettamalla Edellinen-kohtaa pitkään.</string>
-    <string name="screen_pinning_toast_no_navbar">Poistaaksesi tämän näytön kiinnityksen, paina Takasin-näppäintä pitkään</string>
+    <string name="accessibility_dpad_left">Kohdistin vasemmalle</string>
+    <string name="accessibility_dpad_right">Kohdistin oikealle</string>
+    <string name="global_action_restart_more">Käynnistä uudelleen\u2026</string>
+    <string name="global_action_restart_system">Järjestelmä</string>
+    <string name="global_action_restart_recovery">Recovery-tila</string>
+    <string name="global_action_restart_bootloader">Bootloader-tila</string>
+    <string name="global_action_restart_download">Lataa</string>
+    <string name="global_action_restart_fastboot">Fastbootd</string>
+    <string name="global_action_restart_progress">Käynnistetään uudelleen\u2026</string>
+    <string name="global_action_restart_recovery_progress">Uudelleenkäynnistetään Recovery-tilaan\u2026</string>
+    <string name="global_action_restart_bootloader_progress">Uudelleenkäynnistetään Bootloader-tilaan\u2026</string>
+    <string name="global_action_restart_download_progress">Uudelleenkäynnistetään Download-tilaan\u2026</string>
+    <string name="global_action_restart_fastboot_progress">Uudelleenkäynnistetään fastbootd-tilaan\u2026</string>
 </resources>

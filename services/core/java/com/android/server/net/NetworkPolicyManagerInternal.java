@@ -16,10 +16,13 @@
 
 package com.android.server.net;
 
+import static com.android.server.net.NetworkPolicyManagerService.isNetworkingIsolatedByUidRulesInternal;
 import static com.android.server.net.NetworkPolicyManagerService.isUidNetworkingBlockedInternal;
 
+import android.annotation.NonNull;
 import android.net.Network;
 import android.net.NetworkTemplate;
+import android.net.netstats.provider.NetworkStatsProvider;
 import android.telephony.SubscriptionPlan;
 
 import java.util.Set;
@@ -44,7 +47,9 @@ public abstract class NetworkPolicyManagerInternal {
     /**
      * @return true if the uid rules provided mean that network access should be blocked.
      */
-    public abstract boolean isNetworkingIsolatedByUidRules(int uidRules);
+    public static boolean isNetworkingIsolatedByUidRules(int uidRules) {
+        return isNetworkingIsolatedByUidRulesInternal(uidRules);
+    };
 
     /**
      * @return true if networking is blocked on the given interface for the given uid according
@@ -131,4 +136,12 @@ public abstract class NetworkPolicyManagerInternal {
      */
     public abstract void setMeteredRestrictedPackagesAsync(
             Set<String> packageNames, int userId);
+
+    /**
+     *  Notifies that the specified {@link NetworkStatsProvider} has reached its quota
+     *  which was set through {@link NetworkStatsProvider#onSetLimit(String, long)}.
+     *
+     * @param tag the human readable identifier of the custom network stats provider.
+     */
+    public abstract void onStatsProviderLimitReached(@NonNull String tag);
 }

@@ -99,13 +99,13 @@ class ZygoteServer {
     /**
      * The name of the unspecialized app process pool socket to use if the USAP pool is enabled.
      */
-    private LocalServerSocket mUsapPoolSocket;
+    private final LocalServerSocket mUsapPoolSocket;
 
     /**
      * File descriptor used for communication between the signal handler and the ZygoteServer poll
      * loop.
      * */
-    private FileDescriptor mUsapPoolEventFD;
+    private final FileDescriptor mUsapPoolEventFD;
 
     /**
      * Whether or not mZygoteSocket's underlying FD should be closed directly.
@@ -422,8 +422,8 @@ class ZygoteServer {
      * worth at a time.
      */
     Runnable runSelectLoop(String abiList) {
-        ArrayList<FileDescriptor> socketFDs = new ArrayList<FileDescriptor>();
-        ArrayList<ZygoteConnection> peers = new ArrayList<ZygoteConnection>();
+        ArrayList<FileDescriptor> socketFDs = new ArrayList<>();
+        ArrayList<ZygoteConnection> peers = new ArrayList<>();
 
         socketFDs.add(mZygoteSocket.getFileDescriptor());
         peers.add(null);
@@ -435,7 +435,7 @@ class ZygoteServer {
             mUsapPoolRefillAction = UsapPoolRefillAction.NONE;
 
             int[] usapPipeFDs = null;
-            StructPollfd[] pollFDs = null;
+            StructPollfd[] pollFDs;
 
             // Allocate enough space for the poll structs, taking into account
             // the state of the USAP pool for this Zygote (could be a
@@ -471,6 +471,8 @@ class ZygoteServer {
                 pollFDs[pollIndex].events = (short) POLLIN;
                 ++pollIndex;
 
+                // The usapPipeFDs array will always be filled in if the USAP Pool is enabled.
+                assert usapPipeFDs != null;
                 for (int usapPipeFD : usapPipeFDs) {
                     FileDescriptor managedFd = new FileDescriptor();
                     managedFd.setInt$(usapPipeFD);
@@ -490,10 +492,12 @@ class ZygoteServer {
                 long elapsedTimeMs = System.currentTimeMillis() - mUsapPoolRefillTriggerTimestamp;
 
                 if (elapsedTimeMs >= mUsapPoolRefillDelayMs) {
-                    // Normalize the poll timeout value when the time between one poll event and the
-                    // next pushes us over the delay value.  This prevents poll receiving a 0
-                    // timeout value, which would result in it returning immediately.
-                    pollTimeoutMs = -1;
+                    // The refill delay has elapsed during the period between poll invocations.
+                    // We will now check for any currently ready file descriptors before refilling
+                    // the USAP pool.
+                    pollTimeoutMs = 0;
+                    mUsapPoolRefillTriggerTimestamp = INVALID_TIMESTAMP;
+                    mUsapPoolRefillAction = UsapPoolRefillAction.DELAYED;
 
                 } else if (elapsedTimeMs <= 0) {
                     // This can occur if the clock used by currentTimeMillis is reset, which is
@@ -515,9 +519,11 @@ class ZygoteServer {
             }
 
             if (pollReturnValue == 0) {
-                // The poll timeout has been exceeded.  This only occurs when we have finished the
-                // USAP pool refill delay period.
-
+                // The poll returned zero results either when the timeout value has been exceeded
+                // or when a non-blocking poll is issued and no FDs are ready.  In either case it
+                // is time to refill the pool.  This will result in a duplicate assignment when
+                // the non-blocking poll returns zero results, but it avoids an additional
+                // conditional in the else branch.
                 mUsapPoolRefillTriggerTimestamp = INVALID_TIMESTAMP;
                 mUsapPoolRefillAction = UsapPoolRefillAction.DELAYED;
 
@@ -661,7 +667,7 @@ class ZygoteServer {
                 int[] sessionSocketRawFDs =
                         socketFDs.subList(1, socketFDs.size())
                                 .stream()
-                                .mapToInt(fd -> fd.getInt$())
+                                .mapToInt(FileDescriptor::getInt$)
                                 .toArray();
 
                 final boolean isPriorityRefill =

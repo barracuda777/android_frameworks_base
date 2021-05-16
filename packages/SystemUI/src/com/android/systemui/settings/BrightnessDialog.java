@@ -29,11 +29,21 @@ import android.widget.ImageView;
 import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.systemui.R;
+import com.android.systemui.broadcast.BroadcastDispatcher;
+
+import javax.inject.Inject;
 
 /** A dialog that provides controls for adjusting the screen brightness. */
 public class BrightnessDialog extends Activity {
 
     private BrightnessController mBrightnessController;
+    private final BroadcastDispatcher mBroadcastDispatcher;
+
+    @Inject
+    public BrightnessDialog(BroadcastDispatcher broadcastDispatcher) {
+        mBroadcastDispatcher = broadcastDispatcher;
+    }
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,7 +61,7 @@ public class BrightnessDialog extends Activity {
 
         final ImageView icon = findViewById(R.id.brightness_icon);
         final ToggleSliderView slider = findViewById(R.id.brightness_slider);
-        mBrightnessController = new BrightnessController(this, icon, slider);
+        mBrightnessController = new BrightnessController(this, icon, slider, mBroadcastDispatcher);
     }
 
     @Override

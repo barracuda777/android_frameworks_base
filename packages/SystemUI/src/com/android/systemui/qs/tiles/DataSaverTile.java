@@ -50,10 +50,6 @@ public class DataSaverTile extends QSTileImpl<BooleanState> implements
     }
 
     @Override
-    public void handleSetListening(boolean listening) {
-    }
-
-    @Override
     public Intent getLongClickIntent() {
         return new Intent(Settings.ACTION_DATA_SAVER_SETTINGS);
     }
@@ -70,13 +66,11 @@ public class DataSaverTile extends QSTileImpl<BooleanState> implements
         dialog.setTitle(com.android.internal.R.string.data_saver_enable_title);
         dialog.setMessage(com.android.internal.R.string.data_saver_description);
         dialog.setPositiveButton(com.android.internal.R.string.data_saver_enable_button,
-                (OnClickListener) (dialogInterface, which) -> {
-                    toggleDataSaver();
-                    Prefs.putBoolean(mContext, Prefs.Key.QS_DATA_SAVER_DIALOG_SHOWN, true);
-                });
+                (OnClickListener) (dialogInterface, which) -> toggleDataSaver());
         dialog.setNegativeButton(com.android.internal.R.string.cancel, null);
         dialog.setShowForAllUsers(true);
         dialog.show();
+        Prefs.putBoolean(mContext, Prefs.Key.QS_DATA_SAVER_DIALOG_SHOWN, true);
     }
 
     private void toggleDataSaver() {

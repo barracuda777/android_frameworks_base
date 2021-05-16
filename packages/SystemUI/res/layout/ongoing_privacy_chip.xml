@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-     Copyright (C) 2018 The Android Open Source Project
+     Copyright (C) 2020 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -22,15 +22,14 @@
     android:layout_height="match_parent"
     android:layout_width="wrap_content"
     android:layout_gravity="center_vertical|end"
-    android:gravity="center_vertical"
-    android:orientation="horizontal"
     android:focusable="true" >
 
         <FrameLayout
             android:id="@+id/background"
             android:layout_height="@dimen/ongoing_appops_chip_height"
+            android:layout_width="wrap_content"
             android:minWidth="48dp"
-            android:layout_width="wrap_content" >
+            android:layout_gravity="center_vertical">
                 <LinearLayout
                     android:id="@+id/icons_container"
                     android:layout_height="match_parent"

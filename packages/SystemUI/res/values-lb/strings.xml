@@ -231,9 +231,6 @@ iwwerwaacht sinn</string>
     <string name="accessibility_multi_user_switch_quick_contact">Profil uweisen</string>
     <string name="user_add_user">Benotzer dobäisetzen</string>
     <string name="user_new_user_name">Neie Benotzer</string>
-    <string name="guest_nickname">Gaascht</string>
-    <string name="guest_new_guest">Gaascht dobäisetzen</string>
-    <string name="guest_exit_guest">Gaascht ewechhuelen</string>
     <string name="guest_exit_guest_dialog_title">Gaascht ewechhuelen?</string>
     <string name="guest_exit_guest_dialog_message">All d\'Appen an Daten an dëser Sëtzung gi geläscht.</string>
     <string name="guest_exit_guest_dialog_remove">Ewechhuelen</string>
@@ -247,6 +244,7 @@ iwwerwaacht sinn</string>
     <string name="battery_saver_notification_text">Reduzéiert d\'Vitess an d\'Hannergronddaten</string>
     <string name="media_projection_remember_text">Net méi uweisen</string>
     <string name="clear_all_notifications_text">Alles eidel maachen</string>
+    <string name="notification_section_header_alerting">Notifikatiounen</string>
     <string name="media_projection_action_text">Elo starten</string>
     <string name="empty_shade_text">Keng Notifikatiounen</string>
     <string name="profile_owned_footer">De Profil kéint iwwerwaacht sinn</string>
@@ -263,7 +261,6 @@ iwwerwaacht sinn</string>
     <string name="hidden_notifications_cancel">Nee Merci</string>
     <string name="hidden_notifications_setup">Ariichten</string>
     <string name="zen_mode_and_condition"><xliff:g id="zen_mode" example="Priority interruptions only">%1$s</xliff:g>. <xliff:g id="exit_condition" example="For one hour">%2$s</xliff:g></string>
-    <string name="screen_pinning_title">Schierm ass fixéiert</string>
     <string name="screen_pinning_positive">Verstanen</string>
     <string name="screen_pinning_negative">Nee Merci</string>
     <string name="quick_settings_reset_confirmation_title"><xliff:g id="tile_label" example="Hotspot">%1$s</xliff:g> verstoppen?</string>
@@ -283,9 +280,11 @@ iwwerwaacht sinn</string>
     <string name="enable_bluetooth_confirmation_ok">Uschalten</string>
     <string name="notification_header_default_channel">Notifikatiounen</string>
     <string name="inline_done_button">Fäerdeg</string>
+    <string name="notification_conversation_channel_settings">Astellungen</string>
     <string name="notification_appops_settings">Astellungen</string>
     <string name="notification_more_settings">Méi Astellungen</string>
     <string name="notification_done">Fäerdeg</string>
+    <string name="notification_menu_settings_action">Astellungen</string>
     <string name="battery_detail_switch_summary">Reduzéiert d\'Vitess an d\'Hannergronddaten</string>
     <string name="keyboard_key_home">Heem</string>
     <string name="keyboard_key_back">Zréck</string>
@@ -301,4 +300,8 @@ iwwerwaacht sinn</string>
     <string name="no_auto_saver_action">Nee Merci</string>
     <string name="open_saver_setting_action">Astellungen</string>
     <string name="auto_saver_okay_action">Verstanen</string>
+    <string name="bubbles_user_education_got_it">Verstanen</string>
+    <string name="priority_onboarding_done_button_title">Verstanen</string>
+    <string name="priority_onboarding_settings_button_title">Astellungen</string>
+    <string name="controls_media_settings_button">Astellungen</string>
 </resources>

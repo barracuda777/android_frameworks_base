@@ -25,7 +25,7 @@ import android.annotation.IntDef;
 import android.annotation.IntRange;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.res.AssetManager;
 import android.graphics.fonts.Font;
 import android.graphics.fonts.FontFamily;
@@ -327,7 +327,7 @@ public class Typeface {
      * 1) Create Typeface from ttf file.
      * <pre>
      * <code>
-     * Typeface.Builder buidler = new Typeface.Builder("your_font_file.ttf");
+     * Typeface.Builder builder = new Typeface.Builder("your_font_file.ttf");
      * Typeface typeface = builder.build();
      * </code>
      * </pre>
@@ -335,7 +335,7 @@ public class Typeface {
      * 2) Create Typeface from ttc file in assets directory.
      * <pre>
      * <code>
-     * Typeface.Builder buidler = new Typeface.Builder(getAssets(), "your_font_file.ttc");
+     * Typeface.Builder builder = new Typeface.Builder(getAssets(), "your_font_file.ttc");
      * builder.setTtcIndex(2);  // Set index of font collection.
      * Typeface typeface = builder.build();
      * </code>
@@ -344,7 +344,7 @@ public class Typeface {
      * 3) Create Typeface with variation settings.
      * <pre>
      * <code>
-     * Typeface.Builder buidler = new Typeface.Builder("your_font_file.ttf");
+     * Typeface.Builder builder = new Typeface.Builder("your_font_file.ttf");
      * builder.setFontVariationSettings("'wght' 700, 'slnt' 20, 'ital' 1");
      * builder.setWeight(700);  // Tell the system that this is a bold font.
      * builder.setItalic(true);  // Tell the system that this is an italic style font.

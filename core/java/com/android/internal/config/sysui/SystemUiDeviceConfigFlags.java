@@ -123,9 +123,14 @@ public final class SystemUiDeviceConfigFlags {
     // Flag related to Privacy Indicators
 
     /**
-     * Whether the Permissions Hub is showing.
+     * Whether to show the complete ongoing app ops chip.
      */
-    public static final String PROPERTY_PERMISSIONS_HUB_ENABLED = "permissions_hub_enabled";
+    public static final String PROPERTY_PERMISSIONS_HUB_ENABLED = "permissions_hub_2_enabled";
+
+    /**
+     * Whether to show app ops chip for just microphone + camera.
+     */
+    public static final String PROPERTY_MIC_CAMERA_ENABLED = "camera_mic_icons_enabled";
 
     // Flags related to Assistant
 
@@ -237,6 +242,20 @@ public final class SystemUiDeviceConfigFlags {
     public static final String ASSIST_TRANSCRIPTION_MIN_DURATION =
             "assist_transcription_min_duration";
 
+    /**
+     * (boolean) Whether or not to enable an extra section in the notification shade which
+     * filters for "people" related messages.
+     */
+    public static final String NOTIFICATIONS_USE_PEOPLE_FILTERING =
+            "notifications_use_people_filtering";
+
+    /**
+     * (boolean) Whether or not to enable user dismissing of foreground service notifications
+     * into a new section at the bottom of the notification shade.
+     */
+    public static final String NOTIFICATIONS_ALLOW_FGS_DISMISSAL =
+            "notifications_allow_fgs_dismissal";
+
     // Flags related to brightline falsing
 
     /**
@@ -326,6 +345,103 @@ public final class SystemUiDeviceConfigFlags {
      */
     public static final String BRIGHTLINE_FALSING_ZIGZAG_Y_SECONDARY_DEVIANCE =
             "brightline_falsing_zigzag_y_secondary_deviance";
+
+
+    // Flags related to screenshots
+
+    /**
+     * (boolean) Whether screenshot flow going to the corner (instead of shown in a notification)
+     * is enabled.
+     */
+    public static final String SCREENSHOT_CORNER_FLOW = "enable_screenshot_corner_flow";
+
+    /**
+     * (boolean) Whether scrolling screenshots are enabled.
+     */
+    public static final String SCREENSHOT_SCROLLING_ENABLED = "enable_screenshot_scrolling";
+
+    // Flags related to Nav Bar
+
+    /**
+     * (boolean) Whether to force the Nav Bar handle to remain opaque.
+     */
+    public static final String NAV_BAR_HANDLE_FORCE_OPAQUE = "nav_bar_handle_force_opaque";
+
+    /**
+     * (boolean) Whether to force the Nav Bar handle to remain visible over the lockscreen.
+     */
+    public static final String NAV_BAR_HANDLE_SHOW_OVER_LOCKSCREEN =
+            "nav_bar_handle_show_over_lockscreen";
+
+    /**
+     * (int) Timeout threshold, in millisecond, that Sharesheet waits for direct share targets.
+     */
+    public static final String SHARE_SHEET_DIRECT_SHARE_TIMEOUT =
+            "share_sheet_direct_share_timeout";
+
+    /**
+     * (boolean) Whether append direct share on Sharesheet is enabled.
+     */
+    public static final String APPEND_DIRECT_SHARE_ENABLED = "append_direct_share_enabled";
+
+    /**
+     * (boolean) Whether ChooserTargets ranking on Sharesheet is enabled.
+     */
+    public static final String CHOOSER_TARGET_RANKING_ENABLED = "chooser_target_ranking_enabled";
+
+    /**
+     * (float) Weight bonus applied on top sharing shortcuts as per native ranking provided by apps.
+     * Its range need to be 0 ~ 1.
+     */
+    public static final String TOP_NATIVE_RANKED_SHARING_SHORTCUTS_BOOSTER =
+            "top_native_ranked_sharing_shortcut_booster";
+
+    /**
+     * (float) Weight bonus applied on 2nd top sharing shortcuts as per native ranking provided by
+     * apps. Its range need to be 0 ~ 1.
+     */
+    public static final String NON_TOP_NATIVE_RANKED_SHARING_SHORTCUTS_BOOSTER =
+            "non_top_native_ranked_sharing_shortcut_booster";
+
+    /**
+     * (boolean) Whether to enable user-drag resizing for PIP.
+     */
+    public static final String PIP_USER_RESIZE = "pip_user_resize";
+
+    /**
+     * (float) Bottom height in DP for Back Gesture.
+     */
+    public static final String BACK_GESTURE_BOTTOM_HEIGHT = "back_gesture_bottom_height";
+
+    /**
+     * (float) Edge width in DP where touch down is allowed for Back Gesture.
+     */
+    public static final String BACK_GESTURE_EDGE_WIDTH = "back_gesture_edge_width";
+
+    /**
+     * (float) Slop multiplier for Back Gesture.
+     */
+    public static final String BACK_GESTURE_SLOP_MULTIPLIER = "back_gesture_slop_multiplier";
+
+    /**
+     * (long) Screenshot keychord delay (how long the buttons must be pressed), in ms
+     */
+    public static final String SCREENSHOT_KEYCHORD_DELAY = "screenshot_keychord_delay";
+
+    /**
+     * (boolean) Whether to use an ML model for the Back Gesture.
+     */
+    public static final String USE_BACK_GESTURE_ML_MODEL = "use_back_gesture_ml_model";
+
+    /**
+     * (string) The name of the ML model for Back Gesture.
+     */
+    public static final String BACK_GESTURE_ML_MODEL_NAME = "back_gesture_ml_model_name";
+
+    /**
+     * (float) Threshold for Back Gesture ML model prediction.
+     */
+    public static final String BACK_GESTURE_ML_MODEL_THRESHOLD = "back_gesture_ml_model_threshold";
 
 
     private SystemUiDeviceConfigFlags() {

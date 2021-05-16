@@ -20,7 +20,7 @@ import android.annotation.IntRange;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.Size;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.icu.util.ULocale;
 
 import com.android.internal.annotations.GuardedBy;
@@ -138,7 +138,7 @@ public final class LocaleList implements Parcelable {
 
     @Override
     public void writeToParcel(Parcel dest, int parcelableFlags) {
-        dest.writeString(mStringRepresentation);
+        dest.writeString8(mStringRepresentation);
     }
 
     /**
@@ -240,7 +240,7 @@ public final class LocaleList implements Parcelable {
             = new Parcelable.Creator<LocaleList>() {
         @Override
         public LocaleList createFromParcel(Parcel source) {
-            return LocaleList.forLanguageTags(source.readString());
+            return LocaleList.forLanguageTags(source.readString8());
         }
 
         @Override

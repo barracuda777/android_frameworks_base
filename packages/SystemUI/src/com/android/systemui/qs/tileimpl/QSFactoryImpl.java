@@ -25,12 +25,12 @@ import com.android.systemui.plugins.qs.QSFactory;
 import com.android.systemui.plugins.qs.QSIconView;
 import com.android.systemui.plugins.qs.QSTile;
 import com.android.systemui.plugins.qs.QSTileView;
-import com.android.systemui.qs.QSTileHost;
+import com.android.systemui.qs.QSHost;
 import com.android.systemui.qs.external.CustomTile;
-import com.android.systemui.qs.tiles.AODTile;
-import com.android.systemui.qs.tiles.AdbOverNetworkTile;
 import com.android.systemui.qs.tiles.AirplaneModeTile;
 import com.android.systemui.qs.tiles.AmbientDisplayTile;
+import com.android.systemui.qs.tiles.AntiFlickerTile;
+import com.android.systemui.qs.tiles.AODTile;
 import com.android.systemui.qs.tiles.BatterySaverTile;
 import com.android.systemui.qs.tiles.BluetoothTile;
 import com.android.systemui.qs.tiles.CaffeineTile;
@@ -42,15 +42,15 @@ import com.android.systemui.qs.tiles.DndTile;
 import com.android.systemui.qs.tiles.FlashlightTile;
 import com.android.systemui.qs.tiles.HeadsUpTile;
 import com.android.systemui.qs.tiles.HotspotTile;
-import com.android.systemui.qs.tiles.IntentTile;
-import com.android.systemui.qs.tiles.LiveDisplayTile;
 import com.android.systemui.qs.tiles.LocationTile;
+import com.android.systemui.qs.tiles.LiveDisplayTile;
 import com.android.systemui.qs.tiles.NfcTile;
 import com.android.systemui.qs.tiles.NightDisplayTile;
 import com.android.systemui.qs.tiles.PowerShareTile;
 import com.android.systemui.qs.tiles.ProfilesTile;
 import com.android.systemui.qs.tiles.ReadingModeTile;
 import com.android.systemui.qs.tiles.RotationLockTile;
+import com.android.systemui.qs.tiles.ScreenRecordTile;
 import com.android.systemui.qs.tiles.SyncTile;
 import com.android.systemui.qs.tiles.UiModeNightTile;
 import com.android.systemui.qs.tiles.UsbTetherTile;
@@ -64,6 +64,8 @@ import com.android.systemui.util.leak.GarbageMonitor;
 import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.inject.Singleton;
+
+import dagger.Lazy;
 
 @Singleton
 public class QSFactoryImpl implements QSFactory {
@@ -89,12 +91,12 @@ public class QSFactoryImpl implements QSFactory {
     private final Provider<NfcTile> mNfcTileProvider;
     private final Provider<GarbageMonitor.MemoryTile> mMemoryTileProvider;
     private final Provider<UiModeNightTile> mUiModeNightTileProvider;
-    private final Provider<AdbOverNetworkTile> mAdbOverNetworkTileProvider;
+    private final Provider<ScreenRecordTile> mScreenRecordTileProvider;
     private final Provider<AmbientDisplayTile> mAmbientDisplayTileProvider;
+    private final Provider<AODTile> mAODTileProvider;
     private final Provider<CaffeineTile> mCaffeineTileProvider;
     private final Provider<HeadsUpTile> mHeadsUpTileProvider;
     private final Provider<LiveDisplayTile> mLiveDisplayTileProvider;
-    private final Provider<AODTile> mAODTileProvider;
     private final Provider<PowerShareTile> mPowerShareTileProvider;
     private final Provider<ProfilesTile> mProfilesTileProvider;
     private final Provider<ReadingModeTile> mReadingModeTileProvider;
@@ -102,11 +104,13 @@ public class QSFactoryImpl implements QSFactory {
     private final Provider<UsbTetherTile> mUsbTetherTileProvider;
     private final Provider<VolumeTile> mVolumeTileProvider;
     private final Provider<VpnTile> mVpnTileProvider;
+    private final Provider<AntiFlickerTile> mAntiFlickerTileProvider;
 
-    private QSTileHost mHost;
+    private final Lazy<QSHost> mQsHostLazy;
 
     @Inject
-    public QSFactoryImpl(Provider<WifiTile> wifiTileProvider,
+    public QSFactoryImpl(Lazy<QSHost> qsHostLazy,
+            Provider<WifiTile> wifiTileProvider,
             Provider<BluetoothTile> bluetoothTileProvider,
             Provider<CellularTile> cellularTileProvider,
             Provider<DndTile> dndTileProvider,
@@ -125,8 +129,9 @@ public class QSFactoryImpl implements QSFactory {
             Provider<NfcTile> nfcTileProvider,
             Provider<GarbageMonitor.MemoryTile> memoryTileProvider,
             Provider<UiModeNightTile> uiModeNightTileProvider,
-            Provider<AdbOverNetworkTile> adbOverNetworkTileProvider,
+            Provider<ScreenRecordTile> screenRecordTileProvider,
             Provider<AmbientDisplayTile> ambientDisplayTileProvider,
+            Provider<AODTile> aodTileProvider,
             Provider<CaffeineTile> caffeineTileProvider,
             Provider<HeadsUpTile> headsUpTileProvider,
             Provider<LiveDisplayTile> liveDisplayTileProvider,
@@ -137,7 +142,8 @@ public class QSFactoryImpl implements QSFactory {
             Provider<UsbTetherTile> usbTetherTileProvider,
             Provider<VolumeTile> volumeTileProvider,
             Provider<VpnTile> vpnTileProvider,
-            Provider<AODTile> aodTileProvider) {
+            Provider<AntiFlickerTile> antiFlickerTileProvider) {
+        mQsHostLazy = qsHostLazy;
         mWifiTileProvider = wifiTileProvider;
         mBluetoothTileProvider = bluetoothTileProvider;
         mCellularTileProvider = cellularTileProvider;
@@ -157,12 +163,12 @@ public class QSFactoryImpl implements QSFactory {
         mNfcTileProvider = nfcTileProvider;
         mMemoryTileProvider = memoryTileProvider;
         mUiModeNightTileProvider = uiModeNightTileProvider;
-        mAdbOverNetworkTileProvider = adbOverNetworkTileProvider;
+        mScreenRecordTileProvider = screenRecordTileProvider;
         mAmbientDisplayTileProvider = ambientDisplayTileProvider;
+        mAODTileProvider = aodTileProvider;
         mCaffeineTileProvider = caffeineTileProvider;
         mHeadsUpTileProvider = headsUpTileProvider;
         mLiveDisplayTileProvider = liveDisplayTileProvider;
-        mAODTileProvider = aodTileProvider;
         mPowerShareTileProvider = powerShareTileProvider;
         mProfilesTileProvider = profilesTileProvider;
         mReadingModeTileProvider = readingModeTileProvider;
@@ -170,10 +176,7 @@ public class QSFactoryImpl implements QSFactory {
         mUsbTetherTileProvider = usbTetherTileProvider;
         mVolumeTileProvider = volumeTileProvider;
         mVpnTileProvider = vpnTileProvider;
-    }
-
-    public void setHost(QSTileHost host) {
-        mHost = host;
+        mAntiFlickerTileProvider = antiFlickerTileProvider;
     }
 
     public QSTile createTile(String tileSpec) {
@@ -223,19 +226,19 @@ public class QSFactoryImpl implements QSFactory {
                 return mNfcTileProvider.get();
             case "dark":
                 return mUiModeNightTileProvider.get();
-            // Custom tiles.
-            case "adb_network":
-                return mAdbOverNetworkTileProvider.get();
+            case "screenrecord":
+                return mScreenRecordTileProvider.get();
+            // Additional tiles.
             case "ambient_display":
                 return mAmbientDisplayTileProvider.get();
+            case "aod":
+                return mAODTileProvider.get();
             case "caffeine":
                 return mCaffeineTileProvider.get();
             case "heads_up":
                 return mHeadsUpTileProvider.get();
             case "livedisplay":
                 return mLiveDisplayTileProvider.get();
-            case "aod":
-                return mAODTileProvider.get();
             case "powershare":
                 return mPowerShareTileProvider.get();
             case "profiles":
@@ -250,11 +253,15 @@ public class QSFactoryImpl implements QSFactory {
                 return mVolumeTileProvider.get();
             case "vpn":
                 return mVpnTileProvider.get();
+            case "anti_flicker":
+                return mAntiFlickerTileProvider.get();
         }
 
-        // Intent tiles.
-        if (tileSpec.startsWith(IntentTile.PREFIX)) return IntentTile.create(mHost, tileSpec);
-        if (tileSpec.startsWith(CustomTile.PREFIX)) return CustomTile.create(mHost, tileSpec);
+        // Custom tiles
+        if (tileSpec.startsWith(CustomTile.PREFIX)) {
+            return CustomTile.create(mQsHostLazy.get(), tileSpec,
+                    mQsHostLazy.get().getUserContext());
+        }
 
         // Debug tiles.
         if (Build.IS_DEBUGGABLE) {
@@ -270,7 +277,7 @@ public class QSFactoryImpl implements QSFactory {
 
     @Override
     public QSTileView createTileView(QSTile tile, boolean collapsedView) {
-        Context context = new ContextThemeWrapper(mHost.getContext(), R.style.qs_theme);
+        Context context = new ContextThemeWrapper(mQsHostLazy.get().getContext(), R.style.qs_theme);
         QSIconView icon = tile.createTileView(context);
         if (collapsedView) {
             return new QSTileBaseView(context, icon, collapsedView);

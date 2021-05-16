@@ -2,7 +2,7 @@
 <!--
 /**
  * Copyright (c) 2015, The CyanogenMod Project
- * Copyright (c) 2017-2020, The LineageOS Project
+ * Copyright (c) 2017-2019, The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,6 @@
  */
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="accessibility_dpad_left">କର୍ସର୍‍ ବାମ</string>
-    <string name="accessibility_dpad_right">କର୍ସର୍ ଡାହାଣ</string>
-    <string name="quick_settings_network_adb_label">ନେଟ୍‍ୱାର୍କ୍‍ରେ ADB</string>
     <string name="quick_settings_ambient_display_label">ଏମ୍ବିଏଣ୍ଟ ପ୍ରଦର୍ଶନ</string>
     <string name="accessibility_quick_settings_ambient_display_off">ଆମ୍ବିଏଣ୍ଟ୍‍ ଡିସ୍‍ପ୍ଲେ ଅଫ୍‍ ଅଛି।</string>
     <string name="accessibility_quick_settings_ambient_display_on">ଆମ୍ବିଏଣ୍ଟ୍‍ ଡିସ୍‍ପ୍ଲେ ଅନ୍‍‍ ଅଛି।</string>
@@ -46,4 +43,6 @@
     <string name="accessibility_quick_settings_profiles_changed">ପ୍ରୋଫାଇଲ୍ <xliff:g id="profile" example="Default">%s</xliff:g>କୁ ପରିବର୍ତ୍ତିତ ହେଲା।</string>
     <string name="quick_settings_usb_tether_label">USB ଟିଥରିଂ</string>
     <string name="quick_settings_volume_panel_label">ଭୋଲ୍ୟୁମ୍‍ ପ୍ୟାନେଲ୍‍</string>
+    <string name="accessibility_dpad_left">କର୍ସର୍‍ ବାମ</string>
+    <string name="accessibility_dpad_right">କର୍ସର୍ ଡାହାଣ</string>
 </resources>

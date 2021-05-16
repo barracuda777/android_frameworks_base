@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2019 The Android Open Source Project
+ * Copyright (C) 2019-2020 The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
+import android.hardware.biometrics.BiometricSourceType;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.RemoteException;
@@ -41,6 +42,7 @@ import com.android.internal.widget.LockPatternUtils;
 import com.android.keyguard.KeyguardSecurityModel.SecurityMode;
 import com.android.keyguard.KeyguardUpdateMonitor;
 import com.android.keyguard.KeyguardUpdateMonitorCallback;
+import com.android.systemui.Dependency;
 import com.android.systemui.R;
 
 import vendor.lineage.biometrics.fingerprint.inscreen.V1_0.IFingerprintInscreen;
@@ -51,6 +53,8 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 public class FODCircleView extends ImageView {
+    private static final int FADE_ANIM_DURATION = 125;
+
     private final int mPositionX;
     private final int mPositionY;
     private final int mSize;
@@ -68,12 +72,13 @@ public class FODCircleView extends ImageView {
     private int mDreamingOffsetX;
     private int mDreamingOffsetY;
 
-    private int mColor;
-    private int mColorBackground;
-
+    private boolean mFading;
     private boolean mIsBouncer;
-    private boolean mIsDreaming;
+    private boolean mIsBiometricRunning;
     private boolean mIsCircleShowing;
+    private boolean mIsDreaming;
+    private boolean mIsKeyguard;
+    private boolean mTouchedOutside;
 
     private Handler mHandler;
 
@@ -100,15 +105,50 @@ public class FODCircleView extends ImageView {
 
     private KeyguardUpdateMonitorCallback mMonitorCallback = new KeyguardUpdateMonitorCallback() {
         @Override
+        public void onBiometricAuthenticated(int userId, BiometricSourceType biometricSourceType,
+                boolean isStrongBiometric) {
+            // We assume that if biometricSourceType matches Fingerprint it will be
+            // handled here, so we hide only when other biometric types authenticate
+            if (biometricSourceType != BiometricSourceType.FINGERPRINT) {
+                hide();
+            }
+        }
+
+        @Override
+        public void onBiometricRunningStateChanged(boolean running,
+                BiometricSourceType biometricSourceType) {
+            if (biometricSourceType == BiometricSourceType.FINGERPRINT) {
+                mIsBiometricRunning = running;
+            }
+        }
+
+        @Override
         public void onDreamingStateChanged(boolean dreaming) {
             mIsDreaming = dreaming;
             updateAlpha();
+
+            if (mIsKeyguard && mUpdateMonitor.isFingerprintDetectionRunning()) {
+                show();
+                updateAlpha();
+            } else {
+                hide();
+            }
 
             if (dreaming) {
                 mBurnInProtectionTimer = new Timer();
                 mBurnInProtectionTimer.schedule(new BurnInProtectionTask(), 0, 60 * 1000);
             } else if (mBurnInProtectionTimer != null) {
                 mBurnInProtectionTimer.cancel();
+            }
+        }
+
+        @Override
+        public void onKeyguardVisibilityChanged(boolean showing) {
+            mIsKeyguard = showing;
+            if (!showing) {
+                hide();
+            } else {
+                updateAlpha();
             }
         }
 
@@ -127,8 +167,15 @@ public class FODCircleView extends ImageView {
         }
 
         @Override
-        public void onScreenTurnedOff() {
+        public void onStartedGoingToSleep(int why) {
             hide();
+        }
+
+        @Override
+        public void onStartedWakingUp() {
+            if (mUpdateMonitor.isFingerprintDetectionRunning()) {
+                show();
+            }
         }
 
         @Override
@@ -160,12 +207,10 @@ public class FODCircleView extends ImageView {
 
         Resources res = context.getResources();
 
-        mColor = res.getColor(R.color.config_fodColor);
-        mPaintFingerprint.setColor(mColor);
+        mPaintFingerprint.setColor(res.getColor(R.color.config_fodColor));
         mPaintFingerprint.setAntiAlias(true);
 
-        mColorBackground = res.getColor(R.color.config_fodColorBackground);
-        mPaintFingerprintBackground.setColor(mColorBackground);
+        mPaintFingerprintBackground.setColor(res.getColor(R.color.config_fodColorBackground));
         mPaintFingerprintBackground.setAntiAlias(true);
 
         mWindowManager = context.getSystemService(WindowManager.class);
@@ -183,11 +228,13 @@ public class FODCircleView extends ImageView {
         mParams.packageName = "android";
         mParams.type = WindowManager.LayoutParams.TYPE_DISPLAY_OVERLAY;
         mParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN |
+                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH;
         mParams.gravity = Gravity.TOP | Gravity.LEFT;
 
         mPressedParams.copyFrom(mParams);
-        mPressedParams.flags |= WindowManager.LayoutParams.FLAG_DIM_BEHIND;
+        mPressedParams.flags |= WindowManager.LayoutParams.FLAG_DIM_BEHIND |
+                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH;
 
         mParams.setTitle("Fingerprint on display");
         mPressedParams.setTitle("Fingerprint on display.touched");
@@ -210,7 +257,7 @@ public class FODCircleView extends ImageView {
 
         mLockPatternUtils = new LockPatternUtils(mContext);
 
-        mUpdateMonitor = KeyguardUpdateMonitor.getInstance(context);
+        mUpdateMonitor = Dependency.get(KeyguardUpdateMonitor.class);
         mUpdateMonitor.registerCallback(mMonitorCallback);
     }
 
@@ -228,6 +275,12 @@ public class FODCircleView extends ImageView {
         float y = event.getAxisValue(MotionEvent.AXIS_Y);
 
         boolean newIsInside = (x > 0 && x < mSize) && (y > 0 && y < mSize);
+        mTouchedOutside = false;
+
+        if (event.getAction() == MotionEvent.ACTION_OUTSIDE) {
+            mTouchedOutside = true;
+            return true;
+        }
 
         if (event.getAction() == MotionEvent.ACTION_DOWN && newIsInside) {
             showCircle();
@@ -265,6 +318,7 @@ public class FODCircleView extends ImageView {
     }
 
     public void dispatchPress() {
+        if (mFading) return;
         IFingerprintInscreen daemon = getFingerprintInScreenDaemon();
         try {
             daemon.onPress();
@@ -301,6 +355,7 @@ public class FODCircleView extends ImageView {
     }
 
     public void showCircle() {
+        if (mFading || mTouchedOutside) return;
         mIsCircleShowing = true;
 
         setKeepScreenOn(true);
@@ -335,14 +390,35 @@ public class FODCircleView extends ImageView {
             return;
         }
 
+        if (mIsKeyguard && mUpdateMonitor.getUserCanSkipBouncer(mUpdateMonitor.getCurrentUser())) {
+            // Ignore show calls if user can skip bouncer
+            return;
+        }
+
+        if (mIsKeyguard && !mIsBiometricRunning) {
+            return;
+        }
+
         updatePosition();
 
-        dispatchShow();
         setVisibility(View.VISIBLE);
+        animate().withStartAction(() -> mFading = true)
+                .alpha(mIsDreaming ? 0.5f : 1.0f)
+                .setDuration(FADE_ANIM_DURATION)
+                .withEndAction(() -> mFading = false)
+                .start();
+        dispatchShow();
     }
 
     public void hide() {
-        setVisibility(View.GONE);
+        animate().withStartAction(() -> mFading = true)
+                .alpha(0)
+                .setDuration(FADE_ANIM_DURATION)
+                .withEndAction(() -> {
+                    setVisibility(View.GONE);
+                    mFading = false;
+                })
+                .start();
         hideCircle();
         dispatchHide();
     }
@@ -419,7 +495,9 @@ public class FODCircleView extends ImageView {
                 mWindowManager.updateViewLayout(mPressedView, mPressedParams);
             }
         } else {
-            mPressedParams.screenBrightness = 0.0f;
+            if (mShouldBoostBrightness) {
+                mPressedParams.screenBrightness = 0.0f;
+            }
             mPressedParams.dimAmount = 0.0f;
             if (mPressedView.getParent() != null) {
                 mWindowManager.removeView(mPressedView);

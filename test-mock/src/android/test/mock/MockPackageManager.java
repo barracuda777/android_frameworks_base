@@ -55,8 +55,6 @@ import android.os.PersistableBundle;
 import android.os.UserHandle;
 import android.os.storage.VolumeInfo;
 
-import com.nvidia.NvAppProfileService;
-
 import java.util.List;
 import java.util.Set;
 
@@ -177,12 +175,6 @@ public class MockPackageManager extends PackageManager {
 
     @Override
     public List<PermissionGroupInfo> getAllPermissionGroups(int flags) {
-        throw new UnsupportedOperationException();
-    }
-
-    /** @hide */
-    @Override
-    public NvAppProfileService getAppProfileService() {
         throw new UnsupportedOperationException();
     }
 
@@ -1255,14 +1247,6 @@ public class MockPackageManager extends PackageManager {
     @Override
     public boolean hasSigningCertificate(
             int uid, byte[] certificate, @PackageManager.CertificateInputType int type) {
-        throw new UnsupportedOperationException();
-    }
-
-    /**
-     * @hide
-     */
-    @Override
-    public String getSystemTextClassifierPackageName() {
         throw new UnsupportedOperationException();
     }
 }

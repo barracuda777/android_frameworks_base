@@ -26,26 +26,36 @@ import com.android.systemui.statusbar.policy.Listenable;
 
 /** Helper for managing a secure setting. **/
 public abstract class SecureSetting extends ContentObserver implements Listenable {
-    private static final int DEFAULT = 0;
-
     private final Context mContext;
     private final String mSettingName;
+    private final int mDefaultValue;
 
     private boolean mListening;
     private int mUserId;
-    private int mObservedValue = DEFAULT;
+    private int mObservedValue;
 
     protected abstract void handleValueChanged(int value, boolean observedChange);
 
-    public SecureSetting(Context context, Handler handler, String settingName) {
+    protected SecureSetting(Context context, Handler handler, String settingName) {
+        this(context, handler, settingName, ActivityManager.getCurrentUser());
+    }
+
+    protected SecureSetting(Context context, Handler handler, String settingName, int userId) {
+        this(context, handler, settingName, userId, 0);
+    }
+
+    public SecureSetting(Context context, Handler handler, String settingName, int userId,
+            int defaultValue) {
         super(handler);
         mContext = context;
         mSettingName = settingName;
-        mUserId = ActivityManager.getCurrentUser();
+        mObservedValue = mDefaultValue = defaultValue;
+        mUserId = userId;
     }
 
     public int getValue() {
-        return Secure.getIntForUser(mContext.getContentResolver(), mSettingName, DEFAULT, mUserId);
+        return Secure.getIntForUser(mContext.getContentResolver(), mSettingName, mDefaultValue,
+                mUserId);
     }
 
     public void setValue(int value) {
@@ -62,7 +72,7 @@ public abstract class SecureSetting extends ContentObserver implements Listenabl
                     Secure.getUriFor(mSettingName), false, this, mUserId);
         } else {
             mContext.getContentResolver().unregisterContentObserver(this);
-            mObservedValue = DEFAULT;
+            mObservedValue = mDefaultValue;
         }
     }
 
@@ -79,5 +89,17 @@ public abstract class SecureSetting extends ContentObserver implements Listenabl
             setListening(false);
             setListening(true);
         }
+    }
+
+    public int getCurrentUser() {
+        return mUserId;
+    }
+
+    public String getKey() {
+        return mSettingName;
+    }
+
+    public boolean isListening() {
+        return mListening;
     }
 }

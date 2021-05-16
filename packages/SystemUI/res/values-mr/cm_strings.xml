@@ -2,7 +2,7 @@
 <!--
 /**
  * Copyright (c) 2015, The CyanogenMod Project
- * Copyright (c) 2017-2020, The LineageOS Project
+ * Copyright (c) 2017-2019, The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,6 @@
  */
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="accessibility_dpad_left">कर्सर डावा</string>
-    <string name="accessibility_dpad_right">कर्सर उजवा</string>
-    <string name="quick_settings_network_adb_label">नेटवर्कवर ADB</string>
     <string name="quick_settings_ambient_display_label">अँबियन्ट प्रदर्शन</string>
     <string name="accessibility_quick_settings_ambient_display_off">आसपासचे प्रदर्शन बंद.</string>
     <string name="accessibility_quick_settings_ambient_display_on">आसपासचे प्रदर्शन चालू.</string>
@@ -46,4 +43,6 @@
     <string name="accessibility_quick_settings_profiles_changed">प्रोफाइल <xliff:g id="profile" example="Default">%s</xliff:g>ला बदलला.</string>
     <string name="quick_settings_usb_tether_label">USB टेदरिंग</string>
     <string name="quick_settings_volume_panel_label">ध्वनी पॅनेल</string>
+    <string name="accessibility_dpad_left">कर्सर डावा</string>
+    <string name="accessibility_dpad_right">कर्सर उजवा</string>
 </resources>

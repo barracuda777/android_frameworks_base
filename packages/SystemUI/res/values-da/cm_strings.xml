@@ -2,7 +2,7 @@
 <!--
 /**
  * Copyright (c) 2015, The CyanogenMod Project
- * Copyright (c) 2017-2020, The LineageOS Project
+ * Copyright (c) 2017-2019, The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,6 @@
  */
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="global_action_restart_system">System</string>
-    <string name="accessibility_dpad_left">Venstremarkør</string>
-    <string name="accessibility_dpad_right">Højremarkør</string>
-    <string name="quick_settings_network_adb_label">ADB over netværk</string>
     <string name="quick_settings_ambient_display_label">Aktiv låseskærm</string>
     <string name="accessibility_quick_settings_ambient_display_off">Aktiv låseskærm fra.</string>
     <string name="accessibility_quick_settings_ambient_display_on">Aktiv låseskærm til.</string>
@@ -47,8 +43,7 @@
     <string name="accessibility_quick_settings_profiles_changed">Profil ændret til <xliff:g id="profile" example="Default">%s</xliff:g>.</string>
     <string name="quick_settings_usb_tether_label">USB-internetdeling</string>
     <string name="quick_settings_volume_panel_label">Lydstyrke-panel</string>
-    <string name="status_bar_battery">Batteri</string>
-    <string name="status_bar_location">Placering</string>
-    <string name="screen_pinning_description_no_navbar">Dette fastholder den i visning, indtil du frigør. Rør &amp; hold Tilbage nede, for at frigøre.</string>
-    <string name="screen_pinning_toast_no_navbar">Rør &amp; hold Tilbage-knap nede, for at frigøre denne skærm.</string>
+    <string name="accessibility_dpad_left">Venstremarkør</string>
+    <string name="accessibility_dpad_right">Højremarkør</string>
+    <string name="global_action_restart_system">System</string>
 </resources>

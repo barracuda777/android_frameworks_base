@@ -51,6 +51,7 @@ import javax.inject.Named;
 public class KeyguardClockSwitch extends RelativeLayout {
 
     private static final String TAG = "KeyguardClockSwitch";
+    private static final boolean CUSTOM_CLOCKS_ENABLED = true;
 
     /**
      * Animation fraction when text is transitioned to/from bold.
@@ -199,7 +200,9 @@ public class KeyguardClockSwitch extends RelativeLayout {
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        mClockManager.addOnClockChangedListener(mClockChangedListener);
+        if (CUSTOM_CLOCKS_ENABLED) {
+            mClockManager.addOnClockChangedListener(mClockChangedListener);
+        }
         mStatusBarStateController.addCallback(mStateListener);
         mSysuiColorExtractor.addOnColorsChangedListener(mColorsListener);
         updateColors();
@@ -208,7 +211,9 @@ public class KeyguardClockSwitch extends RelativeLayout {
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        mClockManager.removeOnClockChangedListener(mClockChangedListener);
+        if (CUSTOM_CLOCKS_ENABLED) {
+            mClockManager.removeOnClockChangedListener(mClockChangedListener);
+        }
         mStatusBarStateController.removeCallback(mStateListener);
         mSysuiColorExtractor.removeOnColorsChangedListener(mColorsListener);
         setClockPlugin(null);
@@ -382,8 +387,8 @@ public class KeyguardClockSwitch extends RelativeLayout {
      * Refresh the time of the clock, due to either time tick broadcast or doze time tick alarm.
      */
     public void refresh() {
-        mClockView.refresh();
-        mClockViewBold.refresh();
+        mClockView.refreshTime();
+        mClockViewBold.refreshTime();
         if (mClockPlugin != null) {
             mClockPlugin.onTimeTick();
         }

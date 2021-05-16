@@ -56,7 +56,7 @@ public class KeyguardStateMonitor extends IKeyguardStateCallback.Stub {
     private final LockPatternUtils mLockPatternUtils;
     private final StateCallback mCallback;
 
-    private IUsbRestrict mUsbRestrictor = null;
+    private IUsbRestrict mUsbRestrictor;
     private ContentResolver mContentResolver;
 
     public KeyguardStateMonitor(Context context, IKeyguardService service, StateCallback callback) {

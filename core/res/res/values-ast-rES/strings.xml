@@ -137,7 +137,6 @@
     <string name="contentServiceSyncNotificationTitle">Nun se puede sincronizar</string>
     <string name="low_memory" product="tablet">L\'almacenamientu de la tableta ta enllén. Desanicia dellos ficheros pa lliberar espaciu.</string>
     <string name="low_memory" product="watch">L\'almacenamientu del reló ta enllén. Desanicia dellos ficheros pa lliberar espaciu.</string>
-    <string name="low_memory" product="tv">L\'almacenamientu de la TV ta enllén. Desanicia dellos ficheros pa lliberar espaciu.</string>
     <string name="low_memory" product="default">L\'almacenamientu del teléfonu ta enllén. Desanicia dellos ficheros pa lliberar espaciu.</string>
     <plurals name="ssl_ca_cert_warning">
         <item quantity="one">Instalóse la autoridá de certificaos</item>
@@ -149,9 +148,9 @@
     <string name="network_logging_notification_title">El preséu ta remanáu</string>
     <string name="network_logging_notification_text">La to organización remana esti preséu y puede monitorizar el tráficu de rede. Calca pa ver detalles.</string>
     <string name="factory_reset_warning">Va desaniciase\'l preséu</string>
+    <string name="personal_apps_suspended_turn_profile_on">Activar</string>
     <string name="me">Yo</string>
     <string name="power_dialog" product="tablet">Opciones de la tableta</string>
-    <string name="power_dialog" product="tv">Opciones de la TV</string>
     <string name="power_dialog" product="default">Opciones del teléfonu</string>
     <string name="silent_mode">Mou silenciu</string>
     <string name="turn_on_radio">Habilitar conexón inalámbrica</string>
@@ -169,7 +168,6 @@
     <string name="reboot_to_reset_message">Reaniciando\u2026</string>
     <string name="shutdown_progress">Apagando\u2026</string>
     <string name="shutdown_confirm" product="tablet">Va apagase la tableta.</string>
-    <string name="shutdown_confirm" product="tv">Va apagase la TV.</string>
     <string name="shutdown_confirm" product="watch">Va apagase\'l reló.</string>
     <string name="shutdown_confirm" product="default">Va apagase\'l teléfonu.</string>
     <string name="shutdown_confirm_question">¿Quies apagar?</string>
@@ -180,10 +178,10 @@
     <string name="recent_tasks_title">Recién</string>
     <string name="no_recent_tasks">Nun hai aplicaciones recientes.</string>
     <string name="global_actions" product="tablet">Opciones de la tableta</string>
-    <string name="global_actions" product="tv">Opciones de la TV</string>
     <string name="global_actions" product="default">Opciones del teléfonu</string>
     <string name="global_action_lock">Bloquéu de pantalla</string>
     <string name="global_action_power_off">Apagar</string>
+    <string name="global_action_restart">Reaniciar</string>
     <string name="global_action_emergency">Emerxencia</string>
     <string name="global_action_bug_report">Informe de fallos</string>
     <string name="global_action_logout">Fin de sesión</string>
@@ -227,7 +225,6 @@
     <string name="permgroupdesc_calendar">acceder al calendariu</string>
     <string name="permgrouplab_sms">SMS</string>
     <string name="permgroupdesc_sms">unviar y ver mensaxes SMS</string>
-    <string name="permgrouplab_storage">Almacenamientu</string>
     <string name="permgroupdesc_storage">acceder a los ficheros del preséu</string>
     <string name="permgrouplab_microphone">Micrófonu</string>
     <string name="permgroupdesc_microphone">grabar audiu</string>
@@ -311,7 +308,6 @@
       qu\'otres aplicaciones dexen d\'executase.</string>
     <string name="permlab_persistentActivity">facer que l\'aplicación s\'execute siempres</string>
     <string name="permdesc_persistentActivity" product="tablet">Permite que l\'aplicación faiga persistentes na memoria partes de sigo mesma.  Esto pue llendar la memoria disponible pa otres aplicaciones volviendo lenta la tableta.</string>
-    <string name="permdesc_persistentActivity" product="tv">Permite que l\'aplicación faiga persistentes na memoria partes de sigo mesma.  Esto pue llendar la memoria disponible pa otres aplicaciones volviendo lenta la TV.</string>
     <string name="permdesc_persistentActivity" product="default">Permite que l\'aplicación faiga persistentes na memoria partes de sigo mesma.  Esto pue llendar la memoria disponible pa otres aplicaciones volviendo lentu\'l teléfonu.</string>
     <string name="permlab_getPackageSize">midir l\'espaciu d\'almacenamientu de l\'aplicación</string>
     <string name="permdesc_getPackageSize">Permite que l\'aplicación recupere\'l so códigu, los datos y los tamaños de la caché.</string>
@@ -324,25 +320,18 @@
         s\'anicie sola namái que\'l sistema termine d\'arrancar.
         Esto pue facer que la tableta entarde más en prender y permita
         que l\'aplicación vuelva lenta la tableta executándose de mou continuu.</string>
-    <string name="permdesc_receiveBootCompleted" product="tv">Permite que l\'aplicación
-        s\'anicie sola namái que\'l sistema termine d\'arrancar.
-        Esto pue facer que la TV entarde más en prender y permita
-        que l\'aplicación vuelva lenta la TV executándose de mou continuu.</string>
     <string name="permdesc_receiveBootCompleted" product="default">Permite que l\'aplicación
         s\'anicie sola namái que\'l sistema termine d\'arrancar.
         Esto pue facer que\'l teléfonu entarde más en prender y permita
         que l\'aplicación vuelva lentu\'l teléfonu executándose de mou continuu.</string>
     <string name="permlab_broadcastSticky">unviar emisión persistente</string>
     <string name="permdesc_broadcastSticky" product="tablet">Permite que la aplicación envíe emisiones que permanecen en el dispositivo una vez que la emisión ha finalizado. Un uso excesivo podría ralentizar el tablet o volverlo inestable al hacer que use demasiada memoria.</string>
-    <string name="permdesc_broadcastSticky" product="tv">Permite que la aplicación envíe emisiones permanentes que continúan activas una vez finalizada la emisión. Un uso excesivo puede ralentizar o desestabilizar la TV al utilizar demasiada memoria.</string>
     <string name="permdesc_broadcastSticky" product="default">Permite que la aplicación envíe emisiones que permanecen en el dispositivo una vez que la emisión ha finalizado. Un uso excesivo podría ralentizar el teléfono o volverlo inestable al hacer que use demasiada memoria.</string>
     <string name="permlab_readContacts">lleer los contautos</string>
     <string name="permlab_writeContacts">modificar los contautos</string>
     <string name="permlab_readCallLog">lleer el rexistru de llamaes</string>
     <string name="permlab_writeCallLog">escribir nel rexistru de llamaes</string>
     <string name="permdesc_writeCallLog" product="tablet">Permite que les aplicaciones modifiquen el rexistru de llamaes de la tableta, incluyendo datos tocante a llamaes entrantes y salientes.
-        Les aplicaciones malicioses podríen usar esto pa desaniciar o modificar el rexistru de de llamaes.</string>
-    <string name="permdesc_writeCallLog" product="tv">Permite que les aplicaciones modifiquen el rexistru de llamaes de la TV, incluyendo datos tocante a llamaes entrantes y salientes.
         Les aplicaciones malicioses podríen usar esto pa desaniciar o modificar el rexistru de de llamaes.</string>
     <string name="permdesc_writeCallLog" product="default">Permite que les aplicaciones modifiquen el rexistru de llamaes del teléfonu, incluyendo datos tocante a llamaes entrantes y salientes.
         Les aplicaciones malicioses podríen usar esto pa desaniciar o modificar el rexistru de de llamaes.</string>
@@ -351,11 +340,9 @@
     <string name="permdesc_bodySensors" product="default">Permite que l\'aplicación acceda a datos de los sensores
     que supervisen la to condición física como los pulseos.</string>
     <string name="permdesc_readCalendar" product="tablet">Esta aplicación puede lleer tolos eventos del calendariu almacenaos na to tablet y compartir o guardar los tos datos de calendariu.</string>
-    <string name="permdesc_readCalendar" product="tv">Esta aplicación puede lleer tolos eventos del calendariu almacenaos na to Tele y compartir o guardar los tos datos de calendariu.</string>
     <string name="permdesc_readCalendar" product="default">Esta aplicación puede lleer tolos eventos del calendariu almacenaos nel to móvil y compartir o guardar los tos datos de calendariu.</string>
     <string name="permlab_writeCalendar">amestar o modificar eventos del calendariu y unviar correos a convidaos ensin la conocencia del dueñu</string>
     <string name="permdesc_writeCalendar" product="tablet">Esta aplicación pue amestar, desaniciar o camudar los eventos del calendariu na to tablet. Esta aplicación pue unviar mensaxes qu\'abulten ser de propietarios de calendarios o camudar eventos ensin notificar a los sos propietarios.</string>
-    <string name="permdesc_writeCalendar" product="tv">Esta aplicación pue amestar, desaniciar o camudar los eventos del calendariu na to Tele. Esta aplicación pue unviar mensaxes qu\'abulten ser de propietarios de calendarios o camudar eventos ensin notificar a los sos propietarios.</string>
     <string name="permdesc_writeCalendar" product="default">Esta aplicación pue amestar, desaniciar o camudar los eventos del calendariu nel to teléfonu. Esta aplicación pue unviar mensaxes qu\'abulten ser de propietarios de calendarios o camudar eventos ensin notificar a los sos propietarios.</string>
     <string name="permlab_accessLocationExtraCommands">acceder a comandos adicionales del fornidor d\'allugamientu</string>
     <string name="permdesc_accessLocationExtraCommands">Permite que l\'aplicación acceda
@@ -386,14 +373,11 @@
     <string name="permlab_manageOwnCalls">llamaes de ruta pel sistema</string>
     <string name="permlab_readPhoneNumbers">lleer númberos telefónicos</string>
     <string name="permlab_wakeLock" product="tablet">evitar que la tableta se duerma</string>
-    <string name="permlab_wakeLock" product="tv">evitar que la TV se duerma</string>
     <string name="permlab_wakeLock" product="default">evitar que\'l teléfonu se duerma</string>
     <string name="permdesc_wakeLock" product="tablet">Permite que l\'aplicación evite que la tableta se duerma.</string>
-    <string name="permdesc_wakeLock" product="tv">Permite que l\'aplicación evite que la TV se duerma.</string>
     <string name="permdesc_wakeLock" product="default">Permite que l\'aplicación evite que\'l teléfonu se duerma.</string>
     <string name="permlab_transmitIr">tresmitir infrabermeyos</string>
     <string name="permdesc_transmitIr" product="tablet">Permite que l\'aplicación use\'l tresmisor d\'infrabermeyos de la tableta.</string>
-    <string name="permdesc_transmitIr" product="tv">Permite que l\'aplicación use\'l tresmisor d\'infrabermeyos de la TV.</string>
     <string name="permdesc_transmitIr" product="default">Permite que l\'aplicación use\'l tresmisor d\'infrabermeyos del teléfonu.</string>
     <string name="permlab_setWallpaper">afitar fondu de pantalla</string>
     <string name="permdesc_setWallpaper">Permite que l\'aplicación afite\'l fondu de pantalla del sistema.</string>
@@ -401,14 +385,10 @@
     <string name="permdesc_setWallpaperHints">Permite que l\'aplicación afite\'l tamañu del fondu de pantalla del sistema.</string>
     <string name="permlab_setTimeZone">afitar fusu horariu</string>
     <string name="permdesc_setTimeZone" product="tablet">Permite que l\'aplicación camude\'l fusu horariu de la tableta.</string>
-    <string name="permdesc_setTimeZone" product="tv">Permite que l\'aplicación camude\'l fusu horariu de la TV.</string>
     <string name="permdesc_setTimeZone" product="default">Permite que l\'aplicación camude\'l fusu horariu del teléfonu.</string>
     <string name="permlab_getAccounts">alcontrar cuentes nel preséu</string>
     <string name="permdesc_getAccounts" product="tablet">Permite que l\'aplicación consiga\'l
       llistáu de cuentes reconocíes pola tableta.  Esto podría incluyir
-      cualesquier cuenta creada por aplicaciones qu\'instalesti.</string>
-    <string name="permdesc_getAccounts" product="tv">Permite que l\'aplicación consiga\'l
-      llistáu de cuentes reconocíes pola TV.  Esto podría incluyir
       cualesquier cuenta creada por aplicaciones qu\'instalesti.</string>
     <string name="permdesc_getAccounts" product="default">Permite que l\'aplicación consiga\'l
       llistáu de cuentes reconocíes pol teléfonu.  Esto podría incluyir
@@ -439,19 +419,12 @@
       paquetes unviaos a tolos preseos nuna rede Wi-Fi usando direiciones
       de difusión seleutiva, non namái la to tableta.  Usa más enerxía que\'l
       mou de non difusión seleutiva.</string>
-    <string name="permdesc_changeWifiMulticastState" product="tv">Permite que l\'aplicación reciba
-      paquetes unviaos a tolos preseos nuna rede Wi-Fi usando direiciones
-      de difusión seleutiva, non namái la to TV.  Usa más enerxía que\'l mou
-      de non difusión seleutiva.</string>
     <string name="permdesc_changeWifiMulticastState" product="default">Permite que l\'aplicación reciba
       paquetes unviaos a tolos preseos nuna rede Wi-Fi usando direiciones
       de difusión seleutiva, non namái\'l to teléfonu.  Usa más enerxía que\'l
       mou de non difusión seleutiva.</string>
     <string name="permlab_bluetoothAdmin">acceder a los axustes Bluetooth</string>
     <string name="permdesc_bluetoothAdmin" product="tablet">Permite que l\'aplicación configure la tablet Bluetooth llocal y que deteute preseos remotos y s\'emparexe con ellos.</string>
-    <string name="permdesc_bluetoothAdmin" product="tv">Permite que l\'aplicación
-      configure\'l Bluetooth de la TV, y descubra y s\'empareye con preseos
-      remotos.</string>
     <string name="permdesc_bluetoothAdmin" product="default">Permite que l\'aplicación configure\'l teléfonu Bluetooth local y que deteute preseos remotos y s\'emparexe con ellos.</string>
     <string name="permlab_accessWimaxState">coneutase a WiMAX y desconeutase</string>
     <string name="permdesc_accessWimaxState">Permite que l\'aplicación determine si
@@ -460,16 +433,11 @@
     <string name="permlab_changeWimaxState">camudar l\'estáu de WiMAX</string>
     <string name="permdesc_changeWimaxState" product="tablet">Permite que l\'aplicación
       coneute la tableta a redes WiMAX y la desconeute.</string>
-    <string name="permdesc_changeWimaxState" product="tv">Permite que l\'aplicación
-      coneute la TV a redes WiMAX y la desconeute.</string>
     <string name="permdesc_changeWimaxState" product="default">Permite que l\'aplicación
       coneute\'l teléfonu a redes WiMAX y lu desconeute.</string>
     <string name="permlab_bluetooth">empareyar con preseos Bluetooth</string>
     <string name="permdesc_bluetooth" product="tablet">Permite que l\'aplicación vea
       la configuración Bluetooth na tableta, y faiga y aceute
-      conexones con preseos empareyaos.</string>
-    <string name="permdesc_bluetooth" product="tv">Permite que l\'aplicación vea
-      la configuración Bluetooth na TV, y faiga y aceute
       conexones con preseos empareyaos.</string>
     <string name="permdesc_bluetooth" product="default">Permite que l\'aplicación vea
       la configuración Bluetooth nel teléfonu, y faiga y aceute
@@ -562,17 +530,11 @@
     <string name="policydesc_watchLogin" product="tablet">Supervisa\'l númberu de contraseñes teclexaes
     incorreutamente al desbloquiar la pantalla, y bloquia la tableta o desanicia
     tolos sos datos si se teclexen mal munches contraseñes.</string>
-    <string name="policydesc_watchLogin" product="TV">Supervisa\'l númberu de contraseñes teclexaes
-    incorreutamente al desbloquiar la pantalla, y bloquia la TV o desanicia
-    tolos sos datos si se teclexen mal munches contraseñes.</string>
     <string name="policydesc_watchLogin" product="default">Supervisa\'l númberu de contraseñes teclexaes
     incorreutamente al desbloquiar la pantalla, y bloquia\'l teléfonu o desanicia
     tolos sos datos si se teclexen mal munches contraseñes.</string>
     <string name="policydesc_watchLogin_secondaryUser" product="tablet">Supervisa\'l númberu de contraseñes teclexaes
     incorreutamente al desbloquiar la pantalla, y bloquia la tableta o desanicia
-    tolos datos d\'usuariu si se teclexen mal munches contraseñes.</string>
-    <string name="policydesc_watchLogin_secondaryUser" product="TV">Supervisa\'l númberu de contraseñes teclexaes
-    incorreutamente al desbloquiar la pantalla, y bloquia la TV o desanicia
     tolos datos d\'usuariu si se teclexen mal munches contraseñes.</string>
     <string name="policydesc_watchLogin_secondaryUser" product="default">Supervisa\'l númberu de contraseñes teclexaes
     incorreutamente al desbloquiar la pantalla, y bloquia\'l teléfonu o desanicia
@@ -583,11 +545,9 @@
     <string name="policydesc_forceLock">Controla cómo y cuándo se bloquia la pantalla.</string>
     <string name="policylab_wipeData">Desaniciar tolos datos</string>
     <string name="policydesc_wipeData" product="tablet">Desanicia los datos de la tableta ensin avisar reafitando\'l preséu.</string>
-    <string name="policydesc_wipeData" product="tv">Desanicia los datos de la TV ensin avisar reafitando\'l preséu.</string>
     <string name="policydesc_wipeData" product="default">Desanicia los datos del teléfonu ensin avisar reafitando\'l preséu.</string>
     <string name="policylab_wipeData_secondaryUser">Desaniciar datos d\'usuariu</string>
     <string name="policydesc_wipeData_secondaryUser" product="tablet">Desanicia los datos d\'esti usuariu nesta tableta ensin avisar.</string>
-    <string name="policydesc_wipeData_secondaryUser" product="tv">Desanicia los datos d\'esti usuariu nesta TV ensin avisar.</string>
     <string name="policydesc_wipeData_secondaryUser" product="default">Desanicia los datos d\'esti usuariu nesti teléfonu ensin avisar.</string>
     <string name="policylab_setGlobalProxy">Afitar proxy global del preséu</string>
     <string name="policydesc_setGlobalProxy">Afita\'l proxy global del preséu
@@ -729,7 +689,6 @@
     <string name="lockscreen_instructions_when_pattern_enabled">Primi la tecla Menú pa desbloquiar o facer una llamada d\'emerxencia.</string>
     <string name="lockscreen_instructions_when_pattern_disabled">Primi la tecla Menú pa desbloquiar.</string>
     <string name="lockscreen_pattern_instructions">Dibuxa\'l patrón pa desbloquiar</string>
-    <string name="lockscreen_emergency_call">Emerxencia</string>
     <string name="lockscreen_return_to_call">Volver a llamada</string>
     <string name="lockscreen_pattern_correct">¡Correuto!</string>
     <string name="lockscreen_pattern_wrong">Volvi tentalo</string>
@@ -737,7 +696,6 @@
     <string name="faceunlock_multiple_failures">Perpasóse\'l númberu máximu d\'intentos de desbloquéu facial</string>
     <string name="lockscreen_missing_sim_message_short">Nun hai tarxeta SIM</string>
     <string name="lockscreen_missing_sim_message" product="tablet">Nun hai tarxeta SIM na tableta.</string>
-    <string name="lockscreen_missing_sim_message" product="tv">Nun hai tarxeta SIM na TV.</string>
     <string name="lockscreen_missing_sim_message" product="default">Nun hai tarxeta SIM nel teléfonu.</string>
     <string name="lockscreen_missing_sim_instructions">Inxerta una tarxeta SIM.</string>
     <string name="lockscreen_missing_sim_instructions_long">Falta la tarxeta SIM o nun pue lleese. Inxerta una.</string>
@@ -771,11 +729,6 @@
        va pidísite desbloquiar la tableta usando\'l to aniciu de sesión de Google.\n\n
        Volvi tentalo en <xliff:g id="number">%3$d</xliff:g> segundos.
     </string>
-    <string name="lockscreen_failed_attempts_almost_glogin" product="tv">        Dibuxésti mal el patrón de desbloquéu <xliff:g id="number">%1$d</xliff:g> vegaes.
-       Tres <xliff:g id="number">%2$d</xliff:g> intentos incorreutos más,
-       va pidísite desbloquiar la TV usando\'l to aniciu de sesión de Google.\n\n
-       Volvi tentalo en <xliff:g id="number">%3$d</xliff:g> segundos.
-    </string>
     <string name="lockscreen_failed_attempts_almost_glogin" product="default">        Dibuxésti mal el patrón de desbloquéu <xliff:g id="number">%1$d</xliff:g> vegaes.
        Tres <xliff:g id="number">%2$d</xliff:g> intentos incorreutos más,
        va pidísite desbloquiar el teléfonu usando\'l to aniciu de sesión de Google.\n\n
@@ -785,18 +738,11 @@
        Tres <xliff:g id="number">%2$d</xliff:g> intentos fallíos más,
        va reafitase\'l preséu perdiéndose tolos datos d\'usuariu.
     </string>
-    <string name="lockscreen_failed_attempts_almost_at_wipe" product="tv">       Tentesti de desbloquiar incorreutamente la TV <xliff:g id="number">%1$d</xliff:g> vegaes.
-       Tres <xliff:g id="number">%2$d</xliff:g> intentos fallíos más,
-       va reafitase\'l preséu perdiéndose tolos datos d\'usuariu.
-    </string>
     <string name="lockscreen_failed_attempts_almost_at_wipe" product="default">       Tentesti de desbloquiar incorreutamente\'l teléfonu <xliff:g id="number">%1$d</xliff:g> vegaes.
        Tres <xliff:g id="number">%2$d</xliff:g> intentos fallíos más,
        va reafitase\'l preséu perdiendo tolos datos d\'usuariu.
     </string>
     <string name="lockscreen_failed_attempts_now_wiping" product="tablet">       Tentesti de desbloquiar incorreutamente la tableta <xliff:g id="number">%d</xliff:g> vegaes.
-       Agora va reafitase\'l preséu.
-    </string>
-    <string name="lockscreen_failed_attempts_now_wiping" product="tv">       Tentesti de desbloquiar incorreutamente la TV <xliff:g id="number">%d</xliff:g> vegaes.
        Agora va reafitase\'l preséu.
     </string>
     <string name="lockscreen_failed_attempts_now_wiping" product="default">       Tentesti de desbloquiar incorreutamente\'l teléfonu <xliff:g id="number">%d</xliff:g> vegaes.
@@ -930,11 +876,6 @@
     <string name="permdesc_writeHistoryBookmarks" product="tablet">Permite que
         l\'aplicación modifique l\'historial del restolador o marcadores atroxaos
         na tableta. Esto podría permiti-y a l\'aplicación desaniciar o modificar
-        datos del restolador.  Nota: esti permisu podríen usalu restoladores
-        de terceros u otres aplicaciones con capacidá de restolar la web.</string>
-    <string name="permdesc_writeHistoryBookmarks" product="tv">Permite que
-        l\'aplicación modifique l\'historial del restolador o marcadores atroxaos
-        na TV. Esto podría permiti-y a l\'aplicación desaniciar o modificar
         datos del restolador.  Nota: esti permisu podríen usalu restoladores
         de terceros u otres aplicaciones con capacidá de restolar la web.</string>
     <string name="permdesc_writeHistoryBookmarks" product="default">Permite que
@@ -1084,16 +1025,6 @@
     <string name="deleteText">Desaniciar</string>
     <string name="inputMethod">Métodu d\'entrada</string>
     <string name="editTextMenuTitle">Aiciones de testu</string>
-    <string name="dial">Llamada</string>
-    <string name="map">Mapa</string>
-    <string name="browse">Abrir</string>
-    <string name="browse_desc">URL escoyida abierta</string>
-    <string name="sms">Mensaxe</string>
-    <string name="add_contact">Amestar</string>
-    <string name="add_contact_desc">Amestar a contautos</string>
-    <string name="view_calendar">Ver</string>
-    <string name="add_calendar_event">Axenda</string>
-    <string name="view_flight">Pista</string>
     <string name="low_internal_storage_view_title">Ta escosando l\'espaciu</string>
     <string name="low_internal_storage_view_text">Podríen nun funcionar delles funciones del sistema</string>
     <string name="low_internal_storage_view_text_no_boot">Nun hai espaciu abondo pal sistema. Asegúrate que tienes 250MB llibre y reanicia.</string>
@@ -1212,24 +1143,12 @@
     <string name="ringtone_silent">Dengún</string>
     <string name="ringtone_picker_title">Timbres</string>
     <string name="ringtone_unknown">Desconozse</string>
-    <plurals name="wifi_available">
-        <item quantity="one">Rede Wi-Fi disponible</item>
-        <item quantity="other">Redes Wi-Fi disponibles</item>
-    </plurals>
-    <plurals name="wifi_available_detailed">
-        <item quantity="one">Rede Wi-Fi abierta disponible</item>
-        <item quantity="other">Redes Wi-Fi abiertes disponibles</item>
-    </plurals>
-    <string name="wifi_available_title_connected">Coneutáu a la rede Wi\u2011Fi</string>
-    <string name="wifi_available_title_failed_to_connect">Nun se pudo coneutar a la rede Wi\u2011Fi</string>
-    <string name="wifi_available_action_connect">Coneutar</string>
-    <string name="wifi_available_action_all_networks">Toles redes</string>
-    <string name="wifi_suggestion_action_allow_app">Permitir</string>
-    <string name="wifi_wakeup_onboarding_title">Wi\u2011Fi prenderáse automáticamente</string>
     <string name="wifi_available_sign_in">Aniciar sesión na rede Wi-Fi</string>
     <string name="network_available_sign_in">Aniciar sesión na rede</string>
     <string name="network_available_sign_in_detailed"><xliff:g id="network_ssid">%1$s</xliff:g></string>
     <string name="wifi_no_internet_detailed">Calca pa opciones</string>
+    <string name="mobile_no_internet">La rede móvil nun tien accesu a internet</string>
+    <string name="other_networks_no_internet">La rede nun tien accesu a internet</string>
     <string name="network_switch_metered">Conexón afitada con <xliff:g id="network_type">%1$s</xliff:g></string>
     <string name="network_switch_metered_detail">El preséu usa <xliff:g id="new_network">%1$s</xliff:g> cuando <xliff:g id="previous_network">%2$s</xliff:g> nun tien accesu a internet. Podríen aplicase cargos.</string>
     <string name="network_switch_metered_toast">Camudóse de <xliff:g id="previous_network">%1$s</xliff:g> a <xliff:g id="new_network">%2$s</xliff:g></string>
@@ -1241,27 +1160,8 @@
         <item>VPN</item>
     </string-array>
     <string name="network_switch_type_name_unknown">un triba desconocida de rede</string>
-    <string name="wifi_watchdog_network_disabled">Nun pudo coneutase a la Wi-Fi</string>
-    <string name="wifi_watchdog_network_disabled_detailed">\u0020tien una conexón mala d\'internet.</string>
-    <string name="wifi_connect_alert_title">¿Permitir conexón?</string>
-    <string name="wifi_connect_alert_message">A l\'aplicación %1$s prestaría-y coneutase a la Wi-Fi %2$s</string>
-    <string name="wifi_connect_default_application">Una aplicación</string>
-    <string name="wifi_p2p_dialog_title">Wi-Fi Direct</string>
-    <string name="wifi_p2p_turnon_message">Iniciar Wi-Fi Direct. Se desactivará el funcionamiento de la zona o del cliente Wi-Fi.</string>
-    <string name="wifi_p2p_failed_message">Nun pudo aniciase Wi-Fi Direct.</string>
-    <string name="wifi_p2p_enabled_notification_title">Wi-Fi Direct activáu</string>
-    <string name="wifi_p2p_enabled_notification_message">Calca pa los axustes</string>
     <string name="accept">Aceutar</string>
     <string name="decline">Refugar</string>
-    <string name="wifi_p2p_invitation_sent_title">Invitación unviada</string>
-    <string name="wifi_p2p_invitation_to_connect_title">Invitación pa coneutase</string>
-    <string name="wifi_p2p_from_message">De:</string>
-    <string name="wifi_p2p_to_message">Pa:</string>
-    <string name="wifi_p2p_enter_pin_message">Teclexa\'l PIN riquíu: </string>
-    <string name="wifi_p2p_show_pin_message">PIN:</string>
-    <string name="wifi_p2p_frequency_conflict_message" product="tablet">La tableta va desconeutase temporalmente de la Wi-Fi mentanto tea coneutada a <xliff:g id="device_name">%1$s</xliff:g></string>
-    <string name="wifi_p2p_frequency_conflict_message" product="tv">La TV va desconeutase temporalmente de la Wi-Fi mentanto tea coneutada a <xliff:g id="device_name">%1$s</xliff:g></string>
-    <string name="wifi_p2p_frequency_conflict_message" product="default">El teléfonu va desconeutase temporalmente de la Wi-Fi mentanto tea coneutáu a <xliff:g id="device_name">%1$s</xliff:g></string>
     <string name="select_character">Inxertu de caráuter</string>
     <string name="sms_control_title">Unviando mensaxes SMS</string>
     <string name="sms_control_message">&lt;b&gt;<xliff:g id="app_name">%1$s</xliff:g>&lt;/b&gt; ta unviando un númberu grande de mensaxes SMS. ¿Quies permitir qu\'esta aplicación siga unviándolos?</string>
@@ -1401,10 +1301,6 @@
     <string name="submit">Unviar</string>
     <string name="car_mode_disable_notification_title">L\'aplicación de conducción ta furrulando</string>
     <string name="car_mode_disable_notification_message">Calca pa salir de l\'aplicación de conducción.</string>
-    <string name="tethered_notification_title">Anclaxe a rede/Puntu Wi-Fi activu</string>
-    <string name="tethered_notification_message">Calca pa configurar.</string>
-    <string name="disable_tether_notification_title">L\'anclax ta desconeutáu</string>
-    <string name="disable_tether_notification_message">Contauta col to administrador pa los detalles</string>
     <string name="back_button_label">Atrás</string>
     <string name="next_button_label">Siguiente</string>
     <string name="skip_button_label">Saltar</string>
@@ -1502,7 +1398,6 @@
     <string name="SetupCallDefault">¿Aceutar la llamada?</string>
     <string name="activity_resolver_use_always">Siempres</string>
     <string name="activity_resolver_use_once">Namái una vegada</string>
-    <string name="activity_resolver_app_settings">Axustes</string>
     <string name="activity_resolver_work_profiles_support">%1$s nun sofita\'l perfil de trabayu</string>
     <string name="default_audio_route_name" product="tablet">Tableta</string>
     <string name="default_audio_route_name" product="tv">TV</string>
@@ -1572,18 +1467,11 @@
        Tres <xliff:g id="number">%2$d</xliff:g> intentos fallíos más,
        va reafitase\'l preséu perdiéndose tolos datos d\'usuariu.
     </string>
-    <string name="kg_failed_attempts_almost_at_wipe" product="tv">       Tentesti de desbloquiar incorreutamente la TV <xliff:g id="number">%1$d</xliff:g> vegaes.
-       Tres <xliff:g id="number">%2$d</xliff:g> intentos fallíos más,
-       va reafitase\'l preséu perdiéndose tolos datos d\'usuariu.
-    </string>
     <string name="kg_failed_attempts_almost_at_wipe" product="default">       Tentesti de desbloquiar incorreutamente\'l teléfonu <xliff:g id="number">%1$d</xliff:g> vegaes.
        Tres <xliff:g id="number">%2$d</xliff:g> intentos fallíos más,
        va reafitase\'l preséu perdiendo tolos datos d\'usuariu.
     </string>
     <string name="kg_failed_attempts_now_wiping" product="tablet">       Tentesti de desbloquiar incorreutamente la tableta <xliff:g id="number">%d</xliff:g> vegaes.
-       Agora va reafitase\'l preséu.
-    </string>
-    <string name="kg_failed_attempts_now_wiping" product="tv">       Tentesti de desbloquiar incorreutamente la TV <xliff:g id="number">%d</xliff:g> vegaes.
        Agora va reafitase\'l preséu.
     </string>
     <string name="kg_failed_attempts_now_wiping" product="default">       Tentesti de desbloquiar incorreutamente\'l teléfonu <xliff:g id="number">%d</xliff:g> vegaes.
@@ -1592,11 +1480,6 @@
     <string name="kg_failed_attempts_almost_at_login" product="tablet">       Dibuxesti mal el patrón de desbloquéu <xliff:g id="number">%1$d</xliff:g> vegaes.
        Tres <xliff:g id="number">%2$d</xliff:g> intentos fallíos más,
        va pidísete que desbloquies la tableta usando una cuenta de corréu.\n\n
-       Volvi tentalo en <xliff:g id="number">%3$d</xliff:g> segundos.
-    </string>
-    <string name="kg_failed_attempts_almost_at_login" product="tv">       Dibuxesti mal el patrón de desbloquéu <xliff:g id="number">%1$d</xliff:g> vegaes.
-       Tres <xliff:g id="number">%2$d</xliff:g> intentos fallíos más,
-       va pidísete que desbloquies la TV usando una cuenta de corréu.\n\n
        Volvi tentalo en <xliff:g id="number">%3$d</xliff:g> segundos.
     </string>
     <string name="kg_failed_attempts_almost_at_login" product="default">       Dibuxesti mal el patrón de desbloquéu <xliff:g id="number">%1$d</xliff:g> vegaes.
@@ -1608,14 +1491,16 @@
     <string name="kg_reordering_delete_drop_target_text">Desaniciar</string>
     <string name="safe_media_volume_warning" product="default">       «¿Xubir el volume penriba\'l nivel aconseyáu?\n\nSentir soníos con volume altu demientres periodos de tiempu llargos podría mancate los oyíos.»
     </string>
+    <string name="accessibility_shortcut_on">Activar</string>
+    <string name="accessibility_shortcut_menu_item_status_on">SÍ</string>
+    <string name="accessibility_shortcut_menu_item_status_off">NON</string>
+    <string name="accessibility_dialog_button_allow">Permitir</string>
+    <string name="accessibility_dialog_button_deny">Ñegar</string>
+    <string name="done_accessibility_shortcut_menu_button">Fecho</string>
     <string name="disable_accessibility_shortcut">Apagar Atayu</string>
     <string name="leave_accessibility_shortcut_on">Usar Atayu</string>
     <string name="color_inversion_feature_name">Inversión de Color</string>
     <string name="color_correction_feature_name">Correición de Color</string>
-    <string name="accessibility_shortcut_enabling_service">Accesibilidá del Atayu
-        <xliff:g id="service_name" example="TalkBack">%1$s</xliff:g> encesa</string>
-    <string name="accessibility_shortcut_disabling_service">Accesibilidá del Atayu
-        <xliff:g id="service_name" example="TalkBack">%1$s</xliff:g> apagada</string>
     <string name="accessibility_magnification_chooser_text">Aumentu</string>
     <string name="user_switched">Usuariu actual <xliff:g id="name" example="Bob">%1$s</xliff:g>.</string>
     <string name="user_switching_message">Camudando a <xliff:g id="name" example="Bob">%1$s</xliff:g>\u2026</string>
@@ -1838,7 +1723,6 @@
     <string name="usb_mtp_launch_notification_title">Coneutáu a <xliff:g id="product_name">%1$s</xliff:g></string>
     <string name="usb_mtp_launch_notification_description">Calca pa ver los ficheros</string>
     <string name="pin_target">Fixar</string>
-    <string name="unpin_target">Desfixar</string>
     <string name="app_info">Información d\'aplicación</string>
     <string name="negative_duration">\u2212<xliff:g id="time" example="1:14">%1$s</xliff:g></string>
     <string name="demo_starting_message">Aniciando demostración\u2026</string>
@@ -1857,6 +1741,8 @@
         <item quantity="one">Una suxerencia d\'autorrellenáu</item>
         <item quantity="other"><xliff:g id="count" example="Two">%1$s</xliff:g> suxerencies d\'autorrellenáu</item>
     </plurals>
+    <string name="autofill_save_notnow">Agora non</string>
+    <string name="autofill_save_never">Enxamás</string>
     <string name="etws_primary_default_message_test">Testu de mensaxes d\'emerxencia</string>
     <string name="mmcc_authentication_reject">SIM non permitida pa voz</string>
     <string name="mmcc_imsi_unknown_in_hlr">SIM non provista pa voz</string>
@@ -1878,4 +1764,10 @@
     <string name="notification_appops_camera_active">Cámara</string>
     <string name="notification_appops_microphone_active">Micrófonu</string>
     <string name="car_loading_profile">Cargando</string>
+    <string name="accessibility_system_action_home_label">Casa</string>
+    <string name="accessibility_system_action_back_label">Atrás</string>
+    <string name="accessibility_system_action_screenshot_label">Captura de pantalla</string>
+    <string name="resolver_personal_tab">Personal</string>
+    <string name="resolver_work_tab">Trabayu</string>
+    <string name="resolver_switch_on_work">Activar</string>
 </resources>

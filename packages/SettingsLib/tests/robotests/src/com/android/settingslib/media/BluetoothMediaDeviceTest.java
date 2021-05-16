@@ -18,11 +18,13 @@ package com.android.settingslib.media;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
+import android.graphics.drawable.BitmapDrawable;
 
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 
@@ -51,21 +53,7 @@ public class BluetoothMediaDeviceTest {
         when(mDevice.isActiveDevice(BluetoothProfile.A2DP)).thenReturn(true);
         when(mDevice.isActiveDevice(BluetoothProfile.HEARING_AID)).thenReturn(true);
 
-        mBluetoothMediaDevice = new BluetoothMediaDevice(mContext, mDevice);
-    }
-
-    @Test
-    public void connect_setActiveSuccess_isConnectedReturnTrue() {
-        when(mDevice.setActive()).thenReturn(true);
-
-        assertThat(mBluetoothMediaDevice.connect()).isTrue();
-    }
-
-    @Test
-    public void connect_setActiveFail_isConnectedReturnFalse() {
-        when(mDevice.setActive()).thenReturn(false);
-
-        assertThat(mBluetoothMediaDevice.connect()).isFalse();
+        mBluetoothMediaDevice = new BluetoothMediaDevice(mContext, mDevice, null, null, null);
     }
 
     @Test
@@ -82,5 +70,44 @@ public class BluetoothMediaDeviceTest {
         when(mDevice.isConnected()).thenReturn(false);
 
         assertThat(mBluetoothMediaDevice.isConnected()).isFalse();
+    }
+
+    @Test
+    public void isFastPairDevice_isUntetheredHeadset_returnTrue() {
+        final BluetoothDevice bluetoothDevice = mock(BluetoothDevice.class);
+        when(mDevice.getDevice()).thenReturn(bluetoothDevice);
+
+        final String value = "True";
+        final byte[] bytes = value.getBytes();
+        when(bluetoothDevice.getMetadata(BluetoothDevice.METADATA_IS_UNTETHERED_HEADSET))
+                .thenReturn(bytes);
+
+        assertThat(mBluetoothMediaDevice.isFastPairDevice()).isTrue();
+    }
+
+    @Test
+    public void isFastPairDevice_isNotUntetheredHeadset_returnFalse() {
+        final BluetoothDevice bluetoothDevice = mock(BluetoothDevice.class);
+        when(mDevice.getDevice()).thenReturn(bluetoothDevice);
+
+        final String value = "asjdaioshfaio";
+        final byte[] bytes = value.getBytes();
+        when(bluetoothDevice.getMetadata(BluetoothDevice.METADATA_IS_UNTETHERED_HEADSET))
+                .thenReturn(bytes);
+
+        assertThat(mBluetoothMediaDevice.isFastPairDevice()).isFalse();
+    }
+
+    @Test
+    public void getIcon_isNotFastPairDevice_drawableTypeIsNotBitmapDrawable() {
+        final BluetoothDevice bluetoothDevice = mock(BluetoothDevice.class);
+        when(mDevice.getDevice()).thenReturn(bluetoothDevice);
+
+        final String value = "False";
+        final byte[] bytes = value.getBytes();
+        when(bluetoothDevice.getMetadata(BluetoothDevice.METADATA_IS_UNTETHERED_HEADSET))
+                .thenReturn(bytes);
+
+        assertThat(mBluetoothMediaDevice.getIcon() instanceof BitmapDrawable).isFalse();
     }
 }

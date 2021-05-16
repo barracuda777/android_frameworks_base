@@ -26,15 +26,16 @@ import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 
-import com.android.internal.util.Preconditions;
 import com.android.systemui.Dependency;
 import com.android.systemui.R;
-import com.android.systemui.statusbar.phone.NotificationPanelView;
-import com.android.systemui.statusbar.phone.StatusBarWindowView;
+import com.android.systemui.statusbar.NotificationShadeDepthController;
+import com.android.systemui.statusbar.phone.NotificationPanelViewController;
+import com.android.systemui.statusbar.phone.NotificationShadeWindowView;
 import com.android.systemui.tuner.TunerService;
 
 import lineageos.providers.LineageSettings;
 
+import java.util.Objects;
 import java.util.function.Consumer;
 
 /**
@@ -43,12 +44,12 @@ import java.util.function.Consumer;
 public class BrightnessMirrorController
         implements CallbackController<BrightnessMirrorController.BrightnessMirrorListener> {
 
+    private final NotificationShadeWindowView mStatusBarWindow;
     private static final String QS_SHOW_AUTO_BRIGHTNESS =
             "lineagesecure:" + LineageSettings.Secure.QS_SHOW_AUTO_BRIGHTNESS;
-
-    private final StatusBarWindowView mStatusBarWindow;
     private final Consumer<Boolean> mVisibilityCallback;
-    private final NotificationPanelView mNotificationPanel;
+    private final NotificationPanelViewController mNotificationPanel;
+    private final NotificationShadeDepthController mDepthController;
     private final ArraySet<BrightnessMirrorListener> mBrightnessMirrorListeners = new ArraySet<>();
     private final int[] mInt2Cache = new int[2];
     private View mBrightnessMirror;
@@ -64,11 +65,14 @@ public class BrightnessMirrorController
             }
         };
 
-    public BrightnessMirrorController(StatusBarWindowView statusBarWindow,
+    public BrightnessMirrorController(NotificationShadeWindowView statusBarWindow,
+            NotificationPanelViewController notificationPanelViewController,
+            NotificationShadeDepthController notificationShadeDepthController,
             @NonNull Consumer<Boolean> visibilityCallback) {
         mStatusBarWindow = statusBarWindow;
         mBrightnessMirror = statusBarWindow.findViewById(R.id.brightness_mirror);
-        mNotificationPanel = statusBarWindow.findViewById(R.id.notification_panel);
+        mNotificationPanel = notificationPanelViewController;
+        mDepthController = notificationShadeDepthController;
         mNotificationPanel.setPanelAlphaEndAction(() -> {
             mBrightnessMirror.setVisibility(View.INVISIBLE);
         });
@@ -81,12 +85,14 @@ public class BrightnessMirrorController
         mBrightnessMirror.setVisibility(View.VISIBLE);
         mVisibilityCallback.accept(true);
         mNotificationPanel.setPanelAlpha(0, true /* animate */);
+        mDepthController.setBrightnessMirrorVisible(true);
         updateIcon();
     }
 
     public void hideMirror() {
         mVisibilityCallback.accept(false);
         mNotificationPanel.setPanelAlpha(255, true /* animate */);
+        mDepthController.setBrightnessMirrorVisible(false);
     }
 
     public void setLocation(View original) {
@@ -141,7 +147,7 @@ public class BrightnessMirrorController
 
     @Override
     public void addCallback(BrightnessMirrorListener listener) {
-        Preconditions.checkNotNull(listener);
+        Objects.requireNonNull(listener);
         mBrightnessMirrorListeners.add(listener);
     }
 

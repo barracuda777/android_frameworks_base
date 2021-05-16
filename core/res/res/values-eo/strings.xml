@@ -134,7 +134,6 @@
     <string name="whichSendApplicationLabel">Konigi</string>
     <string name="whichSendToApplicationLabel">Sendi</string>
     <string name="ringtone_unknown">Nekonata</string>
-    <string name="wifi_suggestion_action_allow_app">Permesi</string>
     <string name="sms_control_yes">Permesi</string>
     <string name="sms_control_no">Malpermesi</string>
     <string name="sms_short_code_confirm_allow">Sendi</string>
@@ -159,19 +158,21 @@
     <string name="extract_edit_menu_button">Redakti</string>
     <string name="fingerprints">Fingrospuroj:</string>
     <string name="activity_resolver_use_always">Ĉiam</string>
-    <string name="activity_resolver_app_settings">Agordoj</string>
     <string name="default_audio_route_name" product="default">Telefono</string>
     <string name="default_audio_route_category_name">Sistemo</string>
     <string name="media_route_chooser_extended_settings">Agordoj</string>
     <string name="kg_login_password_hint">Pasvorto</string>
     <string name="kg_text_message_separator" product="default">" \u2014 "</string>
     <string name="kg_reordering_delete_drop_target_text">Forigi</string>
+    <string name="accessibility_dialog_button_allow">Permesi</string>
+    <string name="accessibility_dialog_button_deny">Malpermesi</string>
     <string name="owner_name" msgid="3879126011135546571">Posedanto</string>
     <string name="error_message_title">Eraro</string>
     <string name="write_fail_reason_cancelled">Nuligita</string>
     <string name="reason_unknown">nekonata</string>
     <string name="locale_search_menu">Serĉi</string>
     <string name="time_picker_hour_label">horo</string>
+    <string name="autofill_save_never">Neniam</string>
     <string name="screenshot_edit">Redakti</string>
     <string name="notification_app_name_system">Sistemo</string>
     <string name="notification_app_name_settings">Agordoj</string>

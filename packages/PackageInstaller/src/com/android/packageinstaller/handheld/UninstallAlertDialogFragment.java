@@ -16,7 +16,6 @@
 
 package com.android.packageinstaller.handheld;
 
-import static android.os.storage.StorageManager.convert;
 import static android.text.format.Formatter.formatFileSize;
 
 import android.annotation.NonNull;
@@ -34,7 +33,6 @@ import android.content.pm.UserInfo;
 import android.os.Bundle;
 import android.os.UserHandle;
 import android.os.UserManager;
-import android.os.storage.StorageManager;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -63,18 +61,18 @@ public class UninstallAlertDialogFragment extends DialogFragment implements
      * @return The number of bytes.
      */
     private long getAppDataSizeForUser(@NonNull String pkg, @NonNull UserHandle user) {
-        PackageManager packageManager = getContext().getPackageManager();
         StorageStatsManager storageStatsManager =
                 getContext().getSystemService(StorageStatsManager.class);
-
         try {
-            ApplicationInfo info = packageManager.getApplicationInfo(pkg, 0);
-            return storageStatsManager.queryStatsForPackage(
-                    info.storageUuid, pkg, user).getDataBytes();
+            StorageStats stats = storageStatsManager.queryStatsForPackage(
+                    getContext().getPackageManager().getApplicationInfo(pkg, 0).storageUuid,
+                    pkg, user);
+            return stats.getDataBytes();
         } catch (PackageManager.NameNotFoundException | IOException e) {
             Log.e(LOG_TAG, "Cannot determine amount of app data for " + pkg, e);
-            return 0;
         }
+
+        return 0;
     }
 
     /**

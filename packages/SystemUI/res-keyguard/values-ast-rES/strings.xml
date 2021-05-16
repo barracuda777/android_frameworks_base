@@ -39,58 +39,6 @@
     <string name="kg_too_many_failed_pattern_attempts_dialog_message">        Dibuxesti incorreutamente\'l to patrón de desbloquéu <xliff:g id="number">%1$d</xliff:g> times.
         \n\nVolvi tentalo en <xliff:g id="number">%2$d</xliff:g> segundos.
     </string>
-    <string name="kg_failed_attempts_almost_at_wipe" product="tablet">       Tentesti de desbloquiar ensin ésitu la tableta <xliff:g id="number">%1$d</xliff:g> vegaes.
-       Dempués de <xliff:g id="number">%2$d</xliff:g> intentos incorreutos,
-       reafitaráse esta tableta polo que van desaniciase tolos sos datos.
-    </string>
-    <string name="kg_failed_attempts_almost_at_wipe" product="default">       Tentesti de desbloquiar ensin ésitu\'l teléfonu <xliff:g id="number">%1$d</xliff:g> vegaes.
-       Dempués de <xliff:g id="number">%2$d</xliff:g> intentos incorreutos,
-       reafitaráse esti teléfonu polo que van desaniciase tolos sos datos.
-    </string>
-    <string name="kg_failed_attempts_now_wiping" product="tablet">       Tentesti de desbloquiar incorreutamente la tableta <xliff:g id="number">%d</xliff:g> vegaes.
-       Esti preséu va reafitase perdiendo tolos sos datos.
-    </string>
-    <string name="kg_failed_attempts_now_wiping" product="default">       Tentesti de desbloquiar incorreutamente\'l teléfonu <xliff:g id="number">%d</xliff:g> vegaes.
-       Esti preséu va reafitase perdiendo tolos sos datos.
-    </string>
-    <string name="kg_failed_attempts_almost_at_erase_user" product="tablet">       Tentesti de desbloquiar incorreutamente la tableta &lt;xliff:g id="number"&gt;%1$d/xliff:g&gt; vegaes.
-       Tres &lt;xliff:g id="number"&gt;%2$d&lt;/xliff:g&gt; intentos fallíos más,
-       esti usuariu va desaniciase perdiendo tolos sos datos.
-    </string>
-    <string name="kg_failed_attempts_almost_at_erase_user" product="default">       Tentesti de desbloquiar incorreutamente\'l teléfonu <xliff:g id="number">%1$d</xliff:g> vegaes.
-       Tres <xliff:g id="number">%2$d</xliff:g> intentos fallíos más,
-       esti usuariu va desaniciase perdiendo tolos sos datos.
-    </string>
-    <string name="kg_failed_attempts_now_erasing_user" product="tablet">       Tentesti de desbloquiar incorreutamente la tableta <xliff:g id="number">%d</xliff:g> vegaes.
-       Esti usuariu va desaniciase perdiendo tolos sos datos.
-    </string>
-    <string name="kg_failed_attempts_now_erasing_user" product="default">       Tentesti de desbloquiar incorreutamente\'l teléfonu <xliff:g id="number">%d</xliff:g> vegaes.
-       Esti usuariu va desaniciase perdiendo tolos sos datos.
-    </string>
-    <string name="kg_failed_attempts_almost_at_erase_profile" product="tablet">       Tentesti de desbloquiar incorreutamente la tableta <xliff:g id="number">%1$d</xliff:g> vegaes.
-       Tres <xliff:g id="number">%2$d</xliff:g> intentos fallíos más,
-       va desaniciase\'l perfil de trabayu perdiendo tolos sos datos.
-    </string>
-    <string name="kg_failed_attempts_almost_at_erase_profile" product="default">       Tentesti de desbloquiar incorreutamente\'l teléfonu <xliff:g id="number">%1$d</xliff:g> vegaes.
-       Tres <xliff:g id="number">%2$d</xliff:g> intentos fallíos más,
-       va desaniciase\'l perfil de trabayu perdiendo tolos sos datos.
-    </string>
-    <string name="kg_failed_attempts_now_erasing_profile" product="tablet">       Tentesti de desbloquiar incorreutamente la tableta <xliff:g id="number">%d</xliff:g> vegaes.
-       Va desaniciase\'l perfil de trabayu perdiendo tolos sos datos.
-    </string>
-    <string name="kg_failed_attempts_now_erasing_profile" product="default">       Tentesti de desbloquiar incorreutamente\'l teléfonu <xliff:g id="number">%d</xliff:g> vegaes.
-       Va desaniciase\'l perfil de trabayu perdiendo tolos sos datos.
-    </string>
-    <string name="kg_failed_attempts_almost_at_login" product="tablet">       Dibuxesti mal el patrón de desbloquéu <xliff:g id="number">%1$d</xliff:g> vegaes.
-       Tres <xliff:g id="number">%2$d</xliff:g> intentos fallíos más,
-       va pidísete que desbloquies la tableta usando una cuenta de corréu.\n\n
-       Volvi tentalo en <xliff:g id="number">%3$d</xliff:g> segundos.
-    </string>
-    <string name="kg_failed_attempts_almost_at_login" product="default">       Dibuxesti mal el patrón de desbloquéu <xliff:g id="number">%1$d</xliff:g> vegaes.
-       Tres <xliff:g id="number">%2$d</xliff:g> intentos fallíos más,
-       va pidísete que desbloquies el teléfonu usando una cuenta de corréu.\n\n
-       Volvi tentalo en <xliff:g id="number">%3$d</xliff:g> segundos.
-    </string>
     <string name="kg_password_wrong_pin_code_pukked">Códigu PIN de la SIM incorreutu, agora has contautar cola operadora pa desbloquiar el preséu.</string>
     <plurals name="kg_password_wrong_pin_code">
         <item quantity="one">Códigu PIN de la SIM incorreutu, quédate <xliff:g id="number">%d</xliff:g> intentu enantes de tener de llamar a la operadora pa desbloquiar el preséu.</item>

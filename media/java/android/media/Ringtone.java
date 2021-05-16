@@ -17,7 +17,7 @@
 package android.media;
 
 import android.annotation.Nullable;
-import android.annotation.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.ContentProvider;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -372,7 +372,7 @@ public class Ringtone {
                     AudioAttributes.toLegacyStreamType(mAudioAttributes)) != 0) {
                 startLocalPlayer();
             }
-        } else if (mAllowRemote && (mRemotePlayer != null)) {
+        } else if (mAllowRemote && (mRemotePlayer != null) && (mUri != null)) {
             final Uri canonicalUri = mUri.getCanonicalUri();
             final boolean looping;
             final float volume;

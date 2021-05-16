@@ -128,7 +128,6 @@
     <string name="contentServiceSync">Singkronan</string>
     <string name="low_memory" product="tablet">Panyimpenan tablét pinuh. Pupus sawaréh koropak pikeun ngalolongkrangan.</string>
     <string name="low_memory" product="watch">Panyimpenan arloji pinuh. Pupus sawaréh koropak pikeun ngalolongkrangan.</string>
-    <string name="low_memory" product="tv">Panyimpenan tipi pinuh. Pupus sawaréh koropak pikeun ngalolongkrangan.</string>
     <string name="low_memory" product="default">Panyimpenan telepon pinuh. Pupus sawaréh koropak pikeun ngalolongkrangan.</string>
     <string name="ssl_ca_cert_noti_by_unknown">Ku pihak katilu nu teu dipikanyaho</string>
     <string name="ssl_ca_cert_noti_managed">Ku <xliff:g id="managing_domain">%s</xliff:g></string>
@@ -136,7 +135,6 @@
     <string name="factory_reset_warning">Parangkat anjeun rék diberesihkeun</string>
     <string name="me">Kuring</string>
     <string name="power_dialog" product="tablet">Opsi tablét</string>
-    <string name="power_dialog" product="tv">Opsi tipi</string>
     <string name="power_dialog" product="default">Opsi telepon</string>
     <string name="silent_mode">Modeu jempé</string>
     <string name="turn_on_radio">Hurungkeun nirkabel</string>
@@ -154,7 +152,6 @@
     <string name="reboot_to_reset_message">Ngaréstar\u2026</string>
     <string name="shutdown_progress">Maéhan\u2026</string>
     <string name="shutdown_confirm" product="tablet">Tablét anjeun rék dipaéhan.</string>
-    <string name="shutdown_confirm" product="tv">Tipi anjeun rék dipaéhan.</string>
     <string name="shutdown_confirm" product="watch">Arloji anjeun rék dipaéhan.</string>
     <string name="shutdown_confirm" product="default">Telepon anjeun rék dipaéhan.</string>
     <string name="shutdown_confirm_question">Anjeun rék maéhan lin?</string>
@@ -165,7 +162,6 @@
     <string name="recent_tasks_title">Bucit</string>
     <string name="no_recent_tasks">Taya apl kabucit.</string>
     <string name="global_actions" product="tablet">Opsi tablét</string>
-    <string name="global_actions" product="tv">Opsi tipi</string>
     <string name="global_actions" product="default">Opsi telepon</string>
     <string name="global_action_lock">Konci layar</string>
     <string name="global_action_power_off">Pareuman</string>
@@ -195,7 +191,6 @@
     <string name="permgroupdesc_calendar">aksés kalénder anjeun</string>
     <string name="permgrouplab_sms">SMS</string>
     <string name="permgroupdesc_sms">kirim sarta tempo talatah SMS</string>
-    <string name="permgrouplab_storage">Panyimpenan</string>
     <string name="permgroupdesc_storage">aksés foto, média, sarta koropak na parangkat anjeun</string>
     <string name="permgrouplab_microphone">Mikrofon</string>
     <string name="permgroupdesc_microphone">rékam audio</string>
@@ -211,9 +206,10 @@
     <string-array name="face_acquired_vendor"/>
     <string-array name="face_error_vendor"/>
     <string name="ringtone_unknown">Teu dipikanyaho</string>
-    <string name="activity_resolver_app_settings">Sétingan</string>
     <string name="confirm_battery_saver">Okéh</string>
     <string name="notification_app_name_settings">Sétingan</string>
     <string name="notification_appops_camera_active">Kaméra</string>
     <string name="notification_appops_microphone_active">Mikrofon</string>
+    <string name="resolver_personal_tab">Pribadi</string>
+    <string name="resolver_work_tab">Gawé</string>
 </resources>

@@ -79,8 +79,7 @@ public class NetworkStatsFactoryTest extends NetworkStatsBaseTest {
         // related to networkStatsFactory is compiled to a minimal native library and loaded here.
         System.loadLibrary("networkstatsfactorytestjni");
         mFactory = new NetworkStatsFactory(mTestProc, false);
-        NetworkStatsFactory.updateVpnInfos(new VpnInfo[0]);
-        NetworkStatsFactory.clearStackedIfaces();
+        mFactory.updateVpnInfos(new VpnInfo[0]);
     }
 
     @After
@@ -105,9 +104,9 @@ public class NetworkStatsFactoryTest extends NetworkStatsBaseTest {
     }
 
     @Test
-    public void vpnRewriteTrafficThroughItself() throws Exception {
+    public void testVpnRewriteTrafficThroughItself() throws Exception {
         VpnInfo[] vpnInfos = new VpnInfo[] {createVpnInfo(new String[] {TEST_IFACE})};
-        NetworkStatsFactory.updateVpnInfos(vpnInfos);
+        mFactory.updateVpnInfos(vpnInfos);
 
         // create some traffic (assume 10 bytes of MTU for VPN interface and 1 byte encryption
         // overhead per packet):
@@ -134,10 +133,10 @@ public class NetworkStatsFactoryTest extends NetworkStatsBaseTest {
     }
 
     @Test
-    public void vpnWithClat() throws Exception {
+    public void testVpnWithClat() throws Exception {
         VpnInfo[] vpnInfos = new VpnInfo[] {createVpnInfo(new String[] {CLAT_PREFIX + TEST_IFACE})};
-        NetworkStatsFactory.updateVpnInfos(vpnInfos);
-        NetworkStatsFactory.noteStackedIface(CLAT_PREFIX + TEST_IFACE, TEST_IFACE);
+        mFactory.updateVpnInfos(vpnInfos);
+        mFactory.noteStackedIface(CLAT_PREFIX + TEST_IFACE, TEST_IFACE);
 
         // create some traffic (assume 10 bytes of MTU for VPN interface and 1 byte encryption
         // overhead per packet):
@@ -167,9 +166,9 @@ public class NetworkStatsFactoryTest extends NetworkStatsBaseTest {
     }
 
     @Test
-    public void vpnWithOneUnderlyingIface() throws Exception {
+    public void testVpnWithOneUnderlyingIface() throws Exception {
         VpnInfo[] vpnInfos = new VpnInfo[] {createVpnInfo(new String[] {TEST_IFACE})};
-        NetworkStatsFactory.updateVpnInfos(vpnInfos);
+        mFactory.updateVpnInfos(vpnInfos);
 
         // create some traffic (assume 10 bytes of MTU for VPN interface and 1 byte encryption
         // overhead per packet):
@@ -190,10 +189,10 @@ public class NetworkStatsFactoryTest extends NetworkStatsBaseTest {
     }
 
     @Test
-    public void vpnWithOneUnderlyingIfaceAndOwnTraffic() throws Exception {
+    public void testVpnWithOneUnderlyingIfaceAndOwnTraffic() throws Exception {
         // WiFi network is connected and VPN is using WiFi (which has TEST_IFACE).
         VpnInfo[] vpnInfos = new VpnInfo[] {createVpnInfo(new String[] {TEST_IFACE})};
-        NetworkStatsFactory.updateVpnInfos(vpnInfos);
+        mFactory.updateVpnInfos(vpnInfos);
 
         // create some traffic (assume 10 bytes of MTU for VPN interface and 1 byte encryption
         // overhead per packet):
@@ -218,10 +217,10 @@ public class NetworkStatsFactoryTest extends NetworkStatsBaseTest {
     }
 
     @Test
-    public void vpnWithOneUnderlyingIface_withCompression() throws Exception {
+    public void testVpnWithOneUnderlyingIface_withCompression() throws Exception {
         // WiFi network is connected and VPN is using WiFi (which has TEST_IFACE).
         VpnInfo[] vpnInfos = new VpnInfo[] {createVpnInfo(new String[] {TEST_IFACE})};
-        NetworkStatsFactory.updateVpnInfos(vpnInfos);
+        mFactory.updateVpnInfos(vpnInfos);
 
         // create some traffic (assume 10 bytes of MTU for VPN interface and 1 byte encryption
         // overhead per packet):
@@ -239,12 +238,12 @@ public class NetworkStatsFactoryTest extends NetworkStatsBaseTest {
     }
 
     @Test
-    public void vpnWithTwoUnderlyingIfaces_packetDuplication() throws Exception {
+    public void testVpnWithTwoUnderlyingIfaces_packetDuplication() throws Exception {
         // WiFi and Cell networks are connected and VPN is using WiFi (which has TEST_IFACE) and
         // Cell (which has TEST_IFACE2) and has declared both of them in its underlying network set.
         // Additionally, VPN is duplicating traffic across both WiFi and Cell.
         VpnInfo[] vpnInfos = new VpnInfo[] {createVpnInfo(new String[] {TEST_IFACE, TEST_IFACE2})};
-        NetworkStatsFactory.updateVpnInfos(vpnInfos);
+        mFactory.updateVpnInfos(vpnInfos);
 
         // create some traffic (assume 10 bytes of MTU for VPN interface and 1 byte encryption
         // overhead per packet):
@@ -265,12 +264,52 @@ public class NetworkStatsFactoryTest extends NetworkStatsBaseTest {
     }
 
     @Test
-    public void vpnWithTwoUnderlyingIfaces_splitTraffic() throws Exception {
+    public void testConcurrentVpns() throws Exception {
+        // Assume two VPNs are connected on two different network interfaces. VPN1 is using
+        // TEST_IFACE and VPN2 is using TEST_IFACE2.
+        final VpnInfo[] vpnInfos = new VpnInfo[] {
+                createVpnInfo(TUN_IFACE, new String[] {TEST_IFACE}),
+                createVpnInfo(TUN_IFACE2, new String[] {TEST_IFACE2})};
+        mFactory.updateVpnInfos(vpnInfos);
+
+        // create some traffic (assume 10 bytes of MTU for VPN interface and 1 byte encryption
+        // overhead per packet):
+        // 1000 bytes (100 packets) were sent, and 2000 bytes (200 packets) were received by UID_RED
+        // over VPN1.
+        // 700 bytes (70 packets) were sent, and 3000 bytes (300 packets) were received by UID_RED
+        // over VPN2.
+        // 500 bytes (50 packets) were sent, and 1000 bytes (100 packets) were received by UID_BLUE
+        // over VPN1.
+        // 250 bytes (25 packets) were sent, and 500 bytes (50 packets) were received by UID_BLUE
+        // over VPN2.
+        // VPN1 sent 1650 bytes (150 packets), and received 3300 (300 packets) over TEST_IFACE.
+        // Of 1650 bytes sent over WiFi, expect 1000 bytes attributed to UID_RED, 500 bytes
+        // attributed to UID_BLUE, and 150 bytes attributed to UID_VPN.
+        // Of 3300 bytes received over WiFi, expect 2000 bytes attributed to UID_RED, 1000 bytes
+        // attributed to UID_BLUE, and 300 bytes attributed to UID_VPN.
+        // VPN2 sent 1045 bytes (95 packets), and received 3850 (350 packets) over TEST_IFACE2.
+        // Of 1045 bytes sent over Cell, expect 700 bytes attributed to UID_RED, 250 bytes
+        // attributed to UID_BLUE, and 95 bytes attributed to UID_VPN.
+        // Of 3850 bytes received over Cell, expect 3000 bytes attributed to UID_RED, 500 bytes
+        // attributed to UID_BLUE, and 350 bytes attributed to UID_VPN.
+        final NetworkStats tunStats =
+                parseDetailedStats(R.raw.xt_qtaguid_vpn_one_underlying_two_vpn);
+
+        assertValues(tunStats, TEST_IFACE, UID_RED, 2000L, 200L, 1000L, 100L);
+        assertValues(tunStats, TEST_IFACE, UID_BLUE, 1000L, 100L, 500L, 50L);
+        assertValues(tunStats, TEST_IFACE2, UID_RED, 3000L, 300L, 700L, 70L);
+        assertValues(tunStats, TEST_IFACE2, UID_BLUE, 500L, 50L, 250L, 25L);
+        assertValues(tunStats, TEST_IFACE, UID_VPN, 300L, 0L, 150L, 0L);
+        assertValues(tunStats, TEST_IFACE2, UID_VPN, 350L, 0L, 95L, 0L);
+    }
+
+    @Test
+    public void testVpnWithTwoUnderlyingIfaces_splitTraffic() throws Exception {
         // WiFi and Cell networks are connected and VPN is using WiFi (which has TEST_IFACE) and
         // Cell (which has TEST_IFACE2) and has declared both of them in its underlying network set.
         // Additionally, VPN is arbitrarily splitting traffic across WiFi and Cell.
         VpnInfo[] vpnInfos = new VpnInfo[] {createVpnInfo(new String[] {TEST_IFACE, TEST_IFACE2})};
-        NetworkStatsFactory.updateVpnInfos(vpnInfos);
+        mFactory.updateVpnInfos(vpnInfos);
 
         // create some traffic (assume 10 bytes of MTU for VPN interface and 1 byte encryption
         // overhead per packet):
@@ -292,12 +331,12 @@ public class NetworkStatsFactoryTest extends NetworkStatsBaseTest {
     }
 
     @Test
-    public void vpnWithTwoUnderlyingIfaces_splitTrafficWithCompression() throws Exception {
+    public void testVpnWithTwoUnderlyingIfaces_splitTrafficWithCompression() throws Exception {
         // WiFi and Cell networks are connected and VPN is using WiFi (which has TEST_IFACE) and
         // Cell (which has TEST_IFACE2) and has declared both of them in its underlying network set.
         // Additionally, VPN is arbitrarily splitting compressed traffic across WiFi and Cell.
         VpnInfo[] vpnInfos = new VpnInfo[] {createVpnInfo(new String[] {TEST_IFACE, TEST_IFACE2})};
-        NetworkStatsFactory.updateVpnInfos(vpnInfos);
+        mFactory.updateVpnInfos(vpnInfos);
 
         // create some traffic (assume 10 bytes of MTU for VPN interface:
         // 1000 bytes (100 packets) were sent/received by UID_RED over VPN.
@@ -315,11 +354,11 @@ public class NetworkStatsFactoryTest extends NetworkStatsBaseTest {
     }
 
     @Test
-    public void vpnWithIncorrectUnderlyingIface() throws Exception {
+    public void testVpnWithIncorrectUnderlyingIface() throws Exception {
         // WiFi and Cell networks are connected and VPN is using Cell (which has TEST_IFACE2),
         // but has declared only WiFi (TEST_IFACE) in its underlying network set.
         VpnInfo[] vpnInfos = new VpnInfo[] {createVpnInfo(new String[] {TEST_IFACE})};
-        NetworkStatsFactory.updateVpnInfos(vpnInfos);
+        mFactory.updateVpnInfos(vpnInfos);
 
         // create some traffic (assume 10 bytes of MTU for VPN interface and 1 byte encryption
         // overhead per packet):
@@ -383,7 +422,7 @@ public class NetworkStatsFactoryTest extends NetworkStatsBaseTest {
 
     @Test
     public void testDoubleClatAccountingSimple() throws Exception {
-        NetworkStatsFactory.noteStackedIface("v4-wlan0", "wlan0");
+        mFactory.noteStackedIface("v4-wlan0", "wlan0");
 
         // xt_qtaguid_with_clat_simple is a synthetic file that simulates
         //  - 213 received 464xlat packets of size 200 bytes
@@ -398,7 +437,7 @@ public class NetworkStatsFactoryTest extends NetworkStatsBaseTest {
 
     @Test
     public void testDoubleClatAccounting() throws Exception {
-        NetworkStatsFactory.noteStackedIface("v4-wlan0", "wlan0");
+        mFactory.noteStackedIface("v4-wlan0", "wlan0");
 
         NetworkStats stats = parseDetailedStats(R.raw.xt_qtaguid_with_clat);
         assertEquals(42, stats.size());
@@ -407,7 +446,7 @@ public class NetworkStatsFactoryTest extends NetworkStatsBaseTest {
         assertStatsEntry(stats, "v4-wlan0", 1000, SET_DEFAULT, 0x0, 30812L, 2310L);
         assertStatsEntry(stats, "v4-wlan0", 10102, SET_DEFAULT, 0x0, 10022L, 3330L);
         assertStatsEntry(stats, "v4-wlan0", 10060, SET_DEFAULT, 0x0, 9532772L, 254112L);
-        assertStatsEntry(stats, "wlan0", 0, SET_DEFAULT, 0x0, 15229L, 0L);
+        assertStatsEntry(stats, "wlan0", 0, SET_DEFAULT, 0x0, 0L, 0L);
         assertStatsEntry(stats, "wlan0", 1000, SET_DEFAULT, 0x0, 6126L, 2013L);
         assertStatsEntry(stats, "wlan0", 10013, SET_DEFAULT, 0x0, 0L, 144L);
         assertStatsEntry(stats, "wlan0", 10018, SET_DEFAULT, 0x0, 5980263L, 167667L);
@@ -419,8 +458,6 @@ public class NetworkStatsFactoryTest extends NetworkStatsBaseTest {
         assertStatsEntry(stats, "lo", 0, SET_DEFAULT, 0x0, 1288L, 1288L);
 
         assertNoStatsEntry(stats, "wlan0", 1029, SET_DEFAULT, 0x0);
-
-        NetworkStatsFactory.clearStackedIfaces();
     }
 
     @Test
@@ -431,24 +468,20 @@ public class NetworkStatsFactoryTest extends NetworkStatsBaseTest {
         long appRxBytesAfter = 439237478L;
         assertEquals("App traffic should be ~100MB", 110553449, appRxBytesAfter - appRxBytesBefore);
 
-        long rootRxBytesBefore = 1394011L;
-        long rootRxBytesAfter = 1398634L;
-        assertEquals("UID 0 traffic should be ~0", 4623, rootRxBytesAfter - rootRxBytesBefore);
+        long rootRxBytes = 330187296L;
 
-        NetworkStatsFactory.noteStackedIface("v4-wlan0", "wlan0");
+        mFactory.noteStackedIface("v4-wlan0", "wlan0");
         NetworkStats stats;
 
         // Stats snapshot before the download
         stats = parseDetailedStats(R.raw.xt_qtaguid_with_clat_100mb_download_before);
         assertStatsEntry(stats, "v4-wlan0", 10106, SET_FOREGROUND, 0x0, appRxBytesBefore, 5199872L);
-        assertStatsEntry(stats, "wlan0", 0, SET_DEFAULT, 0x0, rootRxBytesBefore, 0L);
+        assertStatsEntry(stats, "wlan0", 0, SET_DEFAULT, 0x0, rootRxBytes, 0L);
 
         // Stats snapshot after the download
         stats = parseDetailedStats(R.raw.xt_qtaguid_with_clat_100mb_download_after);
         assertStatsEntry(stats, "v4-wlan0", 10106, SET_FOREGROUND, 0x0, appRxBytesAfter, 7867488L);
-        assertStatsEntry(stats, "wlan0", 0, SET_DEFAULT, 0x0, rootRxBytesAfter, 0L);
-
-        NetworkStatsFactory.clearStackedIfaces();
+        assertStatsEntry(stats, "wlan0", 0, SET_DEFAULT, 0x0, rootRxBytes, 0L);
     }
 
     /**
