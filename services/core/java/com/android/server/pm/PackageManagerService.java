@@ -4203,9 +4203,8 @@ public class PackageManagerService extends IPackageManager.Stub
                 });
             }
 
-            PackageInfo packageInfo = mayFakeSignature(p, PackageParser.generatePackageInfo(p, gids, flags,
-                ps.firstInstallTime, ps.lastUpdateTime, permissions, state, userId),
-                permissions);  
+            PackageInfo packageInfo = PackageParser.generatePackageInfo(p, gids, flags,
+                    ps.firstInstallTime, ps.lastUpdateTime, permissions, state, userId);
 
             if (packageInfo == null) {
                 return null;
@@ -4239,24 +4238,6 @@ public class PackageManagerService extends IPackageManager.Stub
         } else {
             return null;
         }
-    }
-    
-     private PackageInfo mayFakeSignature(PackageParser.Package p, PackageInfo pi,
-            Set<String> permissions) {
-        try {
-            if (permissions.contains("android.permission.FAKE_PACKAGE_SIGNATURE")
-                    && p.applicationInfo.targetSdkVersion > Build.VERSION_CODES.LOLLIPOP_MR1
-                    && p.mAppMetaData != null) {
-                String sig = p.mAppMetaData.getString("fake-signature");
-                if (sig != null) {
-                    pi.signatures = new Signature[] {new Signature(sig)};
-                }
-            }
-        } catch (Throwable t) {
-            // We should never die because of any failures, this is system code!
-            Log.w("PackageManagerService.FAKE_PACKAGE_SIGNATURE", t);
-	}
-        return pi;
     }
 
     @Override
@@ -12466,6 +12447,8 @@ public class PackageManagerService extends IPackageManager.Stub
                     if (hasOldPkg) {
                         mPermissionManager.revokeRuntimePermissionsIfGroupChanged(pkg, oldPkg,
                                 allPackageNames, mPermissionCallback);
+                        mPermissionManager.revokeStoragePermissionsIfScopeExpanded(pkg, oldPkg,
+                                mPermissionCallback);
                     }
                     if (hasPermissionDefinitionChanges) {
                         mPermissionManager.revokeRuntimePermissionsIfPermissionDefinitionChanged(
